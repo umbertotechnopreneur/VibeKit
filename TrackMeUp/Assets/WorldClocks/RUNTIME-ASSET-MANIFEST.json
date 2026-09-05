@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "sourceManifest": "generation-manifest-v1.json",
-  "sourceManifestSha256": "a90acc76e8472e04b3f81a6a100f59348ab4e32720273a48f9d80783c80c8101",
+  "sourceManifestSha256": "e278a120ee8c036eef06638395c53ad6bb3cba6bbb9360495dd54c9e9c202372",
   "sourceManifestSchemaVersion": 1,
   "sourceMasterBinding": "generation-manifest-reviewed-sha256",
   "styleId": "urban-wash-v1",
-  "generatedAt": "2026-09-03T13:25:23.7752586+00:00",
+  "generatedAt": "2026-09-04T10:19:16.3995324+00:00",
   "transformation": "Scaled and center-cropped to 1280x720 alpha WebP with FFmpeg/libwebp quality 82, compression level 4",
   "toolchain": {
     "ffmpeg": "ffmpeg version 8.1.2-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
     "encoder": "libwebp",
     "encoderDescription": "Encoder libwebp [libwebp WebP image]:"
   },
-  "expectedAssetCount": 312,
-  "generatedAssetCount": 312,
+  "expectedAssetCount": 378,
+  "generatedAssetCount": 378,
   "complete": true,
   "assets": [
     {
@@ -281,6 +281,30 @@
       "sha256": "c91803233d21bf03bcab2d9e54dddb52a2f57923f49b561eaed6bccda004f888"
     },
     {
+      "cityId": "arequipa",
+      "season": "summer",
+      "fileName": "arequipa-summer.webp",
+      "sourceMasterFileName": "arequipa-summer.png",
+      "sourceMasterSha256": "e635fa298db31f4a8165acac4fc9e6c10670ee19ceb6567d434c6c2693148be3",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 244034,
+      "sha256": "d7d7773624e839ce7d7773adc5c37d30cf03b39ce427556427bf8635416db95f"
+    },
+    {
+      "cityId": "arequipa",
+      "season": "winter",
+      "fileName": "arequipa-winter.webp",
+      "sourceMasterFileName": "arequipa-winter.png",
+      "sourceMasterSha256": "f006392466df842613a83dc0b0f248d9ecb78d81d5c6062e7af7a27321c4b1b0",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 218892,
+      "sha256": "1b9e849b86b335f552e3f870b4f46f3f9f8686f66759957720d74ac2cdb5e381"
+    },
+    {
       "cityId": "ashgabat",
       "season": "summer",
       "fileName": "ashgabat-summer.webp",
@@ -473,6 +497,30 @@
       "sha256": "21af36b890870c2a251849fef952281aede2aaa7e53fe916ac4cc405590433e8"
     },
     {
+      "cityId": "barcelona",
+      "season": "summer",
+      "fileName": "barcelona-summer.webp",
+      "sourceMasterFileName": "barcelona-summer.png",
+      "sourceMasterSha256": "ddc287744ae75bc3fba8c7c5337d15956d61e2041cb27b0e19f872ed580dd836",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 230524,
+      "sha256": "bb32d40eb66ac3a0578077fb0b86c9de0d541232803d1a5e92a9fe647beb8027"
+    },
+    {
+      "cityId": "barcelona",
+      "season": "winter",
+      "fileName": "barcelona-winter.webp",
+      "sourceMasterFileName": "barcelona-winter.png",
+      "sourceMasterSha256": "c3b8cd2c64ab02969885000bfe7c2fab82e4be56cbad91c8455fb465c3d8f35a",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 243630,
+      "sha256": "95c2f6efef1ca50bc9bb239cc247d48dc77e72dab28b1540598e8396cfbf59bb"
+    },
+    {
       "cityId": "beijing",
       "season": "summer",
       "fileName": "beijing-summer.webp",
@@ -519,6 +567,30 @@
       "pixelFormat": "yuva420p",
       "bytes": 237864,
       "sha256": "776c2188b9817f1f3e83775b7b4dfb6f111eda133acecc7796ecdc64a5aab2ab"
+    },
+    {
+      "cityId": "belem",
+      "season": "summer",
+      "fileName": "belem-summer.webp",
+      "sourceMasterFileName": "belem-summer.png",
+      "sourceMasterSha256": "588ea553ac47639b7c0b2bf8abbf7228cd0a8a3d48c29654c4942d9be1d81c71",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 258572,
+      "sha256": "c7bedb627641c2f3d5a7aad3575f31f59c7834984ed4f03a1feed569b35d5756"
+    },
+    {
+      "cityId": "belem",
+      "season": "winter",
+      "fileName": "belem-winter.webp",
+      "sourceMasterFileName": "belem-winter.png",
+      "sourceMasterSha256": "90062cd79e9dcd21b76febf172b82ade5f9d1949149e582bde1037cba3230780",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 244350,
+      "sha256": "91d01c666120ec9782ad19ec5871fcc143a5a7e3f6552b464060fd9886ede7a0"
     },
     {
       "cityId": "belgrade",
@@ -617,6 +689,30 @@
       "sha256": "70fc0e77a3ada932f0f806f3dd4abca1fd48f2f689a84183449ff4438589a427"
     },
     {
+      "cityId": "bologna",
+      "season": "summer",
+      "fileName": "bologna-summer.webp",
+      "sourceMasterFileName": "bologna-summer.png",
+      "sourceMasterSha256": "9c739bb2e379034b4ba084560de0adf7333717b53ed6b8c041737f86c3a21708",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 228520,
+      "sha256": "8544c8af5f38d381188d0b11e6a1ba4d45f7a7f29f8420c2385f0e326f096f9e"
+    },
+    {
+      "cityId": "bologna",
+      "season": "winter",
+      "fileName": "bologna-winter.webp",
+      "sourceMasterFileName": "bologna-winter.png",
+      "sourceMasterSha256": "e9844948e365eff10ba8ec856bc9bb6db62540e8db6bce89c46dc9a90317b88a",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 253882,
+      "sha256": "5982585d0f5b144975953c7f5ec65ac92a465da11a34a5d124bdab2aec076e4e"
+    },
+    {
       "cityId": "brasilia",
       "season": "summer",
       "fileName": "brasilia-summer.webp",
@@ -711,6 +807,54 @@
       "pixelFormat": "yuva420p",
       "bytes": 214012,
       "sha256": "889db7dd55c8b536ad5451d4a105daee1c82a7300491d1b1340ad36fc549d18b"
+    },
+    {
+      "cityId": "brno",
+      "season": "summer",
+      "fileName": "brno-summer.webp",
+      "sourceMasterFileName": "brno-summer.png",
+      "sourceMasterSha256": "b6245b19e18a23918e721726c44a07ad940b46795a43fcf35d75fcaa7a00fbda",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 212506,
+      "sha256": "9239669d95581c2aee3e9cf548b8050ac81eb085b53bc47491cabf4817726ce6"
+    },
+    {
+      "cityId": "brno",
+      "season": "winter",
+      "fileName": "brno-winter.webp",
+      "sourceMasterFileName": "brno-winter.png",
+      "sourceMasterSha256": "57b298afdce8b4aa222422e3ffad7bcc3830680c1251c5fd5c422b7551958bda",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 239236,
+      "sha256": "7ca49d620a1e9de95075949f7660b12bfbca81a17b81a794e5a45303ec487624"
+    },
+    {
+      "cityId": "bruges",
+      "season": "summer",
+      "fileName": "bruges-summer.webp",
+      "sourceMasterFileName": "bruges-summer.png",
+      "sourceMasterSha256": "907b43edcd312af18906abcf29f841d4b6ae71e0dc3716ecb0c0e7fce8ec0aef",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 283724,
+      "sha256": "bdffed82acbbc9dcfc1e9be7c51f57968ac73ac56163b2a9cb43a69375c46c94"
+    },
+    {
+      "cityId": "bruges",
+      "season": "winter",
+      "fileName": "bruges-winter.webp",
+      "sourceMasterFileName": "bruges-winter.png",
+      "sourceMasterSha256": "44d0040c31595364f65ff105d4a02ad805ad4417c8b0be1abef4d0fee4406cb3",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 282436,
+      "sha256": "fdfdb0506a48964f8f5bd30c01d922d853412c539665c7e4fb87b059c902b7aa"
     },
     {
       "cityId": "brussels",
@@ -833,6 +977,30 @@
       "sha256": "95bcc14214f831ced39086155b6658251e2e6b4115dd616bbe899786bbce3db1"
     },
     {
+      "cityId": "cali",
+      "season": "summer",
+      "fileName": "cali-summer.webp",
+      "sourceMasterFileName": "cali-summer.png",
+      "sourceMasterSha256": "9a827e06a73317b30f3b220f263a64a9ac9d02e0436016d1e4ccff113b751eb5",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 220508,
+      "sha256": "f4bd9bc4b03d237c0145da4480ef961fbe032cbf228968ce82877f4cbeafcceb"
+    },
+    {
+      "cityId": "cali",
+      "season": "winter",
+      "fileName": "cali-winter.webp",
+      "sourceMasterFileName": "cali-winter.png",
+      "sourceMasterSha256": "95c57957cee786a7155d874c822fce83e1bd4ce4eb0a86ea1e83d85335e13d99",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 259752,
+      "sha256": "d213759ef2ebda9a0d6663984fa2b467555e042ba8c3fe2c087e069fa5afb7bc"
+    },
+    {
       "cityId": "canberra",
       "season": "summer",
       "fileName": "canberra-summer.webp",
@@ -879,6 +1047,30 @@
       "pixelFormat": "yuva420p",
       "bytes": 95334,
       "sha256": "2b5665570443dbee605408df5edaa20a4d7207f11975d2e54e0d251a523d01ad"
+    },
+    {
+      "cityId": "cartagena",
+      "season": "summer",
+      "fileName": "cartagena-summer.webp",
+      "sourceMasterFileName": "cartagena-summer.png",
+      "sourceMasterSha256": "76a390508bf38e06f0b08ff8a1032c5ef25aaa66752833fe416e8a7054e1091a",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 251118,
+      "sha256": "63ba717f47cd3fdabe7ad6319bd976d46ce4165274e7f3f144f191ea16c311d6"
+    },
+    {
+      "cityId": "cartagena",
+      "season": "winter",
+      "fileName": "cartagena-winter.webp",
+      "sourceMasterFileName": "cartagena-winter.png",
+      "sourceMasterSha256": "55fde5c256ecd05d92fff6622e23e19274e58909d4cd7cde90f0be9fe8128ddb",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 274840,
+      "sha256": "5406636115cce03a35e88a1a27977d8d24e39b24f25cd0d67dcaf4851c9bd3e2"
     },
     {
       "cityId": "chelyabinsk",
@@ -1001,6 +1193,78 @@
       "sha256": "710c84e511ecf4a5b5b3a2bda3859986a0797b69f83f5f2c9fd0cc81cd980441"
     },
     {
+      "cityId": "cordoba-argentina",
+      "season": "summer",
+      "fileName": "cordoba-argentina-summer.webp",
+      "sourceMasterFileName": "cordoba-argentina-summer.png",
+      "sourceMasterSha256": "fbeb5e3ef58436128eb9f5ec53fcd54dcb68a1b03bd6d4f24c425f3da4679df0",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 226474,
+      "sha256": "be17d7d258442c9c90fcd7e04476b0765dc23c31c1ceeb2436794b49ec4f7b9f"
+    },
+    {
+      "cityId": "cordoba-argentina",
+      "season": "winter",
+      "fileName": "cordoba-argentina-winter.webp",
+      "sourceMasterFileName": "cordoba-argentina-winter.png",
+      "sourceMasterSha256": "6b4bdceb626389e82afeb45f1b676ad37f43e399f8a84332198c1ae234a610c8",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 262820,
+      "sha256": "ade862f3fa47c1bcd1cae010db67ae2d8f250b009c07ab2acb6280ebb8679dc4"
+    },
+    {
+      "cityId": "curitiba",
+      "season": "summer",
+      "fileName": "curitiba-summer.webp",
+      "sourceMasterFileName": "curitiba-summer.png",
+      "sourceMasterSha256": "39327d8b98f45a53da7396a8ad35c347798e6efdd74ddd4f7e3fde068d3ce1da",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 273178,
+      "sha256": "7dbe42a17eaa37e8561f379c4216defcf9186ab9ebe8eecd0c611850136c6022"
+    },
+    {
+      "cityId": "curitiba",
+      "season": "winter",
+      "fileName": "curitiba-winter.webp",
+      "sourceMasterFileName": "curitiba-winter.png",
+      "sourceMasterSha256": "2a2eb1dde51a055631f552414187ac1c0ca75cfcce9fd34612f2bba2f684d1f4",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 271096,
+      "sha256": "f5aa072cbf62801674f2278bc3037e98079ac42fec3011cabda1752ba9d49883"
+    },
+    {
+      "cityId": "cusco",
+      "season": "summer",
+      "fileName": "cusco-summer.webp",
+      "sourceMasterFileName": "cusco-summer.png",
+      "sourceMasterSha256": "c0facec7f51c984999099296acd920cdbe2d1a53f224db5a9ec3bbe634065090",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 268210,
+      "sha256": "fee810a7b49fad2e16b1293708b4b501d70047a435718e0e52a1402f9e5d5269"
+    },
+    {
+      "cityId": "cusco",
+      "season": "winter",
+      "fileName": "cusco-winter.webp",
+      "sourceMasterFileName": "cusco-winter.png",
+      "sourceMasterSha256": "8f6edca1f57da75207648f2f1154c262a6cc72fb4f08effac5cf98289dbeef75",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 231034,
+      "sha256": "3ad8579bf5f508ef8cffa4d3b8295c6e41ef59e226628f5f6a37ed1fba93cfdb"
+    },
+    {
       "cityId": "dakar",
       "season": "summer",
       "fileName": "dakar-summer.webp",
@@ -1121,6 +1385,30 @@
       "sha256": "c2e0fca51262ec44b7c15ed95eb1688faeeeae419d8828f3c98107a2a6fddfee"
     },
     {
+      "cityId": "domegge-di-cadore",
+      "season": "summer",
+      "fileName": "domegge-di-cadore-summer.webp",
+      "sourceMasterFileName": "domegge-di-cadore-summer.png",
+      "sourceMasterSha256": "828f9582a654f9954f7550ed0699cc3d90f46f894b85c9df3b40bea51bb52737",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 300368,
+      "sha256": "3a69aa9e4151de13c9492079d4d62a7ea01d5aadac79e1decc9dcb245559b123"
+    },
+    {
+      "cityId": "domegge-di-cadore",
+      "season": "winter",
+      "fileName": "domegge-di-cadore-winter.webp",
+      "sourceMasterFileName": "domegge-di-cadore-winter.png",
+      "sourceMasterSha256": "0458f26f96f1a30205555faf3a9d2adf1d6d9dd1037f23d0de1d9a3c814512b4",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 279066,
+      "sha256": "b996984615b92248c4f1af079c1187b9ae91b8c3d83d74f468f7e8f7819f441a"
+    },
+    {
       "cityId": "dublin",
       "season": "summer",
       "fileName": "dublin-summer.webp",
@@ -1143,6 +1431,102 @@
       "pixelFormat": "yuva420p",
       "bytes": 245738,
       "sha256": "11a893e9d2784e486f21ab51b00c1edbcf4a8d25422ca6ddf869604ccd524328"
+    },
+    {
+      "cityId": "edinburgh",
+      "season": "summer",
+      "fileName": "edinburgh-summer.webp",
+      "sourceMasterFileName": "edinburgh-summer.png",
+      "sourceMasterSha256": "24ed94c0a851cb8064975394d9ab6763da7c4bf70b75f92272e73418f2fb9d84",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 252042,
+      "sha256": "708374bc3b1dc089f413a4001798b4fa3eb6a5158ef90e9d0cf18fc34150a56f"
+    },
+    {
+      "cityId": "edinburgh",
+      "season": "winter",
+      "fileName": "edinburgh-winter.webp",
+      "sourceMasterFileName": "edinburgh-winter.png",
+      "sourceMasterSha256": "f33ee45ff1257e0ff4081ca4692a72dd7f4d2dfb3aa70612abe09c9ae7994505",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 214168,
+      "sha256": "6f36b76b5d464ebc2de6c06abeab5aa80e84b21435a90fcdbe125776380b1b74"
+    },
+    {
+      "cityId": "ferrara",
+      "season": "summer",
+      "fileName": "ferrara-summer.webp",
+      "sourceMasterFileName": "ferrara-summer.png",
+      "sourceMasterSha256": "e72d24141bebb7fd4d607f9cbbf2b4a8a0cc4320765fcd5b9f331fb5dd696590",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 270796,
+      "sha256": "dc122d7306e37cedf633fc3a0fdd794eedffb78074aac2baa4a125db9c1cfe01"
+    },
+    {
+      "cityId": "ferrara",
+      "season": "winter",
+      "fileName": "ferrara-winter.webp",
+      "sourceMasterFileName": "ferrara-winter.png",
+      "sourceMasterSha256": "44184d6e10e18679988fa4b9cc84854862a22a50577ee762df205dc0ead49c81",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 241844,
+      "sha256": "4dcd42b19c819d2304f4602d267cec96b402685c73587cf2723f7903601f1bba"
+    },
+    {
+      "cityId": "florence",
+      "season": "summer",
+      "fileName": "florence-summer.webp",
+      "sourceMasterFileName": "florence-summer.png",
+      "sourceMasterSha256": "3175d90ea346970c4e2e80b0022f89b93bbca16cac155a8130e86476897bfa28",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 207980,
+      "sha256": "8f39817f02e732e8f2424134b8c0423be1ac7e6d60239adf868612ac2acee777"
+    },
+    {
+      "cityId": "florence",
+      "season": "winter",
+      "fileName": "florence-winter.webp",
+      "sourceMasterFileName": "florence-winter.png",
+      "sourceMasterSha256": "676f08df48e7b8fc4976285531292f08ae6023504ada1e28abd107c76e2fbd46",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 310326,
+      "sha256": "4686743167dea861f3fe296f79d401bd0fb7a3c868ff39cae148b6f6df84c5b4"
+    },
+    {
+      "cityId": "fortaleza",
+      "season": "summer",
+      "fileName": "fortaleza-summer.webp",
+      "sourceMasterFileName": "fortaleza-summer.png",
+      "sourceMasterSha256": "0f65097ac3f22eac918da2ea58afdff9bf0d2ac21476dc8089991bcf9b22fc5f",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 215456,
+      "sha256": "0dbc81597e3a1cb9d87696cf52ea18e282077ea9b89321fd059086efaeebde99"
+    },
+    {
+      "cityId": "fortaleza",
+      "season": "winter",
+      "fileName": "fortaleza-winter.webp",
+      "sourceMasterFileName": "fortaleza-winter.png",
+      "sourceMasterSha256": "e99fb5b616727cc98b10c79a4cf22a542b55e18c9d03f7efd7459bb3f057056b",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 190816,
+      "sha256": "10bcc2302c003582c78e01a2cb76914f92f2df0dbba65a43732fe8a92210e149"
     },
     {
       "cityId": "gold-coast",
@@ -1601,6 +1985,30 @@
       "sha256": "1975b5de6c436c112f3c1ac969ae30d7bf7e7cbc21b9ba2ad7120d8fee2ce778"
     },
     {
+      "cityId": "krakow",
+      "season": "summer",
+      "fileName": "krakow-summer.webp",
+      "sourceMasterFileName": "krakow-summer.png",
+      "sourceMasterSha256": "2c67344532dd9a18bcd66a56634efeffd6677eea76ea1cd8968ccfab70ee52b6",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 224340,
+      "sha256": "7826d2621f6ea2ef4e804c7e3565bb12f5037b3c2c1bf3de91f3d4886c23212f"
+    },
+    {
+      "cityId": "krakow",
+      "season": "winter",
+      "fileName": "krakow-winter.webp",
+      "sourceMasterFileName": "krakow-winter.png",
+      "sourceMasterSha256": "76c92cae8f5423890afe9c6f941a98ed465c447528eb8323b9a93851a9a25086",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 227544,
+      "sha256": "20ac2a34df5e22c27c2d6d4226d4e57ba5d3282f9e63ae96a56d0d6d5fb409ca"
+    },
+    {
       "cityId": "krasnoyarsk",
       "season": "summer",
       "fileName": "krasnoyarsk-summer.webp",
@@ -1671,6 +2079,30 @@
       "pixelFormat": "yuva420p",
       "bytes": 205874,
       "sha256": "a672d9b9ce98654f12fdb55191e42a50e228b0c06155d31f91a7710713a8e641"
+    },
+    {
+      "cityId": "la-paz",
+      "season": "summer",
+      "fileName": "la-paz-summer.webp",
+      "sourceMasterFileName": "la-paz-summer.png",
+      "sourceMasterSha256": "d351905d6368cc47d64192411c5aaffe834a35a41e4970f3d82d99f3e4f71a78",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 262298,
+      "sha256": "7c7a5897161b11a70076f0c67858f2f79d103d3fd427fccf7831e569dfa3dd76"
+    },
+    {
+      "cityId": "la-paz",
+      "season": "winter",
+      "fileName": "la-paz-winter.webp",
+      "sourceMasterFileName": "la-paz-winter.png",
+      "sourceMasterSha256": "c6827d94ba7c72710935e61a855bd66c426adf2735634eb16755f17efb63e33b",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 250854,
+      "sha256": "928b9f3d8e866a832cc42c3761977c7814368f57c50e71d0baa1f9ec40da5eba"
     },
     {
       "cityId": "lilongwe",
@@ -1913,6 +2345,30 @@
       "sha256": "dc105ccc51d73fa7e8f9c6b364d8b3a038da49ae094f389a7ffb88395c20e1e4"
     },
     {
+      "cityId": "lyon",
+      "season": "summer",
+      "fileName": "lyon-summer.webp",
+      "sourceMasterFileName": "lyon-summer.png",
+      "sourceMasterSha256": "43640663746b5507ab474f01619fa8cf5cf42b2e45a6ddd755f70a60d9bb8b1a",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 255284,
+      "sha256": "7cd1fcf2bede65e3c3c24901ddfb3f817206b1adf14f6d299b3fe9bf30b85bd6"
+    },
+    {
+      "cityId": "lyon",
+      "season": "winter",
+      "fileName": "lyon-winter.webp",
+      "sourceMasterFileName": "lyon-winter.png",
+      "sourceMasterSha256": "3f279ec97c5b32a13a448dff51fa34df5413412032640e39e0a56c15ba6b44ec",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 226980,
+      "sha256": "e9d8cf55f06f42cec3e6479778d17203e7a87b4554ebf0b66647178ed90fbc1c"
+    },
+    {
       "cityId": "madrid",
       "season": "summer",
       "fileName": "madrid-summer.webp",
@@ -1959,6 +2415,30 @@
       "pixelFormat": "yuva420p",
       "bytes": 238856,
       "sha256": "f4cea396ccb5b3a4814e66f9399e8e77e311d3eed8f7bae5532ba4c8c86ce0d1"
+    },
+    {
+      "cityId": "manaus",
+      "season": "summer",
+      "fileName": "manaus-summer.webp",
+      "sourceMasterFileName": "manaus-summer.png",
+      "sourceMasterSha256": "3cc3f5fa8a5d2cbb89071863635c0c67329772db4301006513f15f904661cc8f",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 225042,
+      "sha256": "5f8f38b95d457ae9dbbcad4e928b8c0799a60acaa13680a90fcf770b8d29d3cc"
+    },
+    {
+      "cityId": "manaus",
+      "season": "winter",
+      "fileName": "manaus-winter.webp",
+      "sourceMasterFileName": "manaus-winter.png",
+      "sourceMasterSha256": "e04f30c337f921343afa27011934bc64cf21a3175a327f0212efd3e90faae8ac",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 253820,
+      "sha256": "18e9275b2a1586023b584697ad70a643d14e473514e563f7c9bb5c7f3d8bba05"
     },
     {
       "cityId": "manila",
@@ -2009,6 +2489,30 @@
       "sha256": "a8345245e4b6d6646d1d37bc23b01eaa1b74ed0e7c3ca32a84acce2d9ba46360"
     },
     {
+      "cityId": "medellin",
+      "season": "summer",
+      "fileName": "medellin-summer.webp",
+      "sourceMasterFileName": "medellin-summer.png",
+      "sourceMasterSha256": "aeb9d497fca2754acb5c457ed63963f2d0463e37ad6f859d516463a3432374e3",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 301618,
+      "sha256": "851bab9c90589bf47b079087ffb54ded3f1cbb8105051e4ef5bd44ad82a004a6"
+    },
+    {
+      "cityId": "medellin",
+      "season": "winter",
+      "fileName": "medellin-winter.webp",
+      "sourceMasterFileName": "medellin-winter.png",
+      "sourceMasterSha256": "6662613c2ec3c51897c6552daddc51233993a769b2750e609aa9fc6e5f52faf1",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 233726,
+      "sha256": "5d60eec5663f79d413a8c41b51f0a9a416b40bfd827773eb7040f057bc362a55"
+    },
+    {
       "cityId": "melbourne",
       "season": "summer",
       "fileName": "melbourne-summer.webp",
@@ -2031,6 +2535,30 @@
       "pixelFormat": "yuva420p",
       "bytes": 232962,
       "sha256": "591b7e56d0a31b70fdd35969d15a09fb0244bfe9b54b3b1dd7d7a0300daec154"
+    },
+    {
+      "cityId": "mendoza",
+      "season": "summer",
+      "fileName": "mendoza-summer.webp",
+      "sourceMasterFileName": "mendoza-summer.png",
+      "sourceMasterSha256": "c9c0989c4ca2613ddfc9697dada551e08b744f052c4d3e942b12008c62165367",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 256014,
+      "sha256": "b85d42a7608fe320edd581455123f47c9af1965b394c5c03987fba35b21d16e3"
+    },
+    {
+      "cityId": "mendoza",
+      "season": "winter",
+      "fileName": "mendoza-winter.webp",
+      "sourceMasterFileName": "mendoza-winter.png",
+      "sourceMasterSha256": "1c9a5b95f2396151594668651bb84ec9fbbdcb6e85f5454f02b40d59914d86ef",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 264294,
+      "sha256": "eb19476b5d2ddbee66b55ff57366392d4c10b9ed3cd610caeca841ce6d958f8f"
     },
     {
       "cityId": "mexico-city",
@@ -2223,6 +2751,30 @@
       "pixelFormat": "yuva420p",
       "bytes": 182702,
       "sha256": "ed3a8821257d0e418d13fd490bb5b8e56f8003d7c4aa8e49fa708b343d5cae4d"
+    },
+    {
+      "cityId": "munich",
+      "season": "summer",
+      "fileName": "munich-summer.webp",
+      "sourceMasterFileName": "munich-summer.png",
+      "sourceMasterSha256": "5f5d15c210e6a4c6dd4d8dd92cab3fda60ba9e8dced7138068d322dac397059d",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 266842,
+      "sha256": "0ba0565a62aac891cf6efdc652774026108d63a100023039bb9b10f5fb848c55"
+    },
+    {
+      "cityId": "munich",
+      "season": "winter",
+      "fileName": "munich-winter.webp",
+      "sourceMasterFileName": "munich-winter.png",
+      "sourceMasterSha256": "938cdb4635f4c891ef5481d2b34bd36bd13e3099c8c79d472eebfc113b365372",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 232258,
+      "sha256": "ec8a2a6a65755c62917a0b209093324d04a634d843590d9c60e7b9ef6bf1f3a7"
     },
     {
       "cityId": "n-djamena",
@@ -2681,6 +3233,54 @@
       "sha256": "a0cb088406e4354497a4c3075b34498289a589d986bc0827b1ad50e665ffe7aa"
     },
     {
+      "cityId": "porto",
+      "season": "summer",
+      "fileName": "porto-summer.webp",
+      "sourceMasterFileName": "porto-summer.png",
+      "sourceMasterSha256": "65cd5b3d538680608979cc58f9451b0dcdbd89819b58f907d06b44dfcb05a920",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 264872,
+      "sha256": "1af78bd43da4eab5bf165e4cc949007d1823be9b57fff2e9ca7167dca076e8b8"
+    },
+    {
+      "cityId": "porto",
+      "season": "winter",
+      "fileName": "porto-winter.webp",
+      "sourceMasterFileName": "porto-winter.png",
+      "sourceMasterSha256": "fe04ed8a91bb3b75fd6521c24e4397af7289157d6b924d8e571d7ec8716f7edb",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 286852,
+      "sha256": "1f1ede018558bbc6f1af320c757730405f023549450c175136b46e5ab8d2252f"
+    },
+    {
+      "cityId": "porto-alegre",
+      "season": "summer",
+      "fileName": "porto-alegre-summer.webp",
+      "sourceMasterFileName": "porto-alegre-summer.png",
+      "sourceMasterSha256": "c39c41fd78edbdfba794b0dbd8c18873c5a68d310624910e505e9f96e4e34a81",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 183078,
+      "sha256": "5571cfb6558213bd18e62f7a630a2480267301f580c6f52f5b691fb2917ae7a2"
+    },
+    {
+      "cityId": "porto-alegre",
+      "season": "winter",
+      "fileName": "porto-alegre-winter.webp",
+      "sourceMasterFileName": "porto-alegre-winter.png",
+      "sourceMasterSha256": "b57783ec7c923243a8abe0bc068740b30bba5fe790d19d009251018731d90857",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 231488,
+      "sha256": "8608ed90be638d98a18d0e4d9899f2c597d156f7344827105e59f02ebc3eb97d"
+    },
+    {
       "cityId": "prague",
       "season": "summer",
       "fileName": "prague-summer.webp",
@@ -2801,6 +3401,30 @@
       "sha256": "6c3d8d95052321e45c6fbd88b71cf11b73b124cadf754245fb711ad957abc60a"
     },
     {
+      "cityId": "recife",
+      "season": "summer",
+      "fileName": "recife-summer.webp",
+      "sourceMasterFileName": "recife-summer.png",
+      "sourceMasterSha256": "86993164fa1a4a581df420a9e56d5f26f15fe3dbbef956ca6a74d6a1e21caf9d",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 235422,
+      "sha256": "c6f35f533b6cd2bce51b5205a3018d1ab7f455136ab120b48ed4fe3f60a354be"
+    },
+    {
+      "cityId": "recife",
+      "season": "winter",
+      "fileName": "recife-winter.webp",
+      "sourceMasterFileName": "recife-winter.png",
+      "sourceMasterSha256": "ac5b773af1711ed9a92158e6db0bc163a011ad1d696d20384e8b20a371e7c52d",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 210684,
+      "sha256": "6524135038b9c5344b932ad73a6c51cb045f551d71121d1c8f26ae70952e6eb4"
+    },
+    {
       "cityId": "reykjavik",
       "season": "summer",
       "fileName": "reykjavik-summer.webp",
@@ -2847,6 +3471,30 @@
       "pixelFormat": "yuva420p",
       "bytes": 180000,
       "sha256": "853da8af6c5cafb6015f6ecf85d08ccd6410ad193c9bc18aa003b1ba6ae87a42"
+    },
+    {
+      "cityId": "rio-de-janeiro",
+      "season": "summer",
+      "fileName": "rio-de-janeiro-summer.webp",
+      "sourceMasterFileName": "rio-de-janeiro-summer.png",
+      "sourceMasterSha256": "7e7c716905781c6793f0412ec30748326f5080565f610778409a4235811505e1",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 238526,
+      "sha256": "d3a0cea794b9f30a23f7f5e33667a32a0507f2e54b4ae4a151088ebd9228c94e"
+    },
+    {
+      "cityId": "rio-de-janeiro",
+      "season": "winter",
+      "fileName": "rio-de-janeiro-winter.webp",
+      "sourceMasterFileName": "rio-de-janeiro-winter.png",
+      "sourceMasterSha256": "bc5fba6f45436f7b3016193dad669be45a2b3b2204242d1efe8e7d6d040bbfec",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 227428,
+      "sha256": "227046c9e0f59e498c009d3a5a9391153054ff19b42b8bfb0d3ce5e0201d5814"
     },
     {
       "cityId": "riyadh",
@@ -2897,6 +3545,30 @@
       "sha256": "07c26a7e4bbb2c41a738c96928cabb6ffa881c40ae6800b3adb6df455c9756bc"
     },
     {
+      "cityId": "rosario",
+      "season": "summer",
+      "fileName": "rosario-summer.webp",
+      "sourceMasterFileName": "rosario-summer.png",
+      "sourceMasterSha256": "70a0645d35b2dbdcd934064019a136a84196198b7621319362391f0204d672ab",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 229354,
+      "sha256": "9a6aed8b792a2d18b0e70ba34d48f4d1fce765c0485fa7d5899f910c0858eafd"
+    },
+    {
+      "cityId": "rosario",
+      "season": "winter",
+      "fileName": "rosario-winter.webp",
+      "sourceMasterFileName": "rosario-winter.png",
+      "sourceMasterSha256": "f1290058c5fc753461a8b55acb076b8f0648fb56a6dcc1243f84b114325ce738",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 265208,
+      "sha256": "c01dac983b201d7c1bcff90faeb9dc9641b0b0c675a1dc3b7e97f328375b77aa"
+    },
+    {
       "cityId": "saint-petersburg",
       "season": "summer",
       "fileName": "saint-petersburg-summer.webp",
@@ -2919,6 +3591,30 @@
       "pixelFormat": "yuva420p",
       "bytes": 229928,
       "sha256": "ec784fc5ec5d3bad98ad4b0268008552e5127fbc5939d466b611db480adc8452"
+    },
+    {
+      "cityId": "salvador",
+      "season": "summer",
+      "fileName": "salvador-summer.webp",
+      "sourceMasterFileName": "salvador-summer.png",
+      "sourceMasterSha256": "8a67de305fcde0b5245b5d03967f83507943d6578b5e0b313a4131c24b32029a",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 256038,
+      "sha256": "8239e208ac1199ad0d1aaeb05d556258be6756664506b8d05ca62a14f9472394"
+    },
+    {
+      "cityId": "salvador",
+      "season": "winter",
+      "fileName": "salvador-winter.webp",
+      "sourceMasterFileName": "salvador-winter.png",
+      "sourceMasterSha256": "ab04d15c0822043eb48bb7a0ea180f08aa484d296dfee7970d43f74964b566cd",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 257332,
+      "sha256": "ac688232116d48560d8606e90af63b7ea66c9ab3b295159961d8c4f23435857d"
     },
     {
       "cityId": "samara",
@@ -3113,6 +3809,30 @@
       "sha256": "10c74ba46af800b188fd643d46d79b64c74eb705c2b4865c08846e6656b28dcd"
     },
     {
+      "cityId": "sao-paulo",
+      "season": "summer",
+      "fileName": "sao-paulo-summer.webp",
+      "sourceMasterFileName": "sao-paulo-summer.png",
+      "sourceMasterSha256": "e8c06e4015836b7c960908776109869d8d8eaeb2da564c3aba3e89d21a553742",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 248776,
+      "sha256": "7b25cb6b53b1a908f0c59cd69fa214436dcec9cb2ca9632a24f2a89ca15e2fdf"
+    },
+    {
+      "cityId": "sao-paulo",
+      "season": "winter",
+      "fileName": "sao-paulo-winter.webp",
+      "sourceMasterFileName": "sao-paulo-winter.png",
+      "sourceMasterSha256": "9bac5d779369e2368bc1224ab0e5340c5ce42e305ad2d527142efa6d8676577e",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 227440,
+      "sha256": "33a3f717931996b062b114ca09169b6a6a18f64b5512f69eb98bb61a851bed17"
+    },
+    {
       "cityId": "sarajevo",
       "season": "summer",
       "fileName": "sarajevo-summer.webp",
@@ -3159,6 +3879,30 @@
       "pixelFormat": "yuva420p",
       "bytes": 163720,
       "sha256": "0e653c50f4ba7972fd100b5e5af41e81015f227adb5459646f55d616c4c211ec"
+    },
+    {
+      "cityId": "seville",
+      "season": "summer",
+      "fileName": "seville-summer.webp",
+      "sourceMasterFileName": "seville-summer.png",
+      "sourceMasterSha256": "5ebe3c43fc2aff88f66b43c0e174936be36dfc0e550cbfad6d792338f63a60a3",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 241962,
+      "sha256": "cbed08b261f446f99deed1d4afc68eedabc7075e4f764692647d2b661b1997e5"
+    },
+    {
+      "cityId": "seville",
+      "season": "winter",
+      "fileName": "seville-winter.webp",
+      "sourceMasterFileName": "seville-winter.png",
+      "sourceMasterSha256": "08016f618b52dbbbdcb12a3033ddedf029b53c019a3da450bc9c1e803f4e9adf",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 229596,
+      "sha256": "9b5fb831a354ee3e70f4e3c68e87ed2decde618ee18d201c1c63c6d999687c35"
     },
     {
       "cityId": "singapore",
@@ -3255,6 +3999,30 @@
       "pixelFormat": "yuva420p",
       "bytes": 107602,
       "sha256": "2d9467d60b5c27fb499338ad0fe0a2baa4b34b57e1f9dcc503a97139d9b85761"
+    },
+    {
+      "cityId": "sucre",
+      "season": "summer",
+      "fileName": "sucre-summer.webp",
+      "sourceMasterFileName": "sucre-summer.png",
+      "sourceMasterSha256": "8b91610483799e3134b0f7d4898056b4c0df29e84c905dc84ea74a1d6908a692",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 275776,
+      "sha256": "926965fe1cf9355b5715ffd914b132c409091ac91667aa2f8c27c7e238198f05"
+    },
+    {
+      "cityId": "sucre",
+      "season": "winter",
+      "fileName": "sucre-winter.webp",
+      "sourceMasterFileName": "sucre-winter.png",
+      "sourceMasterSha256": "01c4c16f5feb658b3c1aa8bc665b2d59cda914c78a4a944ab9ee022333146a86",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 204538,
+      "sha256": "df8be443e60660e5eb6e096ccb2620d76d45d830e2b55a3c0d300959814576c2"
     },
     {
       "cityId": "sydney",
@@ -3567,6 +4335,30 @@
       "pixelFormat": "yuva420p",
       "bytes": 219660,
       "sha256": "5a4fb37fe02ce2b5f8baf1763a86b643e60be16608084a8cc5c2879eccacb306"
+    },
+    {
+      "cityId": "valparaiso",
+      "season": "summer",
+      "fileName": "valparaiso-summer.webp",
+      "sourceMasterFileName": "valparaiso-summer.png",
+      "sourceMasterSha256": "045ef5dc9c64b282065e3329d00bad1611ec22bb8ea7411a946da82a9c30b3bb",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 265002,
+      "sha256": "d5f98b9dbdff37b3be3b118fd552ed828a8b160f4ef934edf7761a997640448b"
+    },
+    {
+      "cityId": "valparaiso",
+      "season": "winter",
+      "fileName": "valparaiso-winter.webp",
+      "sourceMasterFileName": "valparaiso-winter.png",
+      "sourceMasterSha256": "961ff7ddada2d78b6113f5ca09f7781e4c59b1d394c7ff3db5f5aea600ea219e",
+      "width": 1280,
+      "height": 720,
+      "pixelFormat": "yuva420p",
+      "bytes": 251868,
+      "sha256": "351ec5746a621a7e69556fa48b7f3ae891cc5eddb795187585c0c0999fe2dbac"
     },
     {
       "cityId": "vatican-city",

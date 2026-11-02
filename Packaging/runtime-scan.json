@@ -1,0 +1,40 @@
+{
+  "source": "https://api.nuget.org/v3/index.json",
+  "scannedUtc": "2026-11-02T09:18:29.5861345Z",
+  "command": "MpCmdRun.exe -Scan -ScanType 3 -File <new runtime package directory> -DisableRemediation",
+  "result": "Completed, no detections, exit 0 for all newly imported runtime directories",
+  "scannedPackages": [
+    ".imports\\packages\\microsoft.aspnetcore.app.runtime.linux-x64\\10.0.14",
+    ".imports\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\10.0.14",
+    ".imports\\packages\\microsoft.netcore.app.host.linux-x64\\10.0.14",
+    ".imports\\packages\\microsoft.netcore.app.runtime.linux-x64\\10.0.14",
+    ".imports\\packages\\microsoft.netcore.app.runtime.win-x64\\10.0.14",
+    ".imports\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\10.0.14"
+  ],
+  "archives": [
+    {
+      "path": "microsoft.aspnetcore.app.runtime.linux-x64\\10.0.14\\microsoft.aspnetcore.app.runtime.linux-x64.10.0.14.nupkg",
+      "sha256": "B2D4C525351873AEC9F4508E6C0E06056D2839823C4DCE8FE00A0E92E28264F0"
+    },
+    {
+      "path": "microsoft.aspnetcore.app.runtime.win-x64\\10.0.14\\microsoft.aspnetcore.app.runtime.win-x64.10.0.14.nupkg",
+      "sha256": "91638AC8382C437E71C0739A0E3123290F9BF48BCD01E616352A86ADD5571089"
+    },
+    {
+      "path": "microsoft.netcore.app.host.linux-x64\\10.0.14\\microsoft.netcore.app.host.linux-x64.10.0.14.nupkg",
+      "sha256": "61CF559C5AC8D26B1D140945C40419886D6D288075C330EDE9E1C1E79E0ABD91"
+    },
+    {
+      "path": "microsoft.netcore.app.runtime.linux-x64\\10.0.14\\microsoft.netcore.app.runtime.linux-x64.10.0.14.nupkg",
+      "sha256": "BCD40D8B1259DC7B88A88B638AFF1FA15B1563D2CF2377EA9F7650EBC4005D40"
+    },
+    {
+      "path": "microsoft.netcore.app.runtime.win-x64\\10.0.14\\microsoft.netcore.app.runtime.win-x64.10.0.14.nupkg",
+      "sha256": "A3EA61B4A2DA6D28E562DD1CDACF80EB4DD6B9727B0A2B47F9D6ABA90DBBCB1F"
+    },
+    {
+      "path": "microsoft.windowsdesktop.app.runtime.win-x64\\10.0.14\\microsoft.windowsdesktop.app.runtime.win-x64.10.0.14.nupkg",
+      "sha256": "A6DBA3CA8B8B5B7945399545D881E0AC294746A7571F2209981934D49ECFE8CC"
+    }
+  ]
+}

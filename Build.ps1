@@ -1,18 +1,22 @@
 [CmdletBinding()]
-param([ValidateSet('Debug','Release')][string]$Configuration = 'Debug')
+param([ValidateSet('Debug','Release')][string]$Configuration = 'Debug', [psobject]$Imports)
 $ErrorActionPreference = 'Stop'
 $packageRoot = Join-Path $PSScriptRoot '.imports\packages'
-$manifestPath = Join-Path $PSScriptRoot '.imports\verified-files.json'
-if (-not (Test-Path -LiteralPath $manifestPath)) { throw 'Run Prepare-Imports.ps1 explicitly before the first build.' }
-# Integrity verification only. A build never starts an antivirus scan or imports dependencies.
-$records = @(Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json)
+if ($null -eq $Imports -or -not $Imports.Prepared -or $Imports.ProjectRoot -ne $PSScriptRoot -or $Imports.PackageRoot -ne $packageRoot) {
+    throw 'Run $imports = & ./Prepare-Imports.ps1, then & ./Build.ps1 -Imports $imports in the same PowerShell session.'
+}
+# Integrity verification only, against the current preparation object in RAM.
+$records = @($Imports.Packages)
+if (-not $records.Count) { throw 'The preparation context has no package records.' }
 foreach ($entry in $records) {
-    $file = Join-Path $packageRoot $entry.path
+    $file = [IO.Path]::GetFullPath((Join-Path $packageRoot $entry.path))
+    if (-not $file.StartsWith($packageRoot + [IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) { throw 'Package path escapes the import directory.' }
     if (-not (Test-Path -LiteralPath $file) -or (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -ne $entry.sha256) {
         throw "Import changed or missing: $($entry.path). Prepare the new import explicitly before building."
     }
 }
 if (@(Get-ChildItem -LiteralPath $packageRoot -Recurse -File).Count -ne $records.Count) { throw 'Unverified files exist in the import staging area.' }
+$completed = $false
 Push-Location $PSScriptRoot
 try {
     foreach ($project in @('Windows/OpenAIUsage.Windows.csproj','Backend/OpenAIUsage.Backend.csproj','Tests/OpenAIUsage.Tests.csproj')) {
@@ -42,6 +46,17 @@ try {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot "Linux\$name") -Destination (Join-Path $linuxDirectory $name) -Force
     }
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Branding') -Destination (Join-Path $PSScriptRoot 'artifacts\linux\Branding') -Recurse -Force
+    $completed = $true
     Write-Output 'Source-built outputs: artifacts/windows-x64 and artifacts/linux. GTK execution requires a Linux desktop and installed runtime prerequisites.'
 }
-finally { Pop-Location }
+finally {
+    Pop-Location
+    try {
+        & (Join-Path $PSScriptRoot 'Packaging\Clean-BuildOutputs.ps1') -KeepDebugDeliverables:$completed
+    }
+    finally {
+        $Imports.Prepared = $false
+        $Imports.Packages = @()
+        $Imports.Tools = @()
+    }
+}

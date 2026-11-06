@@ -34,18 +34,18 @@ Token quantities use decimal prefixes **K, M, G, T, P, E** (powers of 1,000). Th
 
 ## Installers
 
-Installer targets for **0.4.1**, built by the current-source packaging workflow. Build and installation results are recorded separately in `VALIDATION.md`:
+Installer targets for **0.4.1**, generated on demand from the current source. These paths exist only until cleanup:
 
 - `artifacts/installers/OpenAIUsage-0.4.1-windows-x64.msi`: per-user Windows x64 installation under `%LOCALAPPDATA%/Programs/OpenAI Usage`, Start menu shortcut and standard Windows uninstall/upgrade support. Includes .NET and Windows App SDK runtime files. No background service or autostart entry.
 - `artifacts/installers/openai-usage_0.4.1-1_amd64.deb`: Ubuntu amd64 package with a self-contained Linux .NET backend, launcher and desktop entry. GTK/Python/system-library prerequisites are declared as APT dependencies. Targets Ubuntu 24.04+; runtime execution on Ubuntu is not verified here.
 
-Both require a separately installed Codex CLI and your own ChatGPT sign-in. The installers contain no credentials and do not install or sign in to Codex. Local packages are unsigned. Package validation, Windows installation/startup and native GTK runtime validation are separate checks; recorded evidence is in `VALIDATION.md`.
+Both require a separately installed Codex CLI and your own ChatGPT sign-in. The installers contain no credentials and do not install or sign in to Codex. Local packages are unsigned. Package validation, Windows installation/startup and native GTK runtime validation are separate checks; report their results in the current task rather than retaining a historical report.
 
 ```sh
 sudo apt install ./openai-usage_0.4.1-1_amd64.deb
 ```
 
-On Windows, open the MSI to install, then launch **OpenAI Usage** from Start. Use Settings > Apps to uninstall; private observation history is preserved outside the installation directory. Package and installed-assembly SHA-256 values are recorded beside the installers. The installer builder forces source rebuilds, checks the compiled version and removes previous installers, temporary payloads, bin/obj and Python caches after success. Only current installers and small manifests remain in artifacts. The 2026-11-02 cleanup removed around 6.4 GB of generated outputs. The retained `.imports` cache is approximately 1.14 GB of verified dependency inputs and first-import scan evidence needed for fresh source builds; it stays outside release-output cleanup.
+On Windows, open the MSI to install, then launch **OpenAI Usage** from Start. Use Settings > Apps to uninstall; private observation history is outside the installation directory. The installer builder forces clean source rebuilds and checks the compiled version. Successful packaging keeps only the current MSI/DEB until installation or hand-off, while removing imported dependencies, staging payloads, bin/obj and Python caches. Run `Packaging/Clean-BuildOutputs.ps1` to remove all generated material, including the latest installers. No release history, antivirus report, scan hash inventory or persistent import cache is kept.
 
 ## Real data
 
@@ -69,7 +69,7 @@ Token buckets expose dates without a documented timezone. Labels are preserved r
 
 ## Windows
 
-Source-built Debug output:
+Source-built Debug output, available only before cleanup:
 
 ```powershell
 & 'E:\tools\Widgets\OpenAI\artifacts\windows-x64\OpenAIUsage.Windows.exe'
@@ -95,19 +95,30 @@ No Linux distribution is installed in the current Windows/WSL environment. Nativ
 
 ## Build and verify
 
-Use the pinned SDK in `global.json`, Windows SDK tooling and Python. Import preparation is an explicit separate step:
+Use the pinned SDK in `global.json`, Windows SDK tooling and Python. Import preparation is an explicit separate step in the same PowerShell execution:
 
 ```powershell
 Set-Location 'E:\tools\Widgets\OpenAI'
-.\Prepare-Imports.ps1
-.\Build.ps1 -Configuration Debug
+$imports = & .\Prepare-Imports.ps1
+& .\Build.ps1 -Imports $imports -Configuration Debug
 ```
 
-`Prepare-Imports.ps1` restores from official NuGet, stages archives/extracted files, scans only new or changed package directories and records evidence. `Build.ps1` verifies staged hashes, builds with `--no-restore`, runs shared behavioral checks and Python syntax validation, then publishes both local folders from current source. Builds and tests never start antivirus scans. Outputs and caches are ignored.
+Preparation downloads official dependencies and explicitly scans the imported archives and extracted files. It returns an in-memory verification object for the current build; do not serialize or export it. Build scripts validate this transient object and the unchanged staged files before using them. Builds and tests never start antivirus scans. Cleanup removes generated outputs and local dependency caches; a later build starts a fresh preparation session.
 
-For self-contained Release installers, use `Packaging/Prepare-Packaging.ps1` once for new imports, then `Packaging/Build-Installers.ps1`. The latter verifies existing scan evidence without starting scans, compiles current sources for each target, runs checks and creates MSI/DEB packages. WiX 5.0.2 is staged locally as an official NuGet tool dependency; no global tool installation or WiX 7 license settings are changed. Each packaging run uses a fresh payload folder to avoid carrying stale build files into installers.
+For self-contained Release installers:
 
-The dependency-free C# checks cover forecast arithmetic, reset ordering, exhausted/zero/missing usage, incomplete coverage, monitoring gaps, plan changes, DST, current-day exclusion, token totals, duplicate dates, quota selection, credits, purchase valuation and account-isolated atomic persistence. See `VALIDATION.md` for actual results and remaining limitations.
+```powershell
+$imports = & .\Packaging\Prepare-Packaging.ps1
+& .\Packaging\Build-Installers.ps1 -Imports $imports
+```
+
+The packaging workflow forces clean source rebuilds, checks the compiled version, runs behavioral checks and validates the MSI/DEB packages. WiX 5.0.2 is obtained from official NuGet as a temporary tool dependency; no global tool installation or WiX 7 license settings are changed. Success cleanup uses `-KeepDeliverables` to retain only the current MSI/DEB until installation or hand-off. A default explicit clean removes those too:
+
+```powershell
+& .\Packaging\Clean-BuildOutputs.ps1
+```
+
+No build/release history or antivirus evidence files are retained. The dependency-free C# checks cover forecast arithmetic, reset ordering, exhausted/zero/missing usage, incomplete coverage, monitoring gaps, plan changes, DST, current-day exclusion, token totals, duplicate dates, quota selection, credits, purchase valuation and account-isolated atomic persistence. Native GTK behavior still requires a GNOME smoke test.
 
 ## Local state
 
@@ -119,9 +130,7 @@ The dependency-free C# checks cover forecast arithmetic, reset ordering, exhaust
 
 ## First external import
 
-Before first introducing an external library or prebuilt binary, run one explicit targeted Microsoft Defender scan of the new archive **and extracted import**. Keep it staged until clean completion. Record official source, version or SHA-256, command and result; reuse evidence for unchanged content. An unavailable, disabled, failed or unfinished scan is not clean. Never scan whole disks, installed SDK/runtime trees or generated build output as part of this workflow.
-
-`dependency-scan.json` records the completed project import scan. Ignored `.imports/verified-files.json` retains the full extracted-file hash manifest locally. Existing installations are not retroactively certified.
+Before first introducing an external library or prebuilt binary, run one explicit targeted Microsoft Defender scan of the new archive **and extracted import**. Keep it staged until clean completion. Check the result transiently for the current preparation/build session; do not write scan reports, inventories, verification manifests or historical logs. Reuse the confirmed result only for the same unchanged staged files in that session. An unavailable, disabled, failed or unfinished scan is not clean. Never scan whole disks, installed SDK/runtime trees or generated build output as part of this workflow. Cleanup removes the temporary imports and their session state.
 
 ## Official references
 
@@ -132,4 +141,4 @@ Before first introducing an external library or prebuilt binary, run one explici
 - [PyGObject GTK 4 introduction](https://pygobject.gnome.org/tutorials/gtk4/introduction.html)
 - [Adwaita appearance and system preferences](https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/styles-and-appearance.html)
 
-Earlier mockups and ImageGen prompts remain beside each client as design history. Their numbers are illustrative, not account telemetry.
+Mockups and ImageGen prompts are design source assets. Their numbers are illustrative, not account telemetry.

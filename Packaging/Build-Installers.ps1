@@ -1,19 +1,24 @@
 [CmdletBinding()]
-param()
+param([psobject]$Imports)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $appVersion = ([xml](Get-Content -LiteralPath (Join-Path $projectRoot 'Directory.Build.props') -Raw)).Project.PropertyGroup.Version
-function Assert-VerifiedImport([string]$Root,[string]$Manifest) {
-    if (-not (Test-Path -LiteralPath $Manifest)) { throw 'Run Packaging/Prepare-Packaging.ps1 explicitly first.' }
-    $entries = @(Get-Content -LiteralPath $Manifest -Raw | ConvertFrom-Json)
-    foreach ($entry in $entries) {
-        $file = Join-Path $Root $entry.path
+function Assert-VerifiedImport([string]$Root,[object[]]$Entries) {
+    if (-not $Entries.Count) { throw 'The current preparation context has no import records.' }
+    foreach ($entry in $Entries) {
+        $file = [IO.Path]::GetFullPath((Join-Path $Root $entry.path))
+        if (-not $file.StartsWith($Root + [IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) { throw 'Import path escapes its staging directory.' }
         if (-not (Test-Path -LiteralPath $file) -or (Get-FileHash -LiteralPath $file).Hash -ne $entry.sha256) { throw "Unverified import: $file" }
     }
-    if (@(Get-ChildItem -LiteralPath $Root -Recurse -File).Count -ne $entries.Count) { throw "New unverified files in $Root" }
+    if (@(Get-ChildItem -LiteralPath $Root -Recurse -File).Count -ne $Entries.Count) { throw "New unverified files in $Root" }
 }
-Assert-VerifiedImport (Join-Path $projectRoot '.imports\packages') (Join-Path $projectRoot '.imports\verified-files.json')
-Assert-VerifiedImport (Join-Path $projectRoot '.imports\wix-5.0.2') (Join-Path $projectRoot '.imports\wix-verified-files.json')
+$packageRoot = Join-Path $projectRoot '.imports\packages'
+$toolRoot = Join-Path $projectRoot '.imports\wix-5.0.2'
+if ($null -eq $Imports -or -not $Imports.Prepared -or $Imports.ProjectRoot -ne $projectRoot -or $Imports.PackageRoot -ne $packageRoot -or $Imports.ToolRoot -ne $toolRoot) {
+    throw 'Run $imports = & ./Packaging/Prepare-Packaging.ps1, then & ./Packaging/Build-Installers.ps1 -Imports $imports in the same PowerShell session.'
+}
+Assert-VerifiedImport $packageRoot @($Imports.Packages)
+Assert-VerifiedImport $toolRoot @($Imports.Tools)
 $installerRoot = Join-Path $projectRoot 'artifacts\installers'
 $payloadRoot = Join-Path $projectRoot ('artifacts\packaging\' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))
 $windowsPayload = Join-Path $payloadRoot 'windows-x64'
@@ -35,7 +40,7 @@ try {
         & dotnet @restoreArguments
         if ($LASTEXITCODE -ne 0) { throw "Verified offline restore failed: $($restore.project)" }
     }
-    Assert-VerifiedImport $packageRoot (Join-Path $projectRoot '.imports\verified-files.json')
+    Assert-VerifiedImport $packageRoot @($Imports.Packages)
     # Rebuild forces compilation even when old outputs carry future timestamps.
     & dotnet build 'Windows/OpenAIUsage.Windows.csproj' -t:Rebuild -c Release -r win-x64 --self-contained true --no-restore
     if ($LASTEXITCODE -ne 0) { throw 'Clean Windows source rebuild failed.' }
@@ -92,12 +97,17 @@ try {
     & python 'Packaging/package.py' deb $linuxPayload $deb
     if ($LASTEXITCODE -ne 0) { throw 'Ubuntu package construction or verification failed.' }
     $manifest = @($msi,$deb) | ForEach-Object { [pscustomobject]@{file=[IO.Path]::GetFileName($_); bytes=(Get-Item -LiteralPath $_).Length; sha256=(Get-FileHash -LiteralPath $_).Hash} }
-    $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $installerRoot 'checksums.json') -Encoding utf8
-    [pscustomobject]@{version=$appVersion; windowsAssemblySha256=(Get-FileHash -LiteralPath (Join-Path $windowsPayload 'OpenAIUsage.Windows.dll')).Hash; linuxFrontendSha256=(Get-FileHash -LiteralPath (Join-Path $linuxPayload 'Linux\openai_usage.py')).Hash; installers=$manifest} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $installerRoot 'build-manifest.json') -Encoding utf8
     $completed = $true
     Write-Output ($manifest | ConvertTo-Json -Compress)
 }
 finally {
     Pop-Location
-    if ($completed) { & (Join-Path $PSScriptRoot 'Clean-BuildOutputs.ps1') }
+    try {
+        & (Join-Path $PSScriptRoot 'Clean-BuildOutputs.ps1') -KeepDeliverables:$completed
+    }
+    finally {
+        $Imports.Prepared = $false
+        $Imports.Packages = @()
+        $Imports.Tools = @()
+    }
 }

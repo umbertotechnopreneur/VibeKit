@@ -1,5 +1,8 @@
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
-param()
+param(
+    [switch]$KeepDeliverables,
+    [switch]$KeepDebugDeliverables
+)
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..')).TrimEnd([IO.Path]::DirectorySeparatorChar)
@@ -65,17 +68,23 @@ function Measure-SafeOutputTree([string]$Path) {
 $targets = [Collections.Generic.List[string]]::new()
 $artifactsPath = Join-Path $projectRoot 'artifacts'
 $installerPath = Join-Path $artifactsPath 'installers'
-$retainedInstallerNames = @("OpenAIUsage-$appVersion-windows-x64.msi", "openai-usage_${appVersion}-1_amd64.deb", 'checksums.json', 'build-manifest.json', 'install-current.log')
+$retainedInstallerNames = if ($KeepDeliverables) { @("OpenAIUsage-$appVersion-windows-x64.msi", "openai-usage_${appVersion}-1_amd64.deb") } else { @() }
 $retainedNames = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 foreach ($name in $retainedInstallerNames) {
     [void]$retainedNames.Add($name)
 }
 
-if (Test-Path -LiteralPath $artifactsPath) {
+if ((Test-Path -LiteralPath $artifactsPath) -and -not ($KeepDeliverables -or $KeepDebugDeliverables)) {
+    $targets.Add((Assert-OutputPath $artifactsPath))
+}
+elseif (Test-Path -LiteralPath $artifactsPath) {
     [void](Assert-OutputPath $artifactsPath)
     foreach ($child in Get-ChildItem -LiteralPath $artifactsPath -Force) {
         [void](Assert-OutputPath $child.FullName)
-        if ($child.Name -ieq 'installers' -and $child.PSIsContainer) {
+        if ($KeepDebugDeliverables -and $child.PSIsContainer -and $child.Name -in @('windows-x64', 'linux')) {
+            continue
+        }
+        if ($KeepDeliverables -and $child.Name -ieq 'installers' -and $child.PSIsContainer) {
             foreach ($installerChild in Get-ChildItem -LiteralPath $installerPath -Force) {
                 [void](Assert-OutputPath $installerChild.FullName)
                 if ($installerChild.PSIsContainer -or -not $retainedNames.Contains($installerChild.Name)) {
@@ -89,6 +98,10 @@ if (Test-Path -LiteralPath $artifactsPath) {
     }
 }
 
+# Imported packages/tools are disposable build inputs; retain no scan reports or inventories.
+$importsPath = Join-Path $projectRoot '.imports'
+if (Test-Path -LiteralPath $importsPath) { $targets.Add((Assert-OutputPath $importsPath)) }
+
 foreach ($project in @('Windows', 'Shared', 'Backend', 'Tests')) {
     foreach ($directory in @('bin', 'obj')) {
         $target = Join-Path $projectRoot "$project\$directory"
@@ -100,8 +113,8 @@ foreach ($directory in @('Linux', 'Tests', 'Packaging')) {
     if (Test-Path -LiteralPath $target) { $targets.Add((Assert-OutputPath $target)) }
 }
 
-# Preflight every candidate before removing anything. Imports, assets, sources and
-# user state are never candidates; only the explicit generated paths above qualify.
+# Preflight every candidate before removing anything. Assets, sources and user
+# state are never candidates; only the explicit generated paths above qualify.
 $plan = foreach ($target in $targets) {
     $measurement = Measure-SafeOutputTree $target
     [pscustomobject]@{ path = $target; bytes = $measurement.bytes; files = $measurement.files }
@@ -127,6 +140,8 @@ foreach ($entry in $plan) {
 [pscustomobject]@{
     projectRoot = $projectRoot
     version = $appVersion
+    keepDeliverables = [bool]$KeepDeliverables
+    keepDebugDeliverables = [bool]$KeepDebugDeliverables
     bytesRemoved = $bytesRemoved
     filesRemoved = $filesRemoved
     targetsRemoved = $removedTargets.ToArray()

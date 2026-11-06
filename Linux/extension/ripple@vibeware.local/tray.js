@@ -24,18 +24,24 @@ const ITEM_INTERFACE = `
 </node>`;
 
 export class TrayIndicator {
-    constructor(show, quit, availabilityChanged) {
+    constructor({show, toggleEffect, about, quit}, availabilityChanged) {
         this.available = false;
         this._availabilityChanged = availabilityChanged;
         this._cancellable = new Gio.Cancellable();
 
         const menu = new Dbusmenu.Menuitem();
-        for (const [label, action] of [['Open panel', show], ['Quit Ripple', quit]]) {
+        const addItem = (label, action) => {
             const item = new Dbusmenu.Menuitem();
             item.property_set('label', label);
             item.connect('item-activated', action);
             menu.child_append(item);
-        }
+            return item;
+        };
+        addItem('Open', show);
+        this._effect = addItem('Effect', toggleEffect);
+        this._effect.property_set('toggle-type', 'checkmark');
+        addItem('About', about);
+        addItem('Quit', quit);
         this._server = Dbusmenu.Server.new(MENU_PATH);
         this._server.set_root(menu);
 
@@ -72,6 +78,11 @@ export class TrayIndicator {
                 this._owner = null;
                 this._setAvailable(false);
             });
+    }
+
+    setEffect(active, available) {
+        this._effect.property_set_int('toggle-state', active ? 1 : 0);
+        this._effect.property_set_bool('enabled', available);
     }
 
     _setAvailable(available) {

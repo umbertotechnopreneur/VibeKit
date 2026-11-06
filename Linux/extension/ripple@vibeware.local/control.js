@@ -26,6 +26,19 @@ function showPanel() {
     window.present();
 }
 
+function showAbout() {
+    showPanel();
+    if (window.get_visible_dialog() instanceof Adw.AboutDialog)
+        return;
+    const about = new Adw.AboutDialog({
+        application_name: 'Ripple',
+        application_icon: 'local.vibeware.Ripple',
+        comments: 'Click-driven ripples for GNOME on Wayland.',
+        license_type: Gtk.License.GPL_3_0,
+    });
+    about.present(window);
+}
+
 function hidePanel() {
     if (tray?.available)
         window.hide();
@@ -92,17 +105,29 @@ app.connect('activate', () => {
             console.warn('Ripple lease helper failed to start', error.message);
         }
     }
-    const {page} = buildControls(window, settings, app, Boolean(leaseProcess));
+    const {page, active} = buildControls(window, settings, app, Boolean(leaseProcess));
     const toolbar = new Adw.ToolbarView({content: page});
     toolbar.add_top_bar(header);
     window.set_content(toolbar);
     if (!smokeTest) {
-        tray = new TrayIndicator(showPanel, exitRipple, available => {
+        tray = new TrayIndicator({
+            show: showPanel,
+            toggleEffect: () => {
+                if (active.sensitive)
+                    active.active = !active.active;
+            },
+            about: showAbout,
+            quit: exitRipple,
+        }, available => {
             minimize.set_sensitive(available);
             closeDialog?.set_response_enabled('hide', available);
             if (!available && !window.visible)
                 showPanel();
         });
+        const updateTrayEffect = () => tray.setEffect(active.active, active.sensitive);
+        active.connect('notify::active', updateTrayEffect);
+        active.connect('notify::sensitive', updateTrayEffect);
+        updateTrayEffect();
     }
     showPanel();
     if (smokeTest)

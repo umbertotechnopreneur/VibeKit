@@ -6,6 +6,8 @@ A small Windows 11 click-ripple app by Umberto Giacobbi, using C# / WinUI 3 and 
 
 **Ripple Studio** previews water ripples over a desktop snapshot. Click the preview or use **Drop in the center**. Choose a preset or adjust refraction, wave size, speed and duration. **Refresh background** captures a new snapshot while briefly hiding Studio; the main window remains available in ordinary screenshots.
 
+**Settings** opens a small dialog inside Studio. It contains the ripple preset and parameters, capture/animation limits, Acrylic preference and **Start with Windows**. Ordinary preferences save immediately; startup is managed by the packaged Windows `StartupTask` API and is enabled by default for new installations. Existing Windows startup choices and policy are respected. Windows administrator policy or a user decision in Startup Apps cannot be overridden by the app. Unpackaged builds explain that an MSIX installation is needed for this toggle.
+
 **Apply to screen** applies click ripples to the current monitor. Clicks pass through the overlay. Stop with **Stop screen effect** or **Ctrl+Alt+Esc**. The overlay stays hidden until capture and presentation are valid and hides before GPU resources are released. The screen overlay alone is excluded from capture to prevent feedback.
 
 Closing offers tray minimization, exit or cancel. Tray mode keeps an enabled click ripple running; the idle Studio renderer is released while hidden. Acrylic, About, VibeWare branding and resource monitoring are retained.
@@ -34,6 +36,20 @@ Build with `dotnet build -p:Platform=x64`. Launch the resulting `bin/Debug/net10
 
 Debug checks: `--check-settings`, `--check-resource-guard`, `--check-logging` and `--exercise-overlay`. The overlay exercise checks three Apply/Stop cycles and tray release/restore, then exits. **Pause capture for screenshot** pauses capture for 20 seconds before making the overlay capturable, then restores capture exclusion before resuming.
 
+## MSIX installer and Microsoft Store preparation
+
+`Packaging/Build-MSIX.ps1` publishes the current source as Release x64, includes .NET and Windows App SDK, generates package logo sizes from the app artwork and validates the manifest with the installed Windows SDK MakeAppx tool. Restore uses only the pre-staged local NuGet cache; stage and scan any missing imports before running it. The installed Microsoft Visual C++ UWP Desktop framework is a declared package dependency.
+
+For a local signed test package, pass `-CertificateThumbprint` for an existing code-signing certificate in CurrentUser/My whose subject matches `-Publisher`. Signing uses the certificate store directly, without exporting its private key. Install the resulting `dist/WaterRipple_<version>_x64.msix` using Windows App Installer or `Add-AppxPackage`. Test certificates must already be trusted on the destination machine. The build does not install certificates or change trust/security settings.
+
+The manifest initially uses the **local test identity** `VibeWare.WaterRipple` / `CN=VibeWare`. Before Store submission, reserve the product in Partner Center and use its exact Package/Identity/Name and Publisher values via `-PackageName` and `-Publisher`. Omit the test signing parameter for Store packaging; the Store signs accepted submissions. The `runFullTrust` desktop capability needs an accurate justification, and listing assets, privacy information and certification checks still need completion. No Store submission or approval is implied by a successful local install.
+
+New MSIX installations register startup as enabled by default. Launch the installed app once to register the task; **Settings** can disable or re-enable it. Updates respect an existing user or administrator decision in Windows. Startup opens Studio at sign-in; it does not automatically activate screen capture. Windows redirects packaged application data under the package's LocalCache; the unpackaged version's preferences are preserved separately by Windows virtualization.
+
+Packaging staging is under `obj/msix-stage-<version>` and final installers under `dist`. Clean staging after handoff and before another package build, retaining only the requested installer. Cleanup never builds, downloads or scans anything, and no validation/scan journals are written.
+
+References: [Windows startup integration](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/desktop-to-uwp-extensions#start-an-executable-file-when-users-log-into-windows), [MSIX signing](https://learn.microsoft.com/en-us/windows/msix/package/sign-msix-package-guide).
+
 ## Branding
 
 The app icon was generated with ImageGen. The approved VibeWare badge is unchanged; its separate artwork license is in `Assets/VibeWare-LICENSE.txt` and does not relicense this repository.
@@ -41,3 +57,17 @@ The app icon was generated with ImageGen. The approved VibeWare badge is unchang
 Created by [Umberto Giacobbi](https://umbertogiacobbi.biz). **Human intent, AI execution, and plenty of tokens**
 
 This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
+
+## Capture border and preview status
+
+Windows owns the colored capture border. The app requests `graphicsCaptureWithoutBorder` in the package manifest and sets `GraphicsCaptureSession.IsBorderRequired(false)`. Before requesting Windows consent on the first Apply operation, an in-app dialog explains the request and offers **Ask Windows** or **Keep border**. Declining keeps the app usable; the OS may retain the border. Another app capturing the same display can also require the border. See [Microsoft's IsBorderRequired documentation](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.graphicscapturesession.isborderrequired).
+
+While the screen effect runs, the Studio preview is covered with a clear paused message. The sidebar and Settings scrollbars are hidden outside their hovered area; mouse-wheel scrolling remains available. No mouse/keyboard automation is needed to build or install these changes.
+
+## Studio convenience controls
+
+A floating **Minimize to tray** button overlays the bottom-left corner without reserving another layout row. Footer hyperlinks measure only their visible labels, so blank footer space does not launch a page. Scrollbars fade in and out over 500 ms without shifting content or fading the controls themselves.
+
+The preset list includes Gentle, Water drop, Deep water, Shockwave, Dew, Pond, Raindrop, Glass, Jelly and Echo. The six additional presets vary refraction, wave size, speed and lifetime while keeping the same eight-wave GPU limit.
+
+The MSIX execution alias is `waterripple.exe`, exposed by Windows at `%LOCALAPPDATA%\Microsoft\WindowsApps\waterripple.exe`. This launcher path stays independent of the versioned package installation directory. Windows users can manage it under App execution aliases. Startup uses the package's Windows-managed startup task and does not depend on a hard-coded installation path.

@@ -18,6 +18,87 @@ namespace WaterRipple;
 
 internal static class Ui
 {
+    internal sealed class BooleanVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language) =>
+            value is true ? Visibility.Visible : Visibility.Collapsed;
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => DependencyProperty.UnsetValue;
+    }
+
+    // Root-level pointer movement prevents a scrollbar staying visible after a child handles input.
+    internal static Action HoverScrollBar(ScrollViewer scroll, FrameworkElement region, UIElement eventRoot)
+    {
+        scroll.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
+        ScrollBar? vertical = null;
+        Microsoft.UI.Xaml.Media.Animation.Storyboard? animation = null;
+        bool hovered = false;
+        ScrollBar? FindBar(DependencyObject node)
+        {
+            if (node is ScrollBar bar && bar.Orientation == Orientation.Vertical) return bar;
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+            {
+                var found = FindBar(VisualTreeHelper.GetChild(node, i));
+                if (found is not null) return found;
+            }
+            return null;
+        }
+        void Fade(bool inside)
+        {
+            if (inside == hovered) return;
+            hovered = inside;
+            if (vertical is null)
+            {
+                scroll.VerticalScrollBarVisibility = inside ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden;
+                return;
+            }
+            double opacity = vertical.Opacity;
+            animation?.Stop();
+            vertical.Opacity = opacity;
+            vertical.IsHitTestVisible = inside;
+            var fade = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
+            {
+                From = opacity, To = inside ? 1 : 0,
+                Duration = new Duration(TimeSpan.FromMilliseconds(500))
+            };
+            Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(fade, vertical);
+            Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(fade, "Opacity");
+            animation = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
+            animation.Children.Add(fade);
+            animation.Begin();
+        }
+        void Update(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs args)
+        {
+            var point = args.GetCurrentPoint(region).Position;
+            Fade(point.X >= 0 && point.Y >= 0 && point.X < region.ActualWidth && point.Y < region.ActualHeight);
+        }
+        void Loaded(object sender, RoutedEventArgs args)
+        {
+            // Reserve the scrollbar's normal width to keep content steady during the fade.
+            scroll.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+            scroll.ApplyTemplate();
+            scroll.UpdateLayout();
+            vertical = FindBar(scroll);
+            bool wasHovered = hovered;
+            hovered = false;
+            if (vertical is not null) { vertical.Opacity = 0; vertical.IsHitTestVisible = false; }
+            else scroll.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
+            if (wasHovered) Fade(true);
+        }
+        scroll.Loaded += Loaded;
+        eventRoot.AddHandler(UIElement.PointerMovedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Update), true);
+        eventRoot.AddHandler(UIElement.PointerEnteredEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Update), true);
+        eventRoot.AddHandler(UIElement.PointerExitedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Update), true);
+        region.Unloaded += (_, _) =>
+        {
+            animation?.Stop();
+            scroll.Loaded -= Loaded;
+            eventRoot.RemoveHandler(UIElement.PointerMovedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Update));
+            eventRoot.RemoveHandler(UIElement.PointerEnteredEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Update));
+            eventRoot.RemoveHandler(UIElement.PointerExitedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Update));
+        };
+        return () => Fade(false);
+    }
+
     internal const string ManifestoUrl = "https://umbertogiacobbi.biz/vibeware/manifesto";
     internal const string VibeWareRepositoryUrl = "https://github.com/umbertotechnopreneur/VibeWare";
     internal const string CreatorUrl = "https://umbertogiacobbi.biz";
@@ -184,24 +265,31 @@ internal static class Ui
 
     internal static UIElement Footer(AppSettings settings, Action? showAbout = null)
     {
-        var footer = new StackPanel { Spacing = 5, Margin = new Thickness(0, 16, 0, 0) };
-        var navigation = NavigationLine();
-        var about = InlineLink("About Water Ripple");
+        var footer = new StackPanel { Spacing = 5, Margin = new Thickness(0, 16, 0, 0), HorizontalAlignment = HorizontalAlignment.Center };
+        HyperlinkButton FooterLink(string label, string uri)
+        {
+            var link = Link(label, uri);
+            link.FontSize = 11;
+            link.VerticalAlignment = VerticalAlignment.Center;
+            return link;
+        }
+        var navigation = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
+        var about = new HyperlinkButton { Content = "About Water Ripple", Padding = new Thickness(0),
+            MinWidth = 0, MinHeight = 0, FontSize = 11, Foreground = Denim, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
         about.Click += (_, _) =>
         {
             if (showAbout is not null) showAbout();
             else new AboutWindow(settings).Activate();
         };
-        navigation.Inlines.Add(about);
-        AddSeparator(navigation);
-        navigation.Inlines.Add(InlineLink("Terms", TermsUrl));
-        AddSeparator(navigation);
-        navigation.Inlines.Add(InlineLink("Privacy", PrivacyUrl));
+        navigation.Children.Add(about);
+        navigation.Children.Add(Text("·", 11));
+        navigation.Children.Add(FooterLink("Terms", TermsUrl));
+        navigation.Children.Add(Text("·", 11));
+        navigation.Children.Add(FooterLink("Privacy", PrivacyUrl));
         footer.Children.Add(navigation);
-
-        var brand = NavigationLine();
-        brand.Inlines.Add(new Run { Text = "This is VibeWare · " });
-        brand.Inlines.Add(InlineLink("Manifesto", ManifestoUrl));
+        var brand = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
+        brand.Children.Add(Text("This is VibeWare ·", 11));
+        brand.Children.Add(FooterLink("Manifesto", ManifestoUrl));
         footer.Children.Add(brand);
         return footer;
     }
@@ -211,7 +299,8 @@ internal static class Ui
         Content = label,
         NavigateUri = new Uri(uri),
         Foreground = Denim,
-        Padding = new Thickness(0, 4, 0, 4),
+        Padding = new Thickness(0),
+        MinWidth = 0, MinHeight = 0,
         HorizontalAlignment = HorizontalAlignment.Left
     };
 

@@ -31,6 +31,8 @@ internal sealed partial class StudioController : IDisposable
     private readonly DispatcherQueueTimer timer, resourceTimer;
     private readonly ResourceMonitor monitor;
     private readonly TrayService tray;
+    private readonly StartupService startup;
+    private readonly CaptureConsentService captureConsent;
     private EffectFrameState frame = new();
     private IntPtr renderer;
     private ScreenEffectSession? screen;
@@ -42,11 +44,14 @@ internal sealed partial class StudioController : IDisposable
     internal ICommand DropCommand { get; }
     internal ICommand RestartCommand { get; }
     internal ICommand OpenSettingsCommand { get; }
+    internal ICommand MinimizeToTrayCommand { get; }
     internal ICommand InspectScreenCommand { get; }
 
     internal StudioController(StudioModel model, Window window, SwapChainPanel canvas)
     {
         this.model = model; this.window = window; this.canvas = canvas;
+        startup = new StartupService(model.State);
+        captureConsent = new CaptureConsentService(model.State);
         hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
         tray = new TrayService(hwnd, Path.Combine(AppContext.BaseDirectory, "Assets", "WaterRipple.ico"), ShowFromTray, OpenSettings, ExitApp);
         window.AppWindow.Closing += MainWindowClosing;
@@ -55,6 +60,11 @@ internal sealed partial class StudioController : IDisposable
         DropCommand = new DelegateCommand(() => { frame.AddWave(.5, .5); });
         RestartCommand = new DelegateCommand(StartPreview);
         OpenSettingsCommand = new DelegateCommand(OpenSettings);
+        MinimizeToTrayCommand = new DelegateCommand(() =>
+        {
+            if (!model.State.IsClosing && !model.State.IsSettingsOpen && !model.State.IsCaptureConsentOpen && !model.State.IsClosePromptOpen)
+                MinimizeToTray();
+        });
         InspectScreenCommand = new DelegateCommand(() => screen?.InspectCapture());
 
         timer = window.DispatcherQueue.CreateTimer(); timer.Interval = TimeSpan.FromMilliseconds(4); timer.Tick += (_, _) => RenderPreview();
@@ -202,10 +212,12 @@ internal sealed partial class StudioController : IDisposable
         }
     }
 
-    private void ToggleScreen()
+    private async void ToggleScreen()
     {
         if (screen is not null) { StopScreen(); return; }
-        if (model.State.IsClosing) return;
+        if (model.State.IsClosing || model.State.IsCaptureConsentOpen || model.State.IsSettingsOpen) return;
+        await captureConsent.EnsureAsync(((FrameworkElement)window.Content).XamlRoot);
+        if (model.State.IsClosing || screen is not null) return;
         generation++;
         timer.Stop(); // Retain the frozen preview surface; its WGC session is already closed.
         try
@@ -224,7 +236,7 @@ internal sealed partial class StudioController : IDisposable
             }, (closed, reason) => { if (ReferenceEquals(screen, closed)) StopScreen(reason); });
             screen = session;
             model.State.IsScreenEffectActive = true; model.State.CanApply = true;
-            model.State.CaptureMessage = "Screen effect active. Stop with the button or Ctrl+Alt+Esc.";
+            model.State.CaptureMessage = "Preview is not active because the effect is applied to the entire screen.";
             session.Start();
             if (ReferenceEquals(screen, session))
             {
@@ -280,13 +292,25 @@ internal sealed partial class StudioController : IDisposable
         }
     }
     private void SettingsChanged(object? sender, PropertyChangedEventArgs e) => Log.Debug("Setting changed {Property}", e.PropertyName);
-    private void OpenSettings() => ShowFromTray();
+    private async void OpenSettings()
+    {
+        if (model.State.IsClosing || model.State.IsSettingsOpen || model.State.IsClosePromptOpen) return;
+        if (model.State.IsInTray) ShowFromTray();
+        model.State.IsSettingsOpen = true;
+        try
+        {
+            await startup.RefreshAsync();
+            if (!model.State.IsClosing) await new SettingsDialog(model, ((FrameworkElement)window.Content).XamlRoot).ShowAsync();
+        }
+        catch (Exception ex) { Fail("Settings could not be opened", ex); }
+        finally { model.State.IsSettingsOpen = false; }
+    }
 
     private async void MainWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
         if (model.State.IsExiting) return;
         args.Cancel = true;
-        if (model.State.IsClosePromptOpen) return;
+        if (model.State.IsClosePromptOpen || model.State.IsSettingsOpen || model.State.IsCaptureConsentOpen) return;
         model.State.IsClosePromptOpen = true;
         try
         {
@@ -318,6 +342,18 @@ internal sealed partial class StudioController : IDisposable
         }
         catch (Exception ex) { model.State.IsInTray = false; Fail("Could not minimize to tray", ex); }
     }
+    internal void ActivateExistingInstance()
+    {
+        if (model.State.IsClosing || model.State.OverlayPhase == "CapturingPreviewSnapshot") return;
+        if (model.State.IsInTray)
+        {
+            ShowFromTray();
+            return;
+        }
+        if (Native.IsIconic(hwnd)) Native.ShowWindow(hwnd, 9); // SW_RESTORE
+        window.Activate();
+    }
+
     private void ShowFromTray()
     {
         model.State.IsInTray = false;
@@ -406,7 +442,7 @@ internal sealed partial class StudioController : IDisposable
         if (model.State.IsClosing) return;
         model.State.IsClosing = true;
         window.AppWindow.Closing -= MainWindowClosing;
-        tray.Dispose();
+        tray.Dispose(); startup.Dispose();
         model.Settings.PropertyChanged -= SettingsChanged;
         resourceTimer.Stop(); monitor.Dispose();
         StopScreen(); ReleasePreview();

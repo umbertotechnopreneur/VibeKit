@@ -28,6 +28,10 @@ public sealed class AppSettings : ObservableModel
     private double strength = 9, waveSize = 100, speed = 150, duration = 1.5;
     private double animationFps = 60, captureFps = 30;
     private int presetIndex = 1;
+    public static IReadOnlyList<string> PresetNames { get; } = Array.AsReadOnly(new[]
+    {
+        "Gentle", "Water drop", "Deep water", "Shockwave", "Dew", "Pond", "Raindrop", "Glass", "Jelly", "Echo"
+    });
 
     public double Strength { get => strength; set => SetProperty(ref strength, Number(value, 0, 25, 9)); }
     public double WaveSize { get => waveSize; set => SetProperty(ref waveSize, Number(value, 30, 220, 100)); }
@@ -42,14 +46,14 @@ public sealed class AppSettings : ObservableModel
         get => presetIndex;
         set
         {
-            int normalized = Math.Clamp(value, 0, 3);
+            int normalized = Math.Clamp(value, 0, PresetNames.Count - 1);
             if (SetProperty(ref presetIndex, normalized)) ApplyPresetValues(normalized);
         }
     }
 
     public void ApplyPreset(int index)
     {
-        int normalized = Math.Clamp(index, 0, 3);
+        int normalized = Math.Clamp(index, 0, PresetNames.Count - 1);
         if (presetIndex != normalized) PresetIndex = normalized;
         else ApplyPresetValues(normalized);
     }
@@ -61,6 +65,12 @@ public sealed class AppSettings : ObservableModel
             0 => (Strength: 4d, Size: 85d, Speed: 100d, Duration: 1.7),
             2 => (Strength: 14d, Size: 150d, Speed: 90d, Duration: 2.5),
             3 => (Strength: 20d, Size: 65d, Speed: 260d, Duration: 1d),
+            4 => (Strength: 2.5d, Size: 50d, Speed: 160d, Duration: .8d),
+            5 => (Strength: 6d, Size: 180d, Speed: 80d, Duration: 2.8d),
+            6 => (Strength: 11d, Size: 55d, Speed: 210d, Duration: 1.1d),
+            7 => (Strength: 3.5d, Size: 40d, Speed: 300d, Duration: .65d),
+            8 => (Strength: 18d, Size: 190d, Speed: 70d, Duration: 2.7d),
+            9 => (Strength: 12d, Size: 210d, Speed: 130d, Duration: 3d),
             _ => (Strength: 9d, Size: 100d, Speed: 150d, Duration: 1.5)
         };
         Strength = values.Strength;
@@ -88,6 +98,14 @@ public sealed class AppState : ObservableModel
     private double cpuPercent;
     private long privateRamBytes, workingSetBytes;
     private int activeWaveCount;
+
+    private bool isSettingsOpen, isCaptureConsentOpen, startWithWindows, canManageStartup;
+    private string startupStatus = "Reading Windows startup setting…";
+    public bool IsCaptureConsentOpen { get => isCaptureConsentOpen; set => SetProperty(ref isCaptureConsentOpen, value); }
+    public bool IsSettingsOpen { get => isSettingsOpen; set => SetProperty(ref isSettingsOpen, value); }
+    public bool StartWithWindows { get => startWithWindows; set => SetProperty(ref startWithWindows, value); }
+    public bool CanManageStartup { get => canManageStartup; set => SetProperty(ref canManageStartup, value); }
+    public string StartupStatus { get => startupStatus; set => SetProperty(ref startupStatus, value); }
 
     public bool IsScreenEffectActive
     {

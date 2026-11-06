@@ -720,7 +720,10 @@ namespace
                     DirectXApi::DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, poolSize);
                 captureSession = framePool.CreateCaptureSession(captureItem);
                 captureSession.IsCursorCaptureEnabled(false);
-                // Keep the OS capture border policy. No access request or permission UI is used.
+                // Windows honors this only after the user grants Borderless access.
+                // A denied permission keeps the OS border; capture must remain usable.
+                try { captureSession.IsBorderRequired(false); }
+                catch (const winrt::hresult_error&) { }
                 captureSession.StartCapture();
                 return S_OK;
             }

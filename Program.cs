@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.Threading;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -16,6 +17,7 @@ public partial class App : Application
 {
     private MainWindow? window;
     private SettingsStore? store;
+    private EventWaitHandle? relaunchSignal;
 
     [STAThread]
     private static void Main()
@@ -32,6 +34,26 @@ public partial class App : Application
             Environment.ExitCode = hr < 0 ? 1 : 0; return;
         }
 #endif
+        // Share one instance across the installed package, its alias and local builds.
+        using var identity = WindowsIdentity.GetCurrent();
+        string instanceName = $@"Local\VibeWare.WaterRipple.{identity.User?.Value}";
+        using var activation = new EventWaitHandle(false, EventResetMode.AutoReset, instanceName + ".Activate");
+        using var instance = new Mutex(false, instanceName + ".Instance");
+        bool isPrimary;
+        try { isPrimary = instance.WaitOne(0); }
+        catch (AbandonedMutexException) { isPrimary = true; }
+        if (!isPrimary)
+        {
+            activation.Set();
+            return;
+        }
+
+        try { RunApplication(activation); }
+        finally { instance.ReleaseMutex(); }
+    }
+
+    private static void RunApplication(EventWaitHandle activation)
+    {
         LoggingService.Initialize();
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
@@ -44,7 +66,7 @@ public partial class App : Application
             Start(_ =>
             {
                 SynchronizationContext.SetSynchronizationContext(new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread()));
-                new App();
+                new App { relaunchSignal = activation };
             });
         }
         catch (Exception ex) { Log.Fatal(ex, "Application startup failed"); throw; }
@@ -63,6 +85,11 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        if (window is not null)
+        {
+            window.Controller.ActivateExistingInstance();
+            return;
+        }
         try { CreateMainWindow(); }
         catch (Exception ex)
         {
@@ -85,9 +112,28 @@ public partial class App : Application
         model = new StudioModel(store.Load());
         model.State.PersistenceError = pendingError;
         store.Attach(model.Settings);
-        window = new MainWindow(model);
-        window.Closed += (_, _) => { store.Dispose(); Exit(); };
-        window.Activate();
+        var mainWindow = new MainWindow(model);
+        window = mainWindow;
+        var dispatcher = mainWindow.DispatcherQueue;
+        RegisteredWaitHandle? activationListener = null;
+        if (relaunchSignal is not null)
+        {
+            activationListener = ThreadPool.RegisterWaitForSingleObject(relaunchSignal, (_, _) =>
+            {
+                dispatcher.TryEnqueue(() =>
+                {
+                    if (ReferenceEquals(window, mainWindow)) mainWindow.Controller.ActivateExistingInstance();
+                });
+            }, null, Timeout.Infinite, executeOnlyOnce: false);
+        }
+        mainWindow.Closed += (_, _) =>
+        {
+            window = null;
+            activationListener?.Unregister(null);
+            store.Dispose();
+            Exit();
+        };
+        mainWindow.Activate();
         Log.Information("Application started Version={Version}", typeof(App).Assembly.GetName().Version);
     }
 }
@@ -118,7 +164,21 @@ internal sealed class MainWindow : Window
         preview.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         preview.Children.Add(Ui.Text("RIPPLE STUDIO", 12));
         var canvas = new SwapChainPanel();
-        var frame = new Border { Child = canvas, CornerRadius = new CornerRadius(10) };
+        var previewContent = new Grid();
+        previewContent.Children.Add(canvas);
+        var pausedContent = new StackPanel { Spacing = 12, VerticalAlignment = VerticalAlignment.Center, MaxWidth = 370 };
+        pausedContent.Children.Add(new TextBlock { Text = "Preview paused", FontSize = 22, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        pausedContent.Children.Add(new TextBlock
+        {
+            Text = "Preview is not active because the effect is applied to the entire screen.",
+            TextWrapping = TextWrapping.Wrap, FontSize = 15
+        });
+        var paused = new Border { Child = pausedContent, Padding = new Thickness(24),
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(245, 32, 32, 36)) };
+        paused.SetBinding(Border.VisibilityProperty, new Binding { Source = model.State,
+            Path = new PropertyPath(nameof(AppState.IsScreenEffectActive)), Converter = new Ui.BooleanVisibilityConverter() });
+        previewContent.Children.Add(paused);
+        var frame = new Border { Child = previewContent, CornerRadius = new CornerRadius(10) };
         Grid.SetRow(frame, 1); preview.Children.Add(frame);
         var caption = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
         Ui.Bind(caption, TextBlock.TextProperty, model.State, nameof(AppState.CaptureMessage));
@@ -133,11 +193,11 @@ internal sealed class MainWindow : Window
         var controls = new StackPanel { Spacing = 12 };
         var scroll = new ScrollViewer { Content = controls, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         var sidebar = new Border { Padding = new Thickness(18), CornerRadius = new CornerRadius(10), Child = scroll };
-        sidebar.PointerEntered += (_, _) => scroll.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
-        sidebar.PointerExited += (_, e) =>
+        Action hideScrollBar = Ui.HoverScrollBar(scroll, sidebar, root);
+        Activated += (_, e) =>
         {
-            var p = e.GetCurrentPoint(sidebar).Position;
-            if (p.X < 0 || p.Y < 0 || p.X >= sidebar.ActualWidth || p.Y >= sidebar.ActualHeight) scroll.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
+            if (e.WindowActivationState == WindowActivationState.Deactivated)
+                hideScrollBar();
         };
         Grid.SetColumn(sidebar, 1); body.Children.Add(sidebar);
         controls.Children.Add(Ui.Text("Studio controls", 20));
@@ -152,15 +212,7 @@ internal sealed class MainWindow : Window
 #endif
         var capability = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
         Ui.Bind(capability, TextBlock.TextProperty, model.State, nameof(AppState.CapabilityText)); controls.Children.Add(capability);
-        var preset = new ComboBox { Header = "Ripple preset", HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = new[] { "Gentle", "Water drop", "Deep water", "Shockwave" } };
-        Ui.Bind(preset, ComboBox.SelectedIndexProperty, model.Settings, nameof(AppSettings.PresetIndex), BindingMode.TwoWay); controls.Children.Add(preset);
-        Ui.Slider(controls, "Animation limit", model.Settings, nameof(AppSettings.AnimationFps), 15, 120, 1, "fps");
-        Ui.Slider(controls, "Capture limit", model.Settings, nameof(AppSettings.CaptureFps), 5, 60, 1, "fps");
-        Ui.Slider(controls, "Refraction", model.Settings, nameof(AppSettings.Strength), 0, 25, 1, "px");
-        Ui.Slider(controls, "Wave size", model.Settings, nameof(AppSettings.WaveSize), 30, 220, 1, "px");
-        Ui.Slider(controls, "Expansion", model.Settings, nameof(AppSettings.Speed), 40, 350, 1, "px/s");
-        Ui.Slider(controls, "Duration", model.Settings, nameof(AppSettings.Duration), .4, 3, .1, "s");
-        Ui.Toggle(controls, "Acrylic background", model.Settings, nameof(AppSettings.UseAcrylic));
+        controls.Children.Add(new Button { Content = "Settings", Command = Controller.OpenSettingsCommand, HorizontalAlignment = HorizontalAlignment.Stretch });
         var freeze = new Button { Command = Controller.ToggleCaptureCommand, HorizontalAlignment = HorizontalAlignment.Stretch };
         Ui.Bind(freeze, Button.ContentProperty, model.State, nameof(AppState.FreezeButtonText));
         Ui.Bind(freeze, Button.IsEnabledProperty, model.State, nameof(AppState.CanFreeze)); controls.Children.Add(freeze);
@@ -172,6 +224,17 @@ internal sealed class MainWindow : Window
         }
         controls.Children.Add(new Button { Content = "Recheck GPU / restart preview", Command = Controller.RestartCommand, HorizontalAlignment = HorizontalAlignment.Stretch });
         var footer = Ui.Footer(model.Settings); Grid.SetRow((FrameworkElement)footer, 2); root.Children.Add(footer);
+        // Overlay the existing bottom-left space without adding a layout row.
+        var minimize = new Button
+        {
+            Content = "Minimize to tray", Command = Controller.MinimizeToTrayCommand,
+            HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Bottom,
+            Padding = new Thickness(12, 8, 12, 8), CornerRadius = new CornerRadius(18), FontSize = 12
+        };
+        ToolTipService.SetToolTip(minimize, "Keep the click ripple running in the notification area.");
+        Grid.SetRowSpan(minimize, 3);
+        Canvas.SetZIndex(minimize, 20);
+        root.Children.Add(minimize);
         root.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler((_, e) => { e.Handled = Controller.HandleKey(e.Key); }), true);
         Closed += (_, _) => Controller.Dispose();
     }

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Ripple
+Comment=Water ripples and refraction for GNOME
+Exec=gjs -m /usr/share/gnome-shell/extensions/ripple@vibeware.local/control.js
+Icon=local.vibeware.Ripple
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=water;ripple;refraction;GNOME;effects;
+StartupNotify=true

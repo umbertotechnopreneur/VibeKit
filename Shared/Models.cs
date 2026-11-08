@@ -13,6 +13,7 @@ public record AccountUsage(string Identity, string Plan, List<QuotaWindow> Windo
 public record Sample(long At, double Used, long? Reset, string Plan);
 public record QuotaDay(string Date, double? Used, double Coverage);
 public record Forecast(double? Average, double? DaysLeft, int CompleteDays, string Headline, string Detail);
+public record ResetDisplay(string Heading, string Value, string Detail, long ResetsAt);
 
 public sealed class WidgetSettings
 {
@@ -21,6 +22,10 @@ public sealed class WidgetSettings
     public string TimeZoneId { get; set; } = TimeZoneInfo.Local.Id;
     public bool AlwaysOnTop { get; set; }
     public bool ShowInTaskbar { get; set; } = true;
+    public bool BigSize { get; set; }
+    public bool Alert50 { get; set; }
+    public bool Alert20 { get; set; }
+    public bool Alert5 { get; set; }
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(CodexPath)) throw new ArgumentException("Choose a Codex executable.");
@@ -40,9 +45,12 @@ public sealed class WidgetState
     public double? Remaining { get; set; }
     public long? ResetsAt { get; set; }
     public string ResetLabel { get; set; } = "Reset unavailable";
+    public List<ResetDisplay> ResetDisplays { get; set; } = [];
     public string CreditsLabel { get; set; } = "Unavailable";
     public string AccessNote { get; set; } = "";
     public string AverageLabel { get; set; } = "Collecting quota history";
+    public bool ForecastAvailable { get; set; }
+    public string ForecastCompact { get; set; } = "ⓘ";
     public string ForecastLabel { get; set; } = "Not enough history";
     public string ForecastDetail { get; set; } = "Keep the widget open to record allowance usage.";
     public string CoverageLabel { get; set; } = "0 of 7 complete days";

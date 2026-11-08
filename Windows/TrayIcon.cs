@@ -41,6 +41,13 @@ public sealed class TrayIcon : IDisposable
         data.Info=message.Length>250?message[..250]:message; data.InfoFlags=2;
         ShellNotifyIcon(1,ref data);
     }
+    public bool NotifyQuota(string message)
+    {
+        if (disposed || !IsAvailable) return false;
+        var data=Data(); data.Flags=0x10; data.InfoTitle="OpenAI Usage · Allowance alert";
+        data.Info=message.Length>250?message[..250]:message; data.InfoFlags=1;
+        return ShellNotifyIcon(1,ref data);
+    }
     private nint OnMessage(nint hwnd,uint message,nint wParam,nint lParam)
     {
         if(message==taskbarCreated && taskbarCreated!=0) { if(!Add())show(); return 0; }

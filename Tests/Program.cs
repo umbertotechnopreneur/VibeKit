@@ -42,6 +42,15 @@ var dstStart = new DateTimeOffset(2026, 11, 1, 4, 0, 0, TimeSpan.Zero).ToUnixTim
 var dstSamples = Enumerable.Range(0, 1501).Select(i => new Sample(dstStart+i*60, i*20d/1500, dstStart+3*86400, "pro"));
 Near(Analytics.DailyQuota(dstSamples, new(2026, 11, 2), dstZone, "pro")[^1].Used, 20, "25-hour daylight-saving calendar day");
 
+var observed = Enumerable.Range(0, 121).Select(i => new Sample(end - 7200 + i * 60, i / 120d * 4, end + 86400, "pro")).ToArray();
+var observedForecast = Analytics.PredictObserved(48, observed, "pro", end + 86400, now);
+Near(observedForecast.DaysLeft, 1, "Partial observed periods produce a rate-based estimate");
+Check(observedForecast.Detail.Contains("observed"), "Partial observation is disclosed");
+Check(Analytics.PredictObserved(48, observed.Take(30), "pro", end + 86400, now).DaysLeft is null, "Insufficient observation does not produce a forecast");
+var broken = observed.Select((sample, i) => i < 60 ? sample : sample with { At = sample.At + 600 }).ToArray();
+Check(Analytics.PredictObserved(48, broken, "other", end + 86400, now).DaysLeft is null, "Different plans cannot create an estimate");
+Check(Analytics.CompactDuration(1.5) == "1d 12h", "Compact forecast fits the widget");
+
 var tokenDays = Enumerable.Range(0, 7).Select(i => new TokenDay(new DateOnly(2026, 10, 26).AddDays(i).ToString("yyyy-MM-dd"), 100)).ToList();
 Check(Analytics.TokenSummary(tokenDays, new(2026, 10, 26)).Total == "700", "Seven-day token total");
 Check(Analytics.TokenSummary(tokenDays.Skip(1), new(2026, 10, 26)).Total.Contains("6/7"), "Missing token date is not an implicit zero");
@@ -69,7 +78,20 @@ try
     store.SaveSettings(settings);
     Check(store.LoadSettings().TimeZoneId == "UTC", "Settings persist atomically");
     var state = new UsageService(store).Build(parsed, settings, now);
-    Check(state.CreditsLabel == "1,250.25", "Reported credit balance is displayed");
+    Check(state.CreditsLabel == "1,250", "Credit balance is displayed without decimal places");
+    Check(state.ResetDisplays.Count == 2 && state.ResetDisplays[0].Heading == "First reset" && state.ResetDisplays[1].Heading == "Second reset", "Available reset dates are numbered in chronological order");
+    Check(state.ResetDisplays[0].Detail.Contains("UTC"), "Reset tooltip includes the selected system time zone");
+    var missingReset = parsed with { Windows=[parsed.Windows[0] with { ResetsAt = null }, parsed.Windows[1]] };
+    Check(new UsageService(store).Build(missingReset, settings, now).ResetDisplays.Count == 1, "Missing reset timestamps are not invented");
+    var expiredReset = parsed with { Windows=[parsed.Windows[0] with { ResetsAt = now.AddSeconds(-1).ToUnixTimeSeconds() }, parsed.Windows[1]] };
+    Check(new UsageService(store).Build(expiredReset, settings, now).ResetDisplays.Count == 1, "Expired reset dates are not counted as upcoming");
+    var extraReset = parsed with { Windows=[..parsed.Windows, new QuotaWindow("codex:600", "10-hour · codex", 5, 600, now.AddHours(3).ToUnixTimeSeconds())] };
+    var resetList = new UsageService(store).Build(extraReset, settings, now).ResetDisplays;
+    Check(resetList.Count == 3 && resetList[0].Detail.Contains("10-hour") && resetList[2].Heading == "Third reset", "Additional reset dates are retained and ordered by time");
+    Check(!new WidgetSettings().BigSize, "Big size is disabled by default");
+    settings.BigSize = true;
+    store.SaveSettings(settings);
+    Check(store.LoadSettings().BigSize, "Big size persists with settings");
     Check(state.TodayTokensLabel == "—", "Missing current-day bucket is not invented as zero");
     var withToday=parsed with { Tokens=[new TokenDay("2026-11-02",1_000_000)] };
     Check(new UsageService(store).Build(withToday,settings,now).TodayTokensLabel=="1 M", "Today's reported bucket is separate from the completed seven-day average");

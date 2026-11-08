@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using Tools.Widgets;
 using Windows.UI.ViewManagement;
 
 namespace OpenAIUsage.Windows;
@@ -170,16 +171,17 @@ public sealed class MainWindow : Window
     }
     private async Task<ContentDialogResult> ShowDialogAsync(string title,UIElement content,
         string closeButtonText="Close",string? primaryButtonText=null,string? secondaryButtonText=null,
-        bool isPrimaryEnabled=true,Func<bool>? onPrimary=null,double width=500,double height=590)
+        bool isPrimaryEnabled=true,Func<bool>? onPrimary=null,double width=500,double height=590,bool about=false)
     {
         if(!dialogGate.Wait(0))return ContentDialogResult.None;
         var host=new Window {Title=title};
-        if(WidgetAcrylicBackdrop.IsSupported)host.SystemBackdrop=new WidgetAcrylicBackdrop();
-        var surface=new Grid {RequestedTheme=root.ActualTheme,Background=root.Background};
-        surface.RowDefinitions.Add(new(){Height=new(44)});surface.RowDefinitions.Add(new(){Height=new(1,GridUnitType.Star)});surface.RowDefinitions.Add(new(){Height=GridLength.Auto});
+        if(!about && WidgetAcrylicBackdrop.IsSupported)host.SystemBackdrop=new WidgetAcrylicBackdrop();
+        var surface=new Grid {RequestedTheme=about?ElementTheme.Light:root.ActualTheme,Background=about?WidgetAbout.Paper():root.Background};
+        surface.RowDefinitions.Add(new(){Height=new(about?0:44)});surface.RowDefinitions.Add(new(){Height=new(1,GridUnitType.Star)});surface.RowDefinitions.Add(new(){Height=GridLength.Auto});
         var titleBar=new StackPanel {Orientation=Orientation.Horizontal,Spacing=10,Margin=new(20,0,60,0),VerticalAlignment=VerticalAlignment.Center};
-        titleBar.Children.Add(Logo(22));titleBar.Children.Add(Text(title,16,true));surface.Children.Add(titleBar);
-        var scroll=new ScrollViewer {Content=content,Margin=new(24,12,24,16),HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,VerticalScrollBarVisibility=ScrollBarVisibility.Auto};
+        if(!about){titleBar.Children.Add(Logo(22));titleBar.Children.Add(Text(title,16,true));surface.Children.Add(titleBar);}
+        var scroll=new ScrollViewer {Content=content,Margin=about?new(24,24,24,12):new(24,12,24,16),HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,VerticalScrollBarVisibility=ScrollBarVisibility.Auto};
+        if(about)scroll.HorizontalContentAlignment=HorizontalAlignment.Stretch;
         Grid.SetRow(scroll,1);surface.Children.Add(scroll);
         var buttons=new StackPanel {Orientation=Orientation.Horizontal,Spacing=10,HorizontalAlignment=HorizontalAlignment.Right,Margin=new(24,0,24,20)};
         Grid.SetRow(buttons,2);surface.Children.Add(buttons);
@@ -187,6 +189,7 @@ public sealed class MainWindow : Window
         surface.Loaded+=(_,_)=>loaded.TrySetResult();
         bool dismissing=false;
         void Complete(ContentDialogResult choice)=>result.TrySetResult(choice);
+        if(about)surface.KeyDown+=(_,e)=>{if(e.Key==global::Windows.System.VirtualKey.Escape){e.Handled=true;Complete(ContentDialogResult.None);}};
         Button Command(string label,ContentDialogResult choice,bool enabled=true)
         {
             var button=new Button {Content=label,MinWidth=100,IsEnabled=enabled};
@@ -203,23 +206,26 @@ public sealed class MainWindow : Window
         try
         {
             host.AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory,"Branding","app-icon.ico"));
-            host.ExtendsContentIntoTitleBar=true;host.SetTitleBar(titleBar);
-            host.AppWindow.TitleBar.ButtonBackgroundColor=Colors.Transparent;
-            host.AppWindow.TitleBar.ButtonInactiveBackgroundColor=Colors.Transparent;
-            host.AppWindow.TitleBar.ButtonForegroundColor=PrimaryText.Color;
-            host.AppWindow.TitleBar.ButtonInactiveForegroundColor=SecondaryText.Color;
+            if(!about)
+            {
+                host.ExtendsContentIntoTitleBar=true;host.SetTitleBar(titleBar);
+                host.AppWindow.TitleBar.ButtonBackgroundColor=Colors.Transparent;
+                host.AppWindow.TitleBar.ButtonInactiveBackgroundColor=Colors.Transparent;
+                host.AppWindow.TitleBar.ButtonForegroundColor=PrimaryText.Color;
+                host.AppWindow.TitleBar.ButtonInactiveForegroundColor=SecondaryText.Color;
+            }
             // An owned utility window stays above its widget without creating another taskbar entry.
             host.AppWindow.IsShownInSwitchers=false;
             SetWindowLongPtr(WinRT.Interop.WindowNative.GetWindowHandle(host),-8,owner);
             double dpi=root.XamlRoot.RasterizationScale;var area=DisplayArea.GetFromWindowId(AppWindow.Id,DisplayAreaFallback.Primary).WorkArea;
             int w=(int)Math.Min(width*dpi,area.Width*.94),h=(int)Math.Min(height*dpi,area.Height*.94);
             host.AppWindow.MoveAndResize(new(area.X+(area.Width-w)/2,area.Y+(area.Height-h)/2,w,h));
-            if(host.AppWindow.Presenter is OverlappedPresenter p){p.IsMinimizable=false;p.IsMaximizable=false;p.IsResizable=false;p.IsAlwaysOnTop=settings.AlwaysOnTop;}
+            if(host.AppWindow.Presenter is OverlappedPresenter p){p.IsMinimizable=false;p.IsMaximizable=false;p.IsResizable=about;p.IsAlwaysOnTop=settings.AlwaysOnTop;}
             host.Activate();await loaded.Task;
             if(result.Task.IsCompleted)return await result.Task;
             EnableWindow(owner,false);
             if(Microsoft.UI.Xaml.Input.FocusManager.FindFirstFocusableElement(content) is Control first)first.Focus(FocusState.Programmatic);
-            Diagnostics.Record("window.preferences","Flat acrylic utility window opened; switchers=False; owned=True.");
+            if(!about)Diagnostics.Record("window.preferences","Flat acrylic utility window opened; switchers=False; owned=True.");
             return await result.Task;
         }
         finally
@@ -230,13 +236,28 @@ public sealed class MainWindow : Window
     }
     private async Task ShowAboutAsync()
     {
-        ShowWindow(); var content=new StackPanel {Spacing=12};
-        content.Children.Add(Logo(64));content.Children.Add(Text("OpenAI Usage",26,true));
-        content.Children.Add(Text("Version "+typeof(App).Assembly.GetName().Version?.ToString(3),14));
-        content.Children.Add(Text("Compact allowance, token and reset widget.",15));
-        content.Children.Add(Text("Separate watchdog · 1 GB process-tree limit",13));
-        content.Children.Add(Text("Diagnostic logs: "+Diagnostics.DirectoryPath,12));
-        await ShowDialogAsync("OpenAI Usage · About",content,width:500,height:430);
+        ShowWindow();
+        var initiative = new Image
+        {
+            Width = 64, Height = 64, Stretch = Stretch.Uniform,
+            Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Branding", "VibeWare.png")))
+        };
+        var details = new Expander
+        {
+            Header = "Technical details",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Content = new TextBlock
+            {
+                Text = $"Separate watchdog · 1 GB process-tree limit\nDiagnostic logs: {Diagnostics.DirectoryPath}",
+                FontFamily = MetricFont, TextWrapping = TextWrapping.Wrap
+            }
+        };
+        var content = WidgetAbout.Create(Logo(100), initiative, "OpenAI Usage",
+            $"Version {typeof(App).Assembly.GetName().Version?.ToString(3) ?? "unknown"}",
+            "I built OpenAI Usage to see my Codex allowance, tokens and credits at a glance.",
+            "https://github.com/umbertotechnopreneur/Tools/tree/main/Widgets/OpenAI",
+            "I provide this software independently and as-is, without warranty.", details);
+        await ShowDialogAsync("About OpenAI Usage", content, width:640, height:620, about:true);
     }
     private static Image Logo(double size)=>new(){Source=new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory,"Branding","app-icon-512.png"))),Width=size,Height=size,HorizontalAlignment=HorizontalAlignment.Left};
     private void ThemeChanged(UISettings sender,object args)=>DispatcherQueue.TryEnqueue(ApplySystemTheme);
@@ -254,7 +275,7 @@ public sealed class MainWindow : Window
         ValueGradient.GradientStops[0].Color=dark?Blend(Colors.White,accent,.12):ColorHelper.FromArgb(255,18,24,34);
         ValueGradient.GradientStops[1].Color=dark?Blend(Colors.White,accent,.38):Blend(Colors.Black,accent,.58);
         ApplyMetricColors();UpdatePinVisual();
-        if(activeDialog?.Content is FrameworkElement dialogRoot)
+        if(activeDialog is { ExtendsContentIntoTitleBar: true, Content: FrameworkElement dialogRoot })
         {
             dialogRoot.RequestedTheme=root.RequestedTheme;
             activeDialog.AppWindow.TitleBar.ButtonForegroundColor=PrimaryText.Color;

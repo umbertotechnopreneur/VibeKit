@@ -28,7 +28,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("Graphene", "1.0")
-from gi.repository import Adw, Gdk, GLib, Gtk, Pango, PangoCairo, Graphene, Gio
+from gi.repository import Adw, Gdk, GdkPixbuf, GLib, Gtk, Pango, PangoCairo, Graphene, Gio
 from tray import StatusTray
 import cairo
 
@@ -101,6 +101,14 @@ button.icon-action { background: transparent; border: none; box-shadow: none; pa
 button.icon-action:hover, button.icon-action:active { color: @window_fg_color; }
 button.icon-action:hover { background: alpha(@window_fg_color, .07); }
 button.icon-action:active { background: alpha(@accent_bg_color, .15); }
+window.widget-about, .widget-about .about-body { background-color: #fff4dc; color: #232a2f; }
+.widget-about .about-body { font-family: monospace; font-size: 15px; }
+.widget-about .about-body label { color: #232a2f; }
+.widget-about .about-body .about-heading { font-size: 23px; font-weight: bold; }
+.widget-about .about-body .about-note { color: #526573; font-size: 13px; }
+.widget-about .about-body .about-link, .widget-about .about-body .about-link label { color: #3a6a96; }
+.widget-about .about-body .about-link { padding: 4px; font-size: 13px; }
+.widget-about .about-body .about-link:hover { background-color: alpha(#3a6a96, .10); }
 """
 
 
@@ -164,6 +172,19 @@ def text(value, style=None):
 
 def box(spacing=8, horizontal=False):
     return Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL if horizontal else Gtk.Orientation.VERTICAL, spacing=spacing)
+
+
+def about_mark(filename, size):
+    image = GdkPixbuf.Pixbuf.new_from_file_at_scale(str(ROOT / "Branding" / filename), size, size, True)
+    return Gtk.Image.new_from_paintable(Gdk.Texture.new_for_pixbuf(image))
+
+
+def about_link(label, url, child):
+    link = Gtk.LinkButton(uri=url, halign=Gtk.Align.CENTER, tooltip_text=label)
+    link.set_child(child)
+    link.add_css_class("about-link")
+    link.update_property([Gtk.AccessibleProperty.LABEL], [label])
+    return link
 
 
 def metric(label, number):
@@ -277,6 +298,7 @@ class UsageWindow(Adw.ApplicationWindow):
         self.last_reset_refresh = 0.0
         self.allow_close = False
         self.close_dialog = None
+        self.about_dialog = None
         self.tray = None
         self.labels = {}
         self.add_css_class("micro")
@@ -494,11 +516,80 @@ class UsageWindow(Adw.ApplicationWindow):
 
     def show_about(self, *_):
         self.present()
-        dialog = Adw.AboutWindow(transient_for=self, modal=True, application_name="OpenAI Usage",
-                                 application_icon="biz.umbertogiacobbi.OpenAIUsage", version="0.4.1",
-                                 comments="Compact allowance, token and credit widget with a reset countdown.",
-                                 developer_name="Umberto Giacobbi")
-        dialog.set_debug_info("Separate watchdog: 1 GB aggregate RSS limit.\nLogs: " + str(state_dir()/"logs"))
+        if self.about_dialog is not None:
+            self.about_dialog.present()
+            return
+
+        dialog = Gtk.Window(application=self.get_application(), title="About OpenAI Usage",
+                            transient_for=self, destroy_with_parent=True, modal=True,
+                            default_width=640, default_height=620, icon_name="biz.umbertogiacobbi.OpenAIUsage")
+        self.about_dialog = dialog
+        dialog.add_css_class("widget-about")
+        content = box(24)
+        content.add_css_class("about-body")
+        content.set_halign(Gtk.Align.CENTER)
+        for set_margin in (content.set_margin_start, content.set_margin_end, content.set_margin_top, content.set_margin_bottom):
+            set_margin(24)
+
+        def centered(value, style=None):
+            label = Gtk.Label(label=value, wrap=True, justify=Gtk.Justification.CENTER,
+                              max_width_chars=60, halign=Gtk.Align.CENTER)
+            if style:
+                label.add_css_class(style)
+            return label
+
+        website = "https://umbertogiacobbi.biz"
+        content.append(about_mark("app-icon-512.png", 100))
+        identity = box(5)
+        identity.append(centered("OpenAI Usage", "about-heading"))
+        identity.append(centered("Version 0.4.1", "about-note"))
+        content.append(identity)
+        content.append(centered("I built OpenAI Usage to see my Codex allowance, tokens and credits at a glance."))
+        content.append(centered("I provide this software independently and as-is, without warranty.", "about-note"))
+        content.append(centered("I'm Umberto Giacobbi · Proprietary"))
+
+        details = Gtk.Expander(label="Technical details", halign=Gtk.Align.CENTER)
+        diagnostic = centered("Separate watchdog: 1 GB aggregate RSS limit.\nLogs: " + str(state_dir() / "logs"), "about-note")
+        diagnostic.set_selectable(True)
+        details.set_child(diagnostic)
+        content.append(details)
+        content.append(about_link("VibeWare manifesto", website + "/vibeware/manifesto", about_mark("VibeWare.png", 64)))
+
+        links = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, min_children_per_line=1, max_children_per_line=4,
+                            column_spacing=8, row_spacing=4, halign=Gtk.Align.CENTER)
+        for label, url, icon in (
+            ("UmbertoGiacobbi.biz", website, "web-browser-symbolic"),
+            ("Private source", "https://github.com/umbertotechnopreneur/Tools/tree/main/Widgets/OpenAI", "folder-remote-symbolic"),
+            ("Terms", website + "/terms/", "text-x-generic-symbolic"),
+            ("Privacy", website + "/privacy/", "changes-prevent-symbolic"),
+        ):
+            pair = box(6, horizontal=True)
+            pair.append(Gtk.Image.new_from_icon_name(icon))
+            pair.append(Gtk.Label(label=label))
+            link = about_link(label, url, pair)
+            if label == "Private source":
+                link.set_tooltip_text("Private GitHub repository. Access is required.")
+            links.append(link)
+        content.append(links)
+
+        scroll = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vscrollbar_policy=Gtk.PolicyType.AUTOMATIC)
+        scroll.set_child(content)
+        dialog.set_child(scroll)
+
+        def forget_dialog(*_):
+            self.about_dialog = None
+            return False
+
+        def dismiss(_controller, key, *_):
+            if key == Gdk.KEY_Escape:
+                dialog.close()
+                return True
+            return False
+
+        dialog.connect("close-request", forget_dialog)
+        keys = Gtk.EventControllerKey()
+        keys.connect("key-pressed", dismiss)
+        dialog.add_controller(keys)
         dialog.present()
 
     def begin_move(self, gesture, presses, x, y):

@@ -263,7 +263,7 @@ internal static class Ui
         TextWrapping = TextWrapping.Wrap
     };
 
-    internal static UIElement Footer(AppSettings settings, Action? showAbout = null)
+    internal static UIElement Footer(Action? showAbout = null)
     {
         var footer = new StackPanel { Spacing = 5, Margin = new Thickness(0, 16, 0, 0), HorizontalAlignment = HorizontalAlignment.Center };
         HyperlinkButton FooterLink(string label, string uri)
@@ -279,7 +279,7 @@ internal static class Ui
         about.Click += (_, _) =>
         {
             if (showAbout is not null) showAbout();
-            else new AboutWindow(settings).Activate();
+            else new AboutWindow().Activate();
         };
         navigation.Children.Add(about);
         navigation.Children.Add(Text("·", 11));

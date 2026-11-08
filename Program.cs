@@ -228,7 +228,7 @@ internal sealed class MainWindow : Window
             Ui.Bind(text, TextBlock.TextProperty, model.State, property); controls.Children.Add(text);
         }
         controls.Children.Add(new Button { Content = "Recheck GPU / restart preview", Command = Controller.RestartCommand, HorizontalAlignment = HorizontalAlignment.Stretch });
-        var footer = Ui.Footer(model.Settings); Grid.SetRow((FrameworkElement)footer, 2); root.Children.Add(footer);
+        var footer = Ui.Footer(); Grid.SetRow((FrameworkElement)footer, 2); root.Children.Add(footer);
         // Overlay the existing bottom-left space without adding a layout row.
         var minimize = new Button
         {

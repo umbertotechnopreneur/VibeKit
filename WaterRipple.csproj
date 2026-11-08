@@ -18,6 +18,7 @@
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../Shared/WidgetAbout.cs" Link="WidgetAbout.cs" />
     <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.6.4" />
     <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.6.4" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" PrivateAssets="all" />

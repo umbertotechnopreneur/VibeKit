@@ -12,7 +12,8 @@ const schema = loadSchema(import.meta.url);
 const smokeTest = ARGV.includes('--smoke-test');
 const app = new Adw.Application({
     application_id: 'local.vibeware.Ripple',
-    flags: smokeTest ? Gio.ApplicationFlags.NON_UNIQUE : Gio.ApplicationFlags.DEFAULT_FLAGS,
+    flags: Gio.ApplicationFlags.HANDLES_COMMAND_LINE |
+        (smokeTest ? Gio.ApplicationFlags.NON_UNIQUE : Gio.ApplicationFlags.DEFAULT_FLAGS),
 });
 
 let window = null;
@@ -30,12 +31,23 @@ function showAbout() {
     showPanel();
     if (window.get_visible_dialog() instanceof Adw.AboutDialog)
         return;
+
+    const [, metadataContents] = directory.get_child('metadata.json').load_contents(null);
+    const metadata = JSON.parse(new TextDecoder().decode(metadataContents));
     const about = new Adw.AboutDialog({
         application_name: 'Ripple',
         application_icon: 'local.vibeware.Ripple',
+        developer_name: 'Umberto Giacobbi',
+        version: metadata['version-name'],
         comments: 'Click-driven ripples for GNOME on Wayland.',
+        website: 'https://umbertogiacobbi.biz',
+        copyright: '© 2026 Umberto Giacobbi',
         license_type: Gtk.License.GPL_3_0,
     });
+    about.add_link('Source on GitHub', 'https://github.com/umbertotechnopreneur/Tools/tree/main/Widgets/WaterRipple/Linux');
+    about.add_link('VibeWare manifesto', 'https://umbertogiacobbi.biz/vibeware/manifesto');
+    about.add_link('Terms', 'https://umbertogiacobbi.biz/terms/');
+    about.add_link('Privacy', 'https://umbertogiacobbi.biz/privacy/');
     about.present(window);
 }
 
@@ -50,9 +62,10 @@ function exitRipple() {
     window.close();
 }
 
-app.connect('activate', () => {
+function activate(startMinimized) {
     if (window) {
-        showPanel();
+        if (!startMinimized)
+            showPanel();
         return;
     }
 
@@ -105,10 +118,11 @@ app.connect('activate', () => {
             console.warn('Ripple lease helper failed to start', error.message);
         }
     }
-    const {page, active} = buildControls(window, settings, app, Boolean(leaseProcess));
+    const {page, active} = buildControls(window, settings, app, Boolean(leaseProcess), startMinimized);
     const toolbar = new Adw.ToolbarView({content: page});
     toolbar.add_top_bar(header);
     window.set_content(toolbar);
+    let panelReady = false;
     if (!smokeTest) {
         tray = new TrayIndicator({
             show: showPanel,
@@ -121,7 +135,7 @@ app.connect('activate', () => {
         }, available => {
             minimize.set_sensitive(available);
             closeDialog?.set_response_enabled('hide', available);
-            if (!available && !window.visible)
+            if (panelReady && !available && !window.visible)
                 showPanel();
         });
         const updateTrayEffect = () => tray.setEffect(active.active, active.sensitive);
@@ -129,15 +143,30 @@ app.connect('activate', () => {
         active.connect('notify::sensitive', updateTrayEffect);
         updateTrayEffect();
     }
-    showPanel();
+    if (startMinimized) {
+        window.minimize();
+        window.set_visible(true);
+    } else {
+        showPanel();
+    }
+    panelReady = true;
     if (smokeTest)
         GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
             exitRipple();
             return GLib.SOURCE_REMOVE;
         });
+}
+
+app.connect('activate', () => activate(false));
+app.connect('command-line', (_app, commandLine) => {
+    if (!smokeTest && commandLine.get_arguments().includes('--autostart'))
+        activate(true);
+    else
+        app.activate();
+    return 0;
 });
 app.connect('shutdown', () => {
     leaseProcess?.force_exit();
     tray?.destroy();
 });
-app.run([]);
+app.run(['ripple', ...ARGV.filter(argument => argument !== '--smoke-test')]);

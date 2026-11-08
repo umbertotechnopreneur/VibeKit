@@ -218,16 +218,35 @@ internal sealed partial class StudioController : IDisposable
         if (model.State.IsClosing || model.State.IsCaptureConsentOpen || model.State.IsSettingsOpen) return;
         await captureConsent.EnsureAsync(((FrameworkElement)window.Content).XamlRoot);
         if (model.State.IsClosing || screen is not null) return;
+        StartScreen();
+    }
+
+    internal void StartAtSignIn()
+    {
+        MinimizeToTray();
+        model.State.CaptureAllowed = Native.SetWindowDisplayAffinity(hwnd, 0);
+        // The optional borderless-capture prompt belongs to the interactive Apply action.
+        StartScreen(atSignIn: true);
+        if (!model.State.IsInTray) window.Activate();
+    }
+
+    private void StartScreen(bool atSignIn = false)
+    {
         generation++;
         timer.Stop(); // Retain the frozen preview surface; its WGC session is already closed.
         try
         {
-            var b = Bounds();
+            // At sign-in the Studio canvas has not been loaded or laid out.
+            var b = atSignIn ? (window.AppWindow.Position.X, window.AppWindow.Position.Y,
+                window.AppWindow.Size.Width, window.AppWindow.Size.Height) : Bounds();
             int hr = Native.RippleCheckCapabilities(b.X, b.Y, b.Width, b.Height, out var caps);
             Log.Information("ApplyRequested Generation={Generation} Supported={Supported} Reason={Reason} GPU={GPU} VRAM={Vram}", generation, caps.Supported, caps.Reason, caps.AdapterName, caps.DedicatedVideoMemory);
+            model.State.CapabilityText = Describe(caps, hr);
             if (hr < 0 || caps.Supported == 0 || !model.State.CaptureAllowed)
             {
-                StartPreview(); model.State.StatusMessage = Describe(caps, hr); return;
+                if (!atSignIn) StartPreview();
+                model.State.StatusMessage = model.State.CaptureAllowed ? Describe(caps, hr) : "Desktop capture is unavailable.";
+                return;
             }
             var session = new ScreenEffectSession(model, caps, metrics =>
             {
@@ -238,7 +257,7 @@ internal sealed partial class StudioController : IDisposable
             model.State.IsScreenEffectActive = true; model.State.CanApply = true;
             model.State.CaptureMessage = "Preview is not active because the effect is applied to the entire screen.";
             session.Start();
-            if (ReferenceEquals(screen, session))
+            if (ReferenceEquals(screen, session) && !model.State.IsInTray)
             {
                 Native.SetTopmost(hwnd, true);
             }
@@ -335,6 +354,7 @@ internal sealed partial class StudioController : IDisposable
         try
         {
             tray.Show();
+            if (!tray.IsVisible) throw new InvalidOperationException("The Windows notification area is unavailable.");
             model.State.IsInTray = true;
             if (screen is null) ReleasePreview();
             window.AppWindow.Hide();

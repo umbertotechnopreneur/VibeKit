@@ -37,7 +37,7 @@ internal sealed class StartupService : IDisposable
                 StartupTaskState.DisabledByUser => "Disabled in Windows Startup Apps. Re-enable it there to allow startup.",
                 StartupTaskState.DisabledByPolicy => "Startup is disabled by your Windows administrator.",
                 StartupTaskState.EnabledByPolicy => "Startup is enabled by your Windows administrator.",
-                StartupTaskState.Enabled => "Water Ripple will open when you sign in to Windows.",
+                StartupTaskState.Enabled => "Water Ripple will start in the notification area and apply click ripples when you sign in.",
                 _ => "Water Ripple will open only when you launch it."
             };
             if (enabled.HasValue) Log.Information("Windows startup preference changed State={State}", current);

@@ -16,7 +16,7 @@ Closing offers tray minimization, exit or cancel. Tray mode keeps an enabled cli
 
 `main` contains only Studio and click-driven water ripples. There are no window-event hooks, transitions, window texture caches, click pulses, border/flash effects or automatic drops. The complete experimental desktop/window effects version is preserved in `codex/window-effects`.
 
-User preferences are bound to `AppSettings`, transient UI state belongs to `AppState`, and settings save immediately by atomic replacement in `%LOCALAPPDATA%\VibeWare\WaterRipple\settings-ripple.json`. This separate file preserves the full version's original `settings.json` when switching branches. Enabled screen mode is never restored automatically on launch.
+User preferences are bound to `AppSettings`, transient UI state belongs to `AppState`, and settings save immediately by atomic replacement in `%LOCALAPPDATA%\VibeWare\WaterRipple\settings-ripple.json`. This separate file preserves the full version's original `settings.json` when switching branches.
 
 ## Performance
 
@@ -44,7 +44,7 @@ For a local signed test package, pass `-CertificateThumbprint` for an existing c
 
 The manifest initially uses the **local test identity** `VibeWare.WaterRipple` / `CN=VibeWare`. Before Store submission, reserve the product in Partner Center and use its exact Package/Identity/Name and Publisher values via `-PackageName` and `-Publisher`. Omit the test signing parameter for Store packaging; the Store signs accepted submissions. The `runFullTrust` desktop capability needs an accurate justification, and listing assets, privacy information and certification checks still need completion. No Store submission or approval is implied by a successful local install.
 
-New MSIX installations register startup as enabled by default. Launch the installed app once to register the task; **Settings** can disable or re-enable it. Updates respect an existing user or administrator decision in Windows. Startup opens Studio at sign-in; it does not automatically activate screen capture. Windows redirects packaged application data under the package's LocalCache; the unpackaged version's preferences are preserved separately by Windows virtualization.
+New MSIX installations register startup as enabled by default. Launch the installed app once to register the task; **Settings** can disable or re-enable it. Updates respect an existing user or administrator decision in Windows. When enabled, the task starts Ripple in the notification area at sign-in and applies click ripples if capture and a supported GPU are available. Studio stays accessible as a window if the notification area is unavailable. A regular launch opens Studio. Windows redirects packaged application data under the package's LocalCache; the unpackaged version's preferences are preserved separately by Windows virtualization.
 
 Packaging staging is under `obj/msix-stage-<version>` and final installers under `dist`. Clean staging after handoff and before another package build, retaining only the requested installer. Cleanup never builds, downloads or scans anything, and no validation/scan journals are written.
 
@@ -60,7 +60,7 @@ This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
 
 ## Capture border and preview status
 
-Windows owns the colored capture border. The app requests `graphicsCaptureWithoutBorder` in the package manifest and sets `GraphicsCaptureSession.IsBorderRequired(false)`. Before requesting Windows consent on the first Apply operation, an in-app dialog explains the request and offers **Ask Windows** or **Keep border**. Declining keeps the app usable; the OS may retain the border. Another app capturing the same display can also require the border. See [Microsoft's IsBorderRequired documentation](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.graphicscapturesession.isborderrequired).
+Windows owns the colored capture border. The package declares `graphicsCaptureWithoutBorder`, and Ripple can set `GraphicsCaptureSession.IsBorderRequired(false)` when permitted. During manual **Apply to screen**, an in-app dialog offers **Ask Windows** or **Keep border** when permission is needed. Ripple requests optional consent only when you choose **Ask Windows**. Automatic startup leaves the border visible when Windows requires it. Another app capturing the same display can also require the border. See [Microsoft's IsBorderRequired documentation](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.graphicscapturesession.isborderrequired).
 
 While the screen effect runs, the Studio preview is covered with a clear paused message. The sidebar and Settings scrollbars are hidden outside their hovered area; mouse-wheel scrolling remains available. No mouse/keyboard automation is needed to build or install these changes.
 

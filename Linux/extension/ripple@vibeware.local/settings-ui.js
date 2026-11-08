@@ -25,7 +25,7 @@ const PRESETS = {
     'Original': [21, 175, 30.65, 4.9, 3.2, 1.25, 5.5, 0, 1],
 };
 
-export function buildControls(window, settings, application = null, externalLease = false) {
+export function buildControls(window, settings, application = null, externalLease = false, startEffect = false) {
     window.set_title('Ripple');
     window.set_default_size(420, 690);
     const page = new Adw.PreferencesPage();
@@ -97,15 +97,19 @@ export function buildControls(window, settings, application = null, externalLeas
     });
     page.add(foot);
     const stop = new Gtk.Button({label: 'Stop', css_classes: ['destructive-action'], margin_top: 6});
-    stop.connect('clicked', () => settings.set_boolean('active', false));
+    let enableWhenReady = startEffect;
+    stop.connect('clicked', () => {
+        enableWhenReady = false;
+        settings.set_boolean('active', false);
+    });
     foot.add(stop);
     let closed = false;
     let timeout = 0;
+    const renewLease = () => {
+        settings.set_double('lease-until', GLib.get_monotonic_time() / 1e6 + 7.5);
+        return GLib.SOURCE_CONTINUE;
+    };
     if (!externalLease) {
-        const renewLease = () => {
-            settings.set_double('lease-until', GLib.get_monotonic_time() / 1e6 + 7.5);
-            return GLib.SOURCE_CONTINUE;
-        };
         renewLease();
         timeout = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, renewLease);
     }
@@ -124,23 +128,42 @@ export function buildControls(window, settings, application = null, externalLeas
     if (application) {
         active.set_sensitive(false);
         const cancellable = new Gio.Cancellable();
-        Gio.DBus.session.call('org.gnome.Shell.Extensions', '/org/gnome/Shell/Extensions',
-            'org.gnome.Shell.Extensions', 'EnableExtension', new GLib.Variant('(s)', [UUID]),
-            null, Gio.DBusCallFlags.NONE, 2000, cancellable, (connection, result) => {
-                if (closed)
-                    return;
-                try {
-                    const [ok] = connection.call_finish(result).deep_unpack();
-                    active.set_sensitive(ok);
-                    if (!ok) {
-                        settings.set_boolean('active', false);
-                        settings.set_string('status', 'Extension available after the next sign-in');
+        let retries = startEffect ? 3 : 0;
+        function enableExtension() {
+            Gio.DBus.session.call('org.gnome.Shell.Extensions', '/org/gnome/Shell/Extensions',
+                'org.gnome.Shell.Extensions', 'EnableExtension', new GLib.Variant('(s)', [UUID]),
+                null, Gio.DBusCallFlags.NONE, 2000, cancellable, (connection, result) => {
+                    if (closed)
+                        return;
+
+                    let ok = false;
+                    let failure = 'Extension available after the next sign-in';
+                    try {
+                        [ok] = connection.call_finish(result).deep_unpack();
+                    } catch {
+                        failure = 'GNOME is unavailable';
                     }
-                } catch (error) {
-                    settings.set_boolean('active', false);
-                    settings.set_string('status', 'GNOME is unavailable');
-                }
-            });
+
+                    if (ok) {
+                        if (enableWhenReady) {
+                            renewLease();
+                            settings.set_boolean('active', true);
+                        }
+                        active.set_sensitive(true);
+                    } else if (retries > 0) {
+                        retries--;
+                        GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, () => {
+                            if (!closed)
+                                enableExtension();
+                            return GLib.SOURCE_REMOVE;
+                        });
+                    } else {
+                        settings.set_boolean('active', false);
+                        settings.set_string('status', failure);
+                    }
+                });
+        }
+        enableExtension();
         window.connect('close-request', () => { cancellable.cancel(); return false; });
     }
     return {page, active, preset, stop, status};

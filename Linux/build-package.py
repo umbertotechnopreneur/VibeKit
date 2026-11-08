@@ -2,13 +2,13 @@
 """Build the GNOME 50 extension archive and Debian package."""
 
 import argparse
+import json
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import zipfile
 
-VERSION = '0.1.2'
 EXTENSION_ID = 'ripple@vibeware.local'
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -17,6 +17,7 @@ output = parser.parse_args().output_dir.resolve()
 output.mkdir(parents=True, exist_ok=True)
 root = Path(__file__).resolve().parent
 source = root / 'extension' / EXTENSION_ID
+version = json.loads((source / 'metadata.json').read_text(encoding='utf-8'))['version-name']
 
 with tempfile.TemporaryDirectory(prefix='water-ripple-') as staging_directory:
     stage = Path(staging_directory) / 'package'
@@ -32,6 +33,9 @@ with tempfile.TemporaryDirectory(prefix='water-ripple-') as staging_directory:
     apps = stage / 'usr/share/applications'
     apps.mkdir(parents=True)
     shutil.copy2(root / 'packaging/local.vibeware.Ripple.desktop', apps)
+    autostart = stage / 'etc/xdg/autostart'
+    autostart.mkdir(parents=True)
+    shutil.copy2(root / 'packaging/ripple-autostart.desktop', autostart / 'local.vibeware.Ripple.desktop')
     icons = stage / 'usr/share/icons/hicolor/scalable/apps'
     icons.mkdir(parents=True)
     shutil.copy2(root / 'packaging/ripple.svg', icons / 'local.vibeware.Ripple.svg')
@@ -44,7 +48,7 @@ with tempfile.TemporaryDirectory(prefix='water-ripple-') as staging_directory:
     metadata = stage / 'DEBIAN'
     metadata.mkdir()
     (metadata / 'control').write_text(f'''Package: vibeware-ripple
-Version: {VERSION}
+Version: {version}
 Section: gnome
 Priority: optional
 Architecture: all
@@ -73,7 +77,7 @@ fi
         path.chmod(0o755 if path.is_dir() or executable else 0o644)
     stage.chmod(0o755)
 
-    package = output / f'vibeware-ripple_{VERSION}_all.deb'
+    package = output / f'vibeware-ripple_{version}_all.deb'
     subprocess.run(['dpkg-deb', '--root-owner-group', '--build', str(stage), str(package)], check=True)
     archive = output / f'{EXTENSION_ID}.shell-extension.zip'
     with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zipped:

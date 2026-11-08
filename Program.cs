@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.Windows.AppLifecycle;
 using Windows.Graphics;
 using Serilog;
 using VirtualKey = Windows.System.VirtualKey;
@@ -18,6 +19,7 @@ public partial class App : Application
     private MainWindow? window;
     private SettingsStore? store;
     private EventWaitHandle? relaunchSignal;
+    private bool startAtSignIn;
 
     [STAThread]
     private static void Main()
@@ -34,6 +36,9 @@ public partial class App : Application
             Environment.ExitCode = hr < 0 ? 1 : 0; return;
         }
 #endif
+        WinRT.ComWrappersSupport.InitializeComWrappers();
+        bool startAtSignIn = AppInstance.GetCurrent().GetActivatedEventArgs().Kind == ExtendedActivationKind.StartupTask;
+
         // Share one instance across the installed package, its alias and local builds.
         using var identity = WindowsIdentity.GetCurrent();
         string instanceName = $@"Local\VibeWare.WaterRipple.{identity.User?.Value}";
@@ -44,15 +49,15 @@ public partial class App : Application
         catch (AbandonedMutexException) { isPrimary = true; }
         if (!isPrimary)
         {
-            activation.Set();
+            if (!startAtSignIn) activation.Set();
             return;
         }
 
-        try { RunApplication(activation); }
+        try { RunApplication(activation, startAtSignIn); }
         finally { instance.ReleaseMutex(); }
     }
 
-    private static void RunApplication(EventWaitHandle activation)
+    private static void RunApplication(EventWaitHandle activation, bool startAtSignIn)
     {
         LoggingService.Initialize();
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
@@ -62,11 +67,10 @@ public partial class App : Application
         };
         try
         {
-            WinRT.ComWrappersSupport.InitializeComWrappers();
             Start(_ =>
             {
                 SynchronizationContext.SetSynchronizationContext(new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread()));
-                new App { relaunchSignal = activation };
+                new App { relaunchSignal = activation, startAtSignIn = startAtSignIn };
             });
         }
         catch (Exception ex) { Log.Fatal(ex, "Application startup failed"); throw; }
@@ -133,8 +137,9 @@ public partial class App : Application
             store.Dispose();
             Exit();
         };
-        mainWindow.Activate();
-        Log.Information("Application started Version={Version}", typeof(App).Assembly.GetName().Version);
+        if (startAtSignIn) mainWindow.Controller.StartAtSignIn();
+        else mainWindow.Activate();
+        Log.Information("Application started Version={Version} StartupTask={StartupTask}", typeof(App).Assembly.GetName().Version, startAtSignIn);
     }
 }
 

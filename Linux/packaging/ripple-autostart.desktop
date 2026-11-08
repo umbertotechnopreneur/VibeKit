@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Ripple
+Exec=gjs -m /usr/share/gnome-shell/extensions/ripple@vibeware.local/control.js --autostart
+TryExec=gjs
+OnlyShowIn=GNOME;
+StartupNotify=false

@@ -1,5 +1,5 @@
 param(
-    [string]$Version = '1.0.1.0',
+    [string]$Version = '1.0.2.0',
     [string]$PackageName = 'VibeWare.WaterRipple',
     [string]$Publisher = 'CN=VibeWare',
     [string]$CertificateThumbprint,

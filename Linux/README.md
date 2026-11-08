@@ -18,7 +18,7 @@ Build the Debian package and extension archive with Python 3, `glib-compile-sche
 
 ```sh
 python3 build-package.py --output-dir /tmp/water-ripple
-sudo apt install /tmp/water-ripple/vibeware-ripple_0.1.2_all.deb
+sudo apt install /tmp/water-ripple/vibeware-ripple_0.1.3_all.deb
 ```
 
 If GNOME has yet to discover a new extension installation, sign out and back in so Ripple can enable it through GNOME's extension service.

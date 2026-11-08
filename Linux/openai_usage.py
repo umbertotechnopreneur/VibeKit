@@ -12,7 +12,6 @@ import subprocess
 import sys
 import threading
 import time
-import weakref
 from watchdog import start as start_watchdog, record as log_event, state_dir
 GUARD = None
 
@@ -27,8 +26,7 @@ sys.excepthook = report_unhandled
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-gi.require_version("Graphene", "1.0")
-from gi.repository import Adw, Gdk, GdkPixbuf, GLib, Gtk, Pango, PangoCairo, Graphene, Gio
+from gi.repository import Adw, Gdk, GdkPixbuf, GLib, Gtk, Pango, PangoCairo, Gio
 from tray import StatusTray
 import cairo
 
@@ -69,26 +67,30 @@ notebook, notebook > stack, notebook > header { background: transparent; border:
 notebook > header > tabs > tab { background: transparent; padding: 10px 20px; }
 notebook > header > tabs > tab:checked { box-shadow: inset 0 -3px @accent_bg_color; }
 .title { font-size: 21px; font-weight: 650; }
-.huge { font-family: monospace; font-size: 64px; font-weight: 700; color: @accent_color; }
-.forecast { font-family: monospace; font-size: 32px; font-weight: 700; color: @accent_color; }
-.metric { font-family: monospace; font-size: 30px; font-weight: 650; color: @accent_color; }
-.quota-low { color: @warning_color; }
-.credit-value { color: #10774f; }
+.huge { font-family: monospace; font-size: 64px; font-weight: 700; }
+.forecast { font-family: monospace; font-size: 32px; font-weight: 700; }
+.metric { font-family: monospace; font-size: 30px; font-weight: 650; }
+.summary .quota-low { font-weight: 800; }
 .learning { font-size: 24px; opacity: .75; color: @window_fg_color; }
 .placeholder { font-size: 18px; opacity: .7; color: @window_fg_color; }
-.mono-detail { font-family: monospace; font-size: 12px; color: @accent_color; }
-window.dark .credit-value { color: #67e1b0; }
+.mono-detail { font-family: monospace; font-size: 12px; }
 .summary .huge { font-size: 40px; }
 .summary .metric { font-size: 25px; }
-.micro .summary .huge { font-size: 18px; }
-.micro .summary .metric { font-size: 14px; }
-.micro .summary .dim { font-size: 11px; opacity: .85; }
-.micro .day { font-size: 10px; }
-.micro button.icon-action { padding: 4px; min-width: 16px; min-height: 16px; }
-.micro button.icon-action image { -gtk-icon-size: 14px; }
+window.micro {
+    border-radius: 20px;
+    border: 1px solid alpha(@accent_bg_color, .32);
+    box-shadow: inset 0 0 3px alpha(@accent_bg_color, .09);
+}
+window.micro:backdrop { border-color: transparent; box-shadow: none; }
+.micro .summary .huge { font-size: 20px; }
+.micro .summary .metric { font-size: 16px; }
+.micro .summary .dim { font-size: 12px; opacity: .85; }
+.micro .day { font-size: 11px; }
+.micro button.icon-action { padding: 5px; min-width: 18px; min-height: 18px; }
+.micro button.icon-action image { -gtk-icon-size: 16px; }
 .heading { font-size: 15px; }
 .dim { opacity: .70; font-size: 12px; }
-.warning { color: @warning_color; }
+.warning { color: @window_fg_color; font-weight: 650; }
 .day { font-size: 11px; opacity: .7; }
 .bar { background: @accent_bg_color; border-radius: 3px 3px 0 0; }
 .missing { background: @window_fg_color; opacity: .35; }
@@ -112,59 +114,8 @@ window.widget-about, .widget-about .about-body { background-color: #fff4dc; colo
 """
 
 
-GRADIENT_LABELS = weakref.WeakSet()
-
-
-class GradientLabel(Gtk.Box):
-    """GTK/Pango label painted with a native Cairo text gradient; no HTML renderer."""
-    def __init__(self, label="", xalign=0, wrap=True, **kwargs):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, **kwargs)
-        self.native_label = Gtk.Label(label=label, xalign=xalign, wrap=wrap)
-        self.append(self.native_label)
-        GRADIENT_LABELS.add(self)
-
-    def set_text(self, value):
-        self.native_label.set_text(value)
-        self.queue_draw()
-
-    def set_xalign(self, value):
-        self.native_label.set_xalign(value)
-
-    def set_max_width_chars(self, value):
-        self.native_label.set_max_width_chars(value)
-
-    def set_wrap(self, value):
-        self.native_label.set_wrap(value)
-
-    def do_snapshot(self, snapshot):
-        width, height = self.get_width(), self.get_height()
-        if width <= 0 or height <= 0:
-            return
-        cr = snapshot.append_cairo(Graphene.Rect().init(0, 0, width, height))
-        success, accent = self.get_style_context().lookup_color("accent_color")
-        rgb = (accent.red, accent.green, accent.blue) if success else (.1, .4, .7)
-        dark = Adw.StyleManager.get_default().get_dark()
-        if self.has_css_class("quota-low") or self.has_css_class("warning"):
-            ok, warning = self.get_style_context().lookup_color("warning_color")
-            if ok:
-                rgb = (warning.red, warning.green, warning.blue)
-        if dark:
-            start = tuple(.88 + c*.1 for c in rgb)
-            end = tuple(.45 + c*.5 for c in rgb)
-        else:
-            start = (.055, .07, .09)
-            end = tuple(c*.58 for c in rgb)
-        gradient = cairo.LinearGradient(0, 0, max(1, width), max(1, height*.3))
-        gradient.add_color_stop_rgb(0, *start)
-        gradient.add_color_stop_rgb(1, *end)
-        cr.set_source(gradient)
-        x, y = self.native_label.get_layout_offsets()
-        cr.move_to(x, y)
-        PangoCairo.show_layout(cr, self.native_label.get_layout())
-
-
 def text(value, style=None):
-    label = GradientLabel(label=value, xalign=0, wrap=True)
+    label = Gtk.Label(label=value, xalign=0, wrap=True)
     if style:
         label.add_css_class(style)
     return label
@@ -195,20 +146,19 @@ def metric(label, number):
 
 
 class FlipTile(Gtk.Box):
-    def __init__(self, name):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    def __init__(self, name, caption):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=3)
         self.value = "--"
         self.previous = "--"
         self.started = None
         self.ticking = False
-        self.face = Gtk.DrawingArea(content_width=130, content_height=100, hexpand=True)
+        self.face = Gtk.DrawingArea(content_width=36, content_height=32, hexpand=True)
         self.face.set_draw_func(self.draw)
         self.face.update_property([Gtk.AccessibleProperty.LABEL], [name + ": unavailable"])
         self.name = name
         self.append(self.face)
-        label = Gtk.Label(label=name)
+        label = Gtk.Label(label=caption, tooltip_text=name)
         label.add_css_class("day")
-        self.caption = label
         self.append(label)
 
     def update(self, value, animate):
@@ -260,12 +210,15 @@ class FlipTile(Gtk.Box):
                               (radius, radius, math.pi, 3*math.pi/2)):
             cr.arc(cx, cy, radius, a, b)
         cr.close_path()
+        dark = Adw.StyleManager.get_default().get_dark()
+        top, bottom = (.15, .05) if dark else (.99, .89)
+        edge = .02 if dark else .74
         gradient = cairo.LinearGradient(0, 0, 0, height)
-        gradient.add_color_stop_rgb(0, .14, .15, .16)
-        gradient.add_color_stop_rgb(1, .045, .05, .06)
+        gradient.add_color_stop_rgb(0, top, top, top)
+        gradient.add_color_stop_rgb(1, bottom, bottom, bottom)
         cr.set_source(gradient)
         cr.fill_preserve()
-        cr.set_source_rgb(.02, .02, .02)
+        cr.set_source_rgb(edge, edge, edge)
         cr.set_line_width(2)
         cr.stroke()
         layout = PangoCairo.create_layout(cr)
@@ -273,23 +226,26 @@ class FlipTile(Gtk.Box):
         layout.set_text(value, -1)
         tw, th = layout.get_pixel_size()
         cr.move_to((width-tw)/2, (height-th)/2)
-        cr.set_source_rgb(.98, .97, .94)
+        ink = 1 if dark else 0
+        cr.set_source_rgb(ink, ink, ink)
         PangoCairo.show_layout(cr, layout)
-        cr.set_source_rgb(.02, .02, .02)
+        cr.set_source_rgb(edge, edge, edge)
         cr.set_line_width(2)
         cr.move_to(2, height/2)
         cr.line_to(width-2, height/2)
         cr.stroke()
-        cr.set_source_rgb(.40, .42, .44)
+        hinge = .42 if dark else .65
+        cr.set_source_rgb(hinge, hinge, hinge)
         for x in (1, width-5):
             cr.rectangle(x, height/2-6, 4, 12)
             cr.fill()
         cr.restore()
 
 
-class UsageWindow(Adw.ApplicationWindow):
+class UsageWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title="OpenAI Usage", default_width=600, default_height=66,
+        # Adw.ApplicationWindow imposes a minimum height larger than the strip.
+        super().__init__(application=app, title="OpenAI Usage", default_height=62,
                          icon_name="biz.umbertogiacobbi.OpenAIUsage")
         self.state = {}
         self.settings = {}
@@ -306,37 +262,35 @@ class UsageWindow(Adw.ApplicationWindow):
         self.set_resizable(False)
         self.connect("close-request", self.on_close)
 
-        strip=box(10,True)
+        strip=box(12,True)
         for setter in (strip.set_margin_start,strip.set_margin_end):
             setter(10)
         for setter in (strip.set_margin_top,strip.set_margin_bottom):
-            setter(6)
+            setter(7)
         strip.set_valign(Gtk.Align.CENTER)
         self.brand=Gtk.Image.new_from_file(str(ROOT/"Branding/app-icon-512.png"))
-        self.brand.set_pixel_size(22)
+        self.brand.set_pixel_size(25)
         self.brand.set_tooltip_text("Connecting to Codex…")
         strip.append(self.brand)
 
-        summary=Gtk.Grid(column_spacing=10,column_homogeneous=True,hexpand=True,valign=Gtk.Align.CENTER)
+        summary=Gtk.Grid(column_spacing=16, valign=Gtk.Align.CENTER)
         summary.add_css_class("summary")
         quota=box(4)
         quota.append(self.label("allowanceLabel","Weekly limit","dim"))
         quota.append(self.label("remaining","—","huge"))
         summary.attach(quota,0,0,1,1)
-        summary.attach(metric("Today tokens",self.label("todayTokensLabel","—","metric")),1,0,1,1)
-        summary.attach(metric("Remaining credits",self.label("creditsLabel","—","metric")),2,0,1,1)
+        summary.attach(metric("Tokens today",self.label("todayTokensLabel","—","metric")),1,0,1,1)
+        summary.attach(metric("Credits left",self.label("creditsLabel","—","metric")),2,0,1,1)
         for i in range(3):
             heading=summary.get_child_at(i,0).get_first_child()
             heading.set_wrap(False)
         strip.append(summary)
 
-        tile_row=box(4,True)
+        tile_row=box(5,True)
         tile_row.set_homogeneous(True)
-        self.tiles=[FlipTile(name) for name in ("DAYS","HOURS","MINUTES","SECONDS")]
+        self.tiles = [FlipTile(name, caption) for name, caption in
+                      (("Days", "DAYS"), ("Hours", "HRS"), ("Minutes", "MIN"), ("Seconds", "SEC"))]
         for tile in self.tiles:
-            tile.set_spacing(4)
-            tile.face.set_content_width(36)
-            tile.face.set_content_height(34)
             tile_row.append(tile)
         strip.append(tile_row)
 
@@ -360,7 +314,7 @@ class UsageWindow(Adw.ApplicationWindow):
         drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         drag.connect("pressed",self.begin_move)
         handle.add_controller(drag)
-        self.set_content(handle)
+        self.set_child(handle)
         log_event("window.compact","Compact-only native widget; no full-mode or caption sizing controls.")
         try:
             self.tray=StatusTray({"open":self.present,"about":self.show_about,"settings":self.show_settings,
@@ -413,7 +367,6 @@ class UsageWindow(Adw.ApplicationWindow):
         self.labels["todayTokensLabel"].set_text(state.get("todayTokensLabel","—"))
         self.labels["todayTokensLabel"].set_tooltip_text(state.get("todayTokensNote",""))
         self.labels["creditsLabel"].set_text(state.get("creditsLabel","—"))
-        self.labels["creditsLabel"].set_tooltip_text(state.get("creditValueLabel",""))
         self.labels["remaining"].set_tooltip_text(state.get("resetLabel","") + "\n" + state.get("forecastDetail",""))
         low=state.get("remaining") is not None and state["remaining"]<=10
         (self.labels["remaining"].add_css_class if low else self.labels["remaining"].remove_css_class)("quota-low")
@@ -430,7 +383,7 @@ class UsageWindow(Adw.ApplicationWindow):
         end=self.state.get("resetsAt")
         seconds=max(0,int(end-time.time())) if end is not None else None
         values=[f"{seconds//86400:02}",f"{seconds//3600%24:02}",f"{seconds//60%60:02}",f"{seconds%60:02}"] if seconds is not None else ["--"]*4
-        animations=Gtk.Settings.get_default().get_property("gtk-enable-animations") and not self.settings.get("reduceMotion",False)
+        animations = Gtk.Settings.get_default().get_property("gtk-enable-animations")
         for tile,value in zip(self.tiles,values):
             tile.update(value,animations)
         status=self.state.get("status","Connecting to Codex…")
@@ -481,34 +434,22 @@ class UsageWindow(Adw.ApplicationWindow):
         content = box(12)
         for setter in (content.set_margin_start, content.set_margin_end, content.set_margin_top, content.set_margin_bottom):
             setter(24)
-        fields = {}
-        for key, label, default in (("codexPath", "Codex executable", "codex"),
-                                    ("creditUnitPrice", "Your purchase price per credit (optional)", ""),
-                                    ("currency", "Currency (ISO code)", "USD"),
-                                    ("timeZoneId", "Time zone ID", "UTC")):
-            content.append(text(label, "dim"))
-            entry = Gtk.Entry(text=str(self.settings.get(key) if self.settings.get(key) is not None else default))
-            fields[key] = entry
-            content.append(entry)
-        motion = Gtk.CheckButton(label="Reduce motion", active=self.settings.get("reduceMotion", False))
-        content.append(motion)
-        content.append(text("Uses your existing Codex ChatGPT sign-in. Credit value is a purchase-cost estimate only.", "dim"))
+        executable = Gtk.Entry(text=self.settings.get("codexPath", "codex"))
+        timezone = Gtk.Entry(text=self.settings.get("timeZoneId", "UTC"))
+        content.append(text("Codex executable", "dim"))
+        content.append(executable)
+        content.append(text("Time zone", "dim"))
+        content.append(timezone)
+        content.append(text("Uses your existing Codex ChatGPT sign-in.", "dim"))
         error = text("", "warning")
         content.append(error)
         buttons = box(12, True)
         cancel = Gtk.Button(label="Cancel"); cancel.connect("clicked", lambda *_: dialog.close()); buttons.append(cancel)
         save = Gtk.Button(label="Save"); save.add_css_class("suggested-action"); buttons.append(save)
         def submit(*_):
-            try:
-                values = {key: entry.get_text().strip() for key, entry in fields.items()}
-                price = float(values["creditUnitPrice"]) if values["creditUnitPrice"] else None
-                if price is not None and (not math.isfinite(price) or price < 0):
-                    raise ValueError("Enter a nonnegative purchase price or leave it empty.")
-                values["creditUnitPrice"] = price
-                values["reduceMotion"] = motion.get_active()
-                self.save_async(dict(self.settings, **values), dialog, error)
-            except ValueError as exc:
-                error.set_text(str(exc))
+            settings = dict(self.settings, codexPath=executable.get_text().strip(),
+                            timeZoneId=timezone.get_text().strip())
+            self.save_async(settings, dialog, error)
         save.connect("clicked", submit)
         content.append(buttons)
         dialog.set_child(content)
@@ -656,18 +597,17 @@ class UsageApp(Adw.Application):
         if self.window is None:
             manager = Adw.StyleManager.get_default()
             manager.set_color_scheme(Adw.ColorScheme.DEFAULT)
-            def redraw_gradients(*_):
-                for label in list(GRADIENT_LABELS):
-                    label.queue_draw()
-            manager.connect("notify::dark", redraw_gradients)
-            if manager.find_property("accent-color") is not None:
-                manager.connect("notify::accent-color", redraw_gradients)
             provider = Gtk.CssProvider()
             provider.load_from_data(CSS)
             Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
             Gtk.IconTheme.get_for_display(Gdk.Display.get_default()).add_search_path(str(ROOT/"Branding/icons"))
             self.window = UsageWindow(self)
+            manager.connect("notify::dark", self.redraw_countdown)
         self.window.present()
+
+    def redraw_countdown(self, *_):
+        for tile in self.window.tiles:
+            tile.face.queue_draw()
 
 
 if __name__ == "__main__":

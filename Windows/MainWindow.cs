@@ -5,15 +5,16 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
-using System.Globalization;
 using System.Runtime.InteropServices;
 using Tools.Widgets;
+using Windows.ApplicationModel;
 using Windows.UI.ViewManagement;
 
 namespace OpenAIUsage.Windows;
 
 public sealed class MainWindow : Window
 {
+    private const string StartupTaskId = "OpenAIUsageStartup";
     private static readonly SolidColorBrush Accent=new(), PrimaryText=new(), SecondaryText=new(), WarningText=new();
     private static readonly FontFamily MetricFont=new("Cascadia Mono, Consolas");
     private static readonly LinearGradientBrush ValueGradient=new() { StartPoint=new(0,0), EndPoint=new(1,.25), GradientStops={new(),new(){Offset=1}} };
@@ -91,6 +92,7 @@ public sealed class MainWindow : Window
                 ()=>OpenLink("https://umbertogiacobbi.biz"),()=>OpenLink("https://umbertogiacobbi.biz/vibeware/manifesto"),ExitApplication);
                 Diagnostics.Record("tray.ready","Native notification icon registered."); }
             catch(Exception error) { Diagnostics.Record("tray.unavailable",error.Message); }
+            ApplyTaskbarVisibility();
             clock.Start(); refresh.Start(); await RefreshAsync();
             DispatcherQueue.TryEnqueue(()=>{root.UpdateLayout();UpdateDragRegions();LogLayout();});
         };
@@ -125,12 +127,13 @@ public sealed class MainWindow : Window
     {
         long? seconds=state.ResetsAt is {} end?Math.Max(0,end-DateTimeOffset.UtcNow.ToUnixTimeSeconds()):null;
         string[] values=seconds is {} s?[$"{s/86400:00}",$"{s/3600%24:00}",$"{s/60%60:00}",$"{s%60:00}"]:["--","--","--","--"];
-        for(int i=0;i<4;i++)tiles[i].Set(values[i],!settings.ReduceMotion && systemSettings.AnimationsEnabled);
+        for(int i=0;i<4;i++)tiles[i].Set(values[i],systemSettings.AnimationsEnabled);
         ToolTipService.SetToolTip(remaining,allowance.Text+": "+remaining.Text+" · "+state.ResetLabel);
         bool elapsed=state.ResetsAt is {} reset && reset<=DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         if(elapsed && !busy && state.Connected && DateTimeOffset.UtcNow-lastResetRefresh>TimeSpan.FromMinutes(1)) {lastResetRefresh=DateTimeOffset.UtcNow;_=RefreshAsync();}
     }
     private void ApplyTopmost() {if(AppWindow.Presenter is OverlappedPresenter p)p.IsAlwaysOnTop=settings.AlwaysOnTop;}
+    private void ApplyTaskbarVisibility() => AppWindow.IsShownInSwitchers = settings.ShowInTaskbar || tray?.IsAvailable != true;
     private void UpdatePinVisual() {if(pin.Content is FontIcon glyph)glyph.Foreground=pin.IsChecked==true?Accent:PrimaryText;}
     private void ShowWindow() {AppWindow.Show();if(activeDialog is not null)activeDialog.Activate();else Activate();}
     private void ExitApplication() {allowClose=true;Close();}
@@ -289,28 +292,94 @@ public sealed class MainWindow : Window
     }
     private void SaveSettings(){try{storage.SaveSettings(settings);}catch(Exception error){Diagnostics.Record("settings.failed",error.Message);tray?.NotifyError("Could not save settings.");}}
 
+    private static async Task AddStartupPreferenceAsync(StackPanel content)
+    {
+        var startup = new CheckBox { Content = "Start with Windows", IsEnabled = false };
+        var hint = Text("Available with the MSIX installation.", 12);
+        content.Children.Add(startup);
+        content.Children.Add(hint);
+
+        StartupTask task;
+        try { task = await StartupTask.GetAsync(StartupTaskId); }
+        catch (Exception error)
+        {
+            Diagnostics.Record("startup.unavailable", error.GetType().Name);
+            return;
+        }
+
+        void ShowState(StartupTaskState state)
+        {
+            startup.IsChecked = state is StartupTaskState.Enabled or StartupTaskState.EnabledByPolicy;
+            startup.IsEnabled = state is StartupTaskState.Enabled or StartupTaskState.Disabled;
+            hint.Text = state switch
+            {
+                StartupTaskState.DisabledByUser => "Re-enable OpenAI Usage in Windows Settings > Apps > Startup.",
+                StartupTaskState.DisabledByPolicy or StartupTaskState.EnabledByPolicy => "Managed by Windows policy.",
+                _ => "Applies immediately when changed."
+            };
+        }
+
+        ShowState(task.State);
+        startup.Click += async (_, _) =>
+        {
+            startup.IsEnabled = false;
+            var state = task.State;
+            try
+            {
+                if (startup.IsChecked == true && state == StartupTaskState.Disabled)
+                    state = await task.RequestEnableAsync();
+                else if (startup.IsChecked == false && state == StartupTaskState.Enabled)
+                {
+                    task.Disable();
+                    state = task.State;
+                }
+                ShowState(state);
+            }
+            catch (Exception error)
+            {
+                ShowState(state);
+                hint.Text = "Could not change the Windows startup setting.";
+                Diagnostics.Record("startup.failed", error.GetType().Name);
+            }
+        };
+    }
+
     private async Task ShowSettingsAsync()
     {
         ShowWindow();
         var executable = new TextBox { Header = "Codex executable", Text = settings.CodexPath };
-        var rate = new TextBox { Header = "Your purchase price per credit (optional)", PlaceholderText = "Leave empty if unknown", Text = settings.CreditUnitPrice?.ToString(CultureInfo.InvariantCulture) ?? "" };
-        var currency = new TextBox { Header = "Currency (ISO code)", Text = settings.Currency };
-        var timezone = new TextBox { Header = "Time zone ID", Text = settings.TimeZoneId };
-        var motion = new CheckBox { Content = "Reduce motion", IsChecked = settings.ReduceMotion };
-        var content = new StackPanel { Spacing = 12, MinWidth = 380 }; content.Children.Add(executable); content.Children.Add(rate); content.Children.Add(currency); content.Children.Add(timezone); content.Children.Add(motion);
-        content.Children.Add(Text("Uses your existing Codex ChatGPT sign-in. Credit value uses your purchase rate only; it is not an official price or cash balance.", 12));
+        var timezone = new TextBox { Header = "Time zone", Text = settings.TimeZoneId };
+        var taskbar = new CheckBox { Content = "Show in taskbar", IsChecked = settings.ShowInTaskbar };
+        var content = new StackPanel { Spacing = 12, MinWidth = 380 };
+        content.Children.Add(executable);
+        content.Children.Add(timezone);
+        content.Children.Add(Text("Uses your existing Codex ChatGPT sign-in.", 12));
+        content.Children.Add(taskbar);
+        await AddStartupPreferenceAsync(content);
         var error = Text("", 12); error.Foreground = new SolidColorBrush(Colors.Orange); content.Children.Add(error);
         bool Save()
         {
             try
             {
-                decimal? price = string.IsNullOrWhiteSpace(rate.Text) ? null : decimal.Parse(rate.Text, CultureInfo.InvariantCulture);
-                var next = new WidgetSettings { CodexPath = executable.Text.Trim(), CreditUnitPrice = price, Currency = currency.Text.Trim().ToUpperInvariant(), TimeZoneId = timezone.Text.Trim(), ReduceMotion = motion.IsChecked == true, AlwaysOnTop = settings.AlwaysOnTop, SelectedWindow = settings.SelectedWindow };
-                storage.SaveSettings(next); settings = next;return true;
+                var next = new WidgetSettings
+                {
+                    CodexPath = executable.Text.Trim(),
+                    TimeZoneId = timezone.Text.Trim(),
+                    AlwaysOnTop = settings.AlwaysOnTop,
+                    ShowInTaskbar = taskbar.IsChecked == true,
+                    SelectedWindow = settings.SelectedWindow
+                };
+                storage.SaveSettings(next);
+                settings = next;
+                return true;
             }
             catch (Exception ex) { error.Text = ex.Message;return false; }
         }
-        if(await ShowDialogAsync("OpenAI Usage · Preferences",content,closeButtonText:"Cancel",primaryButtonText:"Save",onPrimary:Save)==ContentDialogResult.Primary)await RefreshAsync();
+        if (await ShowDialogAsync("OpenAI Usage · Preferences", content, closeButtonText: "Cancel", primaryButtonText: "Save", onPrimary: Save) == ContentDialogResult.Primary)
+        {
+            ApplyTaskbarVisibility();
+            await RefreshAsync();
+        }
     }
 
     private static TextBlock Text(string text,double size,bool bold=false)=>new(){Text=text,FontSize=size,TextWrapping=TextWrapping.Wrap,FontWeight=bold?Microsoft.UI.Text.FontWeights.SemiBold:Microsoft.UI.Text.FontWeights.Normal,Foreground=PrimaryText};

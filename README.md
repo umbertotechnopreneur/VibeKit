@@ -6,7 +6,7 @@ Two native desktop clients in the existing `E:/tools` repository:
 - **Linux:** Python / GTK 4 / libadwaita, one compact native window surface. Follows the GNOME 50 design, with compatible theme colors for libadwaita 1.5+ on Ubuntu 24.04 and newer.
 - **Shared:** C# / .NET 10 account reader and analytics. Both clients use the same calculations and settings schema.
 
-The UI is compact-only: allowance percentage, today's tokens, remaining credits and a four-unit mechanical countdown. There is no full dashboard, mode switch, minimize button or maximize button. Preferences and About open in separate native windows. On Windows, Preferences uses desktop acrylic and stays above the widget, outside the taskbar and Alt+Tab. The main widgets follow the system theme. About uses the cream VibeWare layout on both platforms and keeps the watchdog and log location under **Technical details**.
+The widget shows the allowance percentage, today's tokens, remaining credits and a four-unit countdown. Preferences and About open in separate native windows. On Windows, Preferences uses desktop acrylic and stays above the widget, outside the taskbar and Alt+Tab. The main widgets follow the system theme. About uses the cream VibeWare layout on both platforms and keeps the watchdog and log location under **Technical details**.
 
 The shared generated icon is used by the executable, window/header, About, Start/app-menu entries and packages. Metrics use monospace typography. Text gradients use the system accent and adjust their lightness to the system theme: native WinUI gradient brushes on Windows and native Pango/Cairo snapshots on GTK. Toolbar controls show only their icons at rest.
 
@@ -36,10 +36,11 @@ Token quantities use decimal prefixes **K, M, G, T, P, E** (powers of 1,000). Th
 
 Installer targets for **0.4.1**, generated on demand from the current source. These paths exist only until cleanup:
 
-- `artifacts/installers/OpenAIUsage-0.4.1-windows-x64.msi`: per-user Windows x64 installation under `%LOCALAPPDATA%/Programs/OpenAI Usage`, Start menu shortcut and standard Windows uninstall/upgrade support. Includes .NET and Windows App SDK runtime files. No background service or autostart entry.
+- Signed Windows 11 x64 MSIX: per-user installation with a Start menu entry and optional startup at sign-in. Includes .NET and Windows App SDK runtime files. It uses the same local data directory as the MSI.
+- `artifacts/installers/OpenAIUsage-0.4.1-windows-x64.msi`: per-user Windows x64 installation under `%LOCALAPPDATA%/Programs/OpenAI Usage`, Start menu shortcut and standard Windows uninstall/upgrade support. Includes .NET and Windows App SDK runtime files.
 - `artifacts/installers/openai-usage_0.4.1-1_amd64.deb`: Ubuntu amd64 package with a self-contained Linux .NET backend, launcher and desktop entry. GTK/Python/system-library prerequisites are declared as APT dependencies. Targets Ubuntu 24.04+; runtime execution on Ubuntu is not verified here.
 
-Both require a separately installed Codex CLI and your own ChatGPT sign-in. The installers contain no credentials and do not install or sign in to Codex. Local packages are unsigned. Package validation, Windows installation/startup and native GTK runtime validation are separate checks; report their results in the current task rather than retaining a historical report.
+All packages require a separately installed Codex CLI and your own ChatGPT sign-in. The installers contain no credentials and do not install or sign in to Codex. The local MSI and DEB are unsigned. Package validation, Windows installation/startup and native GTK runtime validation are separate checks; report their results in the current task rather than retaining a historical report.
 
 ```sh
 sudo apt install ./openai-usage_0.4.1-1_amd64.deb
@@ -59,7 +60,6 @@ The widget starts a private stdio `codex app-server`, initializes it and issues 
 | Plan | `account/read`, retained by the shared backend. |
 | Quota history | Local percentage observations, isolated by hashed account identity, window and plan. The account API does not provide historical daily quota percentages. |
 | Autonomy | Remaining percentage points divided by observed daily percentage-point consumption. Tokens are never assumed equivalent to quota percentage. |
-| Credit value | Optional user-entered purchase price per credit and currency. No default conversion, subscription valuation or redeemable cash value. |
 
 Account data refreshes every 60 seconds; the countdown updates every second. Requests time out, failed refreshes clear old account data, and stale/reset-pending states are visible. Authentication and schema failures show unavailable states, never sample numbers. API-key-only accounts do not expose the subscription allowance.
 
@@ -77,7 +77,7 @@ Source-built Debug output, available only before cleanup:
 
 Requires Windows x64, .NET 10 runtime and an installed Codex CLI signed in with ChatGPT. Windows App SDK components are included. Keep the output folder intact; this is an unpackaged app, not an installer. Run `codex login` yourself when needed, or set the native Codex executable path in Settings.
 
-Settings include Codex path, optional credit purchase price/currency, reporting timezone and reduced motion. The pin button controls always-on-top. System animation preferences are respected; there is no mechanical sound.
+Preferences include the Codex executable path, reporting time zone and **Show in taskbar**. Clearing **Show in taskbar** also hides the window from Alt+Tab. The notification icon stays registered independently and can reopen the widget. In the MSIX installation, **Start with Windows** is off by default and takes effect immediately when changed. The pin button controls always-on-top. System animation preferences are respected; there is no mechanical sound.
 
 ## Linux / GNOME
 
@@ -105,6 +105,16 @@ $imports = & .\Prepare-Imports.ps1
 
 Preparation downloads official dependencies and explicitly scans the imported archives and extracted files. It returns an in-memory verification object for the current build; do not serialize or export it. Build scripts validate this transient object and the unchanged staged files before using them. Builds and tests never start antivirus scans. Cleanup removes generated outputs and local dependency caches; a later build starts a fresh preparation session.
 
+To build the Windows-only MSIX, use the Windows SDK 10.0.26100.0 and a code-signing certificate in `CurrentUser\My` with subject `CN=VibeWare`. The certificate must already be trusted by the installation machine. Use a new output path outside the widget directory.
+
+```powershell
+$imports = & .\Prepare-Imports.ps1 -ForPackaging -WindowsOnly
+& .\Build.ps1 -Imports $imports -Configuration Release -MsixPath $msixPath -CertificateThumbprint $thumbprint
+Add-AppxPackage -Path $msixPath
+```
+
+The MSIX build compiles only the Windows widget and skips the behavioral checks. Delete the temporary MSIX after installing it unless it is needed for handoff.
+
 For self-contained Release installers:
 
 ```powershell
@@ -118,7 +128,7 @@ The packaging workflow forces clean source rebuilds, checks the compiled version
 & .\Packaging\Clean-BuildOutputs.ps1
 ```
 
-No build/release history or antivirus evidence files are retained. The dependency-free C# checks cover forecast arithmetic, reset ordering, exhausted/zero/missing usage, incomplete coverage, monitoring gaps, plan changes, DST, current-day exclusion, token totals, duplicate dates, quota selection, credits, purchase valuation and account-isolated atomic persistence. Native GTK behavior still requires a GNOME smoke test.
+No build/release history or antivirus evidence files are retained. The dependency-free C# checks cover forecast arithmetic, reset ordering, exhausted/zero/missing usage, incomplete coverage, monitoring gaps, plan changes, DST, current-day exclusion, token totals, duplicate dates, quota selection, credits and account-isolated atomic persistence. Native GTK behavior still requires a GNOME smoke test.
 
 ## Local state
 

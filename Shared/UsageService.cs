@@ -46,6 +46,17 @@ public sealed class UsageService(Storage storage)
             TokenEndDate = tokenToday.AddDays(-1).ToString("yyyy-MM-dd"),
             AccessNote = usage.SpendBlocked ? "Account spending control reached." : usage.OrdinaryUsageAllowed == false ? "Included usage is currently blocked by the service." : ""
         };
+        if (usage.ResetVouchers is { } vouchers)
+        {
+            state.ResetVoucherCount = vouchers.AvailableCount;
+            state.ResetVoucherExpirations = vouchers.Expirations.Take(2).Select(expiry =>
+            {
+                if (expiry is null) return new ResetVoucherDisplay("—", "Codex did not provide an expiration date for this voucher.");
+                var local = TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeSeconds(expiry.Value), zone);
+                return new ResetVoucherDisplay(local.ToString("MMMM d · HH:mm", CultureInfo.InvariantCulture),
+                    local.ToString("dddd, MMMM d, yyyy · HH:mm:ss zzz", CultureInfo.InvariantCulture) + " · " + zone.Id);
+            }).ToArray();
+        }
         string? limitPrefix = selected?.Key.Split(':')[0];
         state.ResetDisplays = usage.Windows
             .Where(w => w.ResetsAt > now.ToUnixTimeSeconds() && limitPrefix is not null && w.Key.StartsWith(limitPrefix + ":", StringComparison.Ordinal))

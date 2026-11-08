@@ -4,17 +4,36 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using Tools.Widgets;
 using Windows.ApplicationModel;
 using Windows.UI.ViewManagement;
+using global::Windows.Graphics;
+using WindowsColor = global::Windows.UI.Color;
 
 namespace OpenAIUsage.Windows;
 
 public sealed class MainWindow : Window
 {
     private const string StartupTaskId = "OpenAIUsageStartup";
+    private const int EstimateSeconds = 10, VoucherSeconds = 5;
+    private const double CountdownWidth = 270;
+    private static readonly int[] WindowOpacityOptions = [25, 50, 75, 100];
+    private static readonly (double Percent, uint Light, uint Dark)[] UsageColors =
+    [
+        (0,   0x7B1223, 0xF64868),
+        (5,   0x90142A, 0xFF5372),
+        (10,  0xA52338, 0xFF6375),
+        (20,  0xA23818, 0xFF865F),
+        (50,  0x855600, 0xFFD064),
+        (75,  0x506D08, 0xB9DE79),
+        (100, 0x0C6845, 0x75E7AC)
+    ];
     private static readonly SolidColorBrush Accent=new(), PrimaryText=new(), SecondaryText=new(), WarningText=new();
     private static readonly FontFamily MetricFont=new("Cascadia Mono, Consolas");
     private static readonly LinearGradientBrush ValueGradient=new() { StartPoint=new(0,0), EndPoint=new(1,.25), GradientStops={new(),new(){Offset=1}} };
@@ -22,15 +41,22 @@ public sealed class MainWindow : Window
     private WidgetSettings settings;
     private WidgetState state=new();
     private readonly Grid root=new() { Background=new SolidColorBrush(Colors.Transparent) };
-    private readonly Grid strip=new() { Width=819, ColumnSpacing=16, Margin=new(14,8,14,8) };
-    private readonly StackPanel actions=new() { Orientation=Orientation.Horizontal, Spacing=0, VerticalAlignment=VerticalAlignment.Center };
-    private readonly TextBlock allowance=Text("Resets available",15), remaining=Text("—",26,true), forecastValue=Text("ⓘ",20,true), credits=Text("—",20,true);
-    private readonly TextBlock rotationHeading=Text("Estimated time remaining",10), forecastInfo=Text("ⓘ",15);
-    private readonly StackPanel forecastRow=new() { Orientation=Orientation.Horizontal, Spacing=5 };
-    private readonly Grid summaryPanel=new() { ColumnSpacing=16, VerticalAlignment=VerticalAlignment.Center };
-    private readonly TextBlock creditInfo=Text("ⓘ",15), quotaInfo=Text("ⓘ",15);
-    private string? forecastTooltip, quotaTooltip;
-    private readonly System.Diagnostics.Stopwatch rotationClock=System.Diagnostics.Stopwatch.StartNew();
+    private readonly Grid strip=new() { Width=1080, ColumnSpacing=14, Margin=new(10,8,10,8) };
+    private readonly StackPanel actions=new() { Orientation=Orientation.Horizontal, Spacing=8, VerticalAlignment=VerticalAlignment.Center };
+    private readonly TextBlock remaining = MetricValue(TextAlignment.Left);
+    private readonly LinearGradientBrush usageGradient = new()
+    {
+        StartPoint = new(0, 0),
+        EndPoint = new(1, 1),
+        GradientStops = { new(), new() { Offset = 1 } }
+    };
+    private Storyboard? usageColorTransition;
+    private readonly TextBlock forecastHeading = MetricHeading("Estimated time remaining", TextAlignment.Left);
+    private readonly TextBlock forecastValue = MetricValue(TextAlignment.Left);
+    private readonly Border forecastInfo = InfoIcon("About the displayed metric");
+    private readonly TextBlock credits = MetricValue(TextAlignment.Right);
+    private readonly Stopwatch voucherCycle = new();
+    private string? quotaTooltip, forecastTooltip;
     private readonly FlipTile[] tiles=[new("DAYS"),new("HOURS"),new("MINUTES"),new("SECONDS")];
     private readonly ToggleButtonCompat pin=new();
     private readonly Button connectionError=Button("\uE7BA","Connection settings");
@@ -42,6 +68,7 @@ public sealed class MainWindow : Window
     private TrayIcon? tray;
     private Window? activeDialog;
     private bool busy, closed, allowClose, closingPrompt, refreshPending;
+    private bool addedLayeredStyle;
     private readonly HashSet<int> notifiedThresholds = [];
     private string? alertWindow;
     private DateTimeOffset lastResetRefresh=DateTimeOffset.MinValue;
@@ -50,6 +77,8 @@ public sealed class MainWindow : Window
     {
         try { settings=storage.LoadSettings(); }
         catch(Exception error) { settings=new(); Diagnostics.Record("settings.failed",error.Message); }
+        if (!WindowOpacityOptions.Contains(settings.WindowOpacityPercent))
+            settings.WindowOpacityPercent = 100;
         Title="OpenAI Usage";
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory,"Branding","app-icon.ico"));
         if(AppWindow.Presenter is OverlappedPresenter presenter)
@@ -64,38 +93,32 @@ public sealed class MainWindow : Window
         strip.ColumnDefinitions.Add(new(){Width=new(1,GridUnitType.Star)});
         strip.ColumnDefinitions.Add(new(){Width=GridLength.Auto});
         var logo=Logo(28); logo.VerticalAlignment=VerticalAlignment.Center; strip.Children.Add(logo);
-        var data=new Grid { ColumnSpacing=18, VerticalAlignment=VerticalAlignment.Center };
-        data.ColumnDefinitions.Add(new(){Width=new(1,GridUnitType.Star)}); data.ColumnDefinitions.Add(new(){Width=new(200)});
-        var summary=summaryPanel;
-        for(int i=0;i<3;i++)summary.ColumnDefinitions.Add(new(){Width=new(1,GridUnitType.Star)});
-        var quota=new StackPanel { Spacing=7, Background=new SolidColorBrush(Colors.Transparent) };
-        allowance.Foreground=SecondaryText; quota.Children.Add(allowance);
-        var quotaRow=new StackPanel { Orientation=Orientation.Horizontal, Spacing=5 };
-        quotaInfo.Foreground=SecondaryText; quotaInfo.Opacity=0;
-        quotaRow.Children.Add(remaining); quotaRow.Children.Add(quotaInfo); quota.Children.Add(quotaRow);
-        quota.PointerEntered+=(_,_)=>quotaInfo.Opacity=1; quota.PointerExited+=(_,_)=>quotaInfo.Opacity=0;
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(quotaInfo,"About available reset dates");
-        summary.Children.Add(quota);
-        rotationHeading.Foreground=SecondaryText; rotationHeading.TextWrapping=TextWrapping.NoWrap;
-        forecastInfo.Foreground=SecondaryText;
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(forecastInfo,"About the displayed estimate or reset time");
-        forecastRow.Children.Add(forecastValue); forecastRow.Children.Add(forecastInfo);
-        var estimate=new StackPanel { Spacing=7 }; estimate.Children.Add(rotationHeading); estimate.Children.Add(forecastRow);
-        Grid.SetColumn(estimate,1); summary.Children.Add(estimate);
-        var credit=Metric("Remaining credits",credits);
-        credit.Children.Remove(credits);
-        creditInfo.Foreground=SecondaryText; creditInfo.Opacity=0;
-        var creditRow=new StackPanel { Orientation=Orientation.Horizontal, Spacing=5 };
-        creditRow.Children.Add(credits); creditRow.Children.Add(creditInfo); credit.Children.Add(creditRow);
-        credit.Background=new SolidColorBrush(Colors.Transparent);
-        credit.PointerEntered+=(_,_)=>creditInfo.Opacity=1; credit.PointerExited+=(_,_)=>creditInfo.Opacity=0;
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(creditInfo,"About remaining credits");
-        Grid.SetColumn(credit,2); summary.Children.Add(credit);
+        var data = new Grid { ColumnSpacing = 14, VerticalAlignment = VerticalAlignment.Center };
+        data.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
+        data.ColumnDefinitions.Add(new() { Width = new(CountdownWidth) });
+        var summary = new Grid { ColumnSpacing = 10, RowSpacing = 7, VerticalAlignment = VerticalAlignment.Center };
+        summary.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        summary.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        summary.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+        summary.ColumnDefinitions.Add(new() { Width = new(296) });
+        summary.ColumnDefinitions.Add(new() { Width = GridLength.Auto, MaxWidth = 150 });
+        AddMetric(summary, 0, MetricHeading("Usage Remaining", TextAlignment.Left), remaining);
+        var forecastRow = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Spacing = 5
+        };
+        forecastRow.Children.Add(forecastValue);
+        forecastRow.Children.Add(forecastInfo);
+        AddMetric(summary, 1, forecastHeading, forecastRow);
+        AddMetric(summary, 2, MetricHeading("Remaining Credits", TextAlignment.Right), credits);
         data.Children.Add(summary);
         var tileRow=new Grid { ColumnSpacing=8, Width=400 };
         for(int i=0;i<4;i++) { tiles[i].SetCompact(true); tileRow.ColumnDefinitions.Add(new(){Width=new(1,GridUnitType.Star)}); Grid.SetColumn(tiles[i],i); tileRow.Children.Add(tiles[i]); }
-        var clockView=new Viewbox { Child=tileRow, Stretch=Stretch.Uniform, MaxWidth=200 };
-        Grid.SetColumn(clockView,1); data.Children.Add(clockView);
+        var clockView = new Viewbox { Child = tileRow, Stretch = Stretch.Uniform, MaxWidth = CountdownWidth };
+        Grid.SetColumn(clockView, 1);
+        data.Children.Add(clockView);
         Grid.SetColumn(data,1); strip.Children.Add(data);
         connectionError.Visibility=Visibility.Collapsed; connectionError.Click+=async(_,_)=>await ShowSettingsAsync(); actions.Children.Add(connectionError);
         pin.Content=new FontIcon { Glyph="\uE718", FontSize=15, Foreground=PrimaryText };
@@ -108,13 +131,18 @@ public sealed class MainWindow : Window
         var close=Button("\uE8BB","Close"); close.Click+=(_,_)=>Close(); actions.Children.Add(close);
         Grid.SetColumn(actions,2); strip.Children.Add(actions);
         var view=new Viewbox { Child=strip, Stretch=Stretch.Uniform, VerticalAlignment=VerticalAlignment.Center };
+        root.Children.Add(WarmAccent(.24, .72, .32, 28, 248, 112, 42));
+        root.Children.Add(WarmAccent(.68, .25, .28, 23, 233, 65, 68));
         root.Children.Add(view); Content=root; ApplyTopmost(); UpdatePinVisual();
-        root.SizeChanged+=(_,_)=>UpdateDragRegions(); actions.SizeChanged+=(_,_)=>UpdateDragRegions(); view.SizeChanged+=(_,_)=>UpdateDragRegions(); forecastRow.SizeChanged+=(_,_)=>UpdateDragRegions();
+        root.SizeChanged+=(_,_)=>UpdateDragRegions(); actions.SizeChanged+=(_,_)=>UpdateDragRegions(); view.SizeChanged+=(_,_)=>UpdateDragRegions();
+        forecastRow.SizeChanged += (_, _) => UpdateDragRegions();
         clock.Tick+=(_,_)=>Tick(); refresh.Tick+=async(_,_)=>await RefreshAsync();
         root.Loaded+=async(_,_)=>
         {
             root.XamlRoot.Changed+=(_,_)=>UpdateDragRegions();
             ApplySize();
+            try { ApplyOpacity(settings.WindowOpacityPercent); }
+            catch (Win32Exception error) { Diagnostics.Record("window.opacity.failed", error.Message); }
             try { tray=new TrayIcon(Path.Combine(AppContext.BaseDirectory,"Branding","app-icon.ico"),ShowWindow,
                 ()=>{ShowWindow();_=ShowAboutAsync();},()=>{ShowWindow();_=ShowSettingsAsync();},
                 ()=>OpenLink("https://umbertogiacobbi.biz"),()=>OpenLink("https://umbertogiacobbi.biz/vibeware/manifesto"),ExitApplication);
@@ -125,7 +153,7 @@ public sealed class MainWindow : Window
             DispatcherQueue.TryEnqueue(()=>{root.UpdateLayout();UpdateDragRegions();LogLayout();});
         };
         AppWindow.Closing+=AskToClose;
-        Closed+=(_,_)=>{closed=true;activeDialog?.Close();tray?.Dispose();clock.Stop();refresh.Stop();lifetime.Cancel();systemSettings.ColorValuesChanged-=ThemeChanged;};
+        Closed+=(_,_)=>{closed=true;activeDialog?.Close();tray?.Dispose();clock.Stop();refresh.Stop();usageColorTransition?.Stop();lifetime.Cancel();systemSettings.ColorValuesChanged-=ThemeChanged;};
     }
 
     private async Task RefreshAsync()
@@ -142,63 +170,73 @@ public sealed class MainWindow : Window
                 Diagnostics.Record(next.Connected?"connection.ready":"connection.failed",next.Status);
                 if(!next.Connected)tray?.NotifyError(next.Status);
             }
+            if (next.ResetVoucherCount != state.ResetVoucherCount ||
+                next.ResetVoucherExpirations.Count != state.ResetVoucherExpirations.Count)
+                voucherCycle.Reset();
+            var previousRemaining = state.Remaining;
             state=next;
-            remaining.Text=state.Connected ? state.ResetDisplays.Count.ToString() : "—";
-            allowance.Text="Resets available";
+            remaining.Text=state.Remaining is {} value ? $"{value:0.#}%" : "—";
+            if (state.Remaining != previousRemaining) UpdateUsageColor(animate: previousRemaining.HasValue);
             credits.Text=state.CreditsLabel;
             CheckAlerts();
             var creditDetail="Credits remaining as reported by Codex: "+state.CreditsLabel+". The displayed balance is rounded to a whole number.";
-            ToolTipService.SetToolTip(credits,creditDetail); ToolTipService.SetToolTip(creditInfo,creditDetail);
+            ToolTipService.SetToolTip(credits,creditDetail);
             connectionError.Visibility=state.Connected?Visibility.Collapsed:Visibility.Visible; ToolTipService.SetToolTip(connectionError,state.Status);
-            ApplyMetricColors(); Tick();
+            Tick();
         }
         finally { busy=false; if(refreshPending && !closed){refreshPending=false;_=RefreshAsync();} }
     }
     private void Tick()
     {
-        var upcoming=state.ResetDisplays.Where(display=>display.ResetsAt>DateTimeOffset.UtcNow.ToUnixTimeSeconds()).ToList();
-        remaining.Text=state.Connected ? upcoming.Count.ToString() : "—";
-        int cycle=10 + upcoming.Count * 5;
-        int position=(int)(rotationClock.Elapsed.TotalSeconds % cycle);
-        if(position < 10 || upcoming.Count == 0)
-        {
-            rotationHeading.Text="Estimated time remaining"; forecastValue.Text=state.ForecastAvailable ? state.ForecastCompact : "—";
-            forecastValue.Foreground=ValueGradient;
-            SetForecastTooltip("Estimated time until the displayed allowance is exhausted at the observed usage rate; the allowance may reset first. " + state.ForecastDetail);
-        }
-        else
-        {
-            var display=upcoming[(position-10)/5];
-            rotationHeading.Text=display.Heading; forecastValue.Text=display.Value;
-            forecastValue.Foreground=ResetColor(display.ResetsAt);
-            SetForecastTooltip(display.Detail);
-        }
+        UpdateForecastMetric();
         long? seconds=state.ResetsAt is {} end?Math.Max(0,end-DateTimeOffset.UtcNow.ToUnixTimeSeconds()):null;
         string[] values=seconds is {} s?[$"{s/86400:00}",$"{s/3600%24:00}",$"{s/60%60:00}",$"{s%60:00}"]:["--","--","--","--"];
         for(int i=0;i<4;i++)tiles[i].Set(values[i],systemSettings.AnimationsEnabled);
-        string quotaDetail="Number of upcoming reset dates reported for the selected Codex allowance. These are scheduled resets, not vouchers.";
+        string quotaDetail="Percentage remaining for the selected Codex allowance. " + state.ResetLabel;
         if (quotaTooltip != quotaDetail)
         {
             quotaTooltip=quotaDetail;
-            ToolTipService.SetToolTip(remaining,quotaDetail); ToolTipService.SetToolTip(quotaInfo,quotaDetail);
+            ToolTipService.SetToolTip(remaining,quotaDetail);
         }
         bool elapsed=state.ResetsAt is {} reset && reset<=DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         if(elapsed && !busy && state.Connected && DateTimeOffset.UtcNow-lastResetRefresh>TimeSpan.FromMinutes(1)) {lastResetRefresh=DateTimeOffset.UtcNow;_=RefreshAsync();}
     }
-    private static SolidColorBrush ResetColor(long timestamp)
+    private void UpdateForecastMetric()
     {
-        double hours=(timestamp-DateTimeOffset.UtcNow.ToUnixTimeSeconds())/3600d;
-        var color=hours <= 6 ? ColorHelper.FromArgb(255,218,65,65) :
-            hours <= 24 ? ColorHelper.FromArgb(255,190,82,22) :
-            hours <= 72 ? ColorHelper.FromArgb(255,202,137,30) :
-            hours <= 168 ? ColorHelper.FromArgb(255,192,173,56) : ColorHelper.FromArgb(255,104,155,120);
-        return new SolidColorBrush(color);
-    }
-    private void SetForecastTooltip(string detail)
-    {
+        string heading = "Estimated time remaining";
+        string value = state.ForecastAvailable ? state.ForecastCompact : "—";
+        string detail = "Estimated time until your remaining Codex usage runs out at the observed rate. Your allowance may reset first. " +
+            state.ForecastDetail;
+
+        if (state.ResetVoucherCount is > 0 and var count)
+        {
+            voucherCycle.Start();
+            var expirations = state.ResetVoucherExpirations;
+            int cycleSeconds = EstimateSeconds + VoucherSeconds * (1 + expirations.Count);
+            int elapsed = (int)(voucherCycle.Elapsed.TotalSeconds % cycleSeconds);
+            if (elapsed >= EstimateSeconds)
+            {
+                int slot = (elapsed - EstimateSeconds) / VoucherSeconds;
+                if (slot == 0)
+                {
+                    heading = "Resets available";
+                    value = count.ToString(CultureInfo.CurrentCulture);
+                    detail = "Number of earned vouchers you can use to reset your Codex usage allowance.";
+                }
+                else
+                {
+                    heading = $"Reset {slot} expires";
+                    var expiration = expirations[slot - 1];
+                    value = expiration.Value;
+                    detail = $"Expiration of earned reset voucher {slot}. {expiration.Detail}";
+                }
+            }
+        }
+
+        if (forecastHeading.Text != heading) forecastHeading.Text = heading;
+        if (forecastValue.Text != value) forecastValue.Text = value;
         if (forecastTooltip == detail) return;
         forecastTooltip = detail;
-        ToolTipService.SetToolTip(forecastValue, detail);
         ToolTipService.SetToolTip(forecastInfo, detail);
     }
     private void CheckAlerts()
@@ -219,8 +257,48 @@ public sealed class MainWindow : Window
         if (!root.IsLoaded) return;
         double factor=settings.BigSize ? 1.25 : 1.0;
         double dpi=root.XamlRoot.RasterizationScale;
-        AppWindow.Resize(new((int)Math.Round(604*dpi*factor),(int)Math.Round(66*dpi*factor)));
+        AppWindow.Resize(new((int)Math.Round(814*dpi*factor),(int)Math.Round(86*dpi*factor)));
         UpdateDragRegions();
+    }
+    private void ApplyOpacity(int percent)
+    {
+        const int extendedStyleIndex = -20;
+        const int layeredStyle = 0x00080000;
+        const uint useAlpha = 0x00000002;
+        nint hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        nint style = GetWindowLongPtr(hwnd, extendedStyleIndex);
+        if (style == 0 && Marshal.GetLastPInvokeError() is not 0 and var readError)
+            throw new Win32Exception(readError);
+
+        bool alreadyLayered = (style & layeredStyle) != 0;
+        if (percent == 100 && !alreadyLayered) return;
+        if (!alreadyLayered)
+        {
+            if (SetWindowLongPtr(hwnd, extendedStyleIndex, style | layeredStyle) == 0 &&
+                Marshal.GetLastPInvokeError() is not 0 and var styleError)
+                throw new Win32Exception(styleError);
+            addedLayeredStyle = true;
+        }
+
+        byte alpha = (byte)Math.Round(255 * percent / 100.0);
+        if (!SetLayeredWindowAttributes(hwnd, 0, alpha, useAlpha))
+        {
+            int error = Marshal.GetLastPInvokeError();
+            if (!alreadyLayered)
+            {
+                SetWindowLongPtr(hwnd, extendedStyleIndex, style);
+                addedLayeredStyle = false;
+            }
+            throw new Win32Exception(error);
+        }
+
+        if (percent == 100 && addedLayeredStyle)
+        {
+            if (SetWindowLongPtr(hwnd, extendedStyleIndex, style & ~layeredStyle) == 0 &&
+                Marshal.GetLastPInvokeError() is not 0 and var styleError)
+                throw new Win32Exception(styleError);
+            addedLayeredStyle = false;
+        }
     }
     private void ApplyTopmost() {if(AppWindow.Presenter is OverlappedPresenter p)p.IsAlwaysOnTop=settings.AlwaysOnTop;}
     private void ApplyTaskbarVisibility() => AppWindow.IsShownInSwitchers = settings.ShowInTaskbar || tray?.IsAvailable != true;
@@ -234,16 +312,29 @@ public sealed class MainWindow : Window
     }
     private void UpdateDragRegions()
     {
-        if(closed || !root.IsLoaded || actions.ActualWidth<=0 || root.ActualWidth<=0)return;
-        var bounds=actions.TransformToVisual(root).TransformBounds(new(0,0,actions.ActualWidth,actions.ActualHeight));
-        double dpi=root.XamlRoot.RasterizationScale;
-        int width=(int)Math.Round(root.ActualWidth*dpi),height=(int)Math.Round(root.ActualHeight*dpi),right=Math.Clamp((int)Math.Floor(bounds.X*dpi)-8,0,(int)Math.Round(root.ActualWidth*dpi));
-        var forecastBounds=summaryPanel.TransformToVisual(root).TransformBounds(new(0,0,summaryPanel.ActualWidth,summaryPanel.ActualHeight));
-        int left=Math.Clamp((int)Math.Floor(forecastBounds.X*dpi)-2,0,right);
-        int end=Math.Clamp((int)Math.Ceiling((forecastBounds.X+forecastBounds.Width)*dpi)+2,left,right);
-        nonClientInput??=InputNonClientPointerSource.GetForWindowId(AppWindow.Id);
-        nonClientInput.SetRegionRects(NonClientRegionKind.Caption,[new(0,0,left,height),new(end,0,right-end,height)]);
-        nonClientInput.SetRegionRects(NonClientRegionKind.Passthrough,[new(left,0,end-left,height),new(right,0,width-right,height)]);
+        if (closed || !root.IsLoaded || actions.ActualWidth <= 0 || root.ActualWidth <= 0) return;
+        double dpi = root.XamlRoot.RasterizationScale;
+        int width = (int)Math.Round(root.ActualWidth * dpi);
+        int height = (int)Math.Round(root.ActualHeight * dpi);
+        var actionBounds = actions.TransformToVisual(root).TransformBounds(new(0, 0, actions.ActualWidth, actions.ActualHeight));
+        int captionRight = Math.Clamp((int)Math.Floor(actionBounds.X * dpi) - 8, 0, width);
+        var caption = new List<RectInt32>();
+        var passthrough = new List<RectInt32> { new(captionRight, 0, width - captionRight, height) };
+        // Carve out the info glyph so it receives pointer hover.
+        var bounds = forecastInfo.TransformToVisual(root)
+            .TransformBounds(new(0, 0, forecastInfo.ActualWidth, forecastInfo.ActualHeight));
+        int left = Math.Clamp((int)Math.Floor(bounds.Left * dpi), 0, captionRight);
+        int right = Math.Clamp((int)Math.Ceiling(bounds.Right * dpi), left, captionRight);
+        int top = Math.Clamp((int)Math.Floor(bounds.Top * dpi), 0, height);
+        int bottom = Math.Clamp((int)Math.Ceiling(bounds.Bottom * dpi), top, height);
+        caption.Add(new(0, 0, left, height));
+        caption.Add(new(left, 0, right - left, top));
+        caption.Add(new(left, bottom, right - left, height - bottom));
+        caption.Add(new(right, 0, captionRight - right, height));
+        passthrough.Add(new(left, top, right - left, bottom - top));
+        nonClientInput ??= InputNonClientPointerSource.GetForWindowId(AppWindow.Id);
+        nonClientInput.SetRegionRects(NonClientRegionKind.Caption, caption.Where(rect => rect.Width > 0 && rect.Height > 0).ToArray());
+        nonClientInput.SetRegionRects(NonClientRegionKind.Passthrough, passthrough.Where(rect => rect.Width > 0 && rect.Height > 0).ToArray());
     }
     private void LogLayout()
     {
@@ -369,10 +460,10 @@ public sealed class MainWindow : Window
         PrimaryText.Color=dark?ColorHelper.FromArgb(255,235,241,249):ColorHelper.FromArgb(255,23,39,62);
         SecondaryText.Color=dark?ColorHelper.FromArgb(255,194,205,221):ColorHelper.FromArgb(255,69,87,111);
         WarningText.Color=dark?ColorHelper.FromArgb(255,255,203,107):ColorHelper.FromArgb(255,148,82,0);
-        static global::Windows.UI.Color Blend(global::Windows.UI.Color a,global::Windows.UI.Color b,double amount)=>ColorHelper.FromArgb(255,(byte)(a.R*(1-amount)+b.R*amount),(byte)(a.G*(1-amount)+b.G*amount),(byte)(a.B*(1-amount)+b.B*amount));
         ValueGradient.GradientStops[0].Color=dark?Blend(Colors.White,accent,.12):ColorHelper.FromArgb(255,18,24,34);
         ValueGradient.GradientStops[1].Color=dark?Blend(Colors.White,accent,.38):Blend(Colors.Black,accent,.58);
-        ApplyMetricColors();UpdatePinVisual();
+        UpdateUsageColor(animate: false);
+        UpdatePinVisual();
         if(activeDialog is { ExtendsContentIntoTitleBar: true, Content: FrameworkElement dialogRoot })
         {
             dialogRoot.RequestedTheme=root.RequestedTheme;
@@ -380,11 +471,87 @@ public sealed class MainWindow : Window
             activeDialog.AppWindow.TitleBar.ButtonInactiveForegroundColor=SecondaryText.Color;
         }
     }
-    private void ApplyMetricColors()
+
+    private void UpdateUsageColor(bool animate)
     {
-        foreach(var metric in new[]{remaining,forecastValue,credits}){metric.FontFamily=MetricFont;metric.Foreground=ValueGradient;metric.TextWrapping=TextWrapping.NoWrap;metric.TextTrimming=TextTrimming.CharacterEllipsis;}
-        remaining.Foreground=ValueGradient;
+        usageColorTransition?.Stop();
+        usageColorTransition = null;
+        if (state.Remaining is not { } remainingPercent)
+        {
+            remaining.Foreground = ValueGradient;
+            return;
+        }
+
+        bool dark = root.RequestedTheme == ElementTheme.Dark;
+        double percent = Math.Clamp(remainingPercent, 0, 100);
+        int upperIndex = Array.FindIndex(UsageColors, stop => stop.Percent >= percent);
+        var upper = UsageColors[upperIndex];
+        var lower = UsageColors[Math.Max(0, upperIndex - 1)];
+        var lowerColor = Rgb(dark ? lower.Dark : lower.Light);
+        var upperColor = Rgb(dark ? upper.Dark : upper.Light);
+        double progress = upperIndex == 0 ? 0 : (percent - lower.Percent) / (upper.Percent - lower.Percent);
+        var color = Blend(lowerColor, upperColor, progress);
+        WindowsColor[] targetColors =
+        [
+            Blend(color, Colors.White, dark ? .16 : .03),
+            Blend(color, Colors.Black, dark ? .06 : .12)
+        ];
+
+        var transition = animate && systemSettings.AnimationsEnabled ? new Storyboard() : null;
+        for (int i = 0; i < targetColors.Length; i++)
+        {
+            var stop = usageGradient.GradientStops[i];
+            var previousColor = stop.Color;
+            stop.Color = targetColors[i];
+            if (transition is null || previousColor.Equals(targetColors[i])) continue;
+
+            var fade = new ColorAnimation
+            {
+                From = previousColor,
+                To = targetColors[i],
+                Duration = new Duration(TimeSpan.FromMilliseconds(420)),
+                FillBehavior = FillBehavior.Stop,
+                EnableDependentAnimation = true
+            };
+            Storyboard.SetTarget(fade, stop);
+            Storyboard.SetTargetProperty(fade, nameof(GradientStop.Color));
+            transition.Children.Add(fade);
+        }
+        remaining.Foreground = usageGradient;
+        if (transition is { Children.Count: > 0 })
+        {
+            usageColorTransition = transition;
+            transition.Begin();
+        }
     }
+
+    private static WindowsColor Rgb(uint rgb) =>
+        ColorHelper.FromArgb(255, (byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
+
+    private static WindowsColor Blend(WindowsColor a, WindowsColor b, double amount) =>
+        ColorHelper.FromArgb(255,
+            (byte)(a.R * (1 - amount) + b.R * amount),
+            (byte)(a.G * (1 - amount) + b.G * amount),
+            (byte)(a.B * (1 - amount) + b.B * amount));
+
+    private static Border WarmAccent(double x, double y, double radiusX, byte alpha, byte red, byte green, byte blue) =>
+        new()
+        {
+            IsHitTestVisible = false,
+            Background = new RadialGradientBrush
+            {
+                Center = new(x, y),
+                RadiusX = radiusX,
+                RadiusY = .82,
+                GradientStops =
+                {
+                    new() { Color = ColorHelper.FromArgb(alpha, red, green, blue) },
+                    new() { Color = ColorHelper.FromArgb((byte)(alpha / 3), red, green, blue), Offset = .56 },
+                    new() { Color = ColorHelper.FromArgb(0, red, green, blue), Offset = 1 }
+                }
+            }
+        };
+
     private void SaveSettings(){try{storage.SaveSettings(settings);}catch(Exception error){Diagnostics.Record("settings.failed",error.Message);tray?.NotifyError("Could not save settings.");}}
 
     private static async Task AddStartupPreferenceAsync(StackPanel content)
@@ -484,19 +651,45 @@ public sealed class MainWindow : Window
             ItemsSource = TimeZoneInfo.GetSystemTimeZones(), DisplayMemberPath = "DisplayName", SelectedValuePath = "Id",
             SelectedValue = settings.TimeZoneId };
         var taskbar = new CheckBox { Content = "Show in taskbar", IsChecked = settings.ShowInTaskbar };
-        var bigSize = new ToggleSwitch { Header = "Big size (+25%)", IsOn = settings.BigSize };
-        var alert50 = new CheckBox { Content = "Notify at 50% remaining", IsChecked = settings.Alert50 };
-        var alert20 = new CheckBox { Content = "Notify at 20% remaining", IsChecked = settings.Alert20 };
-        var alert5 = new CheckBox { Content = "Notify at 5% remaining", IsChecked = settings.Alert5 };
-        var content = new StackPanel { Spacing = 12, MinWidth = 380 };
+        var bigSize = new CheckBox { Content = "Larger widget (+25%)", IsChecked = settings.BigSize };
+        var opacity = new ComboBox
+        {
+            Header = "Window opacity",
+            ItemsSource = WindowOpacityOptions.Select(percent => $"{percent}%").ToArray(),
+            SelectedIndex = Array.IndexOf(WindowOpacityOptions, settings.WindowOpacityPercent)
+        };
+        var alert50 = new CheckBox { Content = "50% remaining", IsChecked = settings.Alert50 };
+        var alert20 = new CheckBox { Content = "20% remaining", IsChecked = settings.Alert20 };
+        var alert5 = new CheckBox { Content = "5% remaining", IsChecked = settings.Alert5 };
+        var content = new StackPanel { Spacing = 10 };
         content.Children.Add(executable);
         content.Children.Add(timezone);
         content.Children.Add(Text("Uses your existing Codex ChatGPT sign-in.", 12));
-        content.Children.Add(taskbar);
-        content.Children.Add(bigSize);
-        content.Children.Add(alert50); content.Children.Add(alert20); content.Children.Add(alert5);
-        await AddStartupPreferenceAsync(content);
-        var error = Text("", 12); error.Foreground = new SolidColorBrush(Colors.Orange); content.Children.Add(error);
+
+        var columns = new Grid { ColumnSpacing = 24, Margin = new(0, 8, 0, 0) };
+        columns.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
+        columns.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
+        var windowOptions = new StackPanel { Spacing = 4 };
+        windowOptions.Children.Add(Text("Widget", 16, true));
+        windowOptions.Children.Add(taskbar);
+        windowOptions.Children.Add(bigSize);
+        await AddStartupPreferenceAsync(windowOptions);
+        windowOptions.Children.Add(opacity);
+        columns.Children.Add(windowOptions);
+
+        var notifications = new StackPanel { Spacing = 4 };
+        notifications.Children.Add(Text("Notify", 16, true));
+        notifications.Children.Add(alert50);
+        notifications.Children.Add(alert20);
+        notifications.Children.Add(alert5);
+        Grid.SetColumn(notifications, 1);
+        columns.Children.Add(notifications);
+        content.Children.Add(columns);
+
+        var error = Text("", 12);
+        error.Foreground = WarningText;
+        error.Visibility = Visibility.Collapsed;
+        content.Children.Add(error);
         void Apply()
         {
             try
@@ -507,11 +700,20 @@ public sealed class MainWindow : Window
                     TimeZoneId = timezone.SelectedValue as string ?? settings.TimeZoneId,
                     AlwaysOnTop = settings.AlwaysOnTop,
                     ShowInTaskbar = taskbar.IsChecked == true,
-                    BigSize = bigSize.IsOn,
+                    BigSize = bigSize.IsChecked == true,
+                    WindowOpacityPercent = opacity.SelectedIndex >= 0
+                        ? WindowOpacityOptions[opacity.SelectedIndex] : settings.WindowOpacityPercent,
                     Alert50 = alert50.IsChecked == true, Alert20 = alert20.IsChecked == true, Alert5 = alert5.IsChecked == true,
                     SelectedWindow = settings.SelectedWindow
                 };
-                storage.SaveSettings(next);
+                bool opacityChanged = next.WindowOpacityPercent != settings.WindowOpacityPercent;
+                if (opacityChanged) ApplyOpacity(next.WindowOpacityPercent);
+                try { storage.SaveSettings(next); }
+                catch
+                {
+                    if (opacityChanged) ApplyOpacity(settings.WindowOpacityPercent);
+                    throw;
+                }
                 bool refreshNeeded = next.CodexPath != settings.CodexPath || next.TimeZoneId != settings.TimeZoneId;
                 settings = next;
                 error.Text = string.IsNullOrWhiteSpace(executable.Text) ? "Choose a Codex executable." : "";
@@ -521,19 +723,70 @@ public sealed class MainWindow : Window
                 if(refreshNeeded)_=RefreshAsync();
             }
             catch (Exception ex) { error.Text = ex.Message; }
+            error.Visibility = error.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         }
         executable.TextChanged += (_, _) => Apply();
         timezone.SelectionChanged += (_, _) => Apply();
         taskbar.Click += (_, _) => Apply();
-        bigSize.Toggled += (_, _) => Apply();
+        bigSize.Click += (_, _) => Apply();
+        opacity.SelectionChanged += (_, _) => Apply();
         alert50.Click += (_, _) => Apply(); alert20.Click += (_, _) => Apply(); alert5.Click += (_, _) => Apply();
-        await ShowDialogAsync("OpenAI Usage · Preferences", content);
+        await ShowDialogAsync("OpenAI Usage · Preferences", content, width: 620, height: 510);
     }
 
     private static TextBlock Text(string text,double size,bool bold=false)=>new(){Text=text,FontSize=size,TextWrapping=TextWrapping.Wrap,FontWeight=bold?Microsoft.UI.Text.FontWeights.SemiBold:Microsoft.UI.Text.FontWeights.Normal,Foreground=PrimaryText};
-    private static StackPanel Metric(string label,TextBlock number){var p=new StackPanel {Spacing=7};var heading=Text(label,15);heading.Foreground=SecondaryText;heading.TextWrapping=TextWrapping.NoWrap;p.Children.Add(heading);p.Children.Add(number);return p;}
+    private static TextBlock MetricHeading(string label, TextAlignment alignment) => new()
+    {
+        Text = label,
+        FontSize = 14,
+        FontWeight = Microsoft.UI.Text.FontWeights.Normal,
+        Foreground = SecondaryText,
+        TextAlignment = alignment,
+        TextWrapping = TextWrapping.NoWrap
+    };
+
+    private static TextBlock MetricValue(TextAlignment alignment) => new()
+    {
+        Text = "—",
+        FontSize = 22,
+        FontFamily = MetricFont,
+        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+        Foreground = ValueGradient,
+        TextAlignment = alignment,
+        TextWrapping = TextWrapping.NoWrap,
+        TextTrimming = TextTrimming.CharacterEllipsis
+    };
+
+    private static Border InfoIcon(string name)
+    {
+        var icon = new Border
+        {
+            Width = 22,
+            Height = 24,
+            VerticalAlignment = VerticalAlignment.Center,
+            Background = new SolidColorBrush(Colors.Transparent),
+            Child = new FontIcon { Glyph = "\uE946", FontSize = 16, Foreground = SecondaryText }
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(icon, name);
+        return icon;
+    }
+
+    private static void AddMetric(Grid grid, int column, TextBlock heading, FrameworkElement value)
+    {
+        Grid.SetColumn(heading, column);
+        grid.Children.Add(heading);
+        Grid.SetColumn(value, column);
+        Grid.SetRow(value, 1);
+        grid.Children.Add(value);
+    }
     private static Button Button(string glyph,string tooltip){var b=new Button {Content=new FontIcon {Glyph=glyph,FontSize=16,Foreground=PrimaryText},Style=(Style)Application.Current.Resources["SubtleButtonStyle"],Background=new SolidColorBrush(Colors.Transparent),BorderThickness=new(0),Padding=new(5),MinWidth=26};ToolTipService.SetToolTip(b,tooltip);Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(b,tooltip);return b;}
-    [DllImport("user32.dll",EntryPoint="SetWindowLongPtrW")]private static extern nint SetWindowLongPtr(nint window,int index,nint value);
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+    private static extern nint GetWindowLongPtr(nint window, int index);
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    private static extern nint SetWindowLongPtr(nint window, int index, nint value);
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetLayeredWindowAttributes(nint window, uint colorKey, byte alpha, uint flags);
     [DllImport("user32.dll")]private static extern bool EnableWindow(nint window,bool enabled);
     private sealed class ToggleButtonCompat:Microsoft.UI.Xaml.Controls.Primitives.ToggleButton{}
 }

@@ -9,7 +9,12 @@ public record TokenDay(string Date, long? Tokens)
 }
 public record AccountUsage(string Identity, string Plan, List<QuotaWindow> Windows,
     decimal? Credits, bool UnlimitedCredits, bool? OrdinaryUsageAllowed, bool SpendBlocked,
-    List<TokenDay> Tokens, string? TokenError);
+    List<TokenDay> Tokens, string? TokenError)
+{
+    public ResetVoucherBalance? ResetVouchers { get; init; }
+}
+public record ResetVoucherBalance(int AvailableCount, IReadOnlyList<long?> Expirations);
+public record ResetVoucherDisplay(string Value, string Detail);
 public record Sample(long At, double Used, long? Reset, string Plan);
 public record QuotaDay(string Date, double? Used, double Coverage);
 public record Forecast(double? Average, double? DaysLeft, int CompleteDays, string Headline, string Detail);
@@ -23,6 +28,7 @@ public sealed class WidgetSettings
     public bool AlwaysOnTop { get; set; }
     public bool ShowInTaskbar { get; set; } = true;
     public bool BigSize { get; set; }
+    public int WindowOpacityPercent { get; set; } = 100;
     public bool Alert50 { get; set; }
     public bool Alert20 { get; set; }
     public bool Alert5 { get; set; }
@@ -46,6 +52,8 @@ public sealed class WidgetState
     public long? ResetsAt { get; set; }
     public string ResetLabel { get; set; } = "Reset unavailable";
     public List<ResetDisplay> ResetDisplays { get; set; } = [];
+    public int? ResetVoucherCount { get; set; }
+    public IReadOnlyList<ResetVoucherDisplay> ResetVoucherExpirations { get; set; } = [];
     public string CreditsLabel { get; set; } = "Unavailable";
     public string AccessNote { get; set; } = "";
     public string AverageLabel { get; set; } = "Collecting quota history";

@@ -100,15 +100,19 @@ internal sealed partial class StudioController : IDisposable
         try
         {
             var b = Bounds();
+            Log.Information("Checking preview GPU Generation={Generation} Width={Width} Height={Height} CaptureAllowed={CaptureAllowed}",
+                generation, b.Width, b.Height, model.State.CaptureAllowed);
             int result = Native.RippleCheckCapabilities(b.X, b.Y, b.Width, b.Height, out var caps);
             model.State.GpuName = caps.AdapterName ?? "Display GPU";
             model.State.DedicatedVramBytes = caps.DedicatedVideoMemory;
             model.State.CanApply = result >= 0 && caps.Supported != 0 && model.State.CaptureAllowed;
             model.State.CapabilityText = Describe(caps, result);
-            Log.Information("PreviewStarting Generation={Generation} GPU={GPU} DedicatedVRAM={Vram} Supported={Supported} Reason={Reason} HRESULT={Result}", generation, caps.AdapterName, caps.DedicatedVideoMemory, caps.Supported, caps.Reason, result);
+            Log.Information("PreviewStarting Generation={Generation} GPU={GPU} DedicatedVRAM={Vram} FeatureLevel=0x{FeatureLevel:X} Supported={Supported} Reason={Reason} HRESULT=0x{HResult:X8}",
+                generation, caps.AdapterName, caps.DedicatedVideoMemory, caps.FeatureLevel, caps.Supported, caps.Reason, result);
             IntPtr panel = WinRT.MarshalInspectable<SwapChainPanel>.FromManaged(canvas);
             try { Marshal.ThrowExceptionForHR(Native.RippleCreate(panel, Path.Combine(AppContext.BaseDirectory, "Shaders"), out renderer)); }
             finally { Marshal.Release(panel); }
+            Log.Information("Preview renderer created Generation={Generation}", generation);
             model.State.CaptureMessage = "Desktop snapshot. Refresh background captures again; this window remains available in screenshots.";
             model.State.StatusMessage = "";
             // Let WinUI finish its Loaded/Activate transaction before changing visibility.
@@ -139,7 +143,7 @@ internal sealed partial class StudioController : IDisposable
             double seconds = frame.StatisticsClock.Elapsed.TotalSeconds;
             model.State.IsCaptureValid = (stats.Status & 32) != 0;
             model.State.ActiveWaveCount = frame.Waves.Count;
-            model.State.MetricsText = $"{(stats.PresentCount - frame.LastPresents) / seconds:F1} presents/s\n{(stats.CaptureCount - frame.LastCaptures) / seconds:F1} desktop updates/s\nCapture submit {stats.LastCaptureMs:F2} ms\nRender submit {stats.LastRenderCpuMs:F2} ms\n{stats.CaptureWidth} × {stats.CaptureHeight} px · {frame.Waves.Count} active events";
+            model.State.MetricsText = $"Presents\t{(stats.PresentCount - frame.LastPresents) / seconds:F1} /s\nDesktop updates\t{(stats.CaptureCount - frame.LastCaptures) / seconds:F1} /s\nCapture submit\t{stats.LastCaptureMs:F2} ms\nRender submit\t{stats.LastRenderCpuMs:F2} ms\nCapture size\t{stats.CaptureWidth} × {stats.CaptureHeight} px\nActive events\t{frame.Waves.Count}";
             frame.LastPresents = stats.PresentCount; frame.LastCaptures = stats.CaptureCount;
             if (Native.RippleGetGpuMemory(renderer, out var gpu) == 0) memory = gpu;
             frame.StatisticsClock.Restart();
@@ -162,6 +166,8 @@ internal sealed partial class StudioController : IDisposable
         {
             var bounds = Bounds();
             float widthDip = (float)canvas.ActualWidth, heightDip = (float)canvas.ActualHeight;
+            Log.Information("Starting preview snapshot Generation={Generation} Width={Width} Height={Height} WidthDip={WidthDip} HeightDip={HeightDip}",
+                expected, bounds.Width, bounds.Height, widthDip, heightDip);
             int disableTransitions = 1;
             Native.DwmSetWindowAttribute(hwnd, 3, in disableTransitions, sizeof(int));
             window.AppWindow.Hide();
@@ -174,6 +180,8 @@ internal sealed partial class StudioController : IDisposable
             bool valid = false;
             long firstValidAt = -1;
             var settle = Stopwatch.StartNew();
+            int statsResult = 0;
+            uint captureStatus = 0;
             for (int attempt = 0; attempt < 30; attempt++)
             {
                 if (model.State.IsClosing || generation != expected || renderer == IntPtr.Zero || model.State.IsInTray) return;
@@ -182,17 +190,29 @@ internal sealed partial class StudioController : IDisposable
                     widthDip, heightDip, (float)s.Strength, (float)(s.WaveSize * .35), (float)s.Speed, (float)s.Duration,
                     frame.ShaderWaves, 0, 1, 1);
                 Marshal.ThrowExceptionForHR(hr);
-                if (Native.RippleGetStats(renderer, out var stats) == 0 && (stats.Status & 32) != 0)
+                statsResult = Native.RippleGetStats(renderer, out var stats);
+                captureStatus = unchecked((uint)stats.Status);
+                if (statsResult == 0 && (captureStatus & 32) != 0)
                 {
                     valid = true;
-                    if (firstValidAt < 0) firstValidAt = settle.ElapsedMilliseconds;
+                    if (firstValidAt < 0)
+                    {
+                        firstValidAt = settle.ElapsedMilliseconds;
+                        Log.Information("First valid preview capture Generation={Generation} Attempt={Attempt} ElapsedMs={ElapsedMs} CaptureWidth={CaptureWidth} CaptureHeight={CaptureHeight} Presents={PresentCount} Status=0x{Status:X}",
+                            expected, attempt + 1, firstValidAt, stats.CaptureWidth, stats.CaptureHeight, stats.PresentCount, captureStatus);
+                    }
                     if (settle.ElapsedMilliseconds - firstValidAt >= 100) break;
                 }
                 await Task.Delay(35);
             }
-            if (!valid) throw new InvalidOperationException("No desktop snapshot could be captured.");
+            if (!valid)
+            {
+                Log.Warning("Preview capture timed out Generation={Generation} ElapsedMs={ElapsedMs} StatsHRESULT=0x{HResult:X8} Status=0x{Status:X}",
+                    expected, settle.ElapsedMilliseconds, statsResult, captureStatus);
+                throw new InvalidOperationException("No desktop snapshot could be captured.");
+            }
             model.State.IsCaptureValid = true;
-            Log.Information("Preview snapshot captured Width={Width} Height={Height}", bounds.Width, bounds.Height);
+            Log.Information("Preview snapshot captured Generation={Generation} Width={Width} Height={Height}", expected, bounds.Width, bounds.Height);
         }
         catch (Exception ex) { Fail("Background refresh failed", ex); }
         finally
@@ -202,6 +222,7 @@ internal sealed partial class StudioController : IDisposable
                 model.State.OverlayPhase = "Preview";
                 try
                 {
+                    Log.Information("Restoring Studio window after preview capture Generation={Generation}", expected);
                     window.AppWindow.Show(true); window.Activate();
                     timer.Start();
                 }
@@ -239,8 +260,11 @@ internal sealed partial class StudioController : IDisposable
             // At sign-in the Studio canvas has not been loaded or laid out.
             var b = atSignIn ? (window.AppWindow.Position.X, window.AppWindow.Position.Y,
                 window.AppWindow.Size.Width, window.AppWindow.Size.Height) : Bounds();
+            Log.Information("Checking screen effect GPU Generation={Generation} StartupTask={StartupTask} Width={Width} Height={Height} CaptureAllowed={CaptureAllowed}",
+                generation, atSignIn, b.Width, b.Height, model.State.CaptureAllowed);
             int hr = Native.RippleCheckCapabilities(b.X, b.Y, b.Width, b.Height, out var caps);
-            Log.Information("ApplyRequested Generation={Generation} Supported={Supported} Reason={Reason} GPU={GPU} VRAM={Vram}", generation, caps.Supported, caps.Reason, caps.AdapterName, caps.DedicatedVideoMemory);
+            Log.Information("ApplyRequested Generation={Generation} GPU={GPU} DedicatedVRAM={Vram} FeatureLevel=0x{FeatureLevel:X} Supported={Supported} Reason={Reason} HRESULT=0x{HResult:X8}",
+                generation, caps.AdapterName, caps.DedicatedVideoMemory, caps.FeatureLevel, caps.Supported, caps.Reason, hr);
             model.State.CapabilityText = Describe(caps, hr);
             if (hr < 0 || caps.Supported == 0 || !model.State.CaptureAllowed)
             {
@@ -251,18 +275,24 @@ internal sealed partial class StudioController : IDisposable
             var session = new ScreenEffectSession(model, caps, metrics =>
             {
                 memory = metrics.Memory;
-                model.State.MetricsText = $"SCREEN EFFECT\n{metrics.Presents:F1} presents/s\n{metrics.Captures:F1} desktop updates/s\nCapture submit {metrics.Native.LastCaptureMs:F2} ms\nRender submit {metrics.Native.LastRenderCpuMs:F2} ms\n{metrics.Native.CaptureWidth} × {metrics.Native.CaptureHeight} px";
+                model.State.MetricsText = $"Mode\tScreen effect\nPresents\t{metrics.Presents:F1} /s\nDesktop updates\t{metrics.Captures:F1} /s\nCapture submit\t{metrics.Native.LastCaptureMs:F2} ms\nRender submit\t{metrics.Native.LastRenderCpuMs:F2} ms\nCapture size\t{metrics.Native.CaptureWidth} × {metrics.Native.CaptureHeight} px";
             }, (closed, reason) => { if (ReferenceEquals(screen, closed)) StopScreen(reason); });
             screen = session;
             model.State.IsScreenEffectActive = true; model.State.CanApply = true;
             model.State.CaptureMessage = "Preview is not active because the effect is applied to the entire screen.";
+            Log.Information("Starting screen effect session Generation={Generation}", generation);
             session.Start();
             if (ReferenceEquals(screen, session) && !model.State.IsInTray)
             {
                 Native.SetTopmost(hwnd, true);
             }
         }
-        catch (Exception ex) { StopScreen(ex.Message); if (renderer == IntPtr.Zero) QueuePreview(ex.Message); Log.Error(ex, "Apply failed"); }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Apply failed Generation={Generation} HRESULT=0x{HResult:X8}", generation, ex.HResult);
+            StopScreen(ex.Message);
+            if (renderer == IntPtr.Zero) QueuePreview(ex.Message);
+        }
     }
 
     private void StopScreen(string reason = "")
@@ -301,7 +331,7 @@ internal sealed partial class StudioController : IDisposable
         var sample = monitor.Snapshot;
         model.State.PrivateRamBytes = sample.PrivateBytes; model.State.WorkingSetBytes = sample.WorkingSetBytes; model.State.CpuPercent = sample.CpuPercent;
         model.State.LocalGpuUsageBytes = memory.LocalUsage; model.State.LocalGpuBudgetBytes = memory.LocalBudget;
-        model.State.ResourcesText = $"Private RAM {sample.PrivateBytes / 1048576.0:F0} MiB\nWorking set {sample.WorkingSetBytes / 1048576.0:F0} MiB · CPU {sample.CpuPercent:F1}%\nGPU local {memory.LocalUsage / 1048576.0:F0} / {memory.LocalBudget / 1048576.0:F0} MiB\nRAM warning at 1 GiB";
+        model.State.ResourcesText = $"Private RAM\t{sample.PrivateBytes / 1048576.0:F0} MiB\nWorking set\t{sample.WorkingSetBytes / 1048576.0:F0} MiB\nCPU\t{sample.CpuPercent:F1}%\nGPU local\t{memory.LocalUsage / 1048576.0:F0} / {memory.LocalBudget / 1048576.0:F0} MiB\nRAM warning\t1 GiB";
         double now = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
         if (now >= nextPerformanceLog)
         {
@@ -445,7 +475,11 @@ internal sealed partial class StudioController : IDisposable
         if (!Native.ClientToScreen(hwnd, ref origin)) throw new System.ComponentModel.Win32Exception();
         return (origin.X, origin.Y, Math.Max(2, (int)Math.Round(canvas.ActualWidth * scale)), Math.Max(2, (int)Math.Round(canvas.ActualHeight * scale)));
     }
-    private void Fail(string operation, Exception ex) { model.State.StatusMessage = operation + ": " + ex.Message; Log.Error(ex, "{Operation}", operation); }
+    private void Fail(string operation, Exception ex)
+    {
+        Log.Error(ex, "{Operation} Generation={Generation} Phase={Phase} HRESULT=0x{HResult:X8}", operation, generation, model.State.OverlayPhase, ex.HResult);
+        model.State.StatusMessage = operation + ": " + ex.Message;
+    }
     private static string Describe(GpuCapabilities caps, int hr)
     {
         string prefix = $"{caps.AdapterName}\n{caps.DedicatedVideoMemory / 1000000000.0:F2} GB dedicated VRAM";

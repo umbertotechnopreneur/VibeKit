@@ -194,7 +194,8 @@ internal sealed class WeeklyLogSink : ILogEventSink, IDisposable
                                 fileSizeLimitBytes: WeeklyFileLimitBytes,
                                 rollOnFileSizeLimit: false,
                                 retainedFileCountLimit: null,
-                                buffered: true,
+                                // Keep checkpoints that the worker has written if WinUI fails fast.
+                                buffered: false,
                                 flushToDiskInterval: TimeSpan.FromSeconds(2)).CreateLogger();
                             activeFile = name;
                             PruneWeeklyFiles(directory, name);

@@ -5,6 +5,7 @@ using System.Threading;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.Windows.AppLifecycle;
@@ -62,18 +63,23 @@ public partial class App : Application
         LoggingService.Initialize();
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
-            Log.Fatal(e.ExceptionObject as Exception, "Unhandled process exception");
+            var ex = e.ExceptionObject as Exception;
+            Log.Fatal(ex, "Unhandled process exception HRESULT={HResult:X8} Terminating={Terminating}", ex?.HResult, e.IsTerminating);
             LoggingService.Shutdown();
         };
         try
         {
+            Log.Information("Starting application PID={ProcessId} Version={Version} Windows={WindowsVersion} Architecture={Architecture} StartupTask={StartupTask}",
+                Environment.ProcessId, typeof(App).Assembly.GetName().Version, Environment.OSVersion.Version,
+                RuntimeInformation.ProcessArchitecture, startAtSignIn);
             Start(_ =>
             {
+                Log.Information("WinUI dispatcher started");
                 SynchronizationContext.SetSynchronizationContext(new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread()));
                 new App { relaunchSignal = activation, startAtSignIn = startAtSignIn };
             });
         }
-        catch (Exception ex) { Log.Fatal(ex, "Application startup failed"); throw; }
+        catch (Exception ex) { Log.Fatal(ex, "Application startup failed HRESULT={HResult:X8}", ex.HResult); throw; }
         finally { Log.Information("Application stopped"); LoggingService.Shutdown(); }
     }
 
@@ -81,10 +87,12 @@ public partial class App : Application
     {
         UnhandledException += (_, e) =>
         {
-            Log.Fatal(e.Exception, "Unhandled WinUI exception");
+            Log.Fatal(e.Exception, "Unhandled WinUI exception HRESULT={HResult:X8}", e.Exception.HResult);
             LoggingService.Shutdown();
         };
+        Log.Information("Initializing WinUI resources");
         InitializeComponent();
+        Log.Information("WinUI resources initialized");
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -97,7 +105,7 @@ public partial class App : Application
         try { CreateMainWindow(); }
         catch (Exception ex)
         {
-            Log.Fatal(ex, "Main window construction or activation failed");
+            Log.Fatal(ex, "Main window construction or activation failed HRESULT={HResult:X8}", ex.HResult);
             LoggingService.Shutdown();
             throw;
         }
@@ -105,6 +113,7 @@ public partial class App : Application
 
     private void CreateMainWindow()
     {
+        Log.Information("Loading Studio settings");
         StudioModel? model = null;
         string pendingError = "";
         store = new SettingsStore(onError: ex =>
@@ -116,6 +125,7 @@ public partial class App : Application
         model = new StudioModel(store.Load());
         model.State.PersistenceError = pendingError;
         store.Attach(model.Settings);
+        Log.Information("Constructing Studio window");
         var mainWindow = new MainWindow(model);
         window = mainWindow;
         var dispatcher = mainWindow.DispatcherQueue;
@@ -137,6 +147,7 @@ public partial class App : Application
             store.Dispose();
             Exit();
         };
+        Log.Information("Studio window constructed StartupTask={StartupTask}", startAtSignIn);
         if (startAtSignIn) mainWindow.Controller.StartAtSignIn();
         else mainWindow.Activate();
         Log.Information("Application started Version={Version} StartupTask={StartupTask}", typeof(App).Assembly.GetName().Version, startAtSignIn);
@@ -215,19 +226,27 @@ internal sealed class MainWindow : Window
         ToolTipService.SetToolTip(screenshot, "Freezes the screen effect for 20 seconds so it can be captured without feedback.");
         controls.Children.Add(screenshot);
 #endif
-        var capability = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
-        Ui.Bind(capability, TextBlock.TextProperty, model.State, nameof(AppState.CapabilityText)); controls.Children.Add(capability);
         controls.Children.Add(new Button { Content = "Settings", Command = Controller.OpenSettingsCommand, HorizontalAlignment = HorizontalAlignment.Stretch });
         var freeze = new Button { Command = Controller.ToggleCaptureCommand, HorizontalAlignment = HorizontalAlignment.Stretch };
         Ui.Bind(freeze, Button.ContentProperty, model.State, nameof(AppState.FreezeButtonText));
         Ui.Bind(freeze, Button.IsEnabledProperty, model.State, nameof(AppState.CanFreeze)); controls.Children.Add(freeze);
         controls.Children.Add(new Button { Content = "Drop in the center", Command = Controller.DropCommand, HorizontalAlignment = HorizontalAlignment.Stretch });
-        foreach (string property in new[] { nameof(AppState.MetricsText), nameof(AppState.ResourcesText), nameof(AppState.StatusMessage), nameof(AppState.PersistenceError) })
+        var diagnostics = new StackPanel { Spacing = 12, Visibility = Visibility.Collapsed };
+        var capability = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
+        Ui.Bind(capability, TextBlock.TextProperty, model.State, nameof(AppState.CapabilityText)); diagnostics.Children.Add(capability);
+        diagnostics.Children.Add(Ui.DiagnosticRows(model.State, nameof(AppState.MetricsText)));
+        diagnostics.Children.Add(Ui.DiagnosticRows(model.State, nameof(AppState.ResourcesText)));
+        diagnostics.Children.Add(new Button { Content = "Recheck GPU / restart preview", Command = Controller.RestartCommand, HorizontalAlignment = HorizontalAlignment.Stretch });
+        var diagnosticsToggle = new ToggleButton { Content = "Diagnostics", HorizontalAlignment = HorizontalAlignment.Stretch };
+        diagnosticsToggle.Checked += (_, _) => diagnostics.Visibility = Visibility.Visible;
+        diagnosticsToggle.Unchecked += (_, _) => diagnostics.Visibility = Visibility.Collapsed;
+        controls.Children.Add(diagnosticsToggle);
+        controls.Children.Add(diagnostics);
+        foreach (string property in new[] { nameof(AppState.StatusMessage), nameof(AppState.PersistenceError) })
         {
             var text = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
             Ui.Bind(text, TextBlock.TextProperty, model.State, property); controls.Children.Add(text);
         }
-        controls.Children.Add(new Button { Content = "Recheck GPU / restart preview", Command = Controller.RestartCommand, HorizontalAlignment = HorizontalAlignment.Stretch });
         var footer = Ui.Footer(); Grid.SetRow((FrameworkElement)footer, 2); root.Children.Add(footer);
         // Overlay the existing bottom-left space without adding a layout row.
         var minimize = new Button

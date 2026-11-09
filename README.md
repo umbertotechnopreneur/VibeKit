@@ -24,7 +24,13 @@ Capture uses Windows.Graphics.Capture with two GPU buffers and no CPU pixel read
 
 Screen mode retains the hardware Direct3D 11 requirement and at least 8,000,000,000 bytes of dedicated VRAM. Shared memory does not count. The resource monitor samples private RAM, working set and CPU; it warns at 1 GiB private RAM. GPU budget and CPU submission timings are shown separately from presentation rates.
 
-Serilog logs rotate weekly under `%LOCALAPPDATA%\VibeWare\WaterRipple\logs`, with a bounded background queue, four weekly files and an 8 MiB weekly cap. Frames, screenshots and private window titles are not logged.
+## Diagnostics
+
+Early Windows releases keep detailed local logs to help diagnose black previews and crashes across different Windows builds and GPUs. The logs record WinUI startup checkpoints, GPU capabilities, capture dimensions and status, the first valid preview capture, and failures with their Windows error codes.
+
+Serilog writes through a bounded background queue. Logs rotate weekly, keep up to four files, and are capped at 8 MiB per week. They are stored in `%LOCALAPPDATA%\VibeWare\WaterRipple\logs`. The local test MSIX stores them in `%LOCALAPPDATA%\Packages\VibeWare.WaterRipple_af9ft7172qtwj\LocalCache\Local\VibeWare\WaterRipple\logs`. Frames, screenshots and private window titles are not logged.
+
+When reporting a black preview or an unexpected exit, include the approximate time and the relevant log lines. Windows Event Viewer may record a crash even when the app exits before its last log entries can be written.
 
 ## Build from source
 

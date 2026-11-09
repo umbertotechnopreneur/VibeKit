@@ -1,5 +1,5 @@
 param(
-    [string]$Version = '1.0.2.0',
+    [string]$Version,
     [string]$PackageName = 'VibeWare.WaterRipple',
     [string]$Publisher = 'CN=VibeWare',
     [string]$CertificateThumbprint,
@@ -7,6 +7,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $project = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+[xml]$manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'AppxManifest.xml') -Raw
+if (-not $Version) { $Version = $manifest.Package.Identity.Version }
 $stage = Join-Path $project ("obj\msix-stage-" + $Version)
 $sdk = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\10.0.26100.0\x64'
 $makeappx = Join-Path $sdk 'makeappx.exe'
@@ -20,7 +22,7 @@ if (Test-Path -LiteralPath $package) { throw "The output already exists; choose 
 # Stage and explicitly scan any new imports before running this source build.
 # Restore is restricted to the pre-staged cache; builds never download or scan dependencies.
 $cache = Join-Path $env:USERPROFILE '.nuget\packages'
-& dotnet publish (Join-Path $project 'WaterRipple.csproj') -c Release -r win-x64 --self-contained true -p:TargetLatestRuntimePatch=true -p:NuGetAudit=false -p:DebugType=None --source $cache -o $stage
+& dotnet publish (Join-Path $project 'WaterRipple.csproj') -c Release -r win-x64 --self-contained true "-p:Version=$Version" -p:TargetLatestRuntimePatch=true -p:NuGetAudit=false -p:DebugType=None --source $cache -o $stage
 if ($LASTEXITCODE -ne 0) { throw 'Source publish failed.' }
 $nativeOutput = Join-Path $project 'bin\Release\net10.0-windows10.0.26100.0\win-x64'
 Copy-Item -LiteralPath (Join-Path $nativeOutput 'RippleRenderer.dll') -Destination $stage
@@ -41,7 +43,6 @@ try {
         } finally { $graphics.Dispose(); $bitmap.Dispose() }
     }
 } finally { $icon.Dispose() }
-[xml]$manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'AppxManifest.xml') -Raw
 $manifest.Package.Identity.Version = $Version
 $manifest.Package.Identity.Name = $PackageName
 $manifest.Package.Identity.Publisher = $Publisher

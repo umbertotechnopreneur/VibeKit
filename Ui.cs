@@ -166,6 +166,35 @@ internal static class Ui
         return header;
     }
 
+    internal static FrameworkElement DiagnosticRows(AppState state, string property)
+    {
+        var rows = new StackPanel { Spacing = 4 };
+        void Refresh()
+        {
+            rows.Children.Clear();
+            string value = property == nameof(AppState.MetricsText) ? state.MetricsText : state.ResourcesText;
+            foreach (string line in value.Split('\n'))
+            {
+                var parts = line.Split('\t', 2);
+                var row = new Grid { ColumnSpacing = 8 };
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                var label = Text(parts[0], 12); label.Foreground = MutedCream; row.Children.Add(label);
+                if (parts.Length == 2)
+                {
+                    var number = Text(parts[1], 12); number.TextAlignment = TextAlignment.Right;
+                    Grid.SetColumn(number, 1); row.Children.Add(number);
+                }
+                rows.Children.Add(row);
+            }
+        }
+        void Changed(object? sender, PropertyChangedEventArgs args) { if (args.PropertyName == property) Refresh(); }
+        rows.Loaded += (_, _) => { state.PropertyChanged += Changed; Refresh(); };
+        rows.Unloaded += (_, _) => state.PropertyChanged -= Changed;
+        Refresh();
+        return rows;
+    }
+
     internal static void AttachAppearance(Window window, Grid root, AppSettings settings)
     {
         root.RequestedTheme = ElementTheme.Dark;

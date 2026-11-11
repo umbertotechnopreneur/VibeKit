@@ -12,7 +12,7 @@ import psutil
 
 from .amdsmi import AmdSmi, _bdf
 from .adl import Adl
-from .dxgi import VENDOR_AMD, VENDOR_NVIDIA, Adapter
+from .dxgi import VENDOR_AMD, VENDOR_NVIDIA, VENDOR_HUAWEI, Adapter
 from .handy import HandyEvidence, inspect_handy
 from .llm import LlmView, ServerProber, api_key, build_view, gb, ollama_log_path
 from . import nvml as nvml_mod
@@ -120,8 +120,8 @@ class Snapshot:
     vram_used: int | None  # WDDM adapter-wide dedicated usage
     shared_used: int | None
     procs: list[ProcRow] = field(default_factory=list)
-    backend: str = "wddm"  # wddm (Windows) | nvml (native Linux, NVIDIA) | drm (native Linux, AMD or Intel) | wsl (device-wide only) | metal (macOS)
-    process_status: str = ""  # drm backend only: what the DRM process scan couldn't cover; empty when it saw everything
+    backend: str = "wddm"  # wddm (Windows) | nvml (native Linux, NVIDIA) | drm (native Linux, AMD/Intel) | ascend (Huawei NPU) | wsl (device-wide only) | metal (macOS)
+    process_status: str = ""  # amdgpu only: what the DRM process scan couldn't cover; empty when it saw everything
     host_status: str = ""  # WSL only: Windows host counters via interop -- ok | starting | off (...) | ...
     wsl_split: str = ""  # WSL only: why Linux rows have no (inferred) VRAM, when they don't
     # False on an APU (amdgpu iGPU): its GTT is ordinary GPU memory, not spill from a full VRAM.
@@ -129,6 +129,7 @@ class Snapshot:
     counter_status: str = ""  # Windows counter availability or adapter matching problem;
     # Intel DRM privilege explanation (needs root) when its load/video/power are N/A
     counter_adapter_matched: bool | None = None  # Windows PDH LUID matched the selected DXGI adapter
+    process_memory_available: bool = True
     nv_lost: bool = False  # NVML faulted for this GPU after a disable/re-enable; restart restores it
     @property
     def host_data(self) -> bool:
@@ -136,7 +137,8 @@ class Snapshot:
 
     @property
     def attributed(self) -> int | None:
-        if self.counter_adapter_matched is False or any("dedicated" not in p.gpu.available for p in self.procs):
+        if not self.process_memory_available or self.counter_adapter_matched is False or any(
+                "dedicated" not in p.gpu.available for p in self.procs):
             return None
         return int(sum(p.gpu.dedicated for p in self.procs))
 
@@ -200,9 +202,13 @@ class Collector:
     _mac_driver = ""  # "macOS 26.3.1" on the metal backend, read once at startup
     SCAN_BUDGET = 0.15  # seconds of memory-map scanning per sample; leftovers wait for the next sample
     drm_card = None  # the selected GPU's AMD or Intel card, when it is one (drm.DrmCard)
+    ascend = None  # AscendCounters, when LinuxCounters owns one
+    ascend_chip = None  # the selected GPU's Ascend chip, when it is one (ascend.AscendChip)
 
     @property
     def backend(self) -> str:
+        if BACKEND == "nvml" and self.adapter and self.adapter.vendor_id == VENDOR_HUAWEI:
+            return "ascend"  # Huawei NPU: npu-smi is the source, not NVML/DRM
         return "drm" if self.drm_card is not None else BACKEND
 
     def __init__(self, gpu_index: int = 0, scan_budget: float | None = SCAN_BUDGET, host: bool = True,
@@ -224,13 +230,27 @@ class Collector:
         # partial and get their fdinfo-derived used-memory stamp), processes from DRM fdinfo.
         drm = getattr(self.counters, "drm", None)
         if drm is not None and self.adapter and self.adapter.vendor_id != VENDOR_NVIDIA:
-            self.drm_card = next((c for c in drm.cards if c.key == self.adapter.luid), None)
+            self.drm_card = next((c for c in drm.cards if c.key == self.adapter.luid
+                                  and c.vendor_id == self.adapter.vendor_id), None)
         if drm is not None and self.drm_card is None:
             self.counters.drm = None  # an NVIDIA GPU is shown: don't walk every process's fds for nothing
         elif drm is not None:
             drm.start(self.drm_card)  # process baseline plus device counters for the selected GPU only
             if scan_budget is None:
                 drm.scan_budget = None  # one-shot output sees every process
+        # Huawei Ascend NPU (no DRM): one selected chip and its owned watch process.
+        self.ascend_chip = None
+        self.ascend = None
+        if BACKEND == "nvml" and self.adapter and self.adapter.vendor_id == VENDOR_HUAWEI:
+            from dataclasses import replace
+            from .ascend import AscendCounters, cached_chips, chip_adapter_key
+
+            chip = next((c for c in cached_chips()
+                         if chip_adapter_key(c.pdev, c.chip) == self.adapter.luid), None)
+            if chip is not None:
+                self.ascend_chip = replace(chip)
+                self.ascend = AscendCounters(chips=[self.ascend_chip])
+                self.counters.ascend = self.ascend
         self.inspector = ProcInspector()
         self.prober = ServerProber()
         self.scan_budget = scan_budget  # None = scan every candidate now (one-shot output)
@@ -311,6 +331,8 @@ class Collector:
             from .drm import read_device
 
             nv = read_device(self.drm_card, self.gpu_index)
+        elif self.ascend_chip is not None:
+            nv = self.ascend.read_device(self.ascend_chip, self.gpu_index)
         elif self.adapter and self.adapter.vendor_id != VENDOR_NVIDIA:
             # NVML can't describe this GPU, and a sweep of every NVIDIA device costs ~60 ms per device.
             nv = (self.adl.sample() or self.amdsmi.sample()) if self.adapter.vendor_id == VENDOR_AMD else None
@@ -353,6 +375,12 @@ class Collector:
                 from .drm import intel_counter_status
 
                 snap.counter_status = intel_counter_status(self.drm_card, nv)
+        if self.ascend is not None:
+            snap.process_memory_available = self.ascend.process_available
+            snap.counter_status = self.ascend.status
+        elif self.backend == "ascend":
+            snap.process_memory_available = False
+            snap.counter_status = "Ascend chip unavailable: npu-smi could not match the selected adapter"
         live = [(pid, g) for pid, g in procs.items() if _is_live(g)]
         live.sort(key=lambda x: -(x[1].shown_vram or 0))
         for pid, g in live:

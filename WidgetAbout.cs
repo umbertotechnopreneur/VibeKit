@@ -17,19 +17,19 @@ internal static class WidgetAbout
     internal static SolidColorBrush Paper() => Brush(255, 244, 220);
 
     internal static StackPanel Create(Image mark, Image initiative, string name, string version,
-        string description, string sourceUrl, string notice, UIElement? details = null)
+        string description, string sourceUrl, string notice, UIElement? details = null, bool dark = false)
     {
         var content = new StackPanel { Spacing = 24, MaxWidth = 660 };
         mark.HorizontalAlignment = HorizontalAlignment.Center;
         content.Children.Add(mark);
 
         var identity = new StackPanel { Spacing = 5 };
-        identity.Children.Add(Centered(name, 23));
-        identity.Children.Add(Centered(version, 14, secondary: true));
+        identity.Children.Add(Centered(name, 23, dark: dark));
+        identity.Children.Add(Centered(version, 14, secondary: true, dark: dark));
         content.Children.Add(identity);
-        content.Children.Add(Centered(description, 15));
-        content.Children.Add(Centered(notice, 13, secondary: true));
-        content.Children.Add(Centered("I'm Umberto Giacobbi · Proprietary", 15));
+        content.Children.Add(Centered(description, 15, dark: dark));
+        content.Children.Add(Centered(notice, 13, secondary: true, dark: dark));
+        content.Children.Add(Centered("I'm Umberto Giacobbi · Proprietary", 15, dark: dark));
         if (details is not null)
             content.Children.Add(details);
 
@@ -44,12 +44,12 @@ internal static class WidgetAbout
         content.Children.Add(badge);
 
         var links = new Grid { ColumnSpacing = 8, RowSpacing = 4 };
-        links.Children.Add(Link("UmbertoGiacobbi.biz", Website, "\uE774"));
-        var source = Link("Private source", sourceUrl, "\uE943");
+        links.Children.Add(Link("UmbertoGiacobbi.biz", Website, "\uE774", dark));
+        var source = Link("Private source", sourceUrl, "\uE943", dark);
         ToolTipService.SetToolTip(source, "Private GitHub repository. Access is required.");
         links.Children.Add(source);
-        links.Children.Add(Link("Terms", Terms, "\uE8A5"));
-        links.Children.Add(Link("Privacy", Privacy, "\uE72E"));
+        links.Children.Add(Link("Terms", Terms, "\uE8A5", dark));
+        links.Children.Add(Link("Privacy", Privacy, "\uE72E", dark));
         ArrangeLinks(links, 1);
         links.SizeChanged += (_, e) => ArrangeLinks(links, e.NewSize.Width >= 550 ? 4 : e.NewSize.Width >= 350 ? 2 : 1);
         content.Children.Add(links);
@@ -59,15 +59,15 @@ internal static class WidgetAbout
     private static SolidColorBrush Brush(byte red, byte green, byte blue) =>
         new(Windows.UI.Color.FromArgb(255, red, green, blue));
 
-    private static TextBlock Centered(string text, double size, bool secondary = false) => new()
+    private static TextBlock Centered(string text, double size, bool secondary = false, bool dark = false) => new()
     {
         Text = text, FontSize = size, FontFamily = Monospace, TextWrapping = TextWrapping.Wrap,
-        TextAlignment = TextAlignment.Center, Foreground = secondary ? Brush(82, 101, 115) : Brush(35, 42, 47)
+        TextAlignment = TextAlignment.Center, Foreground = dark ? (secondary ? Brush(191, 187, 178) : Brush(243, 233, 218)) : (secondary ? Brush(82, 101, 115) : Brush(35, 42, 47))
     };
 
-    private static HyperlinkButton Link(string text, string url, string glyph)
+    private static HyperlinkButton Link(string text, string url, string glyph, bool dark)
     {
-        var foreground = Brush(58, 106, 150);
+        var foreground = dark ? Brush(158, 183, 204) : Brush(58, 106, 150);
         var pair = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
         pair.Children.Add(new FontIcon
         {

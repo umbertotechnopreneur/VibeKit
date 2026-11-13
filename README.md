@@ -6,6 +6,8 @@ A small Windows 11 click-ripple app by Umberto Giacobbi, using C# / WinUI 3 and 
 
 **Ripple Studio** previews water ripples over a desktop snapshot. Click the preview or use **Drop in the center**. Choose a preset or adjust refraction, wave size, speed and duration. **Refresh background** captures a new snapshot while briefly hiding Studio; the main window remains available in ordinary screenshots.
 
+The Studio provides expandable sections for **RGB refraction**, **Crest reflections**, **Multiple ripples**, and **Glass / liquid**. Each filter can be enabled and adjusted independently and includes described presets. These settings apply to the preview and screen effect and are saved immediately.
+
 **Settings** opens a small dialog inside Studio. It contains the ripple preset and parameters, capture/animation limits, Acrylic preference and **Start with Windows**. Ordinary preferences save immediately; startup is managed by the packaged Windows `StartupTask` API and is enabled by default for new installations. Existing Windows startup choices and policy are respected. Windows administrator policy or a user decision in Startup Apps cannot be overridden by the app. Unpackaged builds explain that an MSIX installation is needed for this toggle.
 
 **Apply to screen** applies click ripples to the current monitor. Clicks pass through the overlay. Stop with **Stop screen effect** or **Ctrl+Alt+Esc**. The overlay stays hidden until capture and presentation are valid and hides before GPU resources are released. The screen overlay alone is excluded from capture to prevent feedback.
@@ -20,9 +22,9 @@ User preferences are bound to `AppSettings`, transient UI state belongs to `AppS
 
 ## Performance
 
-Capture uses Windows.Graphics.Capture with two GPU buffers and no CPU pixel readback. The ripple-only shader uses one desktop texture, a 160-byte constant buffer and at most eight waves. Frozen preview snapshots close their capture session. Capture and animation rates have separate limits. One monitor is supported at a time; rotated displays remain unsupported.
+Capture uses Windows.Graphics.Capture with two GPU buffers and no CPU pixel readback. The ripple shader uses one desktop texture, a 192-byte constant buffer and at most eight waves. Frozen preview snapshots close their capture session. Capture and animation rates have separate limits. One monitor is supported at a time; rotated displays remain unsupported.
 
-Screen mode retains the hardware Direct3D 11 requirement and at least 8,000,000,000 bytes of dedicated VRAM. Shared memory does not count. The resource monitor samples private RAM, working set and CPU; it warns at 1 GiB private RAM. GPU budget and CPU submission timings are shown separately from presentation rates.
+Screen mode retains the hardware Direct3D 11 requirement and at least 8,000,000,000 bytes of dedicated VRAM. Shared memory does not count. The resource monitor samples private RAM, working set and CPU; it warns at 500 MB private RAM about a possible memory leak and asks for a report. GPU budget and CPU submission timings are shown separately from presentation rates.
 
 ## Diagnostics
 

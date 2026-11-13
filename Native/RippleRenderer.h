@@ -53,7 +53,7 @@ extern "C"
     __declspec(dllexport) int32_t __cdecl RippleCreate(void* panel, const wchar_t* shaderDirectory, void** handle);
     __declspec(dllexport) int32_t __cdecl RippleRender(void* handle, int32_t screenX, int32_t screenY,
         int32_t widthPixels, int32_t heightPixels, float widthDips, float heightDips,
-        float strength, float band, float speed, float duration,
+        float strength, float band, float speed, float duration, float chromaticSeparation, float chromaticBlend, float crest, float ripples, float liquid,
         const RippleWave* waves, int32_t count, int32_t captureEnabled, int32_t captureDue);
     __declspec(dllexport) int32_t __cdecl RippleGetStats(void* handle, RippleStats* stats);
     __declspec(dllexport) int32_t __cdecl RippleCheckCapabilities(int32_t screenX, int32_t screenY,

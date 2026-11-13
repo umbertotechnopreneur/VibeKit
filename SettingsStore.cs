@@ -141,6 +141,15 @@ public sealed class SettingsStore : IDisposable
         public double AnimationFps { get; set; } = 60;
         public double CaptureFps { get; set; } = 30;
         public bool UseAcrylic { get; set; } = true;
+        public bool ChromaticEnabled { get; set; } = true;
+        public double ChromaticSeparation { get; set; } = 18;
+        public double ChromaticBlend { get; set; } = 45;
+        public bool CrestEnabled { get; set; }
+        public bool RipplesEnabled { get; set; }
+        public bool LiquidEnabled { get; set; }
+        public double CrestIntensity { get; set; } = 50;
+        public double RipplesIntensity { get; set; } = 50;
+        public double LiquidIntensity { get; set; } = 50;
 
         public AppSettings ToModel() => new()
         {
@@ -152,6 +161,15 @@ public sealed class SettingsStore : IDisposable
             AnimationFps = AnimationFps,
             CaptureFps = CaptureFps,
             UseAcrylic = UseAcrylic,
+            ChromaticEnabled = ChromaticEnabled,
+            ChromaticSeparation = ChromaticSeparation,
+            ChromaticBlend = ChromaticBlend,
+            CrestEnabled = CrestEnabled,
+            RipplesEnabled = RipplesEnabled,
+            LiquidEnabled = LiquidEnabled,
+            CrestIntensity = CrestIntensity,
+            RipplesIntensity = RipplesIntensity,
+            LiquidIntensity = LiquidIntensity,
         };
 
         public static SettingsValues FromModel(AppSettings model) => new()
@@ -164,6 +182,15 @@ public sealed class SettingsStore : IDisposable
             AnimationFps = model.AnimationFps,
             CaptureFps = model.CaptureFps,
             UseAcrylic = model.UseAcrylic,
+            ChromaticEnabled = model.ChromaticEnabled,
+            ChromaticSeparation = model.ChromaticSeparation,
+            ChromaticBlend = model.ChromaticBlend,
+            CrestEnabled = model.CrestEnabled,
+            RipplesEnabled = model.RipplesEnabled,
+            LiquidEnabled = model.LiquidEnabled,
+            CrestIntensity = model.CrestIntensity,
+            RipplesIntensity = model.RipplesIntensity,
+            LiquidIntensity = model.LiquidIntensity,
         };
     }
 }

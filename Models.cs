@@ -24,9 +24,12 @@ public abstract class ObservableModel : INotifyPropertyChanged
 // The sole source of user preferences. All consumers observe the same instance.
 public sealed class AppSettings : ObservableModel
 {
-    private bool useAcrylic = true;
+    private bool useAcrylic = true, chromaticEnabled = true;
+    private bool crestEnabled, ripplesEnabled, liquidEnabled;
     private double strength = 9, waveSize = 100, speed = 150, duration = 1.5;
     private double animationFps = 60, captureFps = 30;
+    private double chromaticSeparation = 18, chromaticBlend = 45;
+    private double crestIntensity = 50, ripplesIntensity = 50, liquidIntensity = 50;
     private int presetIndex = 1;
     public static IReadOnlyList<string> PresetNames { get; } = Array.AsReadOnly(new[]
     {
@@ -40,6 +43,15 @@ public sealed class AppSettings : ObservableModel
     public double AnimationFps { get => animationFps; set => SetProperty(ref animationFps, Number(value, 15, 120, 60)); }
     public double CaptureFps { get => captureFps; set => SetProperty(ref captureFps, Number(value, 5, 60, 30)); }
     public bool UseAcrylic { get => useAcrylic; set => SetProperty(ref useAcrylic, value); }
+    public bool ChromaticEnabled { get => chromaticEnabled; set => SetProperty(ref chromaticEnabled, value); }
+    public double ChromaticSeparation { get => chromaticSeparation; set => SetProperty(ref chromaticSeparation, Number(value, 0, 100, 18)); }
+    public double ChromaticBlend { get => chromaticBlend; set => SetProperty(ref chromaticBlend, Number(value, 0, 100, 45)); }
+    public bool CrestEnabled { get => crestEnabled; set => SetProperty(ref crestEnabled, value); }
+    public bool RipplesEnabled { get => ripplesEnabled; set => SetProperty(ref ripplesEnabled, value); }
+    public bool LiquidEnabled { get => liquidEnabled; set => SetProperty(ref liquidEnabled, value); }
+    public double CrestIntensity { get => crestIntensity; set => SetProperty(ref crestIntensity, Number(value, 0, 100, 50)); }
+    public double RipplesIntensity { get => ripplesIntensity; set => SetProperty(ref ripplesIntensity, Number(value, 0, 100, 50)); }
+    public double LiquidIntensity { get => liquidIntensity; set => SetProperty(ref liquidIntensity, Number(value, 0, 100, 50)); }
 
     public int PresetIndex
     {

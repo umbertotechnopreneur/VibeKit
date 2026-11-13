@@ -260,9 +260,11 @@ namespace
     {
         float Surface[4];
         float Timing[4];
+        float Chromatic[4];
+        float Filters[4];
         RippleWave Waves[8];
     };
-    static_assert(sizeof(ShaderConstants) == 160);
+    static_assert(sizeof(ShaderConstants) == 192);
     static_assert(sizeof(RippleWave) == 16);
     static_assert(sizeof(RippleStats) == 32);
     static_assert(sizeof(RippleCapabilities) == 304);
@@ -288,7 +290,7 @@ namespace
         }
 
         HRESULT Render(int x, int y, int w, int h, float widthDip, float heightDip,
-            float strength, float band, float speed, float duration,
+            float strength, float band, float speed, float duration, float chromaticSeparation, float chromaticBlend, float crest, float ripples, float liquid,
             const RippleWave* waves, int count, bool captureEnabled, bool captureDue)
         {
             const auto start = Clock::now();
@@ -345,6 +347,11 @@ namespace
                 constants.Timing[0] = speed;
                 constants.Timing[1] = std::max(0.01f, duration);
                 constants.Timing[2] = static_cast<float>(count);
+                constants.Chromatic[0] = chromaticSeparation;
+                constants.Chromatic[1] = chromaticBlend;
+                constants.Filters[0] = crest;
+                constants.Filters[1] = ripples;
+                constants.Filters[2] = liquid;
                 if (count) std::memcpy(constants.Waves, waves, static_cast<size_t>(count) * sizeof(RippleWave));
                 context->UpdateSubresource(constantBuffer.Get(), 0, nullptr, &constants, 0, 0);
                 ID3D11RenderTargetView* target = targetView.Get();
@@ -444,6 +451,8 @@ namespace
         HMONITOR monitor{};
         LUID adapterLuid{};
         int swapWidth{}, swapHeight{};
+        float swapScaleX{}, swapScaleY{};
+        bool hasSwapScale{};
         UINT desktopWidth{}, desktopHeight{};
         int captureWidth{}, captureHeight{};
         bool screenMode{};
@@ -483,6 +492,7 @@ namespace
             monitor = nullptr;
             adapterLuid = {};
             swapWidth = swapHeight = captureWidth = captureHeight = 0;
+            hasSwapScale = false;
             desktopWidth = desktopHeight = 0;
             stats.CaptureWidth = stats.CaptureHeight = 0;
             stats.Status = 0;
@@ -657,11 +667,16 @@ namespace
                 result = device->CreateRenderTargetView(buffer.Get(), nullptr, &targetView);
                 if (FAILED(result)) return result;
             }
+            float scaleX = widthDip / w;
+            float scaleY = heightDip / h;
+            if (hasSwapScale && scaleX == swapScaleX && scaleY == swapScaleY) return S_OK;
             ComPtr<IDXGISwapChain2> swapChain2;
             result = swapChain.As(&swapChain2);
             if (FAILED(result)) return result;
-            DXGI_MATRIX_3X2_F transform{ widthDip / w, 0.0f, 0.0f, heightDip / h, 0.0f, 0.0f };
-            return swapChain2->SetMatrixTransform(&transform);
+            DXGI_MATRIX_3X2_F transform{ scaleX, 0.0f, 0.0f, scaleY, 0.0f, 0.0f };
+            result = swapChain2->SetMatrixTransform(&transform);
+            if (SUCCEEDED(result)) { swapScaleX = scaleX; swapScaleY = scaleY; hasSwapScale = true; }
+            return result;
         }
 
         HRESULT EnsureCaptureTexture(int w, int h)
@@ -878,7 +893,7 @@ extern "C" __declspec(dllexport) int32_t __cdecl RippleCreate(void* panel, const
 }
 
 extern "C" __declspec(dllexport) int32_t __cdecl RippleRender(void* handle, int32_t x, int32_t y,
-    int32_t w, int32_t h, float widthDip, float heightDip, float strength, float band, float speed, float duration,
+    int32_t w, int32_t h, float widthDip, float heightDip, float strength, float band, float speed, float duration, float chromaticSeparation, float chromaticBlend, float crest, float ripples, float liquid,
     const RippleWave* waves, int32_t count, int32_t captureEnabled, int32_t captureDue)
 {
     if (!handle || (count > 0 && !waves)) return E_POINTER;
@@ -886,7 +901,7 @@ extern "C" __declspec(dllexport) int32_t __cdecl RippleRender(void* handle, int3
     try
     {
         return static_cast<Renderer*>(handle)->Render(x, y, w, h, widthDip, heightDip,
-            strength, band, speed, duration, waves, count, captureEnabled != 0, captureDue != 0);
+            strength, band, speed, duration, chromaticSeparation, chromaticBlend, crest, ripples, liquid, waves, count, captureEnabled != 0, captureDue != 0);
     }
     catch (const std::bad_alloc&) { return E_OUTOFMEMORY; }
     catch (...) { return E_FAIL; }

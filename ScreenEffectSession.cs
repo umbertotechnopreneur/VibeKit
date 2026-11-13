@@ -90,6 +90,8 @@ internal sealed class ScreenEffectSession : IDisposable
             float scale = (float)(window.Surface.XamlRoot?.RasterizationScale ?? 1);
             int hr = Native.RippleRender(renderer, caps.Left, caps.Top, caps.Width, caps.Height,
                 caps.Width / scale, caps.Height / scale, (float)settings.Strength, (float)(settings.WaveSize * .35), (float)settings.Speed, (float)settings.Duration,
+                settings.ChromaticEnabled ? (float)(settings.ChromaticSeparation / 100) : 0, (float)(settings.ChromaticBlend / 100),
+                settings.CrestEnabled ? (float)(settings.CrestIntensity / 100) : 0, settings.RipplesEnabled ? (float)(settings.RipplesIntensity / 100) : 0, settings.LiquidEnabled ? (float)(settings.LiquidIntensity / 100) : 0,
                 frame.ShaderWaves, frame.Waves.Count, inspecting ? 0 : 1, captureDue ? 1 : 0);
             Marshal.ThrowExceptionForHR(hr);
 

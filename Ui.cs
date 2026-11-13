@@ -135,34 +135,12 @@ internal static class Ui
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var words = new StackPanel { Spacing = 5, VerticalAlignment = VerticalAlignment.Center };
-        var eyebrow = Text("VIBEWARE / WATER RIPPLE", 11);
-        eyebrow.Foreground = Denim;
-        words.Children.Add(eyebrow);
         words.Children.Add(Text(title, 28));
         var description = Text(subtitle, 13);
         description.Foreground = MutedCream;
         words.Children.Add(description);
         header.Children.Add(words);
 
-        var logo = new Image
-        {
-            Source = new BitmapImage(new Uri("ms-appx:///Assets/VibeWare.png")) { DecodePixelWidth = 96 },
-            Width = 64,
-            Height = 64,
-            Stretch = Stretch.Uniform
-        };
-        var manifesto = new HyperlinkButton
-        {
-            Content = logo,
-            NavigateUri = new Uri(ManifestoUrl),
-            Padding = new Thickness(4),
-            VerticalAlignment = VerticalAlignment.Top,
-            HorizontalAlignment = HorizontalAlignment.Right
-        };
-        AutomationProperties.SetName(manifesto, "Participates in VibeWare. Read the manifesto");
-        ToolTipService.SetToolTip(manifesto, "Participates in VibeWare. Read the manifesto");
-        Grid.SetColumn(manifesto, 1);
-        header.Children.Add(manifesto);
         return header;
     }
 
@@ -171,22 +149,29 @@ internal static class Ui
         var rows = new StackPanel { Spacing = 4 };
         void Refresh()
         {
-            rows.Children.Clear();
             string value = property == nameof(AppState.MetricsText) ? state.MetricsText : state.ResourcesText;
-            foreach (string line in value.Split('\n'))
+            string[] lines = value.Split('\n');
+            for (int i = 0; i < lines.Length; i++)
             {
-                var parts = line.Split('\t', 2);
-                var row = new Grid { ColumnSpacing = 8 };
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                var label = Text(parts[0], 12); label.Foreground = MutedCream; row.Children.Add(label);
-                if (parts.Length == 2)
+                if (i == rows.Children.Count)
                 {
-                    var number = Text(parts[1], 12); number.TextAlignment = TextAlignment.Right;
+                    var row = new Grid { ColumnSpacing = 8 };
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    var label = Text("", 12); label.Foreground = MutedCream; row.Children.Add(label);
+                    var number = Text("", 12); number.TextAlignment = TextAlignment.Right;
                     Grid.SetColumn(number, 1); row.Children.Add(number);
+                    rows.Children.Add(row);
                 }
-                rows.Children.Add(row);
+                var current = (Grid)rows.Children[i];
+                var parts = lines[i].Split('\t', 2);
+                var currentLabel = (TextBlock)current.Children[0];
+                var currentValue = (TextBlock)current.Children[1];
+                string text = parts.Length == 2 ? parts[1] : "";
+                if (currentLabel.Text != parts[0]) currentLabel.Text = parts[0];
+                if (currentValue.Text != text) currentValue.Text = text;
             }
+            while (rows.Children.Count > lines.Length) rows.Children.RemoveAt(rows.Children.Count - 1);
         }
         void Changed(object? sender, PropertyChangedEventArgs args) { if (args.PropertyName == property) Refresh(); }
         rows.Loaded += (_, _) => { state.PropertyChanged += Changed; Refresh(); };
@@ -294,32 +279,44 @@ internal static class Ui
 
     internal static UIElement Footer(Action? showAbout = null)
     {
-        var footer = new StackPanel { Spacing = 5, Margin = new Thickness(0, 16, 0, 0), HorizontalAlignment = HorizontalAlignment.Center };
-        HyperlinkButton FooterLink(string label, string uri)
+        var footer = new Grid { Margin = new Thickness(0, 4, 0, 0) };
+        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        UIElement LinkContent(string label, string glyph)
+        {
+            var pair = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+            pair.Children.Add(new FontIcon { Glyph = glyph, FontFamily = new FontFamily("Segoe Fluent Icons"), FontSize = 12, Foreground = Denim });
+            pair.Children.Add(Text(label, 11));
+            return pair;
+        }
+        HyperlinkButton FooterLink(string label, string uri, string glyph)
         {
             var link = Link(label, uri);
+            link.Content = LinkContent(label, glyph);
+            AutomationProperties.SetName(link, label);
             link.FontSize = 11;
             link.VerticalAlignment = VerticalAlignment.Center;
             return link;
         }
-        var navigation = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
-        var about = new HyperlinkButton { Content = "About Water Ripple", Padding = new Thickness(0),
+        var navigation = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        var about = new HyperlinkButton { Content = LinkContent("About Water Ripple", "\uE946"), Padding = new Thickness(0),
             MinWidth = 0, MinHeight = 0, FontSize = 11, Foreground = Denim, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
+        AutomationProperties.SetName(about, "About Water Ripple");
         about.Click += (_, _) =>
         {
             if (showAbout is not null) showAbout();
             else new AboutWindow().Activate();
         };
         navigation.Children.Add(about);
-        navigation.Children.Add(Text("·", 11));
-        navigation.Children.Add(FooterLink("Terms", TermsUrl));
-        navigation.Children.Add(Text("·", 11));
-        navigation.Children.Add(FooterLink("Privacy", PrivacyUrl));
+        navigation.Children.Add(FooterLink("Vibe", ManifestoUrl, "\uE734"));
+        navigation.Children.Add(FooterLink("Terms", TermsUrl, "\uE8A5"));
+        navigation.Children.Add(FooterLink("Privacy", PrivacyUrl, "\uE72E"));
         footer.Children.Add(navigation);
-        var brand = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
-        brand.Children.Add(Text("This is VibeWare ·", 11));
-        brand.Children.Add(FooterLink("Manifesto", ManifestoUrl));
-        footer.Children.Add(brand);
+        var badge = new HyperlinkButton { NavigateUri = new Uri(ManifestoUrl), HorizontalAlignment = HorizontalAlignment.Right,
+            Padding = new Thickness(0), MinWidth = 0, MinHeight = 0, Content = new Image { Source = new BitmapImage(new Uri("ms-appx:///Assets/VibeWare.png")), Width = 28, Height = 28, Stretch = Stretch.Uniform } };
+        AutomationProperties.SetName(badge, "VibeWare manifesto");
+        Grid.SetColumn(badge, 1);
+        footer.Children.Add(badge);
         return footer;
     }
 
@@ -357,7 +354,7 @@ internal static class Ui
         {
             if (value is not double number) return "";
             string unit = parameter as string ?? "";
-            if (unit == "%") return (number * 100).ToString("0", CultureInfo.CurrentCulture) + "%";
+            if (unit == "%") return number.ToString("0", CultureInfo.CurrentCulture) + "%";
             string digits = unit == "s" ? "0.00" : "0.##";
             return number.ToString(digits, CultureInfo.CurrentCulture) + (unit.Length > 0 ? " " + unit : "");
         }

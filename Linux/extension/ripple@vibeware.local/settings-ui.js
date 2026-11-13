@@ -48,7 +48,6 @@ export function buildControls(window, settings, application = null, externalLeas
     target.connect('notify::selected', () => settings.set_string('target', targets[target.selected]));
     group.add(target);
     const preset = new Adw.ComboRow({title: 'Preset', model: Gtk.StringList.new([...Object.keys(PRESETS), 'Custom'])});
-    group.add(preset);
     let applying = false;
     const match = Object.values(PRESETS).findIndex(values => values.every((value, i) => Math.abs(value - settings.get_double(SPECS[i][0])) < 0.001));
     preset.selected = match >= 0 ? match : 5;
@@ -63,12 +62,15 @@ export function buildControls(window, settings, application = null, externalLeas
     });
     const parameters = new Adw.PreferencesGroup();
     page.add(parameters);
+    const ripple = new Adw.ExpanderRow({title: 'Ripple'});
+    parameters.add(ripple);
+    ripple.add_row(preset);
     for (const [key, title, low, high, step, digits] of SPECS) {
         const row = new Adw.SpinRow({title, digits, adjustment: new Gtk.Adjustment({
             lower: low, upper: high, step_increment: step, page_increment: step * 5,
         })});
         settings.bind(key, row, 'value', Gio.SettingsBindFlags.DEFAULT);
-        parameters.add(row);
+        ripple.add_row(row);
         row.connect('notify::value', () => {
             if (!applying)
                 preset.selected = 5;
@@ -76,7 +78,80 @@ export function buildControls(window, settings, application = null, externalLeas
     }
     const invert = new Adw.SwitchRow({title: 'Invert refraction'});
     settings.bind('invert', invert, 'active', Gio.SettingsBindFlags.DEFAULT);
-    parameters.add(invert);
+    ripple.add_row(invert);
+
+    const filters = new Adw.PreferencesGroup({title: 'Filters'});
+    page.add(filters);
+    const filterChanges = [];
+    for (const [title, enabledKey, valueKeys, presets] of [
+        ['RGB refraction', 'chromatic-enabled', ['chromatic-separation', 'chromatic-blend'], [
+            ['Subtle', [12, 35], 'A delicate color fringe for a natural ripple.'],
+            ['Balanced', [18, 45], 'A balanced color trail along the wave.'],
+            ['Vivid', [45, 70], 'A stronger, more colorful refracted trail.'],
+        ]],
+        ['Crest reflections', 'crest-enabled', ['crest-intensity'], [
+            ['Soft glint', [25], 'A faint glint follows the wave.'],
+            ['Water shine', [50], 'Adds a clear reflection to the crests.'],
+            ['Bright crest', [85], 'Gives the crests a pronounced bright shine.'],
+        ]],
+        ['Multiple ripples', 'ripples-enabled', ['ripples-intensity'], [
+            ['Fine ripples', [25], 'Adds fine secondary ripples.'],
+            ['Layered waves', [50], 'Adds a visible pattern of smaller waves.'],
+            ['Choppy water', [85], 'Makes the secondary ripples more pronounced.'],
+        ]],
+        ['Glass / liquid', 'liquid-enabled', ['liquid-intensity'], [
+            ['Soft lens', [25], 'Adds a gentle lens-like distortion.'],
+            ['Liquid glass', [50], 'Gives the wave a liquid-glass refraction.'],
+            ['Deep lens', [85], 'Strengthens the lens-like refraction.'],
+        ]],
+    ]) {
+        const section = new Adw.ExpanderRow({title});
+        filters.add(section);
+        const enabled = new Adw.SwitchRow({title: 'Enable'});
+        settings.bind(enabledKey, enabled, 'active', Gio.SettingsBindFlags.DEFAULT);
+        section.add_row(enabled);
+        const choice = new Adw.ComboRow({
+            title: 'Preset', model: Gtk.StringList.new(['Custom', ...presets.map(preset => preset[0])]),
+        });
+        settings.bind(enabledKey, choice, 'sensitive', Gio.SettingsBindFlags.GET);
+        section.add_row(choice);
+
+        let updating = false;
+        const syncPreset = () => {
+            updating = true;
+            const match = presets.findIndex(([, values]) =>
+                values.every((value, index) => settings.get_double(valueKeys[index]) === value));
+            choice.selected = match + 1;
+            choice.subtitle = match < 0 ? 'Adjust the values below.' : presets[match][2];
+            updating = false;
+        };
+        choice.connect('notify::selected', () => {
+            if (updating)
+                return;
+            if (choice.selected === 0) {
+                choice.subtitle = 'Adjust the values below.';
+                return;
+            }
+            updating = true;
+            presets[choice.selected - 1][1].forEach((value, index) => settings.set_double(valueKeys[index], value));
+            syncPreset();
+        });
+        for (const key of valueKeys) {
+            const label = key === 'chromatic-separation' ? 'Channel separation · %'
+                : key === 'chromatic-blend' ? 'Color blend · %' : 'Intensity · %';
+            const row = new Adw.SpinRow({title: label, adjustment: new Gtk.Adjustment({
+                lower: 0, upper: 100, step_increment: 1, page_increment: 5,
+            })});
+            settings.bind(key, row, 'value', Gio.SettingsBindFlags.DEFAULT);
+            settings.bind(enabledKey, row, 'sensitive', Gio.SettingsBindFlags.GET);
+            section.add_row(row);
+            filterChanges.push(settings.connect(`changed::${key}`, () => {
+                if (!updating)
+                    syncPreset();
+            }));
+        }
+        syncPreset();
+    }
     const limits = new Adw.PreferencesGroup({title: 'Limits'});
     page.add(limits);
     for (const [key, title, low, high, step] of [
@@ -122,6 +197,8 @@ export function buildControls(window, settings, application = null, externalLeas
         if (timeout)
             GLib.source_remove(timeout);
         settings.disconnect(changed);
+        for (const handler of filterChanges)
+            settings.disconnect(handler);
         return false;
     });
     // Let GNOME load the installed extension through its supported API only.

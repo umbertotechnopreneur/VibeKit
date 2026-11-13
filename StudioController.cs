@@ -46,6 +46,7 @@ internal sealed partial class StudioController : IDisposable
     internal ICommand OpenSettingsCommand { get; }
     internal ICommand MinimizeToTrayCommand { get; }
     internal ICommand InspectScreenCommand { get; }
+    internal bool IsInTray => model.State.IsInTray;
 
     internal StudioController(StudioModel model, Window window, SwapChainPanel canvas)
     {
@@ -72,7 +73,7 @@ internal sealed partial class StudioController : IDisposable
         monitor = new ResourceMonitor(warning: sample =>
         {
             Log.Warning("Private memory threshold reached Bytes={PrivateBytes} WorkingSet={WorkingSet}", sample.PrivateBytes, sample.WorkingSetBytes);
-            Native.MessageBox(IntPtr.Zero, "Water Ripple Studio is using at least 1 GiB of private memory. Stop the screen effect or reduce its settings if memory keeps growing.", "Water Ripple Studio · memory", 0x50030);
+            Native.MessageBox(IntPtr.Zero, "Water Ripple Studio is using at least 500 MB of private memory. This could be a memory leak. Please report it and include the recent application logs.\n\nStop the screen effect or close the app if memory keeps growing.", "Water Ripple Studio · memory", 0x50030);
         });
         model.Settings.PropertyChanged += SettingsChanged;
     }
@@ -136,6 +137,8 @@ internal sealed partial class StudioController : IDisposable
         var b = Bounds();
         int hr = Native.RippleRender(renderer, b.X, b.Y, b.Width, b.Height, (float)canvas.ActualWidth, (float)canvas.ActualHeight,
             (float)settings.Strength, (float)(settings.WaveSize * .35), (float)settings.Speed, (float)settings.Duration,
+            settings.ChromaticEnabled ? (float)(settings.ChromaticSeparation / 100) : 0, (float)(settings.ChromaticBlend / 100),
+            settings.CrestEnabled ? (float)(settings.CrestIntensity / 100) : 0, settings.RipplesEnabled ? (float)(settings.RipplesIntensity / 100) : 0, settings.LiquidEnabled ? (float)(settings.LiquidIntensity / 100) : 0,
             frame.ShaderWaves, frame.Waves.Count, 0, 0);
         if (hr < 0) { Fail("Preview rendering stopped", new COMException("Graphics operation failed", hr)); timer.Stop(); return; }
         if (frame.StatisticsClock.Elapsed.TotalSeconds >= 1 && Native.RippleGetStats(renderer, out var stats) >= 0)
@@ -188,6 +191,8 @@ internal sealed partial class StudioController : IDisposable
                 var s = model.Settings;
                 int hr = Native.RippleRender(renderer, bounds.X, bounds.Y, bounds.Width, bounds.Height,
                     widthDip, heightDip, (float)s.Strength, (float)(s.WaveSize * .35), (float)s.Speed, (float)s.Duration,
+                    s.ChromaticEnabled ? (float)(s.ChromaticSeparation / 100) : 0, (float)(s.ChromaticBlend / 100),
+                    s.CrestEnabled ? (float)(s.CrestIntensity / 100) : 0, s.RipplesEnabled ? (float)(s.RipplesIntensity / 100) : 0, s.LiquidEnabled ? (float)(s.LiquidIntensity / 100) : 0,
                     frame.ShaderWaves, 0, 1, 1);
                 Marshal.ThrowExceptionForHR(hr);
                 statsResult = Native.RippleGetStats(renderer, out var stats);
@@ -331,7 +336,7 @@ internal sealed partial class StudioController : IDisposable
         var sample = monitor.Snapshot;
         model.State.PrivateRamBytes = sample.PrivateBytes; model.State.WorkingSetBytes = sample.WorkingSetBytes; model.State.CpuPercent = sample.CpuPercent;
         model.State.LocalGpuUsageBytes = memory.LocalUsage; model.State.LocalGpuBudgetBytes = memory.LocalBudget;
-        model.State.ResourcesText = $"Private RAM\t{sample.PrivateBytes / 1048576.0:F0} MiB\nWorking set\t{sample.WorkingSetBytes / 1048576.0:F0} MiB\nCPU\t{sample.CpuPercent:F1}%\nGPU local\t{memory.LocalUsage / 1048576.0:F0} / {memory.LocalBudget / 1048576.0:F0} MiB\nRAM warning\t1 GiB";
+        model.State.ResourcesText = $"Private RAM\t{sample.PrivateBytes / 1048576.0:F0} MiB\nWorking set\t{sample.WorkingSetBytes / 1048576.0:F0} MiB\nCPU\t{sample.CpuPercent:F1}%\nGPU local\t{memory.LocalUsage / 1048576.0:F0} / {memory.LocalBudget / 1048576.0:F0} MiB\nRAM warning\t500 MB";
         double now = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
         if (now >= nextPerformanceLog)
         {
@@ -408,8 +413,16 @@ internal sealed partial class StudioController : IDisposable
     {
         model.State.IsInTray = false;
         tray.Hide();
-        window.AppWindow.Show(true); window.Activate();
-        if (screen is null) { if (renderer == IntPtr.Zero) StartPreview(); } else Native.SetTopmost(hwnd, true);
+        // Use WinUI activation directly: a startup-task window may never have
+        // been activated before this point.
+        window.Activate();
+        if (screen is null)
+        {
+            // On the first activation Loaded will start the preview after layout.
+            if (renderer == IntPtr.Zero && canvas.IsLoaded)
+                window.DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, SurfaceLoaded);
+        }
+        else Native.SetTopmost(hwnd, true);
         Log.Information("Main window restored from tray");
     }
     private void ExitApp()
@@ -421,6 +434,26 @@ internal sealed partial class StudioController : IDisposable
 
 #if DEBUG
     private bool checksStarted;
+    internal async void CheckHiddenStartup()
+    {
+        try
+        {
+            for (int i = 0; i < 80 && !model.State.ScreenOverlayVisible; i++) await Task.Delay(50);
+            if (!model.State.IsInTray || !tray.IsVisible || Native.IsWindowVisible(hwnd))
+                throw new InvalidOperationException("Startup did not keep Studio hidden in the notification area.");
+            if (!model.State.IsScreenEffectActive || !model.State.ScreenOverlayVisible || !model.State.IsCaptureValid)
+                throw new InvalidOperationException("Startup did not present the screen effect: " + model.State.StatusMessage);
+            Console.WriteLine("PASS startup keeps Studio hidden while the screen effect runs");
+            ShowFromTray();
+            for (int i = 0; i < 80 && !canvas.IsLoaded; i++) await Task.Delay(50);
+            if (model.State.IsInTray || !Native.IsWindowVisible(hwnd) || !canvas.IsLoaded)
+                throw new InvalidOperationException("Studio could not be restored from its first hidden startup.");
+            Console.WriteLine("PASS Studio restores with its XAML content loaded");
+        }
+        catch (Exception ex) { Environment.ExitCode = 1; Console.Error.WriteLine(ex); Log.Error(ex, "Hidden startup check failed"); }
+        finally { ExitApp(); }
+    }
+
     private async Task ExerciseOverlayAsync()
     {
         try

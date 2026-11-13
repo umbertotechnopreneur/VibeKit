@@ -17,7 +17,7 @@ namespace WaterRipple;
 internal static partial class Native
 {
     [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)] internal static extern int RippleCreate(IntPtr panel, string shaderDirectory, out IntPtr renderer);
-    [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern int RippleRender(IntPtr renderer, int x, int y, int width, int height, float widthDip, float heightDip, float strength, float band, float speed, float duration, [In] NativeWave[] waves, int count, int captureEnabled, int captureDue);
+    [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern int RippleRender(IntPtr renderer, int x, int y, int width, int height, float widthDip, float heightDip, float strength, float band, float speed, float duration, float chromaticSeparation, float chromaticBlend, float crest, float ripples, float liquid, [In] NativeWave[] waves, int count, int captureEnabled, int captureDue);
     [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern int RippleGetStats(IntPtr renderer, out NativeStats stats);
     [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern void RippleDestroy(IntPtr renderer);
     [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint affinity);

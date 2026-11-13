@@ -31,13 +31,14 @@ internal static class ResourceChecks
     {
         var latch = new MemoryWarningLatch();
         Require(!latch.Observe(0), "Zero memory unexpectedly warned.");
-        Require(!latch.Observe(MemoryWarningLatch.LimitBytes - 1), "Warning fired below 1 GiB.");
-        Require(latch.Observe(MemoryWarningLatch.LimitBytes), "Exactly 1 GiB did not warn.");
+        Require(MemoryWarningLatch.LimitBytes == 500_000_000, "The memory threshold is not 500 MB.");
+        Require(!latch.Observe(MemoryWarningLatch.LimitBytes - 1), "Warning fired below 500 MB.");
+        Require(latch.Observe(MemoryWarningLatch.LimitBytes), "Exactly 500 MB did not warn.");
         Require(!latch.Observe(MemoryWarningLatch.LimitBytes + 1), "A high episode warned twice.");
         Require(!latch.Observe(MemoryWarningLatch.RearmBytes + 1), "An intermediate value warned.");
-        Require(!latch.Observe(MemoryWarningLatch.LimitBytes), "The latch rearmed above 0.8 GiB.");
+        Require(!latch.Observe(MemoryWarningLatch.LimitBytes), "The latch rearmed above 400 MB.");
         Require(!latch.Observe(MemoryWarningLatch.RearmBytes), "A low-memory recovery warned.");
-        Require(latch.Observe(MemoryWarningLatch.LimitBytes), "Recovery below 0.8 GiB failed to rearm.");
+        Require(latch.Observe(MemoryWarningLatch.LimitBytes), "Recovery to 400 MB failed to rearm.");
         Require(!latch.Observe(MemoryWarningLatch.LimitBytes), "The second episode warned repeatedly.");
     }
 
@@ -84,7 +85,7 @@ internal static class ResourceChecks
             Require(monitor.Snapshot.SampledAt != DateTimeOffset.MinValue, "No successful sample was published.");
 
             Interlocked.Exchange(ref requestedBytes, MemoryWarningLatch.LimitBytes);
-            Require(firstNoticeEntered.Wait(WaitLimit), "The 1 GiB sample did not queue a warning.");
+            Require(firstNoticeEntered.Wait(WaitLimit), "The 500 MB sample did not queue a warning.");
             Require(warningThreads.TryPeek(out var firstWarning), "No warning thread was observed.");
             Thread noticeThread = firstWarning ?? throw new InvalidOperationException("No warning thread was observed.");
             Require(noticeThread.ManagedThreadId != callerThreadId && noticeThread.ManagedThreadId != worker.ManagedThreadId,

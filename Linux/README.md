@@ -6,6 +6,8 @@ Open **Ripple** from the applications menu, choose where the effect should appea
 
 The compositor limits the effect to a local region around the click and at most two waves. The controller keeps the effect alive while running, including when hidden. If its heartbeat stops or the compositor detects sustained delays, the extension turns the effect off.
 
+Expand **Ripple** to adjust the main wave preset and parameters. The **Filters** section offers RGB refraction, crest reflections, multiple ripples, and glass / liquid distortion, each in its own expandable row. Enable each filter independently, choose a preset, or adjust its values. Changes apply to active waves and are saved automatically.
+
 The Debian package starts Ripple minimized when you sign in to GNOME. The effect
 turns on once GNOME accepts the extension enable request. Open **Ripple** from
 the applications menu or the top bar to restore the panel. To disable automatic

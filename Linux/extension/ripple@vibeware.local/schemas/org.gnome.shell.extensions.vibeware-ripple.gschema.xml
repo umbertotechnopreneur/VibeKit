@@ -45,6 +45,15 @@
       <default>1.0</default>
       <summary>Aspect ratio</summary>
     </key>
+    <key name="chromatic-enabled" type="b"><default>true</default></key>
+    <key name="crest-enabled" type="b"><default>false</default></key>
+    <key name="ripples-enabled" type="b"><default>false</default></key>
+    <key name="liquid-enabled" type="b"><default>false</default></key>
+    <key name="chromatic-separation" type="d"><range min="0.0" max="100.0"/><default>18.0</default></key>
+    <key name="chromatic-blend" type="d"><range min="0.0" max="100.0"/><default>45.0</default></key>
+    <key name="crest-intensity" type="d"><range min="0.0" max="100.0"/><default>50.0</default></key>
+    <key name="ripples-intensity" type="d"><range min="0.0" max="100.0"/><default>50.0</default></key>
+    <key name="liquid-intensity" type="d"><range min="0.0" max="100.0"/><default>50.0</default></key>
     <key name="active" type="b">
       <default>false</default>
     </key>

@@ -18,14 +18,14 @@ internal sealed record ResourceSnapshot(
 // One warning per high-memory episode, rearmed only after a substantial recovery.
 internal sealed class MemoryWarningLatch
 {
-    internal const long LimitBytes = 1024L * 1024 * 1024;
+    internal const long LimitBytes = 500_000_000L;
     internal const long RearmBytes = LimitBytes * 4 / 5;
     private bool armed = true;
 
     internal bool Observe(long privateBytes)
     {
         if (privateBytes < 0) throw new ArgumentOutOfRangeException(nameof(privateBytes));
-        // The integer floor makes <= equivalent to strictly below 0.8 GiB.
+        // Rearm only after private memory falls to 400 MB or less.
         if (privateBytes <= RearmBytes)
         {
             armed = true;
@@ -170,10 +170,11 @@ internal sealed class ResourceMonitor : IDisposable
     private static void ShowNativeWarning(ResourceSnapshot current)
     {
         string text = string.Format(CultureInfo.InvariantCulture,
-            "Water Ripple is using at least 1 GB of private process memory.\n\n"
+            "Water Ripple is using at least 500 MB of private process memory.\n\n"
             + "Current private memory: {0:N0} MB.\n\n"
             + "Disable the screen effect to reduce resource use. You can also reduce the capture "
-            + "and animation limits or close the app.",
+            + "and animation limits or close the app. This could be a memory leak; "
+            + "please report it and include the recent application logs.",
             current.PrivateBytes / 1_000_000d);
         _ = MessageBox(IntPtr.Zero, text, "Water Ripple memory warning", 0x00040000 | 0x00010000 | 0x30);
     }

@@ -175,6 +175,7 @@ function activate(startMinimized) {
             return true;
         closeDialog = new Adw.AlertDialog({
             heading: 'Hide the panel or quit Ripple?',
+            prefer_wide_layout: true,
             body: tray?.available
                 ? 'Hide the panel to keep the effect running in the top bar. Quitting stops the effect.'
                 : 'The top bar icon is unavailable. Quitting stops the effect.',

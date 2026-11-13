@@ -9,7 +9,9 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {RippleEffect} from './effect.js';
 
 const NUMBERS = ['strength', 'speed', 'wavelength', 'rings', 'lifetime',
-    'damping', 'light', 'radius', 'aspect'];
+    'damping', 'light', 'radius', 'aspect', 'chromatic-separation', 'chromatic-blend',
+    'crest-intensity', 'ripples-intensity', 'liquid-intensity'];
+const SWITCHES = ['invert', 'chromatic-enabled', 'crest-enabled', 'ripples-enabled', 'liquid-enabled'];
 const now = () => GLib.get_monotonic_time() / 1e6;
 
 export default class RippleExtension extends Extension {
@@ -42,7 +44,7 @@ export default class RippleExtension extends Extension {
                 while (this._patches.length > this._settings.get_int('max-waves'))
                     this._removePatch(this._patches[0]);
             }
-            else if (NUMBERS.includes(key) || key === 'invert') {
+            else if (NUMBERS.includes(key) || SWITCHES.includes(key)) {
                 const values = this._values();
                 for (const patch of this._patches)
                     patch.effect.configure(values);
@@ -117,7 +119,8 @@ export default class RippleExtension extends Extension {
         const values = {};
         for (const key of NUMBERS)
             values[key] = this._settings.get_double(key);
-        values.invert = this._settings.get_boolean('invert');
+        for (const key of SWITCHES)
+            values[key] = this._settings.get_boolean(key);
         return values;
     }
 

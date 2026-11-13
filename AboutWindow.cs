@@ -20,18 +20,19 @@ internal sealed class AboutWindow : Window
         if (File.Exists(icon)) AppWindow.SetIcon(icon);
         FitToWorkArea();
 
-        var root = new Grid { Padding = new Thickness(24), RowSpacing = 10, Background = WidgetAbout.Paper(), RequestedTheme = ElementTheme.Light };
+        var root = new Grid { Padding = new Thickness(24), RowSpacing = 10, RequestedTheme = ElementTheme.Dark };
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         Content = root;
+        Ui.AttachAppearance(this, root, new AppSettings());
 
         var content = WidgetAbout.Create(
             ImageAsset("WaterRipple.png", 106),
             ImageAsset("VibeWare.png", 64),
             "Water Ripple", VersionText(),
-            "I built Water Ripple with AI assistance to add water-like ripples to my desktop. I guide the work and take responsibility for it.",
+            "A little ripple for every click. Water Ripple brings a touch of movement to your desktop.",
             "https://github.com/umbertotechnopreneur/Tools/tree/main/Widgets/WaterRipple",
-            "I provide this software independently and as-is, without warranty.");
+            "I provide this software independently and as-is, without warranty.", dark: true);
         content.Margin = new Thickness(0, 12, 0, 12);
         root.Children.Add(new ScrollViewer
         {

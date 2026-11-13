@@ -59,14 +59,15 @@ public sealed class UsageService(Storage storage)
         }
         string? limitPrefix = selected?.Key.Split(':')[0];
         state.ResetDisplays = usage.Windows
-            .Where(w => w.ResetsAt > now.ToUnixTimeSeconds() && limitPrefix is not null && w.Key.StartsWith(limitPrefix + ":", StringComparison.Ordinal))
+            .Where(w => w.ResetsAt.HasValue && limitPrefix is not null && w.Key.StartsWith(limitPrefix + ":", StringComparison.Ordinal))
             .OrderBy(w => w.ResetsAt).ThenBy(w => w.Minutes)
             .Select((w, index) =>
             {
                 var local = TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeSeconds(w.ResetsAt!.Value), zone);
                 string heading = index switch { 0 => "First reset", 1 => "Second reset", 2 => "Third reset", 3 => "Fourth reset", _ => $"Reset {index + 1}" };
                 return new ResetDisplay(heading, local.ToString("dd/MM HH:mm", CultureInfo.InvariantCulture),
-                    w.Label + " resets " + local.ToString("ddd dd MMM yyyy · HH:mm:ss zzz", CultureInfo.InvariantCulture) + " · " + zone.Id, w.ResetsAt.Value);
+                    w.Label + " resets " + local.ToString("ddd dd MMM yyyy · HH:mm:ss zzz", CultureInfo.InvariantCulture) + " · " + zone.Id +
+                    (w.ResetsAt <= now.ToUnixTimeSeconds() ? " · Waiting for an updated reset from Codex." : ""), w.ResetsAt.Value);
             }).ToList();
         var currentTokens = Analytics.TokenSummary(usage.Tokens, tokenToday.AddDays(-7));
         state.TokensLabel = currentTokens.Total;

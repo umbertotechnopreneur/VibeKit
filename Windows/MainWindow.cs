@@ -22,7 +22,9 @@ public sealed class MainWindow : Window
 {
     private const string StartupTaskId = "OpenAIUsageStartup";
     private const int EstimateSeconds = 10, VoucherSeconds = 5;
-    private const double CountdownWidth = 270;
+    private const double CountdownWidth = 290;
+    private const double MetricHeadingSize = 16, MetricValueSize = 27;
+    private const string UsageUrl = "https://chatgpt.com/settings/usage";
     private static readonly int[] WindowOpacityOptions = [25, 50, 75, 100];
     private static readonly (double Percent, uint Light, uint Dark)[] UsageColors =
     [
@@ -35,14 +37,16 @@ public sealed class MainWindow : Window
         (100, 0x0C6845, 0x75E7AC)
     ];
     private static readonly SolidColorBrush Accent=new(), PrimaryText=new(), SecondaryText=new(), WarningText=new();
+    private static readonly SolidColorBrush PinIdle = new(), PinActive = new(), CloseText = new();
     private static readonly FontFamily MetricFont=new("Cascadia Mono, Consolas");
     private static readonly LinearGradientBrush ValueGradient=new() { StartPoint=new(0,0), EndPoint=new(1,.25), GradientStops={new(),new(){Offset=1}} };
     private readonly Storage storage=new();
     private WidgetSettings settings;
     private WidgetState state=new();
     private readonly Grid root=new() { Background=new SolidColorBrush(Colors.Transparent) };
-    private readonly Grid strip=new() { Width=1080, ColumnSpacing=14, Margin=new(10,8,10,8) };
-    private readonly StackPanel actions=new() { Orientation=Orientation.Horizontal, Spacing=8, VerticalAlignment=VerticalAlignment.Center };
+    private readonly Grid strip = new() { ColumnSpacing = 14, Margin = new(10, 8, 10, 8) };
+    private readonly Grid actions = new() { ColumnSpacing = 8, RowSpacing = 4 };
+    private readonly TextBlock usageHeading = MetricHeading("Usage Remaining", TextAlignment.Left);
     private readonly TextBlock remaining = MetricValue(TextAlignment.Left);
     private readonly LinearGradientBrush usageGradient = new()
     {
@@ -52,12 +56,25 @@ public sealed class MainWindow : Window
     };
     private Storyboard? usageColorTransition;
     private readonly TextBlock forecastHeading = MetricHeading("Estimated time remaining", TextAlignment.Left);
+    private readonly ColumnDefinition forecastColumn = new();
+    private readonly StackPanel forecastRow = new()
+    {
+        Orientation = Orientation.Horizontal,
+        HorizontalAlignment = HorizontalAlignment.Left,
+        Spacing = 5
+    };
     private readonly TextBlock forecastValue = MetricValue(TextAlignment.Left);
     private readonly Border forecastInfo = InfoIcon("About the displayed metric");
+    private readonly ColumnDefinition creditsColumn = new() { Width = GridLength.Auto };
+    private readonly TextBlock creditsHeading = MetricHeading("Remaining Credits", TextAlignment.Right);
     private readonly TextBlock credits = MetricValue(TextAlignment.Right);
     private readonly Stopwatch voucherCycle = new();
     private string? quotaTooltip, forecastTooltip;
     private readonly FlipTile[] tiles=[new("DAYS"),new("HOURS"),new("MINUTES"),new("SECONDS")];
+    private readonly Button profile = Button(Logo(28), "Open Profile");
+    private readonly Button usageLink = Button("", "Open usage and resets in ChatGPT");
+    private readonly Button forecastLink = Button("", "Open usage and resets in ChatGPT");
+    private readonly Button countdownLink = Button("", "Open usage and resets in ChatGPT");
     private readonly ToggleButtonCompat pin=new();
     private readonly Button connectionError=Button("\uE7BA","Connection settings");
     private readonly UISettings systemSettings=new();
@@ -92,50 +109,102 @@ public sealed class MainWindow : Window
         strip.ColumnDefinitions.Add(new(){Width=new(28)});
         strip.ColumnDefinitions.Add(new(){Width=new(1,GridUnitType.Star)});
         strip.ColumnDefinitions.Add(new(){Width=GridLength.Auto});
-        var logo=Logo(28); logo.VerticalAlignment=VerticalAlignment.Center; strip.Children.Add(logo);
+        profile.Padding = new(0);
+        profile.Width = 28;
+        profile.VerticalAlignment = VerticalAlignment.Center;
+        profile.Click += (_, _) => OpenLink("https://chatgpt.com/profile");
+        strip.Children.Add(profile);
         var data = new Grid { ColumnSpacing = 14, VerticalAlignment = VerticalAlignment.Center };
         data.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
         data.ColumnDefinitions.Add(new() { Width = new(CountdownWidth) });
         var summary = new Grid { ColumnSpacing = 10, RowSpacing = 7, VerticalAlignment = VerticalAlignment.Center };
-        summary.RowDefinitions.Add(new() { Height = GridLength.Auto });
-        summary.RowDefinitions.Add(new() { Height = GridLength.Auto });
         summary.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
-        summary.ColumnDefinitions.Add(new() { Width = new(296) });
-        summary.ColumnDefinitions.Add(new() { Width = GridLength.Auto, MaxWidth = 150 });
-        AddMetric(summary, 0, MetricHeading("Usage Remaining", TextAlignment.Left), remaining);
-        var forecastRow = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            Spacing = 5
-        };
+        summary.ColumnDefinitions.Add(forecastColumn);
+        summary.ColumnDefinitions.Add(new() { Width = new(1) });
+        summary.ColumnDefinitions.Add(creditsColumn);
+        usageHeading.Margin = new(0, 0, 9, 0);
+        AddMetricLink(summary, 0, usageLink, usageHeading, remaining);
         forecastRow.Children.Add(forecastValue);
         forecastRow.Children.Add(forecastInfo);
-        AddMetric(summary, 1, forecastHeading, forecastRow);
-        AddMetric(summary, 2, MetricHeading("Remaining Credits", TextAlignment.Right), credits);
+        AddMetricLink(summary, 1, forecastLink, forecastHeading, forecastRow);
+        var separator = new Border
+        {
+            Height = 40,
+            Background = SecondaryText,
+            Opacity = .38,
+            VerticalAlignment = VerticalAlignment.Center,
+            IsHitTestVisible = false
+        };
+        Grid.SetColumn(separator, 2);
+        summary.Children.Add(separator);
+        var creditsMetric = new Grid { RowSpacing = 7 };
+        AddMetric(creditsMetric, 0, creditsHeading, credits);
+        Grid.SetColumn(creditsMetric, 3);
+        summary.Children.Add(creditsMetric);
         data.Children.Add(summary);
-        var tileRow=new Grid { ColumnSpacing=8, Width=400 };
-        for(int i=0;i<4;i++) { tiles[i].SetCompact(true); tileRow.ColumnDefinitions.Add(new(){Width=new(1,GridUnitType.Star)}); Grid.SetColumn(tiles[i],i); tileRow.Children.Add(tiles[i]); }
+        var tileRow = new Grid { ColumnSpacing = 14, Width = 430 };
+        for (int i = 0; i < tiles.Length; i++)
+        {
+            tiles[i].SetCompact(true);
+            double width = i == tiles.Length - 1 ? 1.13 : 1;
+            tileRow.ColumnDefinitions.Add(new() { Width = new(width, GridUnitType.Star) });
+            Grid.SetColumn(tiles[i], i);
+            tileRow.Children.Add(tiles[i]);
+        }
         var clockView = new Viewbox { Child = tileRow, Stretch = Stretch.Uniform, MaxWidth = CountdownWidth };
-        Grid.SetColumn(clockView, 1);
-        data.Children.Add(clockView);
+        countdownLink.Content = clockView;
+        countdownLink.Padding = new(0);
+        countdownLink.Click += (_, _) => OpenLink(UsageUrl);
+        Grid.SetColumn(countdownLink, 1);
+        data.Children.Add(countdownLink);
         Grid.SetColumn(data,1); strip.Children.Add(data);
-        connectionError.Visibility=Visibility.Collapsed; connectionError.Click+=async(_,_)=>await ShowSettingsAsync(); actions.Children.Add(connectionError);
-        pin.Content=new FontIcon { Glyph="\uE718", FontSize=15, Foreground=PrimaryText };
+        for (int i = 0; i < 3; i++)
+            actions.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+        actions.RowDefinitions.Add(new() { Height = new(1, GridUnitType.Star) });
+        actions.RowDefinitions.Add(new() { Height = new(1, GridUnitType.Star) });
+        connectionError.Visibility = Visibility.Collapsed;
+        connectionError.VerticalAlignment = VerticalAlignment.Center;
+        connectionError.Click += async (_, _) => await ShowSettingsAsync();
+        Grid.SetRowSpan(connectionError, 2);
+        actions.Children.Add(connectionError);
+
+        pin.Content = new FontIcon { Glyph = "\uE718", FontSize = 16, Foreground = PinIdle };
         pin.MinWidth=26; pin.Padding=new(5); pin.Background=new SolidColorBrush(Colors.Transparent); pin.BorderThickness=new(0);
         foreach(var key in new[]{"ToggleButtonBackground","ToggleButtonBackgroundPointerOver","ToggleButtonBackgroundPressed","ToggleButtonBackgroundChecked","ToggleButtonBackgroundCheckedPointerOver","ToggleButtonBackgroundCheckedPressed"})pin.Resources[key]=new SolidColorBrush(Colors.Transparent);
         ToolTipService.SetToolTip(pin,"Always on top"); Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(pin,"Always on top");
-        pin.IsChecked=settings.AlwaysOnTop; pin.Click+=(_,_)=>{settings.AlwaysOnTop=pin.IsChecked==true;ApplyTopmost();SaveSettings();UpdatePinVisual();}; actions.Children.Add(pin);
-        var preferences=Button("\uE713","Settings"); preferences.Click+=async(_,_)=>await ShowSettingsAsync(); actions.Children.Add(preferences);
-        var about=Button("\uE946","About OpenAI Usage"); about.Click+=async(_,_)=>await ShowAboutAsync(); actions.Children.Add(about);
-        var close=Button("\uE8BB","Close"); close.Click+=(_,_)=>Close(); actions.Children.Add(close);
+        pin.IsChecked = settings.AlwaysOnTop;
+        pin.Click += (_, _) => { settings.AlwaysOnTop = pin.IsChecked == true; ApplyTopmost(); SaveSettings(); UpdatePinVisual(); };
+        AddAction(pin, 1, 0);
+        var close = Button("\uE8BB", "Close", CloseText);
+        close.Click += (_, _) => Close();
+        AddAction(close, 2, 0);
+        var preferences = Button("\uE713", "Settings");
+        preferences.Click += async (_, _) => await ShowSettingsAsync();
+        AddAction(preferences, 1, 1);
+        var about = Button("\uE946", "About OpenAI Usage");
+        about.Click += async (_, _) => await ShowAboutAsync();
+        AddAction(about, 2, 1);
+
+        void AddAction(Control control, int column, int row)
+        {
+            control.HorizontalAlignment = HorizontalAlignment.Center;
+            control.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(control, column);
+            Grid.SetRow(control, row);
+            actions.Children.Add(control);
+        }
+
         Grid.SetColumn(actions,2); strip.Children.Add(actions);
+        ApplySize();
         var view=new Viewbox { Child=strip, Stretch=Stretch.Uniform, VerticalAlignment=VerticalAlignment.Center };
         root.Children.Add(WarmAccent(.24, .72, .32, 28, 248, 112, 42));
         root.Children.Add(WarmAccent(.68, .25, .28, 23, 233, 65, 68));
         root.Children.Add(view); Content=root; ApplyTopmost(); UpdatePinVisual();
         root.SizeChanged+=(_,_)=>UpdateDragRegions(); actions.SizeChanged+=(_,_)=>UpdateDragRegions(); view.SizeChanged+=(_,_)=>UpdateDragRegions();
         forecastRow.SizeChanged += (_, _) => UpdateDragRegions();
+        usageLink.SizeChanged += (_, _) => UpdateDragRegions();
+        forecastLink.SizeChanged += (_, _) => UpdateDragRegions();
+        countdownLink.SizeChanged += (_, _) => UpdateDragRegions();
         clock.Tick+=(_,_)=>Tick(); refresh.Tick+=async(_,_)=>await RefreshAsync();
         root.Loaded+=async(_,_)=>
         {
@@ -254,10 +323,20 @@ public sealed class MainWindow : Window
     }
     private void ApplySize()
     {
+        bool large = settings.BigSize;
+        double headingSize = large ? 17 : MetricHeadingSize;
+        double valueSize = large ? 29 : MetricValueSize;
+        usageHeading.FontSize = forecastHeading.FontSize = creditsHeading.FontSize = headingSize;
+        remaining.FontSize = forecastValue.FontSize = credits.FontSize = valueSize;
+        forecastHeading.Margin = forecastRow.Margin = new(large ? 5 : 0, 0, 0, 0);
+        forecastColumn.Width = new(large ? 290 : 260);
+        creditsColumn.MaxWidth = large ? 165 : 150;
+        strip.Width = large ? 1112 : 1052;
+
         if (!root.IsLoaded) return;
-        double factor=settings.BigSize ? 1.25 : 1.0;
-        double dpi=root.XamlRoot.RasterizationScale;
-        AppWindow.Resize(new((int)Math.Round(814*dpi*factor),(int)Math.Round(86*dpi*factor)));
+        double scale = root.XamlRoot.RasterizationScale * (large ? 1.25 : 1);
+        double width = (strip.Width + strip.Margin.Left + strip.Margin.Right) * .74;
+        AppWindow.Resize(new((int)Math.Round(width * scale), (int)Math.Round(86 * scale)));
         UpdateDragRegions();
     }
     private void ApplyOpacity(int percent)
@@ -302,7 +381,15 @@ public sealed class MainWindow : Window
     }
     private void ApplyTopmost() {if(AppWindow.Presenter is OverlappedPresenter p)p.IsAlwaysOnTop=settings.AlwaysOnTop;}
     private void ApplyTaskbarVisibility() => AppWindow.IsShownInSwitchers = settings.ShowInTaskbar || tray?.IsAvailable != true;
-    private void UpdatePinVisual() {if(pin.Content is FontIcon glyph)glyph.Foreground=pin.IsChecked==true?Accent:PrimaryText;}
+    private void UpdatePinVisual()
+    {
+        bool enabled = pin.IsChecked == true;
+        if (pin.Content is FontIcon glyph)
+            glyph.Foreground = enabled ? PinActive : PinIdle;
+        string description = enabled ? "Always on top: on" : "Always on top: off";
+        ToolTipService.SetToolTip(pin, description);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(pin, description);
+    }
     private void ShowWindow() {AppWindow.Show();if(activeDialog is not null)activeDialog.Activate();else Activate();}
     private void ExitApplication() {allowClose=true;Close();}
     private static void OpenLink(string url)
@@ -320,18 +407,24 @@ public sealed class MainWindow : Window
         int captionRight = Math.Clamp((int)Math.Floor(actionBounds.X * dpi) - 8, 0, width);
         var caption = new List<RectInt32>();
         var passthrough = new List<RectInt32> { new(captionRight, 0, width - captionRight, height) };
-        // Carve out the info glyph so it receives pointer hover.
-        var bounds = forecastInfo.TransformToVisual(root)
-            .TransformBounds(new(0, 0, forecastInfo.ActualWidth, forecastInfo.ActualHeight));
-        int left = Math.Clamp((int)Math.Floor(bounds.Left * dpi), 0, captionRight);
-        int right = Math.Clamp((int)Math.Ceiling(bounds.Right * dpi), left, captionRight);
-        int top = Math.Clamp((int)Math.Floor(bounds.Top * dpi), 0, height);
-        int bottom = Math.Clamp((int)Math.Ceiling(bounds.Bottom * dpi), top, height);
-        caption.Add(new(0, 0, left, height));
-        caption.Add(new(left, 0, right - left, top));
-        caption.Add(new(left, bottom, right - left, height - bottom));
-        caption.Add(new(right, 0, captionRight - right, height));
-        passthrough.Add(new(left, top, right - left, bottom - top));
+        int previousRight = 0;
+        // Keep links responsive while the spaces between them remain draggable.
+        foreach (var target in new FrameworkElement[] { profile, usageLink, forecastLink, countdownLink })
+        {
+            var bounds = target.TransformToVisual(root)
+                .TransformBounds(new(0, 0, target.ActualWidth, target.ActualHeight));
+            int left = Math.Clamp((int)Math.Floor(bounds.Left * dpi), previousRight, captionRight);
+            int right = Math.Clamp((int)Math.Ceiling(bounds.Right * dpi), left, captionRight);
+            int top = Math.Clamp((int)Math.Floor(bounds.Top * dpi), 0, height);
+            int bottom = Math.Clamp((int)Math.Ceiling(bounds.Bottom * dpi), top, height);
+            if (left == right || top == bottom) continue;
+            caption.Add(new(previousRight, 0, left - previousRight, height));
+            caption.Add(new(left, 0, right - left, top));
+            caption.Add(new(left, bottom, right - left, height - bottom));
+            passthrough.Add(new(left, top, right - left, bottom - top));
+            previousRight = right;
+        }
+        caption.Add(new(previousRight, 0, captionRight - previousRight, height));
         nonClientInput ??= InputNonClientPointerSource.GetForWindowId(AppWindow.Id);
         nonClientInput.SetRegionRects(NonClientRegionKind.Caption, caption.Where(rect => rect.Width > 0 && rect.Height > 0).ToArray());
         nonClientInput.SetRegionRects(NonClientRegionKind.Passthrough, passthrough.Where(rect => rect.Width > 0 && rect.Height > 0).ToArray());
@@ -460,6 +553,9 @@ public sealed class MainWindow : Window
         PrimaryText.Color=dark?ColorHelper.FromArgb(255,235,241,249):ColorHelper.FromArgb(255,23,39,62);
         SecondaryText.Color=dark?ColorHelper.FromArgb(255,194,205,221):ColorHelper.FromArgb(255,69,87,111);
         WarningText.Color=dark?ColorHelper.FromArgb(255,255,203,107):ColorHelper.FromArgb(255,148,82,0);
+        PinIdle.Color = Rgb(dark ? 0x87A9C6u : 0x426987u);
+        PinActive.Color = Rgb(dark ? 0x71BEFFu : 0x0568BAu);
+        CloseText.Color = Rgb(dark ? 0xFF6C78u : 0xB62036u);
         ValueGradient.GradientStops[0].Color=dark?Blend(Colors.White,accent,.12):ColorHelper.FromArgb(255,18,24,34);
         ValueGradient.GradientStops[1].Color=dark?Blend(Colors.White,accent,.38):Blend(Colors.Black,accent,.58);
         UpdateUsageColor(animate: false);
@@ -738,7 +834,7 @@ public sealed class MainWindow : Window
     private static TextBlock MetricHeading(string label, TextAlignment alignment) => new()
     {
         Text = label,
-        FontSize = 14,
+        FontSize = MetricHeadingSize,
         FontWeight = Microsoft.UI.Text.FontWeights.Normal,
         Foreground = SecondaryText,
         TextAlignment = alignment,
@@ -748,7 +844,7 @@ public sealed class MainWindow : Window
     private static TextBlock MetricValue(TextAlignment alignment) => new()
     {
         Text = "—",
-        FontSize = 22,
+        FontSize = MetricValueSize,
         FontFamily = MetricFont,
         FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
         Foreground = ValueGradient,
@@ -773,13 +869,44 @@ public sealed class MainWindow : Window
 
     private static void AddMetric(Grid grid, int column, TextBlock heading, FrameworkElement value)
     {
+        grid.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new() { Height = GridLength.Auto });
         Grid.SetColumn(heading, column);
         grid.Children.Add(heading);
         Grid.SetColumn(value, column);
         Grid.SetRow(value, 1);
         grid.Children.Add(value);
     }
-    private static Button Button(string glyph,string tooltip){var b=new Button {Content=new FontIcon {Glyph=glyph,FontSize=16,Foreground=PrimaryText},Style=(Style)Application.Current.Resources["SubtleButtonStyle"],Background=new SolidColorBrush(Colors.Transparent),BorderThickness=new(0),Padding=new(5),MinWidth=26};ToolTipService.SetToolTip(b,tooltip);Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(b,tooltip);return b;}
+    private static void AddMetricLink(Grid parent, int column, Button link, TextBlock heading, FrameworkElement value)
+    {
+        var metric = new Grid { RowSpacing = 7 };
+        AddMetric(metric, 0, heading, value);
+        link.Content = metric;
+        link.Padding = new(0);
+        link.HorizontalAlignment = HorizontalAlignment.Stretch;
+        link.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        link.Click += (_, _) => OpenLink(UsageUrl);
+        Grid.SetColumn(link, column);
+        parent.Children.Add(link);
+    }
+    private static Button Button(string glyph, string tooltip, Brush? foreground = null) =>
+        Button(new FontIcon { Glyph = glyph, FontSize = 16, Foreground = foreground ?? PrimaryText }, tooltip);
+
+    private static Button Button(UIElement icon, string tooltip)
+    {
+        var button = new Button
+        {
+            Content = icon,
+            Style = (Style)Application.Current.Resources["SubtleButtonStyle"],
+            Background = new SolidColorBrush(Colors.Transparent),
+            BorderThickness = new(0),
+            Padding = new(5),
+            MinWidth = 26
+        };
+        ToolTipService.SetToolTip(button, tooltip);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, tooltip);
+        return button;
+    }
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
     private static extern nint GetWindowLongPtr(nint window, int index);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]

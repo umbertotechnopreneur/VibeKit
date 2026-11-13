@@ -2,7 +2,10 @@
 """Native GTK 4 / libadwaita presentation for the shared C# account reader."""
 from __future__ import annotations
 
+import ctypes
+import ctypes.util
 import datetime as dt
+import fcntl
 import json
 import math
 import os
@@ -30,6 +33,46 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, GdkPixbuf, GLib, Gtk, Pango, PangoCairo, Gio
 from tray import StatusTray
 import cairo
+
+try:
+    gi.require_version("GdkX11", "4.0")
+    from gi.repository import GdkX11
+except (ImportError, ValueError):
+    GdkX11 = None
+
+class XClientMessage(ctypes.Structure):
+    _fields_ = [("type", ctypes.c_int), ("serial", ctypes.c_ulong), ("send_event", ctypes.c_int),
+                ("display", ctypes.c_void_p), ("window", ctypes.c_ulong), ("message_type", ctypes.c_ulong),
+                ("format", ctypes.c_int), ("data", ctypes.c_long * 5)]
+
+class XEvent(ctypes.Union):
+    _fields_ = [("client", XClientMessage), ("pad", ctypes.c_long * 24)]
+
+def request_x11_above(surface, enabled):
+    library = ctypes.util.find_library("X11")
+    if not library:
+        raise RuntimeError("X11 library is unavailable.")
+    x11 = ctypes.CDLL(library)
+    x11.XOpenDisplay.argtypes, x11.XOpenDisplay.restype = [ctypes.c_char_p], ctypes.c_void_p
+    x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
+    x11.XDefaultRootWindow.argtypes, x11.XDefaultRootWindow.restype = [ctypes.c_void_p], ctypes.c_ulong
+    x11.XInternAtom.argtypes, x11.XInternAtom.restype = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int], ctypes.c_ulong
+    x11.XSendEvent.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int, ctypes.c_long, ctypes.POINTER(XEvent)]
+    x11.XFlush.argtypes = [ctypes.c_void_p]
+    display = x11.XOpenDisplay(None)
+    if not display:
+        raise RuntimeError("Cannot connect to the X11 display.")
+    try:
+        event = XEvent()
+        event.client.type, event.client.display, event.client.window = 33, display, surface.get_xid()
+        event.client.message_type = x11.XInternAtom(display, b"_NET_WM_STATE", False)
+        event.client.format = 32
+        event.client.data[0], event.client.data[1], event.client.data[3] = (1 if enabled else 0), x11.XInternAtom(display, b"_NET_WM_STATE_ABOVE", False), 1
+        if not x11.XSendEvent(display, x11.XDefaultRootWindow(display), False, (1 << 19) | (1 << 20), ctypes.byref(event)):
+            raise RuntimeError("Could not request the X11 window state.")
+        x11.XFlush(display)
+    finally:
+        x11.XCloseDisplay(display)
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BACKEND = ROOT / "backend/OpenAIUsage.Backend.dll"
@@ -115,6 +158,7 @@ button.icon-action { background: transparent; border: none; box-shadow: none; pa
 button.icon-action:hover, button.icon-action:active { color: @window_fg_color; }
 button.icon-action:hover { background: alpha(@window_fg_color, .07); }
 button.icon-action:active { background: alpha(@accent_bg_color, .15); }
+button.icon-action:checked { color: @accent_bg_color; background: alpha(@accent_bg_color, .15); }
 window.widget-about, .widget-about .about-body { background-color: #fff4dc; color: #232a2f; }
 .widget-about .about-body { font-family: monospace; font-size: 15px; }
 .widget-about .about-body label { color: #232a2f; }
@@ -296,9 +340,9 @@ class UsageWindow(Gtk.ApplicationWindow):
         summary=Gtk.Grid(column_spacing=16, valign=Gtk.Align.CENTER)
         summary.add_css_class("summary")
         quota=box(4)
-        quota.append(self.label("allowanceLabel","Resets available","dim"))
+        quota.append(self.label("allowanceLabel","Allowance remaining","dim"))
         quota_row=box(5, True)
-        quota_row.append(self.label("remaining","—","huge"))
+        quota_row.append(self.label("remaining","—","metric"))
         quota_info=self.label("quotaInfo", "ⓘ", "dim")
         quota_info.set_opacity(0)
         quota_row.append(quota_info)
@@ -309,7 +353,7 @@ class UsageWindow(Gtk.ApplicationWindow):
         quota.add_controller(quota_motion)
         summary.attach(quota,0,0,1,1)
         estimate = box(4)
-        estimate.append(self.label("rotationHeading", "Estimated time remaining", "dim"))
+        estimate.append(text("Estimated time remaining", "dim"))
         estimate_value = box(5, True)
         estimate_value.append(self.label("forecastLabel", "—", "metric"))
         estimate_value.append(self.label("forecastInfo", "ⓘ", "dim"))
@@ -328,7 +372,14 @@ class UsageWindow(Gtk.ApplicationWindow):
         motion.connect("leave", lambda *_: credit_info.set_opacity(0))
         credit.add_controller(motion)
         summary.attach(credit,2,0,1,1)
-        for i in range(3):
+        resets_panel = box(4)
+        resets_panel.append(self.label("rotationHeading", "First reset", "dim"))
+        reset_row = box(5, True)
+        reset_row.append(self.label("resetValue", "—", "metric"))
+        reset_row.append(self.label("resetInfo", "ⓘ", "dim"))
+        resets_panel.append(reset_row)
+        summary.attach(resets_panel,3,0,1,1)
+        for i in range(4):
             heading=summary.get_child_at(i,0).get_first_child()
             heading.set_wrap(False)
         strip.append(summary)
@@ -348,6 +399,14 @@ class UsageWindow(Gtk.ApplicationWindow):
         self.problem.connect("clicked",self.show_settings)
         self.problem.set_visible(False)
         actions.append(self.problem)
+        self.pin = Gtk.ToggleButton(icon_name="view-pin-symbolic")
+        self.pin.add_css_class("icon-action")
+        self.pin.set_sensitive(False)
+        self.pin.set_tooltip_text("Always on top is available on X11 with a compatible window manager")
+        self.syncing_pin = False
+        self.pin.connect("toggled", self.on_pin_toggled)
+        actions.append(self.pin)
+        self.connect("map", self.on_window_mapped)
         for icon,title,callback in [("emblem-system-symbolic","Settings",self.show_settings),
                                     ("help-about-symbolic","About OpenAI Usage",self.show_about),
                                     ("window-close-symbolic","Close",self.close)]:
@@ -405,8 +464,57 @@ class UsageWindow(Gtk.ApplicationWindow):
         if not self.closed and revision == self.settings_revision and not self.saving:
             self.settings = settings
             self.settings_ready = True
+            self.sync_pin()
             self.apply_size()
         return False
+
+    def x11_surface(self):
+        surface = self.get_surface()
+        return surface if GdkX11 is not None and isinstance(surface, GdkX11.X11Surface) else None
+
+    def on_window_mapped(self, *_):
+        self.sync_pin()
+
+    def sync_pin(self):
+        surface = self.x11_surface()
+        self.pin.set_sensitive(surface is not None and self.settings_ready)
+        if surface is None:
+            self.pin.set_tooltip_text("Always on top is unavailable on this display; use your desktop's window controls")
+            return
+        if not self.settings_ready:
+            return
+        enabled = self.settings.get("alwaysOnTop", False)
+        self.syncing_pin = True
+        self.pin.set_active(enabled)
+        self.syncing_pin = False
+        self.pin.set_tooltip_text("Always on top: " + ("on" if enabled else "off") + " (window manager permitting)")
+        try:
+            request_x11_above(surface, enabled)
+        except (OSError, RuntimeError) as error:
+            self.pin.set_sensitive(False)
+            self.pin.set_tooltip_text(str(error))
+            log_event("window.topmost.failed", str(error))
+
+    def on_pin_toggled(self, button):
+        if self.syncing_pin or not self.settings_ready:
+            return
+        surface = self.x11_surface()
+        if surface is None:
+            return
+        enabled = button.get_active()
+        try:
+            request_x11_above(surface, enabled)
+        except (OSError, RuntimeError) as error:
+            self.syncing_pin = True
+            button.set_active(not enabled)
+            self.syncing_pin = False
+            button.set_tooltip_text(str(error))
+            log_event("window.topmost.failed", str(error))
+            return
+        button.set_tooltip_text("Always on top: " + ("on" if enabled else "off") + " (window manager permitting)")
+        self.settings["alwaysOnTop"] = enabled
+        self.settings_revision += 1
+        self.save_async()
 
     def received(self,settings,state,revision):
         self.busy=False
@@ -422,14 +530,19 @@ class UsageWindow(Gtk.ApplicationWindow):
         if self.refresh_pending:
             self.refresh_pending=False
             self.refresh()
-        self.labels["remaining"].set_text(str(len(state.get("resetDisplays", []))) if state.get("connected") else "—")
-        self.labels["allowanceLabel"].set_text("Resets available")
+        self.labels["remaining"].set_text(f"{state['remaining']:g}%" if state.get("remaining") is not None else "—")
+        self.labels["allowanceLabel"].set_text("Allowance remaining")
+        self.labels["forecastLabel"].set_text(state.get("forecastCompact", "—") if state.get("forecastAvailable", False) else "—")
+        estimate_detail = ("Estimated time until the displayed allowance is exhausted at the observed usage rate; the allowance may reset first. "
+                           + state.get("forecastDetail", "Collecting quota history."))
+        self.labels["forecastLabel"].set_tooltip_text(estimate_detail)
+        self.labels["forecastInfo"].set_tooltip_text(estimate_detail)
         self.check_alerts()
         self.labels["creditsLabel"].set_text(state.get("creditsLabel","—"))
         credit_detail = "Credits remaining as reported by Codex: " + state.get("creditsLabel", "Unavailable") + ". The displayed balance is rounded to a whole number."
         self.labels["creditsLabel"].set_tooltip_text(credit_detail)
         self.labels["creditInfo"].set_tooltip_text(credit_detail)
-        quota_detail="Number of upcoming reset dates reported for the selected Codex allowance. These are scheduled resets, not vouchers."
+        quota_detail="Percentage remaining for the selected Codex allowance. " + state.get("resetLabel", "Reset unavailable")
         self.labels["remaining"].set_tooltip_text(quota_detail)
         self.labels["quotaInfo"].set_tooltip_text(quota_detail)
 
@@ -460,31 +573,23 @@ class UsageWindow(Gtk.ApplicationWindow):
     def tick(self):
         if self.closed:
             return False
-        resets = [reset for reset in self.state.get("resetDisplays", []) if reset["resetsAt"] > time.time()]
-        self.labels["remaining"].set_text(str(len(resets)) if self.state.get("connected") else "—")
-        position = int(time.monotonic() - self.rotation_start) % (10 + 5 * len(resets))
-        if position < 10 or not resets:
-            heading = "Estimated time remaining"
-            value = self.state.get("forecastCompact", "—") if self.state.get("forecastAvailable", False) else "—"
-            self.labels["forecastLabel"].remove_css_class("reset-green")
-            self.labels["forecastLabel"].remove_css_class("reset-yellow")
-            self.labels["forecastLabel"].remove_css_class("reset-amber")
-            self.labels["forecastLabel"].remove_css_class("reset-orange")
-            self.labels["forecastLabel"].remove_css_class("reset-red")
-            detail = ("Estimated time until the displayed allowance is exhausted at the observed usage rate; the allowance may reset first. "
-                      + self.state.get("forecastDetail", "Collecting quota history."))
-        else:
-            reset = resets[(position - 10) // 5]
+        resets = self.state.get("resetDisplays", [])
+        reset_index = (int(time.monotonic() - self.rotation_start) // 10) % max(2, len(resets))
+        if reset_index < len(resets):
+            reset = resets[reset_index]
             heading, value, detail = reset["heading"], reset["value"], reset["detail"]
             hours = (reset["resetsAt"] - time.time()) / 3600
             color = "reset-red" if hours <= 6 else "reset-orange" if hours <= 24 else "reset-amber" if hours <= 72 else "reset-yellow" if hours <= 168 else "reset-green"
-            for style in ("reset-green", "reset-yellow", "reset-amber", "reset-orange", "reset-red"):
-                (self.labels["forecastLabel"].add_css_class if style == color else self.labels["forecastLabel"].remove_css_class)(style)
+        else:
+            heading = "Second reset" if reset_index == 1 else f"Reset {reset_index + 1}"
+            value, detail, color = "—", "Codex did not provide a reset time for this window.", None
+        for style in ("reset-green", "reset-yellow", "reset-amber", "reset-orange", "reset-red"):
+            (self.labels["resetValue"].add_css_class if style == color else self.labels["resetValue"].remove_css_class)(style)
         self.labels["rotationHeading"].set_text(heading)
-        self.labels["forecastLabel"].set_text(value)
-        if self.labels["forecastInfo"].get_tooltip_text() != detail:
-            self.labels["forecastLabel"].set_tooltip_text(detail)
-            self.labels["forecastInfo"].set_tooltip_text(detail)
+        self.labels["resetValue"].set_text(value)
+        if self.labels["resetInfo"].get_tooltip_text() != detail:
+            self.labels["resetValue"].set_tooltip_text(detail)
+            self.labels["resetInfo"].set_tooltip_text(detail)
         if GUARD is not None and GUARD.poll() is not None:
             log_event("guard.failure","Separate guard exited unexpectedly; closing the widget.")
             self.get_application().quit()
@@ -778,5 +883,12 @@ class UsageApp(Adw.Application):
 
 
 if __name__ == "__main__":
-    GUARD = start_watchdog()
-    raise SystemExit(UsageApp().run(sys.argv))
+    lock_dir = Path.home() / ".cache" / "openai-usage"
+    lock_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    with (lock_dir / "instance.lock").open("a") as instance_lock:
+        try:
+            fcntl.flock(instance_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise SystemExit(0) from None
+        GUARD = start_watchdog()
+        raise SystemExit(UsageApp().run(sys.argv))

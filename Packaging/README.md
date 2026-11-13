@@ -1,10 +1,10 @@
 # Local installers
 
-Source/package target: **0.4.1**. Architecture: Windows x64 / Ubuntu amd64. Packages are generated on demand and removed by an explicit clean.
+Source/package target: **0.4.2**. Architecture: Windows x64 / Ubuntu amd64. Packages are generated on demand and removed by an explicit clean.
 
 ## Windows
 
-Open `../artifacts/installers/OpenAIUsage-0.4.1-windows-x64.msi`, then launch **OpenAI Usage** from Start.
+Open `../artifacts/installers/OpenAIUsage-0.4.2-windows-x64.msi`, then launch **OpenAI Usage** from Start.
 
 - Per-user installation in `%LOCALAPPDATA%/Programs/OpenAI Usage`.
 - Includes the app's private .NET runtime and Windows App SDK components.
@@ -18,7 +18,7 @@ Open `../artifacts/installers/OpenAIUsage-0.4.1-windows-x64.msi`, then launch **
 For Ubuntu 24.04 or newer on amd64, install from the directory containing the `.deb`:
 
 ```sh
-sudo apt install ./openai-usage_0.4.1-1_amd64.deb
+sudo apt install ./openai-usage_0.4.2-1_amd64.deb
 ```
 
 Launch **OpenAI Usage** from the application menu or run `openai-usage`.

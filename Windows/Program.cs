@@ -10,6 +10,10 @@ public static class Program
         if (args.FirstOrDefault() == "--memory-guard") return WindowsMemoryGuard.Run(args);
         try
         {
+            var userId = System.Security.Principal.WindowsIdentity.GetCurrent().User?.Value
+                ?? throw new InvalidOperationException("Cannot identify the current user.");
+            using var instance = new System.Threading.Mutex(true, $@"Global\OpenAIUsage-{userId}", out var createdNew);
+            if (!createdNew) return 0;
             uint packageNameLength = 0;
             const int noPackage = 15700;
             if (GetCurrentPackageFullName(ref packageNameLength, 0) == noPackage)

@@ -84,7 +84,8 @@ try
     var missingReset = parsed with { Windows=[parsed.Windows[0] with { ResetsAt = null }, parsed.Windows[1]] };
     Check(new UsageService(store).Build(missingReset, settings, now).ResetDisplays.Count == 1, "Missing reset timestamps are not invented");
     var expiredReset = parsed with { Windows=[parsed.Windows[0] with { ResetsAt = now.AddSeconds(-1).ToUnixTimeSeconds() }, parsed.Windows[1]] };
-    Check(new UsageService(store).Build(expiredReset, settings, now).ResetDisplays.Count == 1, "Expired reset dates are not counted as upcoming");
+    var expiredList = new UsageService(store).Build(expiredReset, settings, now).ResetDisplays;
+    Check(expiredList.Count == 2 && expiredList[0].Detail.Contains("Waiting for an updated reset"), "Expired reported resets remain visible while waiting for refresh");
     var extraReset = parsed with { Windows=[..parsed.Windows, new QuotaWindow("codex:600", "10-hour · codex", 5, 600, now.AddHours(3).ToUnixTimeSeconds())] };
     var resetList = new UsageService(store).Build(extraReset, settings, now).ResetDisplays;
     Check(resetList.Count == 3 && resetList[0].Detail.Contains("10-hour") && resetList[2].Heading == "Third reset", "Additional reset dates are retained and ordered by time");

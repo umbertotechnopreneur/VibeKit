@@ -160,7 +160,35 @@ class LoadTests(unittest.TestCase):
             self.assertEqual(recording.snapshot(0)["processes"][0]["name"], "p1.exe")
             self.assertEqual(recording.snapshot(999)["processes"][0]["name"], "p1000.exe")
             self.assertIsNotNone(recording._file)
-            self.assertFalse(hasattr(recording, "_text"))
+            self.assertIsNone(recording._texts)  # UTF-8 stays on disk
+
+    def test_utf16_keeps_characters_whose_code_units_contain_a_newline_byte(self):
+        # U+0A41 is 41 0A and U+0100 is 00 01 in UTF-16LE: a byte search finds "\n\x00" mid-character.
+        first = snap(1.0, processes=[proc(name="\u0a41\u0100.exe")])
+        text = json.dumps(first, ensure_ascii=False) + "\r\n" + json.dumps(snap(2.0)) + "\r\n"
+        with open(self.path, "wb") as handle:
+            handle.write(b"\xff\xfe" + text.encode("utf-16-le") + b"\x00\xd8")  # ends in a cut-off unit
+        with load_recording(self.path) as recording:
+            self.assertEqual(recording.count, 2)
+            self.assertEqual(recording.snapshot(0)["processes"][0]["name"], "\u0a41\u0100.exe")
+            self.assertEqual(recording.snapshot(1)["taken"], 2.0)
+            self.assertTrue(any("trailing incomplete" in warning for warning in recording.warnings))
+
+    def test_huge_numbers_and_deep_nesting_are_skipped_or_unavailable(self):
+        huge = "9" * 400
+        deep = "[" * 1100 + "]" * 1100
+        lines = [json.dumps(snap(1.0)).replace('"taken": 1.0', f'"taken": {huge}'),
+                 '{"processes": [], "x": ' + deep + "}",
+                 json.dumps(snap(2.0)).replace(f'"vram_used": {12 * GiB}', f'"vram_used": {huge}'),
+                 json.dumps(snap(3.0))]
+        write(self.path, [], tail="\n".join(lines) + "\n")
+        with load_recording(self.path) as recording:
+            self.assertEqual(recording.count, 3)
+            self.assertFalse(recording.timed)  # the huge taken is not a time
+            self.assertTrue(any("skipped line 2" in warning for warning in recording.warnings))
+            body = recording.snapshot(1)
+            text = describe(recording, Playback(3, recording.taken, timed=False), body)
+            self.assertIn("Memory: N/A / 24.00 GB", text)
 
 
 class PlaybackTests(unittest.TestCase):
@@ -295,6 +323,20 @@ class DisplayTests(unittest.TestCase):
                       vram_inferred_by="consistent")
         self.assertTrue(process_rows(snap(processes=[agreed]))[0][0][3].endswith("*"))
 
+    def test_an_attributed_row_with_an_inferred_owner_keeps_its_mark(self):
+        host_pid = proc(vram=GiB, vram_attributed=True, vram_inferred_by="consistent")
+        cells = process_rows(snap(processes=[host_pid]))[0][0]
+        self.assertEqual(cells[3], "1.00 GB*")
+        self.assertIn("inferred", cells[6])
+        self.assertIn("* matched", describe(_view(), Playback(1, [1.0], timed=False), snap(processes=[host_pid])))
+
+    def test_malformed_inferred_by_renders_unmarked(self):
+        for by in (["order"], {"a": 1}, 3, "other"):
+            row = proc(vram=None, vram_attributed=False, vram_inferred_bytes=1, vram_inferred_by=by)
+            body = snap(processes=[row])
+            self.assertEqual(process_rows(body)[0][0][3], "0 MB")
+            describe(_view(), Playback(1, [1.0], timed=False), body)
+
     def test_processes_and_gpus_follow_the_snapshot(self):
         first = snap(1.0, processes=[proc(1, "python.exe", 9 * GiB), proc(2, "ollama.exe", 2 * GiB)])
         second = snap(2.0, gpu="AMD Radeon", processes=[proc(3, "chrome.exe", GiB // 2)])
@@ -396,6 +438,44 @@ class UiTests(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             self.assertIn("Snapshot: 1 / 3", self.text(app))
 
+    async def test_a_wait_already_used_up_still_advances(self):
+        import asyncio
+        import time
+
+        from gputaskman.replay import ReplayApp
+
+        write(self.path, [snap(0.0), snap(100.0)])
+        app = ReplayApp(load_recording(self.path))
+        self.addCleanup(app.recording.close)
+        async with app.run_test(size=(80, 24)) as pilot:
+            await pilot.press("space")
+            await pilot.pause()
+            app.playback._clock = lambda: time.monotonic() + 1000.0  # a render slower than the recorded gap
+            app.action_faster()  # re-arms with no wait left
+            self.assertEqual(app.scheduled_delay, 0.0)
+            for _ in range(20):
+                await asyncio.sleep(0.01)
+                if app.playback.index == 1:
+                    break
+            await pilot.pause()
+            self.assertEqual(app.playback.index, 1)
+            self.assertIn("PAUSED (end)", self.text(app))
+
+    async def test_a_snapshot_that_cannot_be_drawn_does_not_end_the_replay(self):
+        from gputaskman.replay import ReplayApp
+
+        app = ReplayApp(load_recording(self.path))
+        self.addCleanup(app.recording.close)
+        async with app.run_test(size=(80, 24)) as pilot:
+            await pilot.pause()
+            with patch("gputaskman.replay.describe", side_effect=RecursionError("too deep")):
+                await pilot.press("right")
+                await pilot.pause()
+                self.assertIn("Cannot show snapshot 2: too deep", self.text(app))
+            await pilot.press("right")
+            await pilot.pause()
+            self.assertIn("Snapshot: 3 / 3", self.text(app))
+
     async def test_replay_never_samples_the_gpu(self):
         from gputaskman.replay import ReplayApp
 
@@ -409,8 +489,9 @@ class UiTests(unittest.IsolatedAsyncioTestCase):
             patch("gputaskman.nvml.Nvml", side_effect=AssertionError("nvml")),
             patch("gputaskman.record.source", side_effect=AssertionError("record")),
             patch("gputaskman.host.HostSampler", side_effect=AssertionError("host")),
+            patch("gputaskman.pdh.GpuCounters", side_effect=AssertionError("pdh")),
         ]
-        with banned, others[0], others[1], others[2], others[3]:
+        with banned, others[0], others[1], others[2], others[3], others[4]:
             recording = load_recording(self.path)
             app = ReplayApp(recording)
             async with app.run_test(size=(80, 24)) as pilot:

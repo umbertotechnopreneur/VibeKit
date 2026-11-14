@@ -5,9 +5,10 @@ the sample time in Unix seconds. This module only reads that file: it never samp
 an API, or writes the recording back.
 
 Long files are not copied into a list of objects. The reader remembers where each snapshot starts
-and parses the one on screen, including a UTF-16 file. Playback timing uses ``taken`` when every
-value is finite and the sequence is strictly increasing. The file does not store ``--interval``, so
-anything else waits one second per snapshot at 1x and says that wait is not recorded time.
+and parses the one on screen. A UTF-16 file (PowerShell ``>`` redirection) is decoded once and
+kept as text lines. Playback timing uses ``taken`` when every value is finite and the sequence is
+strictly increasing. The file does not store ``--interval``, so anything else waits one second per
+snapshot at 1x and says that wait is not recorded time.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from textual.widgets import DataTable, Footer, Static
 from .dxgi import VENDORS
 from .llm import gb
 from .nvml import format_metric
-from .report import DRM_NOTES, INFERRED_NOTE, ORDER_NOTE
+from .report import DRM_NOTES, INFERRED_NOTE, ORDER_NOTE, vram_mark
 
 SPEEDS = (0.5, 1.0, 2.0, 4.0)
 FIXED_INTERVAL = 1.0  # stand-in when `taken` cannot drive playback; not a recovered sample period
@@ -35,6 +36,7 @@ UNTIMED = ("Playback uses 1 second per snapshot at 1x because recorded timestamp
            "strictly increasing. That interval is not recorded timing.")
 _TRAILING = "skipped a trailing incomplete line ({}); an interrupted recording can end that way"
 _INCOMPLETE = ("invalid JSON", "invalid text")
+_BAD_TEXT = object()  # a UTF-16 line with a code unit that does not decode
 
 
 class RecordingError(ValueError):
@@ -45,7 +47,7 @@ class Recording:
     """One opened JSON Lines recording. Snapshots are parsed when asked for, then discarded."""
 
     def __init__(self, path: str, spans: list[tuple[int, int]], taken: list[float | None], timed: bool,
-                 warnings: list[str], gpu_count: int, file, encoding: str) -> None:
+                 warnings: list[str], gpu_count: int, file, encoding: str, texts: list[str] | None = None) -> None:
         self.path = path
         self.spans = spans
         self.taken = taken
@@ -54,6 +56,7 @@ class Recording:
         self.gpu_count = gpu_count
         self._file = file
         self._encoding = encoding
+        self._texts = texts  # decoded lines of a UTF-16 file; a span's start is then a line index
 
     def __len__(self) -> int:
         return len(self.spans)
@@ -66,20 +69,24 @@ class Recording:
         """The snapshot at index, parsed from the file (or from decoded text, for UTF-16)."""
         if index < 0 or index >= len(self.spans):
             raise IndexError(index)
-        if self._file is None:
+        if self._file is None and self._texts is None:
             raise ValueError("recording is closed")
         start, length = self.spans[index]
-        self._file.seek(start)
-        try:
-            raw = self._file.read(length).decode(self._encoding)
-        except UnicodeDecodeError as error:
-            raise ValueError(f"snapshot {index + 1} is not valid text") from error
+        if self._texts is not None:
+            raw = self._texts[start]
+        else:
+            self._file.seek(start)
+            try:
+                raw = self._file.read(length).decode(self._encoding)
+            except UnicodeDecodeError as error:
+                raise ValueError(f"snapshot {index + 1} is not valid text") from error
         data = json.loads(raw)
         if not isinstance(data, dict):
             raise ValueError(f"snapshot {index + 1} is not an object")
         return data
 
     def close(self) -> None:
+        self._texts = None
         if self._file is not None:
             self._file.close()
             self._file = None
@@ -244,10 +251,13 @@ def load_recording(path: str) -> Recording:
     try:
         mark = handle.read(4)
         handle.seek(0)
-        if mark[:2] == b"\xff\xfe":
-            return _from_lines(path, _utf16_lines(handle, little=True), file=handle, encoding="utf-16-le")
-        if mark[:2] == b"\xfe\xff":
-            return _from_lines(path, _utf16_lines(handle, little=False), file=handle, encoding="utf-16-be")
+        if mark[:2] in (b"\xff\xfe", b"\xfe\xff"):
+            encoding = "utf-16-le" if mark[:2] == b"\xff\xfe" else "utf-16-be"
+            data = handle.read()[2:]
+            handle.close()
+            entries = list(_utf16_lines(data, encoding))
+            texts = [payload if isinstance(payload, str) else "" for _line, _index, payload in entries]
+            return _from_lines(path, entries, file=None, encoding=encoding, texts=texts)
         return _from_lines(path, _binary_lines(handle), file=handle, encoding="utf-8")
     except BaseException:
         # KeyboardInterrupt is not an Exception. Close the handle before it propagates.
@@ -356,6 +366,7 @@ class ReplayApp(App):
         self.recording = recording
         self.playback = Playback(recording.count, recording.taken, timed=recording.timed)
         self._timer = None
+        self._armed = 0
         self._mounted = False
         self._drawing = False
         self.scheduled_delay: float | None = None
@@ -396,19 +407,20 @@ class ReplayApp(App):
     def _refresh_view(self) -> None:
         try:
             snapshot = self.recording.snapshot(self.playback.index)
-        except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
+            width = 40
+            if self.size.width:
+                width = max(10, min(40, self.size.width - 4))
+            text = describe(self.recording, self.playback, snapshot, width=width)
+            rows = process_rows(snapshot)[0]
+        except Exception as error:  # one unreadable or unrenderable snapshot must not end the replay
             self.playback.playing = False
-            self.query_one("#replay", Static).update(f"Cannot read snapshot {self.playback.index + 1}: {error}")
+            self.query_one("#replay", Static).update(
+                f"Cannot show snapshot {self.playback.index + 1}: {_plain(str(error)) or type(error).__name__}")
             self._fill_table([])
             self._arm()
             return
-        width = 40
-        if self.size.width:
-            width = max(10, min(40, self.size.width - 4))
-        text = describe(self.recording, self.playback, snapshot, width=width)
-        extra = process_rows(snapshot)
         self.query_one("#replay", Static).update(text)
-        self._fill_table(extra[0])
+        self._fill_table(rows)
         self._arm()
 
     def action_play_pause(self) -> None:
@@ -454,10 +466,17 @@ class ReplayApp(App):
         self._cancel_timer()
         delay = self.playback.delay()
         self.scheduled_delay = delay
-        if delay is not None:
+        if delay is None:
+            return
+        if delay > 0:
             self._timer = self.set_timer(delay, self._tick)
+        else:
+            # Textual divides by a timer's interval, so a wait already used up advances on the next turn.
+            armed = self._armed
+            self.call_later(lambda: self._tick() if armed == self._armed else None)
 
     def _cancel_timer(self) -> None:
+        self._armed += 1  # also drops a pending next-turn advance
         timer, self._timer = self._timer, None
         if timer is not None:
             timer.stop()
@@ -475,7 +494,7 @@ class ReplayApp(App):
         return Text(value, style=style, justify=justify)
 
 
-def _from_lines(path: str, lines, *, file, encoding: str) -> Recording:
+def _from_lines(path: str, lines, *, file, encoding: str, texts: list[str] | None = None) -> Recording:
     spans: list[tuple[int, int]] = []
     taken: list[float | None] = []
     problems: list[tuple[int, str]] = []
@@ -488,6 +507,11 @@ def _from_lines(path: str, lines, *, file, encoding: str) -> Recording:
             any_nonblank = True
             last_nonblank = line_no
             problems.append((line_no, "line is too long to be a snapshot"))
+            continue
+        if payload is _BAD_TEXT:
+            any_nonblank = True
+            last_nonblank = line_no
+            problems.append((line_no, "invalid text"))
             continue
         if isinstance(payload, bytes):
             if not payload.strip(b" \t\r\n\x00"):
@@ -522,7 +546,7 @@ def _from_lines(path: str, lines, *, file, encoding: str) -> Recording:
     timed = _timed(taken)
     if len(spans) >= 2 and not timed:
         warnings.append(UNTIMED)
-    return Recording(path, spans, taken, timed, warnings, len(gpus), file, encoding)
+    return Recording(path, spans, taken, timed, warnings, len(gpus), file, encoding, texts)
 
 
 def _binary_lines(handle):
@@ -544,70 +568,37 @@ def _binary_lines(handle):
         yield line_no, start, None  # too long: the rest of the line was discarded
 
 
-def _utf16_lines(handle, *, little: bool):
-    """UTF-16 lines as byte spans. The file stays on disk; only one line is decoded at a time."""
-    newline = b"\n\x00" if little else b"\x00\n"
-    handle.seek(2)  # the BOM was the reason this reader was chosen
-    line_no = 0
-    while True:
-        start = handle.tell()
-        payload, too_long = _take_utf16_line(handle, newline)
-        if payload is None and not too_long:
-            break
-        line_no += 1
-        yield line_no, start, None if too_long else payload
-
-
-def _take_utf16_line(handle, newline: bytes):
-    """One UTF-16 line, including its newline, or (None, True) when the line is over the cap.
-
-    (None, False) is end of file. A newline split across two reads is still one line.
-    """
-    chunks = []
-    size = 0
-    pending = b""
-    keep = len(newline) - 1
-    while size <= MAX_LINE:
-        block = handle.read(65536)
-        if not block:
-            if size == 0 and not pending:
-                return None, False
-            return b"".join(chunks) + pending, False
-        data = pending + block
-        found = data.find(newline)
-        if found != -1:
-            end = found + len(newline)
-            extra = data[end:]
-            if extra:
-                handle.seek(-len(extra), os.SEEK_CUR)
-            line = b"".join(chunks) + data[:end]
-            if len(line) > MAX_LINE:
-                return None, True
-            return line, False
-        if len(data) > keep:
-            chunks.append(data[:-keep])
-            size += len(data) - keep
-            pending = data[-keep:]
-        else:
-            pending = data
-    data = pending
-    while True:
-        found = data.find(newline)
-        if found != -1:
-            extra = data[found + len(newline):]
-            if extra:
-                handle.seek(-len(extra), os.SEEK_CUR)
-            return None, True
-        block = handle.read(65536)
-        if not block:
-            return None, True
-        data = data[-keep:] + block if data else block
+def _utf16_lines(data: bytes, encoding: str):
+    """UTF-16 text lines (PowerShell `>` writes these). The whole file is decoded once; each span
+    start is a line index. A code unit that does not decode makes its line invalid text."""
+    lines, bad = [""], [False]
+    pos = 0
+    while pos < len(data):
+        try:
+            text, end, failed = data[pos:].decode(encoding), len(data), False
+        except UnicodeDecodeError as error:
+            text, end, failed = data[pos:pos + error.start].decode(encoding), pos + error.end, True
+        parts = text.split("\n")
+        lines[-1] += parts[0]
+        for part in parts[1:]:
+            lines.append(part)
+            bad.append(False)
+        if failed:
+            bad[-1] = True
+        pos = end
+    if lines[-1] == "" and not bad[-1]:
+        lines.pop()
+        bad.pop()
+    for number, (line, invalid) in enumerate(zip(lines, bad), start=1):
+        yield number, number - 1, _BAD_TEXT if invalid else line
 
 
 def _parse_snapshot(text: str) -> tuple[dict | None, str | None]:
     try:
         data = json.loads(text)
-    except json.JSONDecodeError:
+    except RecursionError:
+        return None, "nested too deeply to be a snapshot"
+    except ValueError:  # JSONDecodeError, or an integer longer than Python's digit limit
         return None, "invalid JSON"
     if not isinstance(data, dict) or not isinstance(data.get("processes"), list):
         return None, "not a gputaskman --json snapshot"
@@ -640,9 +631,14 @@ def _timed(taken: list[float | None]) -> bool:
 
 
 def _number(value) -> float | None:
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+    """A finite recorded number, or None. An integer too large for a float is not a reading."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    return float(value)
+    try:
+        number = float(value)
+    except OverflowError:
+        return None
+    return number if math.isfinite(number) else None
 
 
 def _gpu_key(data: dict) -> str:
@@ -855,18 +851,16 @@ def _pid(proc: dict) -> str:
     return label
 
 
+def _shown_vram(proc: dict) -> float | None:
+    """The live view's shown_vram: measured bytes for an attributed row, else the inferred size."""
+    key = "vram_inferred_bytes" if proc.get("vram_attributed") is False else "vram_bytes"
+    return _number(proc.get(key))
+
+
 def _vram(proc: dict) -> str:
     """Measured bytes, or an inferred size. ``*`` and ``?`` are only the marks the snapshot recorded."""
-    inferred = _number(proc.get("vram_inferred_bytes"))
-    measured = _number(proc.get("vram_bytes"))
-    if proc.get("vram_attributed") is False:
-        if inferred is None:
-            return "n/a"
-        mark = {"order": "?", "consistent": "*"}.get(proc.get("vram_inferred_by") or "", "")
-        return gb(inferred) + mark
-    if measured is None:
-        return "n/a"
-    return gb(measured)
+    value = _shown_vram(proc)
+    return "n/a" if value is None else gb(value) + vram_mark(proc.get("vram_inferred_by"))
 
 
 def _shared(snapshot: dict, proc: dict) -> str:
@@ -891,7 +885,8 @@ def _pct(value) -> str:
 
 def _note(proc: dict) -> str:
     parts = []
-    if proc.get("vram_attributed") is False and _number(proc.get("vram_inferred_bytes")) is not None:
+    if _shown_vram(proc) is not None and (proc.get("vram_attributed") is False
+                                          or vram_mark(proc.get("vram_inferred_by"))):
         parts.append("inferred")
     reason = proc.get("vram_unattributed_reason")
     if isinstance(reason, str) and reason:

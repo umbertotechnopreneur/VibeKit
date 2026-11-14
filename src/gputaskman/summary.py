@@ -191,8 +191,9 @@ def to_text(d: dict, top: int = TOP) -> str:
             out += ["", f"{'METRIC':<24}{'AVERAGE':>11}{'PEAK':>11}{'READINGS':>11}"]
             for m in r["metrics"].values():
                 label = f"{m['label']} ({m['source']})" if m.get("source") else m["label"]
-                out.append(f"{label[:23]:<24}{_fmt(m['avg'], m['unit']):>11}{_fmt(m['peak'], m['unit']):>11}"
-                           f"{m['readings']:>6}/{r['samples']:<4}")
+                # A space before each column keeps an oversized value (shown as recorded) from fusing with its neighbour.
+                out.append(f"{label[:23]:<24} {_fmt(m['avg'], m['unit']):>10} {_fmt(m['peak'], m['unit']):>10}"
+                           f" {m['readings']:>5}/{r['samples']:<4}")
         if r["memory_note"]:
             out.append(r["memory_note"])
         procs = r["processes"][:top]
@@ -200,8 +201,8 @@ def to_text(d: dict, top: int = TOP) -> str:
             out += ["", f"{'TOP PROCESSES (same name summed)':<34}{'PEAK VRAM':>11}{'PEAK GPU':>10}{'SEEN':>11}"]
             for p in procs:
                 name = (f"{'W' if p['host'] == 'windows' else 'H'}:" if p["host"] else "") + p["name"]
-                out.append(f"{name[:33]:<34}{_fmt(p['peak_vram_bytes'], 'bytes'):>11}"
-                           f"{_fmt(p['peak_gpu_pct'], 'pct'):>10}{p['samples_seen']:>6}/{r['samples']:<4}")
+                out.append(f"{name[:33]:<34} {_fmt(p['peak_vram_bytes'], 'bytes'):>10}"
+                           f" {_fmt(p['peak_gpu_pct'], 'pct'):>9} {p['samples_seen']:>5}/{r['samples']:<4}")
             if len(r["processes"]) > top:
                 out.append(f"{len(r['processes']) - top} more process(es); --json lists all.")
             out.append("Peak VRAM counts measured bytes only (vram_bytes); n/a means none were measured.")

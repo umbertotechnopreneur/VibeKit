@@ -57,6 +57,10 @@ class SummaryTests(unittest.TestCase):
         self.assertIn("W:llama", text)
         self.assertRegex(text, r"wsl\s+n/a\s+5\.0%")
 
+    def test_oversized_values_stay_as_recorded_and_do_not_fuse_columns(self):
+        text = to_text(summarize([snap(0, [proc("python.exe", 8 * GiB, 18465941443603.8)])]))
+        self.assertIn("8.00 GB 18465941443603.8%", text)
+
     def test_runs_split_at_long_gaps_clock_steps_and_gpu_changes(self):
         taken = [0, 1, 2, 3, 500, 501, 502, 400, 401]
         samples = [snap(t) for t in taken] + [snap(402, gpu="Other")]

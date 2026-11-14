@@ -89,12 +89,8 @@ def inferred_note(g) -> str:
 METAL_NOTE = ("macOS: unified memory, so GPU memory is part of system RAM. Rows show each process's graphics "
               "footprint; other users' processes (WindowServer, daemons) show GPU% only, since reading their "
               "memory needs root.")
-INTEL_MEMORY_NOTE = ("Intel VRAM used is the sum of memory resident in the processes gputaskman can inspect "
-                     "(the driver has no device-wide counter): local memory on a discrete card, system memory on "
-                     "an integrated GPU. Buffers shared between processes can be counted twice, and kernel-owned "
-                     "memory and processes it can't inspect are missing. The total is the size of the card's "
-                     "local-memory PCI window, an estimate that can differ from its memory (0 on an integrated "
-                     "GPU, whose total is unknown), so free memory is not shown.")
+INTEL_MEMORY_NOTE = ("Intel: used is a sum over inspectable processes (no device counter); "
+                     "total is the PCI window size, an estimate. Free is not shown.")
 
 
 def intel_memory_note(s: Snapshot) -> str:

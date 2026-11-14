@@ -89,7 +89,15 @@ def inferred_note(g) -> str:
 METAL_NOTE = ("macOS: unified memory, so GPU memory is part of system RAM. Rows show each process's graphics "
               "footprint; other users' processes (WindowServer, daemons) show GPU% only, since reading their "
               "memory needs root.")
+INTEL_MEMORY_NOTE = ("Intel: used is a sum over inspectable processes (no device counter); "
+                     "total is the PCI window size, an estimate. Free is not shown.")
 
+
+def intel_memory_note(s: Snapshot) -> str:
+    """Intel's device VRAM used is a sum over visible DRM clients and its total a PCI window size: neither is a
+    device counter, so the output says so whenever it shows either."""
+    return INTEL_MEMORY_NOTE if (s.backend == "drm" and s.nv and s.nv.source == "Intel sysfs"
+                                 and (s.vram_used is not None or s.vram_total)) else ""
 
 
 def vram_total_label(s: Snapshot) -> str:
@@ -150,7 +158,7 @@ def to_dict(s: Snapshot) -> dict:
         "attributed": s.attributed, "backend": s.backend, "shared_is_spill": s.shared_is_spill,
         "host_status": s.host_status or None,
         "process_status": s.process_status or None,
-        "memory_note": None,
+        "memory_note": intel_memory_note(s) or None,
         "counter_status": s.counter_status or None, "counter_adapter_matched": s.counter_adapter_matched,
         "wsl_split": s.wsl_split or None, "device": nv, "processes": procs,
     }
@@ -180,6 +188,8 @@ def to_text(s: Snapshot, limit: int = 30) -> str:
         out.append(memory)
     if s.backend == "wsl":
         out.append(wsl_note(s))
+    if intel_memory_note(s):
+        out.append(intel_memory_note(s))
     if s.counter_status:
         out.append(s.counter_status)
     if nv and s.backend != "metal":

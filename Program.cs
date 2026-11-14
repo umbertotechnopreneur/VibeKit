@@ -259,6 +259,10 @@ internal sealed class MainWindow : Window
         Ui.Bind(preset, ComboBox.SelectedIndexProperty, model.Settings, nameof(AppSettings.PresetIndex), BindingMode.TwoWay);
         controls.Children.Add(preset);
         controls.Children.Add(new Button { Content = "Settings", Command = Controller.OpenSettingsCommand, HorizontalAlignment = HorizontalAlignment.Stretch });
+        Ui.Toggle(controls, "Emergency exit: Ctrl + Alt + Shift + W", model.Settings, nameof(AppSettings.EmergencyShortcutEnabled));
+        var emergencyStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
+        Ui.Bind(emergencyStatus, TextBlock.TextProperty, model.State, nameof(AppState.EmergencyShortcutStatus));
+        controls.Children.Add(emergencyStatus);
         var freeze = new Button { Command = Controller.ToggleCaptureCommand, HorizontalAlignment = HorizontalAlignment.Stretch };
         Ui.Bind(freeze, Button.ContentProperty, model.State, nameof(AppState.FreezeButtonText));
         Ui.Bind(freeze, Button.IsEnabledProperty, model.State, nameof(AppState.CanFreeze)); controls.Children.Add(freeze);

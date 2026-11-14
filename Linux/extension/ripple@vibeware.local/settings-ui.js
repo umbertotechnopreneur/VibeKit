@@ -38,6 +38,24 @@ export function buildControls(window, settings, application = null, externalLeas
     const active = new Adw.SwitchRow({title: 'Effect'});
     settings.bind('active', active, 'active', Gio.SettingsBindFlags.DEFAULT);
     group.add(active);
+    const emergency = new Adw.SwitchRow({
+        title: 'Emergency stop shortcut',
+        subtitle: 'Super + Shift + Esc stops the effect',
+    });
+    settings.bind('panic-enabled', emergency, 'active', Gio.SettingsBindFlags.DEFAULT);
+    group.add(emergency);
+    const syncEmergency = () => {
+        emergency.subtitle = !settings.get_boolean('panic-enabled')
+            ? 'Shortcut disabled'
+            : settings.get_boolean('panic-available')
+                ? 'Super + Shift + Esc stops the effect'
+                : 'Shortcut unavailable; GNOME may not have registered it';
+    };
+    const emergencyChanges = [
+        settings.connect('changed::panic-enabled', syncEmergency),
+        settings.connect('changed::panic-available', syncEmergency),
+    ];
+    syncEmergency();
     const status = new Adw.ActionRow({title: settings.get_string('status')});
     group.add(status);
     const target = new Adw.ComboRow({
@@ -197,6 +215,8 @@ export function buildControls(window, settings, application = null, externalLeas
         if (timeout)
             GLib.source_remove(timeout);
         settings.disconnect(changed);
+        for (const handler of emergencyChanges)
+            settings.disconnect(handler);
         for (const handler of filterChanges)
             settings.disconnect(handler);
         return false;

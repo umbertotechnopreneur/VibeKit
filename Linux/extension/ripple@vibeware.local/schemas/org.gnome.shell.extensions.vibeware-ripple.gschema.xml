@@ -79,6 +79,12 @@
       <default>1</default>
       <range min="1" max="2" />
     </key>
+    <key name="panic-enabled" type="b">
+      <default>true</default>
+    </key>
+    <key name="panic-available" type="b">
+      <default>false</default>
+    </key>
     <key name="panic" type="as">
       <default>['&lt;Super&gt;&lt;Shift&gt;Escape']</default>
     </key>

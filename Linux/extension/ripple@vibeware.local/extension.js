@@ -19,6 +19,8 @@ export default class RippleExtension extends Extension {
         this._settings = this.getSettings();
         this._patches = [];
         this._signals = [];
+        this._panicRegistered = false;
+        this._settings.set_boolean('panic-available', false);
         this._timer = 0;
         this._pointerTimer = 0;
         this._lastPressed = false;
@@ -38,6 +40,8 @@ export default class RippleExtension extends Extension {
                 }
                 this._settings.set_string('status', this._settings.get_boolean('active') ? 'Active' : 'Stopped');
             }
+            else if (key === 'panic-enabled')
+                this._syncPanic();
             else if (['target', 'patch-size', 'fps'].includes(key))
                 this._clear();
             else if (key === 'max-waves') {
@@ -60,15 +64,27 @@ export default class RippleExtension extends Extension {
         this._connect(Main.overview, 'showing', () => this._clear());
         this._connect(Main.layoutManager, 'monitors-changed', () => this._clear());
         this._connect(Main.sessionMode, 'updated', () => this._clear());
-        Main.wm.addKeybinding('panic', this._settings,
-            Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
-            () => this._stop('Stopped by keyboard shortcut'));
+        this._syncPanic();
         this._leaseTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, () => {
             if (this._settings.get_boolean('active') && !this._leaseValid())
                 this._stop('Effect stopped because the controller closed');
             return GLib.SOURCE_CONTINUE;
         });
+    }
+
+    _syncPanic() {
+        if (this._panicRegistered) {
+            Main.wm.removeKeybinding('panic');
+            this._panicRegistered = false;
+        }
+        if (this._settings.get_boolean('panic-enabled')) {
+            const action = Main.wm.addKeybinding('panic', this._settings,
+                Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+                Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+                () => this._stop('Stopped by keyboard shortcut'));
+            this._panicRegistered = action !== Meta.KeyBindingAction.NONE;
+        }
+        this._settings.set_boolean('panic-available', this._panicRegistered);
     }
 
     _startPointerPolling() {
@@ -286,7 +302,9 @@ export default class RippleExtension extends Extension {
     disable() {
         this._stopPointerPolling();
         this._clear();
-        Main.wm.removeKeybinding('panic');
+        if (this._panicRegistered)
+            Main.wm.removeKeybinding('panic');
+        this._settings.set_boolean('panic-available', false);
         if (this._leaseTimer)
             GLib.source_remove(this._leaseTimer);
         for (const [object, id] of this._signals)

@@ -33,6 +33,7 @@ internal sealed partial class StudioController : IDisposable
     private readonly TrayService tray;
     private readonly StartupService startup;
     private readonly CaptureConsentService captureConsent;
+    private readonly EmergencyShortcut emergencyShortcut;
     private EffectFrameState frame = new();
     private IntPtr renderer;
     private ScreenEffectSession? screen;
@@ -75,6 +76,9 @@ internal sealed partial class StudioController : IDisposable
             Log.Warning("Private memory threshold reached Bytes={PrivateBytes} WorkingSet={WorkingSet}", sample.PrivateBytes, sample.WorkingSetBytes);
             Native.MessageBox(IntPtr.Zero, "Water Ripple Studio is using at least 500 MB of private memory. This could be a memory leak. Please report it and include the recent application logs.\n\nStop the screen effect or close the app if memory keeps growing.", "Water Ripple Studio · memory", 0x50030);
         });
+        emergencyShortcut = new EmergencyShortcut(model.Settings.EmergencyShortcutEnabled, status =>
+            window.DispatcherQueue.TryEnqueue(() => model.State.EmergencyShortcutStatus = status));
+        model.Settings.PropertyChanged += EmergencyShortcutChanged;
         model.Settings.PropertyChanged += SettingsChanged;
     }
 
@@ -371,7 +375,10 @@ internal sealed partial class StudioController : IDisposable
             var dialog = new ContentDialog
             {
                 Title = "Keep Water Ripple running?",
-                Content = "Minimize to the notification area to keep enabled effects running. Closing the app stops effects and releases its resources.",
+                Content = "Minimize to the notification area to keep enabled effects running. Closing the app stops effects and releases its resources.\n\n"
+                    + (model.Settings.EmergencyShortcutEnabled && model.State.EmergencyShortcutStatus == "Emergency shortcut is active and immediately closes Water Ripple."
+                        ? "In an emergency, press Ctrl + Alt + Shift + W to immediately close Water Ripple."
+                        : "The emergency shortcut is disabled or unavailable. Check its status in the main window."),
                 PrimaryButtonText = "Minimize to tray", SecondaryButtonText = "Close app", CloseButtonText = "Cancel",
                 DefaultButton = ContentDialogButton.Primary, RequestedTheme = ElementTheme.Dark,
                 XamlRoot = ((FrameworkElement)window.Content).XamlRoot
@@ -524,11 +531,22 @@ internal sealed partial class StudioController : IDisposable
             4 => "\nRotated displays are not supported.", _ => "\nDesktop capture is unavailable."
         });
     }
+    private void EmergencyShortcutChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(AppSettings.EmergencyShortcutEnabled))
+        {
+            model.State.EmergencyShortcutStatus = "Updating emergency shortcut…";
+            emergencyShortcut.SetEnabled(model.Settings.EmergencyShortcutEnabled);
+        }
+    }
+
     public void Dispose()
     {
         if (model.State.IsClosing) return;
         model.State.IsClosing = true;
         window.AppWindow.Closing -= MainWindowClosing;
+        model.Settings.PropertyChanged -= EmergencyShortcutChanged;
+        emergencyShortcut.Dispose();
         tray.Dispose(); startup.Dispose();
         model.Settings.PropertyChanged -= SettingsChanged;
         resourceTimer.Stop(); monitor.Dispose();

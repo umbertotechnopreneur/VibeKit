@@ -24,7 +24,7 @@ public abstract class ObservableModel : INotifyPropertyChanged
 // The sole source of user preferences. All consumers observe the same instance.
 public sealed class AppSettings : ObservableModel
 {
-    private bool useAcrylic = true, chromaticEnabled = true;
+    private bool useAcrylic = true, chromaticEnabled = true, emergencyShortcutEnabled = true;
     private bool crestEnabled, ripplesEnabled, liquidEnabled;
     private double strength = 9, waveSize = 100, speed = 150, duration = 1.5;
     private double animationFps = 60, captureFps = 30;
@@ -42,6 +42,7 @@ public sealed class AppSettings : ObservableModel
     public double Duration { get => duration; set => SetProperty(ref duration, Number(value, 0.4, 3, 1.5)); }
     public double AnimationFps { get => animationFps; set => SetProperty(ref animationFps, Number(value, 15, 120, 60)); }
     public double CaptureFps { get => captureFps; set => SetProperty(ref captureFps, Number(value, 5, 60, 30)); }
+    public bool EmergencyShortcutEnabled { get => emergencyShortcutEnabled; set => SetProperty(ref emergencyShortcutEnabled, value); }
     public bool UseAcrylic { get => useAcrylic; set => SetProperty(ref useAcrylic, value); }
     public bool ChromaticEnabled { get => chromaticEnabled; set => SetProperty(ref chromaticEnabled, value); }
     public double ChromaticSeparation { get => chromaticSeparation; set => SetProperty(ref chromaticSeparation, Number(value, 0, 100, 18)); }
@@ -112,6 +113,8 @@ public sealed class AppState : ObservableModel
     private int activeWaveCount;
 
     private bool isSettingsOpen, isCaptureConsentOpen, startWithWindows, canManageStartup;
+    private string emergencyShortcutStatus = "Starting emergency shortcut…";
+    public string EmergencyShortcutStatus { get => emergencyShortcutStatus; set => SetProperty(ref emergencyShortcutStatus, value); }
     private string startupStatus = "Reading Windows startup setting…";
     public bool IsCaptureConsentOpen { get => isCaptureConsentOpen; set => SetProperty(ref isCaptureConsentOpen, value); }
     public bool IsSettingsOpen { get => isSettingsOpen; set => SetProperty(ref isSettingsOpen, value); }

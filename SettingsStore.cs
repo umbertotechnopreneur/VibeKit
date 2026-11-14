@@ -140,6 +140,7 @@ public sealed class SettingsStore : IDisposable
         public double Duration { get; set; } = 1.5;
         public double AnimationFps { get; set; } = 60;
         public double CaptureFps { get; set; } = 30;
+        public bool EmergencyShortcutEnabled { get; set; } = true;
         public bool UseAcrylic { get; set; } = true;
         public bool ChromaticEnabled { get; set; } = true;
         public double ChromaticSeparation { get; set; } = 18;
@@ -160,6 +161,7 @@ public sealed class SettingsStore : IDisposable
             Duration = Duration,
             AnimationFps = AnimationFps,
             CaptureFps = CaptureFps,
+            EmergencyShortcutEnabled = EmergencyShortcutEnabled,
             UseAcrylic = UseAcrylic,
             ChromaticEnabled = ChromaticEnabled,
             ChromaticSeparation = ChromaticSeparation,
@@ -181,6 +183,7 @@ public sealed class SettingsStore : IDisposable
             Duration = model.Duration,
             AnimationFps = model.AnimationFps,
             CaptureFps = model.CaptureFps,
+            EmergencyShortcutEnabled = model.EmergencyShortcutEnabled,
             UseAcrylic = model.UseAcrylic,
             ChromaticEnabled = model.ChromaticEnabled,
             ChromaticSeparation = model.ChromaticSeparation,

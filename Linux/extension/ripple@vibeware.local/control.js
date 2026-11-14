@@ -176,9 +176,12 @@ function activate(startMinimized) {
         closeDialog = new Adw.AlertDialog({
             heading: 'Hide the panel or quit Ripple?',
             prefer_wide_layout: true,
-            body: tray?.available
+            body: (tray?.available
                 ? 'Hide the panel to keep the effect running in the top bar. Quitting stops the effect.'
-                : 'The top bar icon is unavailable. Quitting stops the effect.',
+                : 'The top bar icon is unavailable. Quitting stops the effect.')
+                + (settings.get_boolean('panic-enabled') && settings.get_boolean('panic-available')
+                    ? '\n\nIn an emergency, press Super + Shift + Esc to stop the effect.'
+                    : '\n\nThe emergency shortcut is disabled or unavailable. Check its status in the panel.'),
         });
         closeDialog.add_response('cancel', 'Cancel');
         closeDialog.add_response('hide', 'Hide to tray');

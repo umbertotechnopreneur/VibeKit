@@ -167,12 +167,14 @@ public sealed partial class MainWindow : Window
         if (item.Tag is string page) await OpenPageAsync(page);
     }
 
-    /// <summary>Opens the read-only About dialog over the current configuration page.</summary>
+    /// <summary>Opens About or the VibeWare manifesto without changing the current configuration page.</summary>
     /// <param name="sender">The configuration navigation control.</param>
     /// <param name="args">The item the user invoked without changing the selected page.</param>
     private async void Navigation_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
         if (args.InvokedItemContainer == AboutItem) await ShowAboutAsync();
+        else if (args.InvokedItemContainer == VibeWareItem)
+            await Windows.System.Launcher.LaunchUriAsync(new Uri("https://umbertogiacobbi.biz/vibeware/manifesto"));
     }
 
     /// <summary>Present the About dialog from setup navigation or the tray.</summary>
@@ -262,18 +264,12 @@ public sealed partial class MainWindow : Window
     /// <param name="severity">Notification severity used for presentation.</param>
     private void ShowNotice(string title, string message, InfoBarSeverity severity) =>
         _configuration.Notice.Show(title, message, (int)severity);
-
-    /// <summary>Keeps legal links on the left and the VibeWare signature on the right at smaller widths.</summary>
-    /// <param name="sender">Native event source; business state is obtained from the model.</param>
-    /// <param name="args">Arguments supplied by the launch or WinUI event; no mail operation is inferred from them.</param>
+    /// <summary>Keep footer links available at narrow window widths.</summary>
+    /// <param name="sender">The footer grid that changed size.</param>
+    /// <param name="args">The new footer dimensions in effective pixels.</param>
     private void BrandFooter_SizeChanged(object sender, SizeChangedEventArgs args)
     {
-        var compact = args.NewSize.Width < 760;
-        Grid.SetColumnSpan(FooterLinks, compact ? 2 : 1);
         FooterLinks.Orientation = args.NewSize.Width < 360 ? Orientation.Vertical : Orientation.Horizontal;
-        Grid.SetRow(VibeWareLink, compact ? 1 : 0);
-        Grid.SetColumn(VibeWareLink, compact ? 0 : 1);
-        Grid.SetColumnSpan(VibeWareLink, compact ? 2 : 1);
     }
 
 }

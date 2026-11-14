@@ -31,7 +31,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
+from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, GObject, Gtk, Pango
 
 from agentinbox import __version__
 from agentinbox.application import MailApplication
@@ -294,7 +294,17 @@ class SetupWindow(Adw.ApplicationWindow):
                        "Settings pages", "Switch between accounts, connection settings and troubleshooting.")
         header = Adw.HeaderBar(title_widget=nav)
         header.add_css_class("flat")
-        header.pack_end(button("About", "Open information about AgentInbox in a separate window.", self.show_about))
+        mark_path = Path(__file__).resolve().parents[1] / "vibeware/vibeware-logo.png"
+        if not mark_path.is_file():
+            mark_path = Path(__file__).resolve().parents[2] / "resources/vibeware/vibeware-logo.png"
+        mark = Gtk.Image.new_from_pixbuf(GdkPixbuf.Pixbuf.new_from_file_at_scale(str(mark_path), 24, 24, True))
+        initiative = link("VibeWare", "https://umbertogiacobbi.biz/vibeware/manifesto")
+        initiative.set_child(mark)
+        describe(initiative, "VibeWare manifesto", "Read the VibeWare manifesto about software created with AI under human direction and responsibility.")
+        header.pack_end(initiative)
+        about = button("About", "Open information about AgentInbox in a separate window.", self.show_about)
+        about.set_child(Gtk.Image.new_from_icon_name("help-about-symbolic"))
+        header.pack_end(about)
         root.append(header)
 
         content = column(16)

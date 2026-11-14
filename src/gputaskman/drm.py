@@ -152,21 +152,52 @@ def parse_fdinfo(text: str) -> dict | None:
         except (ValueError, IndexError):
             engines = None  # a torn or malformed counter: this client's load is unknown, not 0
             break
+    if fields["drm-driver"] == "xe":
+        # Xe exports GPU-clock ticks, not nanoseconds. Keep busy/total pairs together:
+        # only their deltas have meaning, and CPU wall time is not their denominator.
+        cycles = {}
+        names = {k[len("drm-cycles-"):] for k in fields if k.startswith("drm-cycles-")}
+        names |= {k[len("drm-total-cycles-"):] for k in fields if k.startswith("drm-total-cycles-")}
+        try:
+            for name in names:
+                busy = int(fields["drm-cycles-" + name])
+                total = int(fields["drm-total-cycles-" + name])
+                if busy < 0 or total < 0:
+                    raise ValueError("negative GPU counter")
+                cycles[name] = (busy, total)
+        except (KeyError, ValueError):
+            cycles = None  # a missing/malformed pair makes the client's load unknown
+        regions = {k[len(prefix):] for prefix in ("drm-resident-", "drm-shared-", "drm-total-")
+                   for k in fields if k.startswith(prefix) and not k.startswith("drm-total-cycles-")}
+        local = ["drm-resident-" + r for r in regions if re.fullmatch(r"vram\d+", r)]
+        shared_keys = ["drm-shared-" + r for r in regions]
+        # Require every region's sharing counter, including CPU-only system memory.
+        # A missing sharing counter must never turn reachable bytes into private bytes.
+        shared_values = [parse_size(fields.get(k)) for k in shared_keys]
+        return {
+            "driver": "xe", "client_id": client_id, "pdev": fields.get("drm-pdev", ""),
+            "vram": intel_resident(*local) if local and all(k in fields for k in local) else None,
+            "gtt": intel_resident("drm-resident-gtt"),
+            "cpu": intel_resident("drm-resident-system"),
+            "shared": (sum(shared_values) if regions and "gtt" in regions and "system" in regions
+                       and None not in shared_values else None),
+            "engines": engines or None,
+            "cycles": cycles or None,
+        }
     if fields.get("drm-driver") in ("i915", "xe"):
         if not engines:
             # i915 (gen8+) prints a drm-engine-<class> line for each engine class the device has, even at 0 ns;
-            # xe reports drm-cycles-* instead and gen7 i915 nothing. No such line means the load is unknown, not 0
+            # gen7 i915 prints no engine lines. No such line means the load is unknown, not 0
             # (AGENTS.md rule 2).
             engines = None
         # i915's regions: local0 is device memory and system0 is system memory the GPU's buffers currently
         # sit in (the GTT slot); stolen-local0 and stolen-system0 are the firmware-reserved parts of each.
         # system0 includes buffers placed there on purpose, not only memory that spilled from local0.
-        # There is no separate CPU-only region. These are i915's names; xe calls them vram0/gtt/system, so
-        # its memory stays unknown until validated.
+        # i915 has no separate CPU-only region; Xe's distinct names are handled above.
         has_local = any("local0" in key for key in fields)
         if fields["drm-driver"] == "i915" and not has_local:
             # An integrated GPU has no local0 region at all, so there is no shared-local0 to require:
-            # the gate needs only the system0 region the device has. xe keeps the old gate (unknown keys).
+            # the gate needs only the system0 region the device has.
             required_shared = ("drm-shared-system0",)
         else:
             required_shared = ("drm-shared-local0", "drm-shared-system0")
@@ -873,6 +904,7 @@ class DrmCounters:
         self._clock = clock
         self._timer = timer
         self._prev: dict[tuple, tuple[dict[str, int], int]] = {}  # client -> (high-water engine ns, read time)
+        self._prev_cycles: dict[tuple, tuple[dict[str, tuple[int, int]], int]] = {}
         # pid -> (start time, [(fd name, link target)], holds /dev/kfd, every fd and link was readable)
         self._known: dict[int, tuple[str, list[tuple[str, str]], bool, bool]] = {}
         self._cursor = 0
@@ -1072,6 +1104,41 @@ class DrmCounters:
         self.status = "; ".join(notes)
         return clients, kfd, incomplete
 
+    def _cycle_rates(self, clients: dict, now: int) -> dict:
+        """Xe client load from GPU busy/total tick deltas; never a wall-clock conversion.
+
+        The DRM spec allows busy counters to step back temporarily, so retain their high
+        water mark. A total counter reset re-arms both counters; stalled totals are unknown.
+        Stalled, reset or new engines do not hide other engines with a valid interval.
+        Like the nanosecond path, class capacity is not divided out (one busy engine is 100%).
+        """
+        rates = {}
+        current = {}
+        for key, (_owners, info, _render, read_at) in clients.items():
+            cycles = info.get("cycles")
+            old = self._prev_cycles.get(key)
+            rates[key] = None
+            if cycles is None:
+                continue
+            high = {}
+            values = {}
+            for name, (busy, total) in cycles.items():
+                before = old[0].get(name) if old else None
+                if before is None or total < before[1]:
+                    high[name] = (busy, total)
+                    continue
+                high[name] = (max(busy, before[0]), total)
+                if total > before[1]:
+                    values[name] = min(100.0, 100.0 * (high[name][0] - before[0]) / (total - before[1]))
+            current[key] = (high, read_at)
+            if values:
+                rates[key] = values
+        for key, value in self._prev_cycles.items():
+            if key not in current and now - value[1] < _PRUNE_NS:
+                current[key] = value
+        self._prev_cycles = current
+        return rates
+
     def sample(self) -> tuple[dict[int, dict[int, ProcGpu]], dict[int, AdapterGpu]]:
         by_pdev = {c.pdev: c.key for c in self.cards}
         by_key = {c.key: c for c in self.cards}
@@ -1099,6 +1166,8 @@ class DrmCounters:
             for name, ns in info["engines"].items():
                 high[name] = max(ns, high.get(name, 0))  # the DRM spec allows a counter to step back briefly
             current[client_key] = (high, read_at)
+
+        cycle_rates = self._cycle_rates(clients, now)
 
         for (key, pid), held in by_pid.items():
             # No commit counter in fdinfo, so Paged stays unavailable rather than 0. ROCm/HIP (a /dev/kfd holder)
@@ -1155,15 +1224,19 @@ class DrmCounters:
             engines: dict[str, float] = {}
             for client_key, (owners, info, _render, read_at) in held:
                 old = self._prev.get(client_key)
-                if (proc.kfd or not complete or self.partial or len(owners) > 1 or info["engines"] is None
-                        or old is None or read_at - old[1] <= 0):
+                if (proc.kfd or not complete or self.partial or len(owners) > 1
+                        or (info["engines"] is None and cycle_rates[client_key] is None)
+                        or (info["engines"] is not None and (old is None or read_at - old[1] <= 0))):
                     engines = {}
                     proc.available.discard("engine")  # unknown, not 0 (rule 2)
                     break
-                delta = read_at - old[1]
-                for name, ns in current[client_key][0].items():
+                rates = cycle_rates[client_key]
+                if info["engines"] is not None:
+                    delta = read_at - old[1]
                     # amdgpu omits an engine until it has run, so a missing earlier value really is 0.
-                    pct = min(100.0, max(0.0, 100.0 * (ns - old[0].get(name, 0)) / delta))
+                    rates = {name: min(100.0, max(0.0, 100.0 * (ns - old[0].get(name, 0)) / delta))
+                             for name, ns in current[client_key][0].items()}
+                for name, pct in rates.items():
                     engine = _engine_key(name, info["pdev"] in unified, info["pdev"] in intel_pdevs)
                     engines[engine] = min(100.0, engines.get(engine, 0.0) + pct)
             for engine, pct in engines.items():

@@ -176,16 +176,17 @@ class LoadTests(unittest.TestCase):
 
     def test_huge_numbers_and_deep_nesting_are_skipped_or_unavailable(self):
         huge = "9" * 400
-        deep = "[" * 1100 + "]" * 1100
         lines = [json.dumps(snap(1.0)).replace('"taken": 1.0', f'"taken": {huge}'),
-                 '{"processes": [], "x": ' + deep + "}",
+                 '{"processes": [], "x": ' + "[" * 150 + "]" * 150 + "}",  # parses everywhere; over MAX_DEPTH
+                 '{"processes": [], "x": ' + "[" * 1100 + "]" * 1100 + "}",  # may hit the recursion limit
                  json.dumps(snap(2.0)).replace(f'"vram_used": {12 * GiB}', f'"vram_used": {huge}'),
                  json.dumps(snap(3.0))]
         write(self.path, [], tail="\n".join(lines) + "\n")
         with load_recording(self.path) as recording:
             self.assertEqual(recording.count, 3)
             self.assertFalse(recording.timed)  # the huge taken is not a time
-            self.assertTrue(any("skipped line 2" in warning for warning in recording.warnings))
+            for number in (2, 3):
+                self.assertIn(f"skipped line {number}: nested too deeply to be a snapshot", recording.warnings)
             body = recording.snapshot(1)
             text = describe(recording, Playback(3, recording.taken, timed=False), body)
             self.assertIn("Memory: N/A / 24.00 GB", text)

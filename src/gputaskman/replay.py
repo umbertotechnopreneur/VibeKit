@@ -32,6 +32,7 @@ SPEEDS = (0.5, 1.0, 2.0, 4.0)
 FIXED_INTERVAL = 1.0  # stand-in when `taken` cannot drive playback; not a recovered sample period
 MAX_LINE = 32 << 20
 MAX_WARNINGS = 20
+MAX_DEPTH = 100  # a real snapshot nests under 10 levels; deeper lines are not snapshots
 UNTIMED = ("Playback uses 1 second per snapshot at 1x because recorded timestamps are missing or not "
            "strictly increasing. That interval is not recorded timing.")
 _TRAILING = "skipped a trailing incomplete line ({}); an interrupted recording can end that way"
@@ -596,13 +597,27 @@ def _utf16_lines(data: bytes, encoding: str):
 def _parse_snapshot(text: str) -> tuple[dict | None, str | None]:
     try:
         data = json.loads(text)
-    except RecursionError:
+    except RecursionError:  # depth limits differ between Python builds; _too_deep makes the rule fixed
         return None, "nested too deeply to be a snapshot"
     except ValueError:  # JSONDecodeError, or an integer longer than Python's digit limit
         return None, "invalid JSON"
+    if _too_deep(data):
+        return None, "nested too deeply to be a snapshot"
     if not isinstance(data, dict) or not isinstance(data.get("processes"), list):
         return None, "not a gputaskman --json snapshot"
     return data, None
+
+
+def _too_deep(value, limit: int = MAX_DEPTH) -> bool:
+    """Whether JSON containers nest deeper than limit. Iterative, so it cannot itself recurse too far."""
+    stack = [(value, 1)] if isinstance(value, (dict, list)) else []
+    while stack:
+        item, depth = stack.pop()
+        if depth > limit:
+            return True
+        children = item.values() if isinstance(item, dict) else item
+        stack.extend((child, depth + 1) for child in children if isinstance(child, (dict, list)))
+    return False
 
 
 def _warnings(problems: list[tuple[int, str]], last_nonblank: int) -> list[str]:

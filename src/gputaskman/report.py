@@ -44,10 +44,14 @@ def has_engine_counters(s: Snapshot, row: ProcRow) -> bool:
     return (s.backend != "wsl" or row.origin == "windows") and "engine" in row.gpu.available
 
 
+def vram_mark(inferred_by: object) -> str:
+    """'*' / '?' for an inferred owner; anything else (including a malformed recorded value) is unmarked."""
+    return {"order": "?", "consistent": "*"}.get(inferred_by, "") if isinstance(inferred_by, str) else ""
+
+
 def vram_label(g: ProcGpu) -> str:
     """Measured size; '*' / '?' when the size is exact but which local process owns it is inferred."""
-    mark = {"order": "?", "consistent": "*"}.get(g.inferred_by, "")
-    return "n/a" if g.shown_vram is None else gb(g.shown_vram) + mark
+    return "n/a" if g.shown_vram is None else gb(g.shown_vram) + vram_mark(g.inferred_by)
 
 
 INFERRED_NOTE = ("* matched: the size is exact (Windows' counter for a WSL VM GPU context, or NVML for a host PID "

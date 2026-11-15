@@ -1,0 +1,15 @@
+# Dependencies
+
+The Python 3.11+ mail engine uses the standard library. It has no third-party Python package dependency.
+
+Credentials use native facilities. Windows Credential Manager stores passwords and Microsoft refresh tokens; current-user DPAPI protects temporary sign-in blobs. macOS uses Keychain, and Linux requires an available unlocked Secret Service through `libsecret` and GLib. AgentInbox does not install these facilities or fall back to plain-text credentials. Native OS libraries are accessed through Python's standard-library `ctypes`; no Python package installation is required.
+
+The macOS and Linux paths remain untested. Contributor pull requests with platform fixes and reproducible validation are welcome. Optional Microsoft web authorization uses standard-library HTTPS and requires your own public-client app registration; it needs no third-party sign-in SDK. Web authorization is not available for Google accounts.
+
+The Python engine has no GUI dependency. Native configuration is provided only by the Windows WinUI 3 app.
+
+WinUI 3 setup targets `net10.0-windows10.0.19041.0`. Its direct references are `Microsoft.WindowsAppSDK` 2.6.4 and `Microsoft.Windows.SDK.BuildTools` 10.0.28000.2957; the latter uses `PrivateAssets="all"`. Versions come from `Directory.Packages.props`. This is a source inventory, not a restored transitive graph. Linux and macOS do not use the Windows UI.
+
+A bundled Python interpreter and Windows runtime components are external binaries. Follow the [first-import scan rule](../README.md#external-binary-security-policy) when introducing new packages or changed third-party content. Record source, version or hash, command and clean result once; unchanged inputs are not rescanned during builds.
+
+Preserve required third-party licenses and attribution. An old notice does not prove its component belongs in a new package; inventories must match actual shipped files. See [third-party notices](../THIRD_PARTY_NOTICES.md) and [retained license provenance](licenses/SOURCES.md).

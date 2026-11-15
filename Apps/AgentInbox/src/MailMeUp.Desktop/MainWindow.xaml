@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- VBWR B
+
+Project: AgentInbox
+Repository: https://github.com/umbertotechnopreneur/AgentInbox
+Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+
+VibeWare: Human intent, AI execution, and plenty of tokens
+Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+
+File: Native configuration shell, saved-account template, navigation and footer.
+Modified with AI: OpenAI Codex; account selection and troubleshooting navigation, 2026-11-02.
+Human guidance: Umberto Giacobbi; document parameters and simplify maintenance.
+
+Copyright (c) 2026 Umberto Giacobbi
+License: MIT - see LICENSE
+SPDX-License-Identifier: MIT
+
+VBWR E -->
+
+<Window
+    x:Class="MailMeUp.Desktop.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="AgentInbox">
+    <Grid x:Name="Root" Background="{ThemeResource SetupSurfaceBrush}" Loaded="Root_Loaded">
+        <Grid.Resources>
+            <DataTemplate x:Key="ProviderChoiceTemplate">
+                <StackPanel Orientation="Horizontal" Spacing="10" AutomationProperties.Name="{Binding Label}">
+                    <FontIcon Glyph="{Binding Glyph}" Foreground="{Binding Accent}" FontSize="16"
+                              AutomationProperties.AccessibilityView="Raw" />
+                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                </StackPanel>
+            </DataTemplate>
+            <DataTemplate x:Key="AccountListTemplate">
+                <Grid ColumnSpacing="10" Padding="0,4">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="32" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <Grid Width="32" Height="32" VerticalAlignment="Center">
+                        <FontIcon Glyph="&#xE715;" FontSize="24" Opacity="0.55" AutomationProperties.AccessibilityView="Raw" />
+                        <Image Width="32" Height="32" AutomationProperties.AccessibilityView="Raw" ImageFailed="ProviderLogo_Failed" ImageOpened="ProviderLogo_Opened">
+                            <Image.Source><BitmapImage UriSource="{Binding ProviderLogo}" /></Image.Source>
+                        </Image>
+                    </Grid>
+                    <StackPanel Grid.Column="1" Spacing="4">
+                    <TextBlock Text="{Binding Label}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Email}" Opacity="0.75" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <Button Grid.Column="2" IsEnabled="{Binding HasCheckResult}" Click="AccountCheckDetails_Click"
+                            Style="{StaticResource QuietButton}" Padding="4" VerticalAlignment="Center"
+                            AutomationProperties.Name="Show account check details" ToolTipService.ToolTip="{Binding CheckDescription}">
+                        <FontIcon Glyph="{Binding CheckGlyph}" DataContextChanged="AccountStatus_DataContextChanged" FontSize="18"
+                                  AutomationProperties.Name="{Binding CheckDescription}" />
+                    </Button>
+                </Grid>
+            </DataTemplate>
+        </Grid.Resources>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid Padding="28,20" ColumnSpacing="14">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+            <Image Source="Assets/Logo.png" Width="42" Height="42" AutomationProperties.AccessibilityView="Raw" />
+            <StackPanel Grid.Column="1" Spacing="2">
+                <TextBlock Text="AgentInbox" FontSize="22" FontWeight="SemiBold" />
+                <TextBlock Text="All your mailboxes. One AI assistant via MCP." TextWrapping="Wrap" Style="{StaticResource SubtleText}" />
+            </StackPanel>
+        </Grid>
+        <NavigationView x:Name="Navigation" Grid.Row="1" PaneDisplayMode="Auto" IsBackButtonVisible="Collapsed"
+                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                        OpenPaneLength="208" IsSettingsVisible="False" SelectionChanged="Navigation_SelectionChanged"
+                        ItemInvoked="Navigation_ItemInvoked">
+            <NavigationView.Resources>
+                <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+                <Thickness x:Key="NavigationViewContentGridBorderThickness">0</Thickness>
+            </NavigationView.Resources>
+            <NavigationView.MenuItems>
+                <NavigationViewItem Content="Accounts" Tag="accounts" ToolTipService.ToolTip="Create or edit your email accounts.">
+                    <NavigationViewItem.Icon><SymbolIcon Symbol="Mail" Foreground="#16856A" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Connect Codex" Tag="assistant" ToolTipService.ToolTip="Connect your email accounts to Codex.">
+                    <NavigationViewItem.Icon><SymbolIcon Symbol="Link" Foreground="#8B62CF" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Troubleshooting" Tag="troubleshooting" ToolTipService.ToolTip="Copy prompts to check and troubleshoot AgentInbox in Codex.">
+                    <NavigationViewItem.Icon><SymbolIcon Symbol="Help" Foreground="#2477C8" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem x:Name="AboutItem" Content="About" SelectsOnInvoked="False"
+                                    AutomationProperties.Name="About AgentInbox" ToolTipService.ToolTip="Show AgentInbox version and project information.">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE946;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="VibeWareItem" Content="VibeWare" SelectsOnInvoked="False"
+                                    AutomationProperties.Name="VibeWare manifesto" ToolTipService.ToolTip="Read the VibeWare manifesto about software created with AI under human direction and responsibility.">
+                    <NavigationViewItem.Icon><BitmapIcon UriSource="ms-appx:///Assets/VibeWare.png" ShowAsMonochrome="False" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          HorizontalScrollMode="Disabled" HorizontalContentAlignment="Left" VerticalContentAlignment="Top">
+                <StackPanel x:Name="Page" Padding="28,12,36,32" Spacing="20" MaxWidth="1040"
+                            Width="{Binding ViewportWidth, ElementName=PageScroll, Mode=OneWay}"
+                            HorizontalAlignment="Left" VerticalAlignment="Top" />
+                </ScrollViewer>
+                <Border x:Name="SaveBar" Grid.Row="1" Padding="28,14,28,14" Visibility="Collapsed"
+                        BorderThickness="0,1,0,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+                    <StackPanel x:Name="PageActions" Orientation="Horizontal" Spacing="12" />
+                </Border>
+            </Grid>
+        </NavigationView>
+        <StackPanel Grid.Row="2" Padding="28,4,28,6" Spacing="4">
+            <ProgressBar x:Name="Progress" IsIndeterminate="True" Visibility="Collapsed" />
+            <Grid SizeChanged="BrandFooter_SizeChanged">
+                <StackPanel x:Name="FooterLinks" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <HyperlinkButton NavigateUri="https://umbertogiacobbi.biz/" Padding="0,2" MinHeight="28"
+                                     AutomationProperties.Name="Umberto Giacobbi website" ToolTipService.ToolTip="Open Umberto Giacobbi's website.">
+                        <StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Text="UmbertoGiacobbi.Biz" /><FontIcon Glyph="&#xE8A7;" FontSize="12" VerticalAlignment="Center" /></StackPanel>
+                    </HyperlinkButton>
+                    <HyperlinkButton NavigateUri="https://umbertogiacobbi.biz/agentinbox/terms/" Padding="6,2" MinHeight="28"
+                                     AutomationProperties.Name="AgentInbox terms of use" ToolTipService.ToolTip="Read the AgentInbox terms of use.">
+                        <StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Text="Terms" /><FontIcon Glyph="&#xE8A7;" FontSize="12" VerticalAlignment="Center" /></StackPanel>
+                    </HyperlinkButton>
+                    <HyperlinkButton NavigateUri="https://umbertogiacobbi.biz/agentinbox/privacy/" Padding="6,2" MinHeight="28"
+                                     AutomationProperties.Name="AgentInbox privacy policy" ToolTipService.ToolTip="Read how AgentInbox handles your data.">
+                        <StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Text="Privacy" /><FontIcon Glyph="&#xE8A7;" FontSize="12" VerticalAlignment="Center" /></StackPanel>
+                    </HyperlinkButton>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </Grid>
+</Window>

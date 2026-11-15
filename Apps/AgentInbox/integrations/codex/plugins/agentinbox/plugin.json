@@ -1,0 +1,30 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "agentinbox",
+  "version": "2.0.0",
+  "description": "Connect as many compatible mailboxes as you need and let your AI agent work across their selected folders through MCP.",
+  "author": { "name": "Umberto Giacobbi", "url": "https://umbertogiacobbi.biz" },
+  "homepage": "https://github.com/umbertotechnopreneur/AgentInbox",
+  "repository": "https://github.com/umbertotechnopreneur/AgentInbox",
+  "license": "MIT",
+  "keywords": ["email", "multiple-mailboxes", "folders", "mcp", "imap", "pop3", "smtp", "local", "python"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "AgentInbox",
+        "shortDescription": "All your mailboxes and selected folders, one AI agent.",
+        "longDescription": "Connect Gmail, Microsoft, iCloud, GoDaddy and other providers that allow compatible IMAP or POP3 access. One MCP connection exposes all enabled accounts to your AI agent. Work across dozens of selected IMAP folders across mailboxes, with up to twenty per account; POP3 exposes one INBOX per account. Choose read and optional send permissions in local setup. Microsoft accounts use Microsoft sign-in. Send only when you explicitly ask; there is no second AgentInbox confirmation window. Mail stays with its providers, and requested content can reach your assistant's AI service. See the validation record for checked behavior and remaining limits.",
+        "developerName": "Umberto Giacobbi",
+        "category": "Productivity",
+        "capabilities": ["Read", "Write"],
+        "websiteURL": "https://github.com/umbertotechnopreneur/AgentInbox",
+        "privacyPolicyURL": "https://github.com/umbertotechnopreneur/AgentInbox/blob/main/docs/PRIVACY.md",
+        "defaultPrompt": [
+          "Use AgentInbox to list all my shared mailboxes and selected folders, then find messages from today across the accounts I choose.",
+          "Which of my AgentInbox accounts have sending enabled?"
+        ],
+        "brandColor": "#177F74"
+      }
+    }
+  }
+}

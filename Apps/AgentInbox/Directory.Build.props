@@ -1,0 +1,61 @@
+<!-- VBWR B
+
+  Project: AgentInbox
+  Repository: https://github.com/umbertotechnopreneur/AgentInbox
+  Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+
+  VibeWare: Human intent, AI execution, and plenty of tokens
+  Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+
+  Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+  Human guidance: Umberto Giacobbi; requested VibeWare branding.
+
+  Copyright (c) 2026 Umberto Giacobbi
+  License: MIT - see LICENSE
+  SPDX-License-Identifier: MIT
+
+VBWR E -->
+
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Version>2.0.12</Version>
+    <Product>AgentInbox</Product>
+    <Title>AgentInbox</Title>
+    <Authors>Umberto Giacobbi</Authors>
+    <Copyright>Copyright (c) 2026 Umberto Giacobbi</Copyright>
+    <RepositoryUrl>https://github.com/umbertotechnopreneur/AgentInbox</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)artifacts/desktop/obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)artifacts/desktop/bin/$(MSBuildProjectName)/</BaseOutputPath>
+    <NuGetLockFilePath>$(BaseIntermediateOutputPath)packages.lock.json</NuGetLockFilePath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <Target Name="CaptureAgentInboxBuildInformation" BeforeTargets="GetAssemblyAttributes;CoreCompile">
+    <PropertyGroup>
+      <AgentInboxBuildDateUtc Condition="'$(AgentInboxBuildDateUtc)' == ''">$([System.DateTime]::UtcNow.ToString('O'))</AgentInboxBuildDateUtc>
+    </PropertyGroup>
+    <Exec Command="git rev-parse --short=12 HEAD" ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="AgentInboxBuildGitCommitRaw" />
+    </Exec>
+    <PropertyGroup>
+      <AgentInboxBuildGitCommit Condition="'$(AgentInboxBuildGitCommit)' == ''">$([System.String]::Copy('$(AgentInboxBuildGitCommitRaw)').Trim())</AgentInboxBuildGitCommit>
+    </PropertyGroup>
+    <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(AgentInboxBuildDateUtc)', '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{7}Z$'))" Text="The build date must use the ISO 8601 round-trip format in UTC." />
+    <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(AgentInboxBuildGitCommit)', '^[0-9a-f]{12}$'))" Text="The build Git commit must be a 12-character lowercase SHA." />
+    <ItemGroup>
+      <AssemblyMetadata Include="BuildDateUtc" Value="$(AgentInboxBuildDateUtc)" />
+      <AssemblyMetadata Include="BuildGitCommit" Value="$(AgentInboxBuildGitCommit)" />
+    </ItemGroup>
+  </Target>
+</Project>

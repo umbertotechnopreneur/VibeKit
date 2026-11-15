@@ -1,0 +1,22 @@
+{
+  "version": 4,
+  "id": "mint",
+  "name": "Mint",
+  "author": "HelpMe contributors",
+  "website": "https://github.com/umbertotechnopreneur/PromptMeUp",
+  "description": "Fresh mint and ice blue accents on a dark green teal background.",
+  "colors": {
+    "background": "#08221E",
+    "primary": "#EEFFF8",
+    "muted": "#B6D9CE",
+    "accent": "#55E2A7",
+    "accentSecondary": "#ED9DCD",
+    "info": "#6AC7FF",
+    "divider": "#86B9AA",
+    "success": "#B0EFA8",
+    "warning": "#FCE099",
+    "error": "#FFAFAF",
+    "selectionBackground": "#55E2A7",
+    "selectionForeground": "#08221E"
+  }
+}

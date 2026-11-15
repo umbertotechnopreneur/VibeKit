@@ -1,0 +1,22 @@
+{
+  "version": 4,
+  "id": "coral",
+  "name": "Coral",
+  "author": "HelpMe contributors",
+  "website": "https://github.com/umbertotechnopreneur/PromptMeUp",
+  "description": "Warm coral accents over dark terracotta with airy blue details.",
+  "colors": {
+    "background": "#281710",
+    "primary": "#FFF6EF",
+    "muted": "#DECABD",
+    "accent": "#FF9E70",
+    "accentSecondary": "#EAA8EE",
+    "info": "#75D8EF",
+    "divider": "#C6A089",
+    "success": "#B6E5A1",
+    "warning": "#FFE298",
+    "error": "#FFA5A5",
+    "selectionBackground": "#FF9E70",
+    "selectionForeground": "#281710"
+  }
+}

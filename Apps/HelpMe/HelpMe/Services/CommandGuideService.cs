@@ -1,0 +1,79 @@
+﻿// SPDX-License-Identifier: MIT
+/* VBWR B
+ *
+ * Project: HelpMe
+ * Repository: https://github.com/umbertotechnopreneur/PromptMeUp
+ * Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+ *
+ * VibeWare: Human intent, AI execution, and plenty of tokens
+ * Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+ *
+ * Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+ * Human guidance: Umberto Giacobbi; requested VibeWare branding.
+ *
+ * Copyright (c) 2026 Umberto Giacobbi
+ * License: MIT - see LICENSE
+ *
+ * VBWR E */
+
+using System.Diagnostics;
+
+namespace HelpMe.Services;
+
+/// <summary>Opens only the bundled command reference in the operating system's PDF viewer.</summary>
+public sealed class CommandGuideService
+{
+    #region Properties
+
+    public string DocumentPath => Path.Combine(AppContext.BaseDirectory, "docs", "helpme-quick-reference.pdf");
+
+    #endregion
+
+    #region Methods
+
+    /// <summary>Launches the installed document without interpreting a shell command or downloading content.</summary>
+    public void Open()
+    {
+        if (!File.Exists(DocumentPath))
+        {
+            throw new FileNotFoundException("The bundled command guide is missing.", DocumentPath);
+        }
+
+        var start = new ProcessStartInfo();
+        if (OperatingSystem.IsWindows())
+        {
+            start.FileName = DocumentPath;
+            start.UseShellExecute = true;
+            start.Verb = "open";
+        }
+        else if (OperatingSystem.IsMacOS() || OperatingSystem.IsLinux())
+        {
+            if (OperatingSystem.IsLinux() && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DISPLAY"))
+                && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY")))
+                throw new InvalidOperationException("A graphical session is required to open the PDF.");
+            start.FileName = OperatingSystem.IsMacOS() ? "open" : "xdg-open";
+            start.UseShellExecute = false;
+            start.ArgumentList.Add(DocumentPath);
+            EnvironmentSecretService.RemoveFromChildEnvironment(start);
+        }
+        else
+        {
+            throw new PlatformNotSupportedException("No PDF launcher is configured for this platform.");
+        }
+
+        // Windows may reuse an existing PDF viewer and return no new process handle.
+        using var process = Process.Start(start);
+        if (!start.UseShellExecute && process is null)
+        {
+            throw new InvalidOperationException("The PDF viewer could not be started.");
+        }
+        if (OperatingSystem.IsLinux() && process is not null)
+        {
+            // Some readers keep xdg-open alive until the document closes. Never terminate that reader.
+            if (process.WaitForExit(1500) && process.ExitCode != 0)
+                throw new InvalidOperationException("No PDF reader could open the guide.");
+        }
+    }
+
+    #endregion
+}

@@ -1,0 +1,134 @@
+# HelpMe repository instructions
+
+These instructions apply to every change in this repository.
+
+## Product writing and author voice
+
+- Keep AgentInbox, HelpMe, and WorkTrail visually consistent using [the MeUp style guide](docs/assets/meup/README.md). Use a common README structure and author signature, with a distinct accent color and concrete benefit for each product. Keep the main product purpose ahead of optional extras.
+
+- Open each README with the concrete problem I encountered in daily work, then explain how I built the app to solve it and what the reader can do with it. Keep the problem and solution ahead of architecture, branding, optional examples, and project history. Use honest, specific language; light humor is welcome when it fits.
+- Write documentation, contributor guidance, code comments, and artwork text in plain English. Use short sentences, concrete actions, and useful examples. Cut filler, slogans, hype, and corporate language. Keep runtime UI and prompts in all six supported languages.
+- Speak to the reader as "you". When speaking as the author, use "I", "me", and "my", never a company-style "we", "us", or "our", or third-person labels such as "the author" or "the developer". Apply this voice to captions and provenance notes too. Umberto is the solo maintainer, with help from a few contributors; keep their credits accurate.
+- Keep technical detail in the relevant reference guides. Preserve exact commands, UI labels, privacy facts, limitations, and the distinction between implemented, tested, and planned features. Do not promise unlimited capacity or untested compatibility.
+- Preserve third-party quotations and license text; these writing preferences apply to original project copy.
+- Document current behavior, useful instructions, and known limitations. Do not add work-session narratives, PR numbers, CI run histories, or build/test evidence to general documentation.
+- Keep only the latest completed work summary and the latest user-facing changelog entry. Replace previous entries instead of accumulating them. Do not create standalone historical review or validation reports.
+
+## Distribution and build defaults
+
+- The commercial edition supports Windows 11 on x64 and ARM64 only. Distribute it only as MSIX.
+- Linux distribution uses Debian packages for x64 and ARM64. Keep local Debug packages separate from CI Release packages and document native dependencies and tested limits. macOS builds and packages are outside the current scope. Do not imply commercial Linux support or compatibility with every distribution.
+- When a build is explicitly requested, default to a local development/debug build using the Debug configuration. A generic build or release request does not authorize a Microsoft Store package. Produce a Store version only when the owner explicitly asks for one; never upload or publish it without explicit authorization.
+- Keep development/debug artifacts separate from Store release artifacts. These rules do not authorize running builds, changing release pipelines, creating tags, or publishing on their own.
+- The owner chooses every product and package version, including the fourth MSIX revision. Never increment or change it without explicit authorization. For an owner-requested forced local MSIX installation, use `Add-AppxPackage -Path <package> -ForceUpdateFromAnyVersion -ForceApplicationShutdown`. Never combine `-ForceApplicationShutdown` with `-ForceTargetApplicationShutdown`, and do not use `-Update` for the main package because that switch updates dependency packages. `-ForceUpdateFromAnyVersion` permits the requested package version to replace a higher installed version; it does not bypass Windows error `0x80073CFB` for the same package version with different content. If Windows refuses that equal-version replacement, report the error and obtain explicit authorization before removing and reinstalling the package; do not choose a new version.
+- Do not add Windows ZIP, standalone EXE, or MSI distribution unless the owner explicitly changes the MSIX-only decision.
+
+## Private business notes
+
+- Keep UI mockups, design explorations, product roadmaps and internal product decisions in the owner's Obsidian product notes, not in this repository. Retain shipped assets, real screenshots, asset provenance and documentation needed to use, build or contribute to the software.
+
+- Keep pricing, commercial strategy, launch plans, future product proposals, OAuth verification preparation, Store account procedures and owner checkpoints in the owner's Obsidian vault under `40_Business/Products/PromptMeUp/`. Shared MeUp decisions belong in `40_Business/Products/MeUp/`. Do not create or mirror these notes in public repositories.
+- Keep current user and contributor documentation, public privacy policies and terms, licenses, attribution, build instructions and files required by code or CI in the repository. Split documents that mix public technical guidance with internal planning.
+- For publication or Store listing work, first read `40_Business/Products/MeUp/Business decisions.md` and the relevant product notes. The owner-approved purchase notice is preserved there; proposals and approved wording are not evidence of implemented licensing.
+- Keep raw Store account exports outside Git. Do not add credentials, private data or machine-specific vault paths to repository files.
+
+## Shared delivery workflow
+
+- Never create a branch, commit, or push on your own initiative. Each action requires an explicit request from the owner; a request to edit files does not authorize Git delivery.
+- For documentation-only or repository-instruction-only changes, keep edits local until the owner explicitly requests delivery. If authorized, use the current branch and include `[skip ci]` unless the owner requests CI. Do not treat this rule as permission to bypass repository protections.
+- For all other changes, keep `main` protected. Make changes on a focused branch, open a pull request, and use squash merge only after required checks and conversations are resolved. Do not bypass branch protections, required checks, or review requirements for these changes. Delete the branch after a successful merge.
+- Prioritize Windows CI, then Linux. macOS jobs are outside the current scope.
+- Create MSIX release artifacts only through GitHub Actions. For explicit local debug testing, a signed MSIX may be built and installed from an ignored `artifacts/msix` subdirectory using the existing current-user certificate; do not upload, publish, tag, or describe it as a release. Create an annotated `v<version>` tag only after the matching source version is on `main`.
+- For an owner-requested local Debug build or reinstall, use the fast path: reuse the established Debug configuration and known current-user signing certificate, create the package, and attempt installation immediately. Verify only the installation result, installed version, and package status. Diagnose the signature, manifest, or dependencies only after installation fails, and do not run unrequested UI tests. Keep full validation for Release and Store builds. Run any mandatory cleanup quietly and report it concisely.
+- Preserve unrelated working-tree changes. Never commit credentials, tokens, local data, logs, generated artifacts, or private machine paths. Exclude `.env`, local databases, `bin/`, `obj/`, `artifacts/`, and `.vs/`.
+- Use `artifacts/` as the only repository-local area for temporary, generated, compiled, and packaging output produced during work, including intermediates, logs, reports, and scratch files. Store each output type in a dedicated subdirectory; never place these outputs at the repository root or beside source files.
+
+## Mandatory artifact cleanup
+
+- Every authorized local or CI build, test, packaging, installation, or artifact-download task includes cleanup of its own generated output. Apply this to Debug, Release, and Microsoft Store work, including failed attempts. This rule does not authorize starting builds or tests.
+- Use task-specific subdirectories under ignored `artifacts/` for temporary output. Before reusing a build directory, remove its obsolete transient contents while preserving pending deliverables. Do not run builds concurrently in the same checkout.
+- After the last use and before handoff, run `dotnet clean` with the matching configuration, platform, runtime, and output paths, then remove task-owned intermediates that it leaves behind: `publish`, `payload`, `bin`, `obj`, temporary caches, scratch files, transport archives, disposable test profiles, and unnecessary logs. Clean task-owned temporary directories too; `dotnet clean` alone is not sufficient. Do not retain whole historical build/run directories.
+- Retain only the latest validated MSIX or Debian package for each requested channel and architecture, with matching checksums, minimal package metadata, and any small verification record needed for handoff. Preserve Store packages awaiting upload until the owner confirms upload, and preserve any explicitly requested reinstall/rollback package, backup, or unresolved failure evidence.
+- Remove superseded generated packages and run directories once their replacement is validated and they are no longer needed for pending delivery, reinstall, rollback, or diagnosis. After a confirmed upload, remove its local bundle unless the owner asks to retain it. Do not accumulate an indefinite archive of installers or full logs.
+- Before recursive removal or moving, resolve and verify every absolute target stays inside this repository's `artifacts/` or the exact temporary directory created by the task; do not follow links outside those roots. Use `pwsh -NoProfile` and literal-path filesystem operations. Never blindly wipe all of `artifacts/`, a shared/system temp directory, unrelated output, user data, backups, or shared SDK/NuGet caches.
+- Verify the cleanup result and report briefly what deliverables remain. If locks, permissions, or approval review prevent cleanup, identify the remaining paths and approximate size; do not claim the directory is clean.
+
+## Context and token efficiency
+
+- Do not read more than five files for a task without explicit user approval. If additional context is needed, ask first; this limit prevents whole-repository reading.
+- Warn the user before an operation that could theoretically consume a large number of tokens, including broad repository reads, unbounded searches, or large output dumps.
+
+- Read only task-relevant files and documentation sections; expand scope when dependencies or uncertainty require it.
+- Reuse context already read. Re-read only when files changed, context is missing, or fresh evidence is needed.
+- Start with scoped `rg` searches, then read relevant excerpts. Exclude generated files and bound command output; retrieve more only when needed.
+- Batch independent read-only queries. Avoid repeated repository-wide scans or full file and log dumps.
+- Make the smallest complete change; avoid unrelated refactoring, cleanup, documentation churn, or speculative abstractions.
+- Use subagents only when explicitly requested.
+- Keep progress updates focused on findings or blockers; report results, verification status, and remaining work concisely.
+
+## Product boundaries
+
+- HelpMe is a lightweight .NET 10 console assistant whose public command is `hm`.
+- Skills, memory collection, proposals, and reminders are global. Do not introduce project-scoped labels, groups, availability, configuration, storage, or retention in `hm --skills`, `hm --learning`, or their Setup controls.
+- Keep the application code portable across Windows and Linux, targeting x64 and ARM64. Do not add macOS builds or packages for now. Distinguish implemented portability from verified platform behavior. Linux Debian packaging is owner-authorized; publishing, tags, versions, and Git delivery still require their respective authorization. Do not introduce a background agent or platform-specific application runtime dependency.
+- Keep GitHub as the project home and write public copy in product language before implementation detail.
+- Preserve the separation between `Models`, `Services`, `Views`, and the `Application` orchestrator.
+- Runtime AI instructions belong in `/prompt` as versioned YAML with metadata and all six supported languages: `it`, `en`, `fr`, `de`, `es`, `vi`.
+
+## Command safety and privacy
+
+- Keep deterministic local risk scoring active. Optional AI review is advisory and cannot authorize execution.
+- Bind each command approval to its reviewed interpreter. Run without elevation through PowerShell (`pwsh -NoProfile -NonInteractive`) or Bash (`bash --noprofile --norc -p`), with timeout, cancellation, and bounded output. Keep deterministic scoring aware of shell syntax; never switch interpreters after approval. Bash must not load startup files or imported shell functions. Generated PowerShell wrappers remain explicitly PowerShell.
+- `--yes` must never authorize chat commands.
+- Never accept secrets as command-line values or store them in settings, SQLite, Serilog, tests, screenshots, or documentation.
+- Redact recognizable credentials before prompt/response persistence and before command output is sent to an AI follow-up.
+- Preserve the user's full local command preview; redaction applies to persistence and provider-bound content, not the local review surface.
+
+## Code and documentation
+
+- HelpMe is in pre-production. Backward compatibility is not required: update affected callers and contracts directly instead of adding compatibility wrappers or legacy paths. Reuse shared workflows and helpers; keep differences between normal and direct command approval in their interaction views.
+- `--direct` requires local risk scoring and a successful AI review. High or critical risk must block execution. Preview each eligible command and use a five-second cancellable countdown instead of a confirmation prompt, then reuse the normal output-analysis and conversation flow.
+- Direct execution is enabled by default for questions and chat. Keep its persisted opt-out in `hm --setup`; `--direct` overrides that preference for the current session. Keep the session summary hidden by default during work, show it at exit, and override hiding when operating context reaches 80 percent. Explicit `/status` and `/context` requests must still show it.
+- Add a brief XML `<summary>` to every C# implementation method, including constructors, tests, and private helpers.
+- Add small inline comments only where a complex or non-obvious algorithm benefits from a logic hint.
+- Use `ILogger<T>` in application code; keep Serilog configuration in the composition root.
+- Keep views passive and free of HTTP, SQLite, secret-store, and process-execution behavior.
+- Keep flexible audit/session data valid JSON and normalized usage/cost data in typed columns.
+- Preserve terminal scrollback in every application flow: never clear the main terminal screen or scrollback. Fullscreen views may redraw a disposable alternate buffer and must restore the main buffer on exit. Mark new scrolling flows with intentional whitespace and accessible separators.
+- Treat contrast as a product requirement: do not render user-facing information in dark grey. Use the shared terminal palette, with bright primary text and only high-contrast muted nuances for secondary metadata.
+- Render every user-facing emoji with one visible space after it and a separating space when preceded by text. Do not add a leading space when an emoji starts a line or label; preserve intentional layout indentation and keep emoji spacing in shared view helpers.
+- Do not use cards, boxed panels, or decorative enclosing frames unless the user explicitly requests them for that surface. Use open layouts with headings, grids, spacing, and separators instead.
+- Use Spectre.Console layout primitives purposefully (for example grids, rules, and selection prompts) to convey hierarchy; do not reduce command, help, or status surfaces to undifferentiated text walls.
+- Arrange form fields in two columns with right-aligned label text and left-aligned value text, followed by one blank row. Keep action bars and shortcut hints unboxed, with a single separator before the actions; use semantic button colors and a visible focus marker.
+
+## Working practices
+
+- Read `AGENTS.md` before editing. Keep repository-wide rules here; `.github/copilot-instructions.md` links here and does not need a separate read. Branches and worktrees require explicit owner authorization.
+- When creating a pull request, assign it to `umbertotechnopreneur` and add the existing repository labels that match its final scope.
+- Use PowerShell 7 as `pwsh -NoProfile` for Windows automation.
+- Use `apply_patch` for deliberate tracked-file edits and avoid broad formatting churn.
+- Fail fast on invalid input and unsupported state; do not conceal failures with silent fallbacks.
+- Run automated tests and CLI smoke tests only when the user explicitly requests them. Implementation, review, commit, and push requests do not authorize test execution.
+- Apply Mandatory artifact cleanup after build work, including failed attempts. Use `scripts/HelpMe.ps1 -Command clean` with the matching configuration and runtime for development output. Packaging helpers must clean their own matching configuration, platform, runtime, and output paths. Commit or push alone does not require cleanup.
+- Record active work in `.github/tasks/todo.md`. On completion, replace `.github/tasks/archive.md` with a brief summary of that task only. Keep unresolved tasks actionable and omit narratives of earlier attempts.
+
+## Required validation
+
+Choose non-test checks by the changed files and run them once after the final relevant edit, before committing. Repeat only after relevant edits or to diagnose failures.
+
+- Documentation-only or instruction-only changes: inspect the scoped diff and staging; skip preflight, restore, formatting, XML checks, build, and cleanup.
+- C# or project/dependency changes: run the applicable checks below. Run XML checks for C# changes and restore only when dependency assets are missing or stale.
+- Script, workflow, or runtime prompt changes: use applicable syntax, schema, or preflight checks; build only when compilation or packaging is affected.
+- Automated tests and smoke tests still require an explicit user request. Required CI checks and branch protections remain unchanged.
+
+Non-test commands for code changes:
+
+```powershell
+pwsh -NoProfile -File .\scripts\HelpMe.ps1 -Command preflight
+pwsh -NoProfile -File .\scripts\HelpMe.ps1 -Command restore
+pwsh -NoProfile -File .\scripts\HelpMe.ps1 -Command check-format
+pwsh -NoProfile -File .\scripts\HelpMe.ps1 -Command check-xml
+pwsh -NoProfile -File .\scripts\HelpMe.ps1 -Command build -Configuration Release
+```
+
+Only when explicitly requested by the user, run the appropriate automated tests, such as `pwsh -NoProfile -File .\scripts\HelpMe.ps1 -Command test -Configuration Release -NoBuild`, or proportionate CLI smoke tests with a disposable `HELPME_DATA_DIR`. Run these checks before cleanup when they need the build output. Do not use real secrets or mutate PATH/fonts during validation.

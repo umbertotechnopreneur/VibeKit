@@ -1,0 +1,31 @@
+﻿# VBWR B
+#
+# Project: HelpMe
+# Repository: https://github.com/umbertotechnopreneur/PromptMeUp
+# Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+#
+# VibeWare: Human intent, AI execution, and plenty of tokens
+# Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+#
+# Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+# Human guidance: Umberto Giacobbi; requested VibeWare branding.
+#
+# Copyright (c) 2026 Umberto Giacobbi
+# License: MIT - see LICENSE
+# SPDX-License-Identifier: MIT
+#
+# VBWR E
+
+<#
+.SYNOPSIS
+  Show the current Git status for HelpMe.
+#>
+[CmdletBinding()]
+param([switch]$Help)
+
+if ($Help) { Get-Help $PSCommandPath -Detailed; return }
+$ErrorActionPreference = 'Stop'
+$root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
+
+& (Get-Command git -ErrorAction Stop).Source -C $root status --short --branch
+if ($LASTEXITCODE -ne 0) { throw "git status failed with exit code $LASTEXITCODE." }

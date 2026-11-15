@@ -1,0 +1,668 @@
+# HelpMe command guide
+
+Ask `hm` a terminal question, check its answer, and choose whether to run a suggested command. `hm` means **help me** and works on Windows, Linux, and macOS.
+
+## Microsoft Store trial
+
+The Microsoft Store edition gives you all features during its 30-day trial. A small notice in the prompt, welcome, Setup, and About shows the remaining days and links to Microsoft Store. The final partial day is shown as one day.
+
+When the trial expires, only `hm --about` and `hm --help` remain available. Other commands return exit code `3` and show a purchase link. Help stays read-only after expiration. HelpMe checks licensing again before provider requests and command execution in sessions that remain open. Buying the app enables subsequent operations once the Store reports your active full license.
+
+The countdown uses the expiration supplied by Microsoft Store. Resetting preferences does not restart the trial. If the license cannot be verified, operational commands remain blocked; open the Store and try again. Debug builds and unpackaged source builds do not use commercial Store licensing.
+
+## Skills and memory
+
+HelpMe includes opt-in `hm --skills`, `hm --learning`, `hm --dream`, `hm --heartbeat`, and `hm --proposals` screens. They require an interactive terminal. The same names are available as slash commands inside chat. `hm --proposals` opens the suggested-memory entry in the shared memory editor. `--yes` never approves skill actions or memory changes.
+
+See the [skills and memory guide](SKILLS_AND_MEMORY.md) before collecting messages or importing a skill. Dream and heartbeat suggest changes; they do not silently change saved notes or schedule background work.
+
+## Ask or choose a command
+
+Run `hm` without arguments to open the home menu. Press a number without Enter to
+chat about a command, write a script, diagnose an error, view memories, manage
+skills, change preferences, or open help. Press `0` or Esc to exit. Script and
+error prompts accept multiline pastes; leave the prompt empty to return to the
+menu. Finishing a selected workflow returns to the menu.
+
+```text
+hm [question]
+hm [command] [options]
+```
+
+Type your question after `hm`:
+
+```powershell
+hm "Which files have changed in Git?"
+hm how do I list running dotnet processes?
+```
+
+Put the question in quotes if it contains shell characters such as `|`, `>`, `$`, or `*`. This keeps your shell from treating them as part of a command.
+
+If `hm` needs more detail, it asks before suggesting a command. Choose
+**Clarify the request or continue in chat** to reply in the same conversation.
+If there are no commands and you're done, choose **Finish here**. Already in chat?
+Just type your reply, or `/exit` to leave. When input or output is piped or saved
+to a file, this follow-up menu doesn't open.
+
+## Commands
+
+| Command | Aliases | Behavior |
+| --- | --- | --- |
+| `--query <text>` | `-q` or positional text | Answers one question. In a live terminal, you can continue in chat or review a suggested command. |
+| `--chat` | — | Starts a conversation about terminal work. |
+| `--remember <text>` | `/remember <text>` | Saves a note for future conversations. |
+| `--forget <id or description>` | `/forget <id or description>` | Finds a saved note and asks before deleting it. Descriptions may use AI to find matches. |
+| `--memories` | — | Opens the local memory manager to view, create, edit, or delete saved notes. |
+| `--direct <request>` | — | Forces direct execution for this session: risk review, five-second countdown, execution, and result analysis. Enabled by default; can be disabled in setup. |
+| `--shell <auto\|pwsh\|bash>` | `--shell=<value>` | Overrides the saved command shell for this invocation, including an explicit Auto override. |
+| `--diagnose [text]` | `--file <log>` or stdin | Explains an error or log excerpt and suggests what to check next. |
+| `--script <request>` | `--file <source>`, `--output <new-script>` | Creates or revises a script in your selected language for you to review, save, validate, or run once from a temporary file. |
+| `--plan <goal>` | `--plan --resume <id>` | Breaks a task into steps you can approve, check, and resume. |
+| `--preview <operation>` | `--file`, `--output`, `--prefix`, `--pattern` | Shows which files a rename, copy, move, or deletion would affect. |
+| `--setup` | — | Opens Settings with General selected. |
+| `--ai-setup` | `--ai-settings` | Opens the same Settings screen with AI selected. |
+| `--theme` | — | Opens the same Settings screen with Theme selected and a live palette preview. |
+| `--reset` | `--reset all` | Resets setup and direct-mode flags. Add `all` to erase and recreate the local database, including settings, notes, usage, and conversation history. |
+| `--test-ai` | — | Checks that the configured model can answer a short request in your chosen language. |
+| `--costs` | — | Shows usage and cost estimates, refreshing public prices and any available organization costs. |
+| `--prepare-logs` | — | Creates a redacted support ZIP on the desktop with limited machine diagnostics and up to 14 available daily log files. It excludes the database, chats, memories, keys, environment values, user and computer names, and network addresses. Nothing is sent automatically. |
+| `--status` | — | Shows your settings and whether local storage is ready. |
+| `--about` | `about` | Shows the HELP ME banner, project information, author, and license. |
+| `--lenna` | `lenna` | Shows the bundled calibration portrait centered in the terminal, without an AI request. |
+| `--third-party` | — | Shows direct runtime packages, versions, and licenses. |
+| `--where` | `-where` | Prints the exact running executable and directory, then offers the native file manager or a change-directory command. |
+| `--path [install\|remove\|status]` | `--path=<action>` | Manages only the current executable directory in the persistent user PATH. |
+| `--install-font` | — | Runs the opt-in JetBrainsMono Nerd Font helper through an existing Oh My Posh installation. |
+| `--help` | `-h`, `/?` | Opens a keyboard guide with examples and sections for AI work, insight, setup, and safety. |
+| `--version` | `-v` | Shows application, .NET, and platform versions with links to the GitHub repository and creator site. |
+
+Use one main command at a time.
+
+Settings fills the terminal window when it supports fullscreen views and is at
+least 60 columns wide and 20 rows tall. Use the sidebar to choose General, AI,
+Credentials, Conversation, Commands, Personalization, Theme, Skills, Memory,
+Saved memories, Privacy, or About.
+`--setup`, `--ai-setup`, and `--theme` simply choose where you start.
+
+Select About and press Enter or Right to read about the project. When you close
+it, you'll return to your settings with unsaved changes still there. About is
+also available in the smaller settings menu.
+
+Skills and Memory contain fields in the same Settings form. Turn on the shared
+project switch, then choose individual skills or message collection separately.
+Read the displayed skill instructions and any collection or deletion notice.
+Save applies these choices; Cancel discards them. Opening a section runs nothing.
+Saved memories opens a separate note manager: changes saved there take effect
+immediately and Settings Cancel does not undo them. Privacy explains data use.
+Existing CLI and chat slash commands, including `--learning`, remain available.
+
+Up/Down selects a section; Enter or Right moves into its fields. F6 switches
+between the sidebar and fields, and Ctrl+Left returns to the sidebar. Tab moves
+through fields to Save and Cancel. Left/Right changes a field choice or moves
+between the buttons when an action has focus; Enter activates the focused button.
+Save applies the Settings draft, including Skills and Memory. Cancel or Escape discards that draft and returns
+to your terminal history. Smaller or less capable terminals use a section menu
+with the same Save and Cancel actions. Languages show their flag, native name,
+and code; `--no-emoji` uses plain text. See [terminal themes](TERMINAL_THEMES.md)
+to pick colors or edit a theme file.
+
+`hm --where` shows where your running copy lives. To switch to that folder, it gives you a `Set-Location -LiteralPath '...'` command on Windows, or `cd '...'` on Unix, to run yourself. An app can't change the folder of the shell that launched it. You can also open the folder in your file manager after reviewing and confirming that action.
+
+## Choose your command shell
+
+Open `hm --setup`, choose **Commands**, and set **Command shell** to Auto, PowerShell, or Bash. This choice is saved globally and is independent of the language used to generate scripts. Bash execution is available on Linux and macOS; Windows offers Auto and PowerShell.
+
+```bash
+hm --shell bash "Show the current Git status"
+hm --shell pwsh "Show the current Git status"
+hm --shell auto --chat
+```
+
+An explicit `--shell` value wins for that invocation without overwriting Setup. Auto detects Bash or PowerShell from the Linux calling processes; it does not use the terminal emulator name or assume that `$SHELL` is your current shell. If detection is ambiguous, select Bash or PowerShell explicitly. Auto defaults to PowerShell on Windows and macOS. The exact interpreter appears in each command preview and is retained in saved plans. Recreate older plans that lack shell metadata.
+
+Only a small set of literal Bash inspection commands can use the direct countdown. Expansion, redirection, compound commands, and unrecognized programs receive a high local score and need manual confirmation with direct mode disabled. Generated wrappers for script execution, syntax validation, file previews, and skill actions still require PowerShell 7, even when conversational commands use Bash.
+
+## Linux PATH, clipboard, and PDF integration
+
+Run `hm --path status`, then `hm --path install` to review the exact files before changing them. Run from the shell whose profile you want to configure. Bash uses `.bashrc` plus the first existing login profile (`.bash_profile`, `.bash_login`, or `.profile`); Zsh uses `.zshrc` and `.zprofile` under `ZDOTDIR` when set; Fish and PowerShell use their files under `XDG_CONFIG_HOME` (default `~/.config`). PowerShell uses `powershell/profile.ps1`. Unknown callers are rejected. Reopen that shell to load its profile; no logout is needed. `--path remove` removes only HelpMe's marked blocks in those profiles. Repeat in each shell you configured. Profiles loaded with `--noprofile` or `-NoProfile` do not apply these changes.
+
+From the source tree, invoke the helper with `sh` and pass the exact built executable:
+
+```bash
+sh scripts/Common/commands/hm-path.sh status --executable /path/to/built/hm
+sh scripts/Common/commands/hm-path.sh install --executable /path/to/built/hm
+```
+
+The helper can also find an adjacent `hm`, the standard Debug output at `artifacts/build/bin/HelpMe/debug/hm`, or `hm` already on PATH. It does not build or move the application. See the [single repository command entry point](../scripts/README.md) for building and Debian package installation.
+
+The copy action uses optional `wl-copy` on Wayland, or `xclip` then `xsel` on X11. Missing tools or a missing graphical session leave the command visible for manual copying. Command text goes through standard input, without shell interpolation. Nothing is installed automatically.
+
+Opening the bundled PDF on Linux requires a graphical session, `xdg-open`, and a configured PDF reader. If unavailable, HelpMe shows the file path so you can open or copy it yourself. The command reference remains available in terminal help.
+
+## Browse the command guide
+
+```powershell
+hm --help
+```
+
+Help uses the same layout as Settings in supported terminals of at least
+60 columns by 20 rows. Use Up/Down to pick a section, then Enter, Right, or Tab
+to browse its commands. Up/Down scrolls the list; Home/End jumps to the beginning
+or end. F6 or Ctrl+Left takes you back to the sidebar. Tab reaches Close.
+Press Esc or Q to leave and return to your earlier terminal output.
+
+The About sidebar entry opens the project information screen with Enter or Right.
+Enter or Esc closes About and returns to the guide with its selection preserved.
+In scrolling help, the About section shows the direct `hm about` command.
+
+Each entry shows the command, an explanation, and examples you can try.
+`hm` stays white; options and values have their own colors. Parts in square
+brackets are optional and appear in yellow or amber. The notes below each
+example explain which values you can change.
+
+You don't need setup or an API key to read help. In small terminals, when output
+is redirected, or when fullscreen views aren't supported, you get a scrolling
+command list. Help after an invalid command also stays below the error so you
+can still read it. If you shrink an open fullscreen guide too far, it asks you
+to enlarge the window or close help.
+
+## About HelpMe
+
+```powershell
+hm about
+hm --about
+```
+
+About shows the HELP ME banner, app version, build date and time in UTC, build
+machine, supported platforms, author, project links, and MIT license. In a supported live terminal of at least
+60 columns by 20 rows, it opens a fullscreen view. Up/Down and PgUp/PgDn scroll
+the content; Enter or Esc closes it and restores your terminal history.
+Small terminals and redirected output receive a scrolling view. Narrow windows
+and terminals without Unicode support use a compact HELP ME wordmark.
+The command works offline without setup or an API key.
+
+`hm about` also works with different capitalization, such as `hm About`.
+Use `hm --query about` if you want to ask the AI about that word instead.
+
+## Check terminal image rendering
+
+```powershell
+hm lenna
+hm --lenna
+```
+
+This local command shows the bundled Lenna calibration portrait centered in the
+terminal. It works offline and needs neither first-run setup nor an API key.
+The picture fits the current window while preserving its proportions and the
+terminal's scrollback. Use a terminal with ANSI color support; a window that is
+too small produces a short explanation instead of a cropped picture.
+
+`hm lenna` also works with different capitalization. Use `hm --query lenna` or a
+longer question to ask the AI about Lenna. As elsewhere, use one command at a time.
+
+## Complete the first-run welcome
+
+Run `hm` in an interactive terminal. The welcome guides you through four steps:
+
+1. Confirm the language suggested by your computer, or choose another of the six supported languages.
+2. Paste an OpenAI API key. Every character is masked with a dot. The screen links to the OpenAI key portal and the official creation guide. A short API request verifies the connection before the key is saved; this request can incur an API charge. You can retry without pasting the key again.
+3. Optionally enter a name or nickname.
+4. Choose whether to enable memories and, separately, collect redacted chat excerpts for learning. Chat collection starts off. You can also require confirmation before commands run.
+
+On Windows, entered keys are stored in Windows Credential Manager for your Windows
+account, rather than written to settings, SQLite, or user environment variables.
+Existing environment keys can still be read; they are not deleted from your environment.
+The verified key is available immediately, without restarting your terminal.
+On source builds for other operating systems, entered keys last only for the current
+process. Configure your shell or secret manager before starting another session.
+
+The welcome saves your language and optional name as you progress. Leaving early
+does not mark setup complete. The next run offers any already saved key for
+verification. Press Ctrl+C to cancel, including while a connection check is running.
+The check times out after 30 seconds.
+
+In an interactive terminal that supports a disposable alternate buffer, each
+completed step collapses to one compact header while the active step keeps its
+instructions and choices. The step header uses a horizontal color gradient to make
+the current position clear. Terminals without that capability keep the same guided
+choices in scrolling output without clearing the main terminal history.
+
+“Dreaming” means reviewing collected chat excerpts to propose useful memories.
+Excerpts are stored locally with recognizable secrets obscured; relevant excerpts
+are sent to OpenAI during analysis. You review the resulting proposals before they
+become memories. This opt-in controls learning collection, not the separate local
+activity and usage records. Use `hm --learning` to manage learning.
+
+Skills remain disabled until you enable them with `hm --skills`. The final welcome
+screen suggests a first question, chat, and diagnosis command. It offers **Open the
+PDF guide** to open the installed [two-page command guide](../output/pdf/helpme-quick-reference.pdf)
+in your default PDF reader. **Finish** is selected by default. The English PDF is
+included with the app at `docs/helpme-quick-reference.pdf` beside the executable,
+works offline, and can be opened again from **Command guide (PDF)** in `hm --help`
+without setup or an API key. The final screen also shows
+`hm --status`, `hm --prepare-logs`, `hm --help`, and `hm --setup` as recovery and
+configuration paths. It does not open general settings or send an initial chat
+request automatically. Once the command alias or PATH is configured, you can use
+`hm` from any terminal directory.
+
+With the Windows MSIX installed and its `hm` execution alias enabled, the final
+step also offers an unchecked desktop shortcut option. Selecting it creates a
+HelpMe icon that opens `hm` directly in your default terminal. It preserves
+an existing shortcut and does not change your terminal or shell preferences.
+
+## Change the model or conversation limits
+
+Open Settings with the AI section selected:
+
+```powershell
+hm --ai-setup
+```
+
+`hm --ai-settings` opens the same page. Use the sidebar to reach chat limits and
+the other settings. Limits use tokens, the small pieces of text a model reads.
+Its context window is how much text it can work with at once.
+
+| Setting | What it controls |
+| --- | --- |
+| AI enabled | Whether AI features are available. |
+| Model | The model used for requests. |
+| Reasoning effort | The model's reasoning setting. |
+| Output detail | Compact, balanced, or detailed responses. |
+| AI command review | Adds an AI opinion to the local command checks. You still decide what runs. |
+| Prompt caching | Lets OpenAI reuse unchanged parts of requests when supported. |
+| Conversation input budget | `4,000`–`200,000` estimated tokens; default `16,000`. |
+| Retained user turns | How many question-and-answer exchanges to keep: `2`–`50`; default `12`. |
+| Characters per user message | `500`–`100,000`; default `16,000`. |
+| Share of the model context window | `10`–`95%`; default `70%`. |
+
+Use the sidebar to open Conversation for its four limits, Commands for execution
+limits, or any other section. General contains language; AI contains availability,
+model preferences, advisory command review, and caching. Credentials contains key
+replacement and an optional connection check. Personalization contains your
+optional name or nickname, personal instructions, and location preference.
+Save applies all draft changes directly; Cancel keeps the previous settings.
+After initial setup, the connection check defaults to off. Saving alone makes no
+provider request and does not refresh pricing.
+
+To change what the assistant calls you, open `hm --setup`, choose Personalization,
+enter your name or nickname, and Save. It is optional and never guessed from your
+account, computer, or memories. It is shared only with OpenAI questions and chat.
+Clear the field and Save to stop adding it; earlier conversations and history remain.
+
+The AI section also lists supported models and cached standard token prices per
+million tokens, with the selected model highlighted. Prices cover input, cached
+input, and output; missing cached prices are marked unavailable. Use Ctrl+Up and
+Ctrl+Down to scroll the overview. Opening it does not refresh prices.
+
+To override the saved input budget, set `HELPME_CONTEXT_TOKENS` before launch:
+
+```powershell
+$env:HELPME_CONTEXT_TOKENS = '24000'
+hm --chat
+```
+
+The override accepts the same `4000`–`200000` range and applies while that
+environment variable is set. It does not change the saved value. The settings
+form shows a notice when an override is present. See
+[context and usage](#read-context-and-usage) for how the limits work together.
+
+## Preview concrete file effects
+
+```powershell
+hm --preview rename --file ./logs --pattern '*.log' --prefix archived-
+hm --preview copy --file ./report.txt --output ./backup
+hm --preview move --file ./logs --pattern '*.log' --output ./archive
+hm --preview delete --file ./logs --pattern '*.tmp'
+```
+
+This preview runs locally, without AI. It shows the files involved, their sizes,
+where they'd go or what would be deleted, and any names already in use.
+`--file` accepts a single file or files directly inside a folder. Copy and move
+need a destination folder that already exists. The preview doesn't search
+subfolders, follow links (including Windows reparse points), or simulate other
+shell commands. It can show up to 1,000 matches from 10,000 scanned files.
+
+With redirected input or output, you only get the preview. In a live terminal,
+you can choose command review and approve each command separately. A name
+already in use blocks the whole batch. Copy and move won't overwrite a file,
+even if it appeared after the preview. After approval, `hm` checks file sizes,
+timestamps, and links in their paths again. Other apps can still change files
+while you work; the preview doesn't lock them. A failed or declined command
+stops the remaining operations.
+
+## Follow a resumable plan
+
+Use `hm --plan "Build, test, and package this project"`. HelpMe creates one
+to ten ordered steps in the selected command shell, saves their pending state locally, and shows
+`hm --plan --resume <id>`. The plan must be resumed from its original directory.
+
+Starting a plan doesn't approve its steps. You review and approve each action
+and its separate check command, which is meant only to inspect the result.
+After a check succeeds, `hm` asks you to confirm that the result looks right.
+A failure, timeout, declined command, or unexpected result pauses the plan.
+
+Just before an action starts, `hm` records its result as `outcome unknown`.
+If the app closes unexpectedly, resuming starts with the check; it won't repeat
+the action automatically. Only one copy of `hm` can guide a plan at a time.
+The saved JSON keeps your goal, starting folder, commands, checks, and progress.
+Plan content with recognizable secrets is rejected.
+
+## Create or revise a script
+
+Use `hm --script "Archive old logs with a report" --output archive-logs.ps1`.
+Choose PowerShell, Batch/CMD, Bash, Python, or JavaScript/Node in setup. On the
+first run, hm chooses a locally available shell and keeps that preference until
+you change it. The selected language determines the generated file extension.
+
+To revise a script, add `--file existing-script`. This interactive flow shows
+the complete source and a line-by-line replacement diff, then lets you save to
+a suggested new local filename, validate syntax when the language supports it,
+run the reviewed source once from a temporary file, request a revision, or do
+nothing. `--output` takes precedence over the suggested filename. Existing
+files are never overwritten. Script input/output supports up to 1 MiB of UTF-8
+source by default. Embedded credentials and redaction placeholders are rejected.
+
+The optional validation action asks you to approve a PowerShell syntax check.
+It reads the script without running it and also uses PSScriptAnalyzer if that's
+already installed. It doesn't install tools. Passing a syntax check doesn't mean
+the script will do the right thing or be safe to run. Saving doesn't run it
+either. Your request and the source you select are shared with OpenAI.
+
+### Configure artifact limits
+
+Set these environment variables before starting `hm`. Check their values with
+`hm --status`.
+
+| Variable | Default | Accepted values | Scope |
+| --- | --- | --- | --- |
+| `HELPME_MAX_SCRIPT_MIB` | `1` | Integer `1`–`64` | UTF-8 script source, for both reading and saving. |
+| `HELPME_MAX_PLAN_MIB` | `8` | Integer `1`–`64` | Complete serialized UTF-8 JSON for plans. |
+| `HELPME_MAX_ARTIFACT_OUTPUT_TOKENS` | `16384` | Integer `1`–`65536` | Provider output budget for script and plan generation. |
+
+```powershell
+$env:HELPME_MAX_SCRIPT_MIB = '4'
+$env:HELPME_MAX_PLAN_MIB = '16'
+$env:HELPME_MAX_ARTIFACT_OUTPUT_TOKENS = '32768'
+hm --status
+```
+
+One MiB is 1,048,576 bytes. Reading and saving use the same size limit; lowering it
+can block larger existing files. Model context and output limits still apply,
+including reasoning tokens. A file fitting locally may be too large for one AI response.
+
+## Diagnose an error
+
+Use `hm --diagnose "restore failed"`, `hm --diagnose --file build.log`, or
+`Get-Content build.log | hm --diagnose`. If you don't supply text in a live
+terminal, `hm --diagnose` asks you to paste the error or log. Keep secrets out
+of command arguments. File and piped input must fit your message limit and be
+read within 30 seconds. If the text is empty or too long, pick a smaller excerpt.
+`hm` removes secrets it recognizes before sending the text to OpenAI, but check
+the excerpt for other private details yourself.
+
+The answer explains what the log shows, what might have caused it, what's still
+unclear, and what to check next. In a live terminal, you review and approve any
+suggested check before it runs. Piped input only produces suggestions.
+
+## Global options
+
+| Option | Behavior |
+| --- | --- |
+| `--language <code>` / `-l <code>` | Uses `it`, `en`, `fr`, `de`, `es`, or `vi` for this run. |
+| `--no-animation` | Turns off progress animations and other optional animation. |
+| `--no-emoji` | Uses plain text symbols in place of emoji. |
+| `--yes` / `-y` | Approves a PATH or font operation you've already reviewed; it never approves chat commands. |
+| `--dry-run` | Previews Nerd Font installation without running Oh My Posh. |
+
+`--dry-run` is accepted only with `--install-font`. Unknown options, unsupported languages, invalid PATH actions, missing values, and conflicting commands return exit code `2` without guessing.
+
+HelpMe helps with terminal tasks. It doesn't generate images or write, edit, or translate general prose. AI questions include a filtered summary of your current folder, operating system, shell, CPU, memory, and GPU name when available, so the suggested commands fit your machine.
+
+## Keep a conversation moving
+
+Direct execution is enabled by default for questions and chat. To switch back to
+an approval prompt for each command, open `hm --setup`, select **AI**, turn off
+**Direct execution (5-second countdown)**, and save. The setting is also available
+in `hm --ai-settings`.
+
+### Use direct execution
+
+```powershell
+hm --direct "Show the last ten commits in this repository"
+```
+
+`--direct` forces direct execution for this invocation and any chat you continue
+from it, even when the saved setting is off. It does not change your saved preference.
+Use it with one non-empty request; do not combine it with another main command.
+
+Each proposed command goes through the same pipeline:
+
+1. Run the deterministic local risk check and an AI risk review. The AI review is
+   required in direct mode, even if optional command review is off in settings.
+2. Show the exact command, risk assessment, and output-sharing notice. High,
+   critical, or unknown risk blocks execution. An unavailable or invalid AI review
+   also blocks execution; a low score never overrides a high severity label.
+3. For an eligible command, show a progress bar counting down from five seconds.
+   **Enter** runs it immediately. **Esc** cancels the current command chain;
+   **Ctrl+C** cancels the application. The countdown remains active with `--no-animation`.
+4. Run the command with the existing timeout and output limits, then send bounded,
+   redacted output back to the AI to analyze the result in the same conversation.
+   Any next command must pass its own review and countdown.
+
+A single command proposal goes straight to review. If the AI offers multiple
+alternatives, choose one first; there is no extra execution confirmation afterward.
+When the answer needs clarification or has no command, the usual finish/continue
+choices remain available. A chain stops after eight executed commands and returns
+to chat so you can review the result before sending another request.
+
+Direct mode needs an interactive terminal. Turn it off in setup before redirecting
+ordinary question output. `--yes` does not authorize commands or bypass a risk block.
+Plans and skill actions retain their existing individual approvals.
+
+### Session summary
+
+The session summary is hidden by default between answers and commands. It appears
+once when the question, command chain, or chat ends. `/status` and `/context` show it
+on demand. You can still ask to show it after each answer.
+
+At **80% of the operating context budget**, the summary appears even if you asked
+to hide it. The threshold uses the conversation's effective budget, not the model's
+maximum context window. Automatic warnings stop when usage falls below 80%.
+
+### Chat controls
+
+Opening chat or starting a question shows a compact reminder of the saved-memory
+commands. The reminder appears once, including when a question continues into chat.
+
+| Control | Behavior |
+| --- | --- |
+| `/run <command>` | Shows the exact command and checks risks. Uses the active session's direct countdown or manual approval. Captured output is analyzed in a follow-up. |
+| `/remember <text>` | Saves a note for future conversations. |
+| `/memories` | Lists saved notes and their IDs. |
+| `/forget <id>` | Deletes a saved note from future selection. |
+| `/clear` | Starts fresh in chat. Saved notes, usage counters, and earlier activity history stay. |
+| `/costs` | Shows the cost dashboard without ending the chat. |
+| `/status` or `/context` | Shows current context, the input budget, loaded notes, and token usage. |
+| `/exit` | Ends the conversation. |
+| `Esc` | Closes help or cancels the current interactive command without saving unfinished settings. |
+| `Ctrl+C` | Cancels the whole application and returns exit code `130`. |
+
+Every `/run` command requires a live terminal and the active session's authorization gate.
+
+### Remember something for next time
+
+Open **Saved memories** in the left sidebar of Help (`hm`) or Settings (`hm --setup`), or run
+`hm --memories`, to manage saved notes without an AI connection. Select a note to
+read its full text, edit it, or delete it after confirmation. Choose
+**Create** to add a note. Saving a note applies immediately;
+canceling its editor leaves the stored note unchanged. Returning to Settings keeps
+any unfinished settings draft.
+
+Save a preference in chat so you do not have to repeat it:
+
+```text
+/remember Keep terminal explanations concise.
+/remember Explain unfamiliar commands before suggesting them.
+/memories
+/forget <id>
+```
+
+Saved memories share one list across conversations using the same local data
+directory. They are not tied to the folder where you saved them. From the terminal,
+use `hm --remember <text>` or `hm --forget <id or description>`.
+
+Only notes you explicitly save become memories. Each note can contain up to
+1,000 characters. You can add new notes while the list has fewer than 100.
+An upgrade preserves existing notes, including their IDs and dates. If the older
+list has more than 100, you can still read, edit, or delete those notes.
+`/memories` lists the notes available here; use an ID from that list with `/forget`.
+
+For each query or chat request, HelpMe considers the shared list of notes.
+It loads at most five notes, within
+800 estimated tokens including their formatting. Selection happens locally,
+without an extra AI call. Saving more notes does not make every request larger.
+
+Selected notes are sent to OpenAI and can appear in the filtered request
+history. Notes cannot authorize a command or override your latest request.
+Recognizable credentials are rejected when saving and redacted again when notes
+are loaded. The notes live in the local SQLite database.
+
+Use `/clear` to reset the conversation while keeping your notes. Use `/forget`
+to remove a saved note from future selection. Neither command erases earlier
+audit records or recorded usage, and `/forget` does not remove text already in
+the active conversation.
+
+### Ask about HelpMe
+
+Ask in your own words, for example, "How do I change this app's conversation
+budget?" or "How do saved memories work?" The assistant can request relevant
+chapters from the guide included with your installed version. No special chat
+command is needed.
+
+Skills and memory have dedicated chapters too. Try asking:
+
+- "How do I enable skills and choose one?"
+- "Which skills are available, and what parameters do they take?"
+- "How do I turn on learning and review proposed memories?"
+- "How do Dream and heartbeat work?"
+- "How do I activate reminders? Why did mine not appear?"
+
+The assistant explains the relevant steps; it does not enable features, run a
+skill, approve a memory, or create a reminder just by answering.
+
+HelpMe supplies up to two chapters in your selected language, then makes
+one additional AI call for the answer. The guide stays available for follow-up
+questions. New topics can replace earlier chapters; `/clear` removes the loaded
+guide from the active context. Reading a chapter only reads packaged help. It
+does not run commands or open your files or settings.
+
+Both AI calls count toward token usage and estimated costs. If the guide and
+your question cannot fit the configured input limit, the app explains the limit
+instead of sending an oversized request. There is at most one guide-loading
+round per question.
+
+### Read context and usage
+
+Use `/status` or `/context` during chat to see how much context is in use. The
+same information appears after a completed answer. `hm --status`, run from your
+shell, shows local configuration and storage readiness instead.
+
+| Measure | How to read it |
+| --- | --- |
+| Active context | Estimated input currently retained, compared with the model's context window. |
+| Context budget | That same input compared with your configured input limit. |
+| System | Estimated instruction tokens, including supplied runtime details, message overhead, and any loaded guide. |
+| Guide, included in system | The guide's share of system tokens; it is already included in the total. |
+| User | Retained user text and selected saved-note data. |
+| AI replies | Retained assistant text, including the latest answer when it fits. |
+| Loaded memories | The number of selected notes and their share of the 800-token allowance. |
+| Last request | Input and output tokens reported by the provider for the last assistant call. |
+| Session usage | Input and output tokens accumulated across this conversation's recorded calls. |
+
+A `~` marks an estimate. The budget bar uses separate colors for system, user,
+and assistant content, with the remaining space left available. A numeric legend
+keeps the categories clear without color. Guide tokens belong to System and
+are not added twice. Reported output usage can exceed retained reply text because
+the provider also counts tokens that are not kept as visible conversation text.
+
+Active context includes instructions, machine and directory context, loaded
+guide chapters, selected notes, and retained messages. It is recalculated
+after old turns are removed. Your next question is included only once you enter
+it, so the estimate can change before sending.
+
+Session usage keeps growing when the same history is sent again. It measures
+tokens used over time, not how much space the current conversation occupies.
+Refreshing status or using `/clear` keeps the last-request and session counters.
+Calls that fail but report usage count toward session totals. AI command reviews
+belong to the same flow and contribute to its session totals as well as `/costs`.
+At exit, local totals are refreshed even after cancellation. If that refresh
+fails, the summary reports unavailable totals rather than showing an old total.
+
+For a guide-assisted answer, This turn includes both the guide-selection and
+answer calls. Last request still shows only the final call, while Session usage
+includes both. A turn or session cost is unavailable if a recorded billable call
+has no known price, so a partial amount is not presented as a complete total.
+
+Ordinary query and chat start with a 16,000-token input budget. The actual limit
+is the smallest of your saved or overridden budget, your chosen percentage of
+the model window, and the space left after reserving output tokens. Instructions
+and notes count toward that limit, along with the conversation.
+
+As the conversation grows, HelpMe removes the oldest complete turns to fit
+the budget and turn limit. If a new request cannot fit even without older turns,
+it shows an explanation and keeps chat open so you can shorten the request.
+Completed answers are shown in full even when they are too large to keep for
+the next turn. The saved or overridden input-token budget applies to ordinary
+query and chat; scripts, plans, and diagnostics have their own input budgets.
+
+See [memory, costs, and caching](OPENAI_COSTS_AND_CACHING.md) for more detail.
+
+In manual mode, **Do not execute commands** is the default menu choice. Picking a command opens its preview and approval prompt. In direct mode, a single suggestion proceeds to risk review and the cancellable countdown; multiple alternatives still require a selection.
+
+## First run and redirected output
+
+The first interactive launch opens the guided welcome. After completing it,
+`hm` without arguments opens the home menu. Redirected invocations print a short
+instruction without waiting for input. Use `hm --help` for the command reference,
+including before onboarding, or `hm --setup` to change preferences afterward.
+
+Use [`hm --ai-setup`](#change-the-model-or-conversation-limits) to select AI in
+Settings, or `hm --setup` to select General. Conversation limits, including the
+input budget, are in the Conversation section of that same screen.
+
+General also shows your setup, recorded usage, and saved cost estimates. Use
+`Ctrl+Up` / `Ctrl+Down` to scroll when the overview doesn't fit. You can also use
+`--status` and `--costs` on their own.
+
+Read-only commands such as `--help`, `--about`, `--version`, `--status`, `--third-party`, and `--path=status` support redirected output. Mutating PATH and font operations require a live prompt or `--yes`; font dry-run is non-mutating and can run unattended.
+
+## Take `hm` with you
+
+`hm --path install` does not copy, download, or install the application. It previews and adds the directory containing the current executable:
+
+- Windows: current-user `PATH` environment variable;
+- zsh: a marked block in `~/.zprofile`;
+- fish: a marked block in `~/.config/fish/config.fish`;
+- other Unix shells: a marked block in `~/.profile`.
+
+Removal touches only the exact Windows entry or the clearly marked HelpMe block. Companion `hm-path.ps1` and `hm-path.sh` scripts call the same application flow.
+
+## Data-directory override
+
+Set `HELPME_DATA_DIR` before launch to place the database and logs in a specific directory:
+
+```powershell
+$env:HELPME_DATA_DIR = 'D:\PortableData\HelpMe'
+hm --status
+```
+
+The prompt YAML resources remain beside the application because they are versioned product assets.
+
+## Exit codes
+
+| Code | Meaning |
+| ---: | --- |
+| `0` | Command completed or a user safely cancelled an optional operation. |
+| `1` | The app, AI request, data storage, or a validation check failed. |
+| `2` | Invalid command, or setup is needed but no interactive terminal is available. |
+| `130` | Operation cancelled with Ctrl+C. |

@@ -1,0 +1,173 @@
+# VBWR B
+#
+# Project: HelpMe
+# Repository: https://github.com/umbertotechnopreneur/PromptMeUp
+# Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+#
+# VibeWare: Human intent, AI execution, and plenty of tokens
+# Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+#
+# Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+# Human guidance: Umberto Giacobbi; requested VibeWare branding.
+#
+# Copyright (c) 2026 Umberto Giacobbi
+# License: MIT - see LICENSE
+# SPDX-License-Identifier: MIT
+#
+# VBWR E
+
+name: Quality gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  UseArtifactsOutput: 'true'
+  ArtifactsPath: ${{ github.workspace }}/artifacts/build
+
+concurrency:
+  group: helpme-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify public changelog
+        run: pwsh -NoProfile -File ./scripts/HelpMe.ps1 -Command changelog -Verify
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Run repository preflight
+        run: pwsh -NoProfile -File ./scripts/HelpMe.ps1 -Command preflight
+
+      - name: Restore
+        run: pwsh -NoProfile -File ./scripts/HelpMe.ps1 -Command restore
+
+      - name: Verify redistribution notices
+        run: pwsh -NoProfile -File ./scripts/HelpMe.ps1 -Command notices -OutputDirectory ./artifacts/notice-check -Runtime linux-x64
+
+      - name: Apply automatic dotnet formatting fixes
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/HelpMe.ps1 -Command format
+
+      - name: Verify dotnet formatting after automatic fixes
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/HelpMe.ps1 -Command check-format
+
+      - name: Summarize automatic formatting fixes
+        shell: pwsh
+        run: |
+          $changes = git status --short
+          if ($changes) {
+            "### Automatic formatting fixes" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            "The formatter changed these files in the CI workspace:" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            '```text' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            $changes | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            '```' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            Write-Warning 'Automatic formatting changed the CI workspace. Run ./scripts/HelpMe.ps1 -Command format locally and commit the result.'
+          }
+          else {
+            'No automatic formatting changes were required.' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          }
+
+      - name: Verify XML method comments
+        run: pwsh -NoProfile -File ./scripts/HelpMe.ps1 -Command check-xml
+
+      - name: Clean lint output
+        if: always()
+        run: pwsh -NoProfile -File ./scripts/HelpMe.ps1 -Command clean -Configuration Release
+
+  build:
+    name: Build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET 10
+        id: dotnet
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: pwsh -NoProfile -File ./scripts/HelpMe.ps1 -Command restore
+
+      - name: Build with warnings as errors
+        run: pwsh -NoProfile -File ./scripts/HelpMe.ps1 -Command build -Configuration Release
+
+      - name: Test
+        run: pwsh -NoProfile -File ./scripts/HelpMe.ps1 -Command test -Configuration Release -NoBuild
+
+      - name: Smoke test the CLI without credentials
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/HelpMe.ps1 -Command smoke -Configuration Release
+
+      - name: Clean build output
+        if: always() && steps.dotnet.outcome == 'success'
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/HelpMe.ps1 -Command clean -Configuration Release
+
+  package:
+    name: Debian (${{ matrix.runtime }})
+    needs: [lint, build]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, runtime: linux-x64 }
+          - { os: ubuntu-24.04-arm, runtime: linux-arm64 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Build Debian package and clean intermediates
+        shell: pwsh
+        env:
+          TARGET_RUNTIME: ${{ matrix.runtime }}
+        run: pwsh -NoProfile -File ./scripts/HelpMe.ps1 -Command deb -Configuration Release -Runtime $env:TARGET_RUNTIME
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: upload
+        with:
+          name: deb-${{ matrix.runtime }}
+          path: artifacts/deb/release/${{ matrix.runtime }}/*.deb
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove uploaded runner copies
+        if: always() && steps.upload.outcome == 'success'
+        shell: pwsh
+        env:
+          TARGET_RUNTIME: ${{ matrix.runtime }}
+        run: |
+          . ./scripts/Common/artifacts.ps1
+          Remove-HelpMeArtifactPath "artifacts/deb/release/$env:TARGET_RUNTIME"

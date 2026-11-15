@@ -1,0 +1,131 @@
+﻿// SPDX-License-Identifier: MIT
+/* VBWR B
+ *
+ * Project: HelpMe
+ * Repository: https://github.com/umbertotechnopreneur/PromptMeUp
+ * Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+ *
+ * VibeWare: Human intent, AI execution, and plenty of tokens
+ * Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+ *
+ * Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+ * Human guidance: Umberto Giacobbi; requested VibeWare branding.
+ *
+ * Copyright (c) 2026 Umberto Giacobbi
+ * License: MIT - see LICENSE
+ *
+ * VBWR E */
+
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using HelpMe.Models;
+
+namespace HelpMe.Services;
+
+/// <summary>Executes approved commands with bounded output and cancellation.</summary>
+public interface ICommandExecutionService
+{
+    #region Methods
+
+    /// <summary>Executes an approved command with the supplied cancellation and output handling.</summary>
+    Task<CommandExecutionResult> ExecuteAsync(
+        ApprovedCommand command,
+        TimeSpan timeout,
+        CancellationToken cancellationToken,
+        Action<CommandOutputUpdate>? output = null,
+        CancellationToken stopToken = default);
+
+    #endregion
+}
+
+/// <summary>Starts authorized local commands and streams their bounded output to the caller.</summary>
+public sealed class CommandExecutionService : ICommandExecutionService
+{
+    #region Fields
+
+    private readonly ILogger<CommandExecutionService> _logger;
+
+    #endregion
+
+    #region Initialization
+
+    /// <summary>Creates the restricted child-process runner.</summary>
+    public CommandExecutionService(ILogger<CommandExecutionService> logger) =>
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+    #endregion
+
+    #region Methods
+
+    /// <summary>Runs a recently authorized command in non-elevated PowerShell and captures bounded output.</summary>
+    /// <param name="command">The exact command authorized by the user.</param>
+    /// <param name="timeout">Total deadline, or InfiniteTimeSpan for supervised foreground execution.</param>
+    /// <param name="cancellationToken">Application cancellation.</param>
+    /// <param name="output">Receives normalized live output while the process is running.</param>
+    /// <param name="stopToken">Stops only this command and returns its partial result.</param>
+    /// <exception cref="InvalidOperationException">The authorization is missing or expired.</exception>
+    public async Task<CommandExecutionResult> ExecuteAsync(
+        ApprovedCommand command,
+        TimeSpan timeout,
+        CancellationToken cancellationToken,
+        Action<CommandOutputUpdate>? output = null,
+        CancellationToken stopToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (string.IsNullOrWhiteSpace(command.AuthorizationId)
+            || DateTimeOffset.UtcNow - command.ApprovedAt > TimeSpan.FromMinutes(10))
+        {
+            throw new InvalidOperationException("Command authorization is missing or expired.");
+        }
+
+        var streamSource = command.Text.Length > 8_000;
+        _logger.LogInformation("Authorized command starting. AuthorizationId={AuthorizationId}, RiskScore={RiskScore}", command.AuthorizationId, command.Assessment.Score);
+        var result = await BoundedProcessRunner.RunAsync(BuildStartInfo(command), command.Text, timeout, cancellationToken,
+            streamSource ? command.Text : null, output, stopToken).ConfigureAwait(false);
+        _logger.LogInformation("Authorized command completed. AuthorizationId={AuthorizationId}, ExitCode={ExitCode}, TimedOut={TimedOut}, ElapsedMs={ElapsedMs}",
+            command.AuthorizationId, result.ExitCode, result.TimedOut, result.ElapsedMilliseconds);
+        return result with { Shell = command.Shell };
+    }
+
+    #endregion
+
+    #region Implementation
+
+    /// <summary>Builds a non-interactive child process for the exact approved interpreter and command.</summary>
+    internal static ProcessStartInfo BuildStartInfo(ApprovedCommand approved)
+    {
+        var command = approved.Text;
+        if (approved.Shell == CommandShell.Bash)
+        {
+            if (OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Native Bash execution requires Unix.");
+            var bash = new ProcessStartInfo("bash") { WorkingDirectory = Environment.CurrentDirectory };
+            bash.ArgumentList.Add("--noprofile");
+            bash.ArgumentList.Add("--norc");
+            // Privileged mode ignores imported shell functions, BASH_ENV and inherited shell options.
+            // It does not request elevation or change the user's identity.
+            bash.ArgumentList.Add("-p");
+            bash.ArgumentList.Add(command.Length > 8_000 ? "-s" : "-c");
+            if (command.Length <= 8_000) bash.ArgumentList.Add(command);
+            foreach (var name in bash.Environment.Keys.Where(name => name.StartsWith("BASH_FUNC_", StringComparison.Ordinal)
+                         || name is "BASH_ENV" or "ENV" or "SHELLOPTS" or "BASHOPTS" or "CDPATH" or "GLOBIGNORE" or "PS4" or "PROMPT_COMMAND").ToArray())
+                bash.Environment.Remove(name);
+            return bash;
+        }
+        if (approved.Shell != CommandShell.PowerShell) throw new InvalidOperationException("Unsupported approved shell.");
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "pwsh",
+            WorkingDirectory = Environment.CurrentDirectory
+        };
+        startInfo.ArgumentList.Add("-NoLogo");
+        startInfo.ArgumentList.Add("-NoProfile");
+        startInfo.ArgumentList.Add("-NonInteractive");
+        startInfo.ArgumentList.Add("-Command");
+        startInfo.ArgumentList.Add(command.Length > 8_000
+            ? "[Console]::InputEncoding = [Text.UTF8Encoding]::new($false); [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); Invoke-Expression ([Console]::In.ReadToEnd()); if (-not $?) { exit 1 }"
+            : command);
+        return startInfo;
+    }
+
+    #endregion
+}

@@ -226,8 +226,8 @@ up without double counting. Otherwise the process shows VRAM and Shared as `n/a`
   resident minus shared is not private memory and is never computed.
 - **Primary node** (`/dev/dri/card*`, typically a compositor): root-owned logind keeps a copy of that
   fd, which a normal user can't see, so a single holder can't be proven.
-- **Legacy**: older kernels whose amdgpu fdinfo lacks `drm-shared-vram`/`drm-shared-gtt`, and Intel integrated GPUs
-  and `xe` (below).
+- **Legacy**: older kernels whose amdgpu fdinfo lacks `drm-shared-vram`/`drm-shared-gtt`, or any DRM
+  client without the recognized residency and sharing counters needed to prove private memory.
 - **Incomplete**: some of the process's fds or fdinfo could not be read (GPU% is `n/a` too).
 - **Partial scan**: the TUI's 50 ms listing budget ran out this refresh, so a process it skipped might
   hold the same client (GPU% is `n/a` too). Expected to be rare on a desktop (~9 ms for ~8,000 fds,
@@ -281,13 +281,28 @@ PMUs are matched by PCI address (`i915_<PCI BDF>`); the legacy `i915` PMU is use
 card. If multiple cards resolve to the same PMU, their load stays `N/A` with an attribution reason.
 Each collector opens device counters only for its selected GPU and owns those handles and baselines;
 closing one does not reset another collector's readings.
-`xe` cards are detected, but its fdinfo uses other keys (`drm-cycles-*`, `drm-resident-vram0`/`-gtt`), so its
-per-process rows show `n/a` until they are decoded on hardware.
+**Intel `xe` per-process counters** use the same ownership and sharing rules. Resident `vram*` regions
+supply local memory and `gtt` supplies GPU-accessible system memory; CPU-only `system` memory and the
+distinct `stolen` region are not charged. Every reported region must have a valid zero `drm-shared-*`
+counter before memory can be charged privately. On an integrated GPU, private GTT is its GPU memory,
+not spill. Device-wide memory remains a labelled client sum / PCI-window estimate, not a device counter;
+this path adds no new device-wide load or sensor probes.
+
+Xe engine load uses deltas of paired `drm-cycles-*` and `drm-total-cycles-*` GPU ticks, not CPU wall time.
+GPU% is the busiest engine with a valid interval this refresh; a stalled, reset or newly seen engine
+does not hide another engine that advanced. Omitted engines are unknown, so a partial reading can
+understate the process's busiest engine; if none has a valid interval, GPU% is `n/a`. As with i915,
+engine-class capacity is not divided out.
+
+Contributor check, not repeated by the maintainer: B65 (`8086:e222`), `xe`, Linux 7.0.0-43-generic.
+Thirty read-only scans of nine existing GPU processes produced 270 process-load readings (0-3.119%),
+with median scan time 13.196 ms and maximum 17.044 ms. No workload was started. Rates under controlled
+load and the sharing gate against a known shared buffer have **not been validated on hardware**.
 
 Live check, reported by the contributor and not repeated by the maintainer: Linux 6.12, an Arc A770 (discrete, 16 GiB
 BAR) and a UHD 730 (integrated) on `i915`. Both cards were found, named, and selectable with `--gpu`; the Arc showed
 per-process VRAM and engine load, and the TUI rendered both. The fdinfo formats of both drivers, taken from the kernel
-sources, are covered by unit tests. **Not validated on hardware:** `xe`, Arc cards without resizable BAR, and
+sources, are covered by unit tests. **Not validated by the maintainer on hardware:** `xe`, Arc cards without resizable BAR, and
 multi-GPU systems other than that pair.
 
 Live check on an integrated GPU (ASUS Vivobook 14 X1404VA, Intel Core 3 100U Xe-LP, `i915`, kernel 7.3.1, Mesa 26.2.5):
@@ -1264,8 +1279,8 @@ downloads are bundled in this repository.
 - Reliable multi-GPU matching and per-device model placement.
 - NVIDIA TCC-mode GPUs: validation on TCC hardware, then per-process load and model breakdowns, which
   the Windows counters would supply for a WDDM GPU.
-- Intel `xe` per-process memory and load (`drm-cycles-*`), the Intel GT clock in the device panel, and Intel
-  validation beyond the Arc A770 / UHD 730 pair.
+- Intel `xe` device-wide telemetry and controlled-load/shared-buffer validation of its per-process
+  counters; Intel validation beyond the Arc A770 / UHD 730 pair.
 - macOS: a portable build, Ollama/llama.cpp/MLX validation, and compressed GPU memory (footprint's
   `swapped`) as the paged column.
 - WSL: per-process GPU load for Linux rows, and Ollama's systemd journal as a log source.

@@ -1,0 +1,14 @@
+artifacts/
+bin/
+obj/
+.vs/
+desktop.ini
+*.user
+*.suo
+*.cache
+*.log
+*.vpframe
+__pycache__/
+*.pyc
+/src/ThermalrightVibeWare.Photino/wwwroot/libs/
+/src/ThermalrightVibeWare.Photino/wwwroot/resources/

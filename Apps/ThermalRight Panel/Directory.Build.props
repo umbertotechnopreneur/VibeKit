@@ -1,0 +1,35 @@
+<!-- VBWR B
+
+  Project: Thermalright VibeWare
+  Repository: https://github.com/umbertotechnopreneur/thermalright-vibeware
+  Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+
+  File: Directory.Build.props
+  Purpose: Defines shared build paths, nullable settings and product metadata.
+
+  VibeWare: Human intent, AI execution, and plenty of tokens
+  Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+
+  Modified with AI: OpenAI Codex; source documentation and organization; 2026-10-27.
+  Human guidance: Umberto Giacobbi; maintainability and standard file headers.
+
+  Copyright (c) 2026 Umberto Giacobbi
+  SPDX-License-Identifier: MIT
+
+VBWR E -->
+
+<Project>
+  <PropertyGroup>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)artifacts\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <!-- OpenSilver's XAML compiler expects this path relative to its project directory. -->
+    <BaseIntermediateOutputPath Condition="'$(MSBuildProjectName)' == 'ThermalrightVibeWare.App'">..\..\artifacts\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildThisFileDirectory)artifacts\**</DefaultItemExcludes>
+    <Nullable>enable</Nullable>
+    <Product>Thermalright VibeWare</Product>
+    <Company>Umberto Giacobbi</Company>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <SkipOpenSilverUpdates>true</SkipOpenSilverUpdates>
+  </PropertyGroup>
+</Project>

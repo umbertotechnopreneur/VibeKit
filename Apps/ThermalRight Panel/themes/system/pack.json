@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "id": "thermalright-vibeware.system",
+  "name": "Thermalright VibeWare · System",
+  "version": "2.2.0",
+  "author": "Umberto Giacobbi",
+  "license": "MIT",
+  "description": "Ten themes for available CPU, GPU, motherboard and RAM readings.",
+  "categories": [
+    "system"
+  ],
+  "themes": [
+    "themes/signal",
+    "themes/ledger",
+    "themes/orbit",
+    "themes/terminal",
+    "themes/thermal",
+    "themes/blueprint",
+    "themes/horizon",
+    "themes/blocks",
+    "themes/quiet",
+    "themes/pulse"
+  ],
+  "branding": {
+    "begin": "VBWR B",
+    "end": "VBWR E"
+  }
+}

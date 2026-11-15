@@ -1,0 +1,26 @@
+<!-- VBWR B
+  Project: ThermalrightVibeWare | https://umbertogiacobbi.biz/vibeware/manifesto
+  Copyright (c) 2026 Umberto Giacobbi | SPDX-License-Identifier: MIT
+VBWR E -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/ThermalrightVibeWare.Photino/ThermalrightVibeWare.Photino.csproj" />
+    <ProjectReference Include="../../src/ThermalrightVibeWare.Core/ThermalrightVibeWare.Core.csproj" />
+  </ItemGroup>
+  <PropertyGroup>
+    <ChecksNativeFolder>x64</ChecksNativeFolder>
+    <ChecksNativeFolder Condition="'$(PreviewCapture)' == 'true'">x64-preview-capture</ChecksNativeFolder>
+    <ChecksNativeLibrary>$(MSBuildProjectDirectory)/../../artifacts/native/photino-memory/$(ChecksNativeFolder)/Photino.Native.dll</ChecksNativeLibrary>
+  </PropertyGroup>
+  <Target Name="VerifyPatchedNativeForChecks" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="!Exists('$(ChecksNativeLibrary)')" Text="Build the selected patched Photino.Native variant from prepared imports before building the memory checks. Use -PreviewCapture for the capture variant." />
+  </Target>
+  <Target Name="CopyPatchedNativeForChecks" AfterTargets="Build" DependsOnTargets="VerifyPatchedNativeForChecks" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Copy SourceFiles="$(ChecksNativeLibrary)" DestinationFolder="$(TargetDir)" />
+    <Copy SourceFiles="$(ChecksNativeLibrary)" DestinationFolder="$(TargetDir)runtimes/win-x64/native/" />
+  </Target>
+</Project>

@@ -1,0 +1,54 @@
+# VBWR B
+#
+# Project: WorkTrail
+# Repository: https://github.com/umbertotechnopreneur/WorkTrail
+# Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+#
+# VibeWare: Human intent, AI execution, and plenty of tokens
+# Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+#
+# Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+# Human guidance: Umberto Giacobbi; requested VibeWare branding.
+#
+# Copyright (c) 2026 Umberto Giacobbi
+# License: MIT - see LICENSE
+# SPDX-License-Identifier: MIT
+#
+# VBWR E
+
+version: 2
+
+updates:
+  - package-ecosystem: nuget
+    directories:
+      - /WorkTrail
+      - /WorkTrail.Core
+      - /WorkTrail.Core.Tests
+      - /WorkTrail.Presentation
+      - /WorkTrail.Presentation.Tests
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Ho_Chi_Minh
+    open-pull-requests-limit: 5
+    groups:
+      dotnet-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "10:00"
+      timezone: Asia/Ho_Chi_Minh
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns:
+          - "*"

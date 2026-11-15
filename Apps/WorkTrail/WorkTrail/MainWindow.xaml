@@ -1,0 +1,294 @@
+<!-- SPDX-License-Identifier: MIT -->
+<Window x:Class="WorkTrail.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:WorkTrail.Controls">
+    <Grid x:Name="RootGrid" Background="Transparent">
+        <Grid.Resources>
+            <ResourceDictionary>
+                <ResourceDictionary.ThemeDictionaries>
+                    <ResourceDictionary x:Key="Default">
+                        <x:Double x:Key="LauncherCityImageOpacity">0.32</x:Double>
+                        <x:Double x:Key="LauncherCornerArtOpacity">0.94</x:Double>
+                    </ResourceDictionary>
+                    <ResourceDictionary x:Key="Light">
+                        <x:Double x:Key="LauncherCityImageOpacity">0.20</x:Double>
+                        <x:Double x:Key="LauncherCornerArtOpacity">0.94</x:Double>
+                    </ResourceDictionary>
+                    <ResourceDictionary x:Key="HighContrast">
+                        <x:Double x:Key="LauncherCityImageOpacity">0</x:Double>
+                        <x:Double x:Key="LauncherCornerArtOpacity">0</x:Double>
+                    </ResourceDictionary>
+                </ResourceDictionary.ThemeDictionaries>
+                <Style x:Key="LauncherTileStyle" TargetType="Button">
+                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                    <Setter Property="VerticalAlignment" Value="Stretch" />
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="MinHeight" Value="112" />
+                    <Setter Property="Padding" Value="132,16,18,16" />
+                    <Setter Property="CornerRadius" Value="12" />
+                </Style>
+                <Style x:Key="LauncherCornerArtStyle" TargetType="Rectangle">
+                    <Setter Property="Width" Value="144" />
+                    <Setter Property="Height" Value="144" />
+                    <Setter Property="HorizontalAlignment" Value="Left" />
+                    <Setter Property="VerticalAlignment" Value="Top" />
+                    <Setter Property="Margin" Value="-24,-32,0,-16" />
+                    <Setter Property="Stretch" Value="Uniform" />
+                    <Setter Property="Opacity" Value="{ThemeResource LauncherCornerArtOpacity}" />
+                    <Setter Property="IsHitTestVisible" Value="False" />
+                    <Setter Property="AutomationProperties.AccessibilityView" Value="Raw" />
+                </Style>
+                <Style x:Key="LauncherFooterButtonStyle" TargetType="Button">
+                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                    <Setter Property="VerticalAlignment" Value="Stretch" />
+                    <Setter Property="HorizontalContentAlignment" Value="Center" />
+                    <Setter Property="MinHeight" Value="44" />
+                    <Setter Property="Padding" Value="10,10" />
+                </Style>
+            </ResourceDictionary>
+        </Grid.Resources>
+        <Grid.RowDefinitions><RowDefinition Height="48" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+        <Image x:Name="HomeCityImage" Grid.Row="1" Stretch="Uniform" VerticalAlignment="Bottom"
+               Opacity="{ThemeResource LauncherCityImageOpacity}" IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw"
+               ImageFailed="HomeCityImage_Failed" />
+        <Grid x:Name="TitleBarDragRegion" Background="{ThemeResource WorkTrailTitleBarOverlayBrush}"
+              BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="TitleBarLeftInsetColumn" Width="0" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="TitleBarRightInsetColumn" Width="0" />
+            </Grid.ColumnDefinitions>
+            <Image Grid.Column="1" Margin="16,0,10,0" Style="{StaticResource WorkTrailTitleBarLogoStyle}" />
+            <TextBlock Grid.Column="2" Text="WORKTRAIL" CharacterSpacing="70" Style="{StaticResource WorkTrailTitleBarLabelStyle}" />
+        </Grid>
+        <!-- Keep content below the floating 48-DIP caption, including while it is hidden. -->
+        <Grid x:Name="LauncherContent" Grid.Row="1" Margin="28,72,28,20" RowSpacing="12" SizeChanged="LauncherContent_SizeChanged">
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+            <StackPanel x:Name="HomeCityHeader" Margin="14,0,0,0" Spacing="5" HorizontalAlignment="Left" Visibility="Collapsed">
+                <TextBlock Tag="WorldClock.ReferenceCity" FontSize="11" CharacterSpacing="100" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock x:Name="HomeCityNameText" FontSize="28" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <Grid ColumnSpacing="7">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <FontIcon Glyph="&#xE707;" FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
+                    <TextBlock x:Name="HomeCityPositionText" Grid.Column="1" FontSize="13" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Grid>
+            </StackPanel>
+            <ScrollViewer x:Name="LauncherScroller" SizeChanged="LauncherViewport_SizeChanged" Grid.Row="1" HorizontalContentAlignment="Stretch" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled" HorizontalScrollMode="Disabled">
+                <!-- The artwork overhang belongs inside the scroll extent, not the viewport padding. -->
+                <StackPanel x:Name="LauncherBody" SizeChanged="LauncherViewport_SizeChanged" Padding="30,38,24,18" Spacing="24">
+                    <Grid x:Name="LauncherTiles" ColumnSpacing="40" RowSpacing="48">
+                        <Grid.Resources>
+                            <ResourceDictionary>
+                                <ResourceDictionary.ThemeDictionaries>
+                                    <ResourceDictionary x:Key="Default">
+                                <SolidColorBrush x:Key="ButtonBackground" Color="#E8121C30" />
+                                <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#F0213552" />
+                                <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#F00C1525" />
+                                <SolidColorBrush x:Key="ButtonForeground" Color="#FFF8FAFF" />
+                                <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFFFFFFF" />
+                                <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#FFFFFFFF" />
+                                <SolidColorBrush x:Key="ButtonBorderBrush" Color="#887C95B8" />
+                                <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#FFC2DCFF" />
+                                <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#FF94B9EA" />
+                                <SolidColorBrush x:Key="LauncherTileDescriptionBrush" Color="#FFD1DBEB" />
+                                    </ResourceDictionary>
+                                    <ResourceDictionary x:Key="Light">
+                                <SolidColorBrush x:Key="ButtonBackground" Color="#E8121C30" />
+                                <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#F0213552" />
+                                <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#F00C1525" />
+                                <SolidColorBrush x:Key="ButtonForeground" Color="#FFF8FAFF" />
+                                <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFFFFFFF" />
+                                <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#FFFFFFFF" />
+                                <SolidColorBrush x:Key="ButtonBorderBrush" Color="#887C95B8" />
+                                <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#FFC2DCFF" />
+                                <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#FF94B9EA" />
+                                <SolidColorBrush x:Key="LauncherTileDescriptionBrush" Color="#FFD1DBEB" />
+                                    </ResourceDictionary>
+                                    <ResourceDictionary x:Key="HighContrast">
+                                <StaticResource x:Key="ButtonBackground" ResourceKey="SystemColorButtonFaceColorBrush" />
+                                <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="SystemColorHighlightColorBrush" />
+                                <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="SystemColorHighlightColorBrush" />
+                                <StaticResource x:Key="ButtonForeground" ResourceKey="SystemColorButtonTextColorBrush" />
+                                <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="SystemColorHighlightTextColorBrush" />
+                                <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="SystemColorHighlightTextColorBrush" />
+                                <StaticResource x:Key="ButtonBorderBrush" ResourceKey="SystemColorButtonTextColorBrush" />
+                                <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="SystemColorHighlightTextColorBrush" />
+                                <StaticResource x:Key="ButtonBorderBrushPressed" ResourceKey="SystemColorHighlightTextColorBrush" />
+                                <StaticResource x:Key="LauncherTileDescriptionBrush" ResourceKey="SystemColorButtonTextColorBrush" />
+                                    </ResourceDictionary>
+                                </ResourceDictionary.ThemeDictionaries>
+                            </ResourceDictionary>
+                        </Grid.Resources>
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <Grid x:Name="PlannerTile" Grid.Row="3" Height="112">
+                            <Button x:Name="PlannerButton" Tag="Planner.Title" AutomationProperties.AutomationId="Launcher.Planner"
+                                    Style="{StaticResource LauncherTileStyle}" PointerEntered="LauncherTile_PointerEntered"
+                                    PointerExited="LauncherTile_PointerExited" PointerCanceled="LauncherTile_PointerExited" Click="Planner_Click">
+                                <StackPanel Spacing="5" VerticalAlignment="Center">
+                                    <TextBlock Tag="Planner.Title" Text="World Timesheet" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" />
+                                    <TextBlock Tag="Launcher.PlannerDescription" Text="Compare time zones, availability, Moon and weather. Print or save as PDF." FontSize="14" Foreground="{ThemeResource LauncherTileDescriptionBrush}"
+                                               TextWrapping="Wrap" MaxLines="2" />
+                                </StackPanel>
+                            </Button>
+                            <Rectangle Style="{StaticResource LauncherCornerArtStyle}">
+                                <Rectangle.Fill><controls:LauncherArtworkBrush Source="ms-appx:///Assets/Launcher/world-timesheet-v1.png" /></Rectangle.Fill>
+                            </Rectangle>
+                        </Grid>
+                        <Grid x:Name="ClocksTile" Grid.Row="0" Grid.Column="0" Height="112">
+                            <Button x:Name="ClocksButton" Tag="Launcher.Clocks" AutomationProperties.AutomationId="Launcher.Clocks"
+                                    Style="{StaticResource LauncherTileStyle}" PointerEntered="LauncherTile_PointerEntered"
+                                    PointerExited="LauncherTile_PointerExited" PointerCanceled="LauncherTile_PointerExited" Click="Clocks_Click">
+                                <StackPanel Spacing="5" VerticalAlignment="Center">
+                                    <TextBlock Tag="Launcher.Clocks" Text="World clocks" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" />
+                                    <TextBlock Tag="Launcher.ClocksDescription" Text="The time in the cities you follow." FontSize="14"
+                                               Foreground="{ThemeResource LauncherTileDescriptionBrush}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Button>
+                            <Rectangle Style="{StaticResource LauncherCornerArtStyle}">
+                                <Rectangle.Fill><controls:LauncherArtworkBrush Source="ms-appx:///Assets/Launcher/world-clocks-v1.png" /></Rectangle.Fill>
+                            </Rectangle>
+                        </Grid>
+                        <Grid x:Name="MapTile" Grid.Row="0" Grid.Column="1" Height="112">
+                            <Button x:Name="MapButton" Tag="Launcher.Map" AutomationProperties.AutomationId="Launcher.Map"
+                                    Style="{StaticResource LauncherTileStyle}" PointerEntered="LauncherTile_PointerEntered"
+                                    PointerExited="LauncherTile_PointerExited" PointerCanceled="LauncherTile_PointerExited" Click="Map_Click">
+                                <StackPanel Spacing="5" VerticalAlignment="Center">
+                                    <TextBlock Tag="Launcher.Map" Text="Day and night" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" />
+                                    <TextBlock Tag="Launcher.MapDescription" Text="Where the Sun is shining now." FontSize="14"
+                                               Foreground="{ThemeResource LauncherTileDescriptionBrush}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Button>
+                            <Rectangle Style="{StaticResource LauncherCornerArtStyle}">
+                                <Rectangle.Fill><controls:LauncherArtworkBrush Source="ms-appx:///Assets/Launcher/day-night-v1.png" /></Rectangle.Fill>
+                            </Rectangle>
+                        </Grid>
+                        <Grid x:Name="CalendarTile" Grid.Row="1" Grid.Column="0" Height="112">
+                            <Button x:Name="CalendarButton" Tag="Launcher.Calendar" AutomationProperties.AutomationId="Launcher.Calendar"
+                                    Style="{StaticResource LauncherTileStyle}" PointerEntered="LauncherTile_PointerEntered"
+                                    PointerExited="LauncherTile_PointerExited" PointerCanceled="LauncherTile_PointerExited" Click="Calendar_Click">
+                                <StackPanel Spacing="5" VerticalAlignment="Center">
+                                    <TextBlock Tag="Launcher.Calendar" Text="Calendar" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" />
+                                    <TextBlock Tag="Launcher.CalendarDescription" Text="Holidays and astronomical events." FontSize="14"
+                                               Foreground="{ThemeResource LauncherTileDescriptionBrush}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Button>
+                            <Rectangle Style="{StaticResource LauncherCornerArtStyle}">
+                                <Rectangle.Fill><controls:LauncherArtworkBrush Source="ms-appx:///Assets/Launcher/calendar-v1.png" /></Rectangle.Fill>
+                            </Rectangle>
+                        </Grid>
+                        <Grid x:Name="SkyTile" Grid.Row="1" Grid.Column="1" Height="112">
+                            <Button x:Name="SkyButton" Tag="Launcher.Sky" AutomationProperties.AutomationId="Launcher.Sky"
+                                    Style="{StaticResource LauncherTileStyle}" PointerEntered="LauncherTile_PointerEntered"
+                                    PointerExited="LauncherTile_PointerExited" PointerCanceled="LauncherTile_PointerExited" Click="Sky_Click">
+                                <StackPanel Spacing="5" VerticalAlignment="Center">
+                                    <TextBlock Tag="Launcher.Sky" Text="Local sky" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" />
+                                    <TextBlock Tag="Launcher.SkyDescription" Text="Stars and planets above you." FontSize="14"
+                                               Foreground="{ThemeResource LauncherTileDescriptionBrush}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Button>
+                            <Rectangle Style="{StaticResource LauncherCornerArtStyle}">
+                                <Rectangle.Fill><controls:LauncherArtworkBrush Source="ms-appx:///Assets/Launcher/local-sky-v1.png" /></Rectangle.Fill>
+                            </Rectangle>
+                        </Grid>
+                        <Grid x:Name="GlobeTile" Grid.Row="2" Grid.Column="0" Height="112">
+                            <Button x:Name="GlobeButton" Tag="Launcher.Globe" AutomationProperties.AutomationId="Launcher.Globe"
+                                    Style="{StaticResource LauncherTileStyle}" PointerEntered="LauncherTile_PointerEntered"
+                                    PointerExited="LauncherTile_PointerExited" PointerCanceled="LauncherTile_PointerExited" Click="Globe_Click">
+                                <StackPanel Spacing="5" VerticalAlignment="Center">
+                                    <TextBlock Tag="Launcher.Globe" Text="Globe" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" />
+                                    <TextBlock Tag="Launcher.GlobeDescription" Text="Explore the Earth in 3D." FontSize="14"
+                                               Foreground="{ThemeResource LauncherTileDescriptionBrush}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Button>
+                            <Rectangle Style="{StaticResource LauncherCornerArtStyle}">
+                                <Rectangle.Fill><controls:LauncherArtworkBrush Source="ms-appx:///Assets/Launcher/globe-v1.png" /></Rectangle.Fill>
+                            </Rectangle>
+                        </Grid>
+                        <Grid x:Name="MoonTile" Grid.Row="2" Grid.Column="1" Height="112">
+                            <Button x:Name="MoonButton" Tag="Launcher.Moon" AutomationProperties.AutomationId="Launcher.Moon"
+                                    Style="{StaticResource LauncherTileStyle}" PointerEntered="LauncherTile_PointerEntered"
+                                    PointerExited="LauncherTile_PointerExited" PointerCanceled="LauncherTile_PointerExited" Click="Moon_Click">
+                                <StackPanel Spacing="5" VerticalAlignment="Center">
+                                    <TextBlock Tag="Launcher.Moon" Text="Moon" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" />
+                                    <TextBlock Tag="Launcher.MoonDescription" Text="The current phase of the Moon." FontSize="14"
+                                               Foreground="{ThemeResource LauncherTileDescriptionBrush}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Button>
+                            <Rectangle Style="{StaticResource LauncherCornerArtStyle}">
+                                <Rectangle.Fill><controls:LauncherArtworkBrush Source="ms-appx:///Assets/Launcher/moon-v1.png" /></Rectangle.Fill>
+                            </Rectangle>
+                        </Grid>
+                    </Grid>
+                    <Button x:Name="ShowAllButton" Tag="Tray.ShowAllWindows" AutomationProperties.AutomationId="Launcher.ShowAll"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="14,12" CornerRadius="10" Click="ShowAll_Click">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE8A7;" FontSize="21" VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw" />
+                            <StackPanel Grid.Column="1" Spacing="3">
+                                <TextBlock Tag="Tray.ShowAllWindows" Text="Show all windows" TextWrapping="Wrap" />
+                                <TextBlock Tag="Launcher.ShowAllDescription" Text="Bring your open WorkTrail windows to the front."
+                                           FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Grid>
+                    </Button>
+                    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                    <Expander x:Name="SettingsExpander" AutomationProperties.AutomationId="Launcher.Settings" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xE713;" FontSize="18" AutomationProperties.AccessibilityView="Raw" />
+                                <TextBlock Tag="Launcher.Settings" Text="Settings" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Spacing="18">
+                        <Grid x:Name="SettingsGrid" ColumnSpacing="24" RowSpacing="18">
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <StackPanel x:Name="StartupCard" Spacing="6">
+                                <ToggleSwitch x:Name="StartupToggle" Tag="Launcher.Startup" AutomationProperties.AutomationId="Launcher.Startup" Toggled="Startup_Toggled" />
+                                <TextBlock Tag="Launcher.StartupDescription" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                            <StackPanel x:Name="SnappingCard" Grid.Column="1" Spacing="6">
+                                <ToggleSwitch x:Name="SnappingToggle" Tag="Launcher.Snapping" AutomationProperties.AutomationId="Launcher.Snapping" Toggled="Preference_Toggled" />
+                                <TextBlock Tag="Launcher.SnappingDescription" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                            <StackPanel x:Name="TitleBarCard" Grid.Row="1" Spacing="6">
+                                <ToggleSwitch x:Name="TitleBarToggle" Tag="Launcher.AutoHide" AutomationProperties.AutomationId="Launcher.AutoHide" Toggled="Preference_Toggled" />
+                                <TextBlock Tag="Launcher.AutoHideDescription" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                            <ComboBox x:Name="ThemeCombo" Grid.Row="1" Grid.Column="1" VerticalAlignment="Top" Tag="Launcher.Theme" AutomationProperties.AutomationId="Launcher.Theme" HorizontalAlignment="Stretch" SelectionChanged="Theme_Changed" />
+                            <controls:LanguagePicker x:Name="LanguageCombo" Grid.Row="2" Tag="Launcher.Language" AutomationProperties.AutomationId="Launcher.Language" HorizontalAlignment="Stretch" SelectionChanged="Language_Changed" />
+                            <StackPanel x:Name="WeatherCard" Grid.Row="2" Grid.Column="1" Spacing="6">
+                                <ToggleSwitch x:Name="WeatherToggle" Tag="WorldClock.Options.Weather" AutomationProperties.AutomationId="Launcher.Weather" Toggled="Preference_Toggled" />
+                                <TextBlock Tag="WorldClock.Options.Weather.Description" Text="Show fresh current conditions for the selected cities." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <Button Tag="WeatherSetup.Key" Content="OpenWeather API key" AutomationProperties.AutomationId="Launcher.WeatherKey" Click="WeatherKey_Click" />
+                            </StackPanel>
+                        </Grid>
+                        <ContentControl x:Name="WeatherSettingsHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" />
+                        </StackPanel>
+                    </Expander>
+                    <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Error" IsClosable="True" />
+                    <Grid x:Name="LauncherFooter" ColumnSpacing="12" RowSpacing="10">
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <Button x:Name="AboutButton" Tag="MenuTitleAbout" AutomationProperties.AutomationId="Launcher.About" Style="{StaticResource LauncherFooterButtonStyle}" Click="About_Click">
+                            <TextBlock Tag="MenuTitleAbout" Text="About" TextWrapping="Wrap" TextAlignment="Center" />
+                        </Button>
+                        <Button x:Name="HideButton" Grid.Column="1" Tag="Tray.HideMainWindow" AutomationProperties.AutomationId="Launcher.Hide" Style="{StaticResource LauncherFooterButtonStyle}" Click="Hide_Click">
+                            <StackPanel Spacing="4">
+                                <TextBlock Tag="Tray.HideMainWindow" Text="Hide in notification area" TextWrapping="Wrap" TextAlignment="Center" />
+                                <TextBlock Tag="Launcher.HideDescription" Text="Widgets keep running. Reopen WorkTrail from its tray icon." FontSize="11" TextWrapping="Wrap" TextAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="ExitButton" Grid.Column="2" Tag="Tray.CloseApplication" AutomationProperties.AutomationId="Launcher.Exit" Style="{StaticResource LauncherFooterButtonStyle}" Click="Exit_Click">
+                            <TextBlock Tag="Tray.CloseApplication" Text="Exit" TextWrapping="Wrap" TextAlignment="Center" />
+                        </Button>
+                    </Grid>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</Window>

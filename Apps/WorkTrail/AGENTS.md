@@ -1,0 +1,84 @@
+# WorkTrail repository instructions
+
+These instructions apply to every change in this repository.
+
+## Product and documentation
+
+- Follow the [MeUp style guide](docs/assets/meup/README.md). Keep a common README structure and author signature across AgentInbox, PromptMeUp, and WorkTrail while giving each a distinct accent and concrete benefit.
+- Open each README with the concrete problem I encountered in daily work, then explain how I built the app to solve it and what the reader can do with it. Keep the problem and solution ahead of architecture, branding, optional examples, and project history. Use honest, specific language; light humor is welcome when it fits.
+- Use plain English, short sentences, concrete actions, useful examples, and "you" for the reader. Use "I", "me", and "my" for the solo maintainer, never company-style "we", "us", or "our", or third-person labels such as "the author" or "the developer". Apply this voice to captions and provenance notes too; keep contributor credits accurate.
+- Avoid filler, hype, vague promises, corporate language, and AI-sounding prose. Never promise unlimited capacity or untested compatibility. Preserve exact commands, UI labels, privacy facts, limitations, contributor credits, and the distinction between implemented, tested, and planned behavior.
+- Preserve third-party quotations, licenses and attribution. Describe current behavior in documentation; do not accumulate development stories, completed-task archives or historical validation reports. Keep UI strings separate from business logic and detailed validation procedures out of the product README.
+- Keep roadmaps, design explorations, pricing, commercial strategy, launch plans, future proposals, OAuth/Store procedures, owner checkpoints, and raw Store exports outside Git in the owner's Obsidian product notes under `40_Business/Products/WorkTrail/`, with shared MeUp decisions in `40_Business/Products/MeUp/`. Before publication or Store-listing work, read `40_Business/Products/MeUp/Business decisions.md` and the relevant product notes; approved wording is not evidence of implemented licensing.
+- Keep shipped assets, real screenshots, provenance, current public policies and terms, licenses, attribution, build/contributor guidance, and files required by code or CI in the repository. Split mixed public/private documents.
+
+## Distribution and delivery
+
+- Binaries target Windows 11 x64 and ARM64. GitHub Releases and ordinary local distributable builds use portable ZIPs only, with their checksums; do not attach MSIX, standalone EXE or MSI installers. Microsoft Store is a separate distribution channel. Linux and macOS are source-only; do not provide binaries, installers, or compatibility promises for them.
+- A requested build defaults to local Debug-Unpackaged; requested distributables are portable ZIPs compiled from the current source. Store packaging, upload, publication, release-pipeline changes, and tags each require explicit owner authorization. Keep Debug artifacts separate from Store artifacts.
+- Never create a branch or worktree, commit, or push without explicit owner authorization. An edit request does not authorize Git delivery.
+- For documentation or repository-instruction changes, stay on the current branch and keep changes local until delivery is requested; when authorized, include `[skip ci]` unless the owner requests CI.
+- For other work, protect `main`: use an authorized focused branch, open a pull request assigned to `umbertotechnopreneur` with matching existing labels, resolve checks and conversations, squash-merge, then delete the branch. Never bypass protections or checks. The macOS-only CI exception below is explicitly owner-authorized.
+- Prioritize CI platforms in this order: Windows, Linux, macOS. A failing, cancelled, unavailable, or stalled macOS-only check does not block an owner-authorized delivery when Windows, Linux, platform-independent required checks, and review requirements are satisfied.
+- In that case, the owner authorizes a supported administrator merge override for the macOS check only, without asking again. Keep branch protections configured, never override other failed checks or unresolved reviews, and report macOS validation accurately. This exception does not authorize starting builds, tests, Git delivery, installation, or publication by itself.
+- Local MSIX build, signing, and installation require explicit authorization. GitHub Actions is optional for packaging. Create an annotated `v<version>` tag only when that source version is on `main` and the owner explicitly requests it.
+- Do not create MSIX packages during normal build or GitHub release tasks. A separately requested Store submission may use MSIX tooling. Do not run unrequested UI tests. Run required cleanup silently and report it concisely.
+- Preserve unrelated changes. Never commit credentials, tokens, private/local data, logs, generated artifacts, machine paths, `.env`, `bin/`, `obj/`, `artifacts/`, or `.vs/`.
+
+## Mandatory artifact cleanup
+
+- Every authorized local or CI build, test, packaging, installation, or artifact-download task includes cleanup of its own generated output. Apply this to Debug, Release, and Microsoft Store work, including failed attempts. This rule does not authorize starting builds or tests.
+- Use task-specific subdirectories under ignored `artifacts/` for temporary output. Before reusing a build directory, remove its obsolete transient contents while preserving pending deliverables. Do not run builds concurrently in the same checkout.
+- After the last use and before handoff, run `dotnet clean` with the matching configuration, platform, runtime, and output paths, then remove task-owned intermediates that it leaves behind: `publish`, `payload`, `bin`, `obj`, temporary caches, scratch files, transport archives, disposable test profiles, and unnecessary logs. Clean task-owned temporary directories too; `dotnet clean` alone is not sufficient. Do not retain whole historical build/run directories.
+- Retain only the latest validated portable ZIP for each requested channel and architecture, its checksum, and minimal current validation metadata. Delete all previous build/test output, validation records, logs, scratch directories, and superseded packages; historical verification is not a reason to retain generated files. Preserve a pending Store upload or rollback package only when the owner explicitly requests that exception for the current task.
+- Cleanup includes pre-existing generated output under this repository's `artifacts/`, not only the current run. Inventory and verify the paths before deleting them. Never delete source, application databases, captured screenshots, settings, or shared SDK/NuGet caches. Do not accumulate historical build/run directories.
+- Before recursive removal or moving, resolve and verify every absolute target stays inside this repository's `artifacts/` or the exact temporary directory created by the task; do not follow links outside those roots. Use `pwsh -NoProfile` and literal-path filesystem operations. Delete inventoried obsolete output after preserving the current deliverable; never blindly wipe a shared/system temp directory, user data, or shared SDK/NuGet caches.
+- Verify the cleanup result and report briefly what deliverables remain. If locks, permissions, or approval review prevent cleanup, identify the remaining paths and approximate size; do not claim the directory is clean.
+
+## Scope, validation, and tooling
+
+- Read no more than five files per task without explicit approval. Warn before broad reads, unbounded searches, or large output; start with scoped `rg`, reuse context, bound output, and expand only when required.
+- Make the smallest complete change. Avoid unrelated refactors, cleanup, documentation churn, and speculative abstractions. Use subagents only when explicitly requested.
+- Do not run tests or test suites without explicit approval; a code-change request is not approval. Ask again before rerunning tests. Keep required CI checks intact and ask before a push that triggers them.
+- For C# work, enable the hook once per clone with `pwsh -NoProfile -File ./scripts/Install-GitHooks.ps1`. Before handoff, run `pwsh -NoProfile -File ./scripts/Format-Code.ps1` and its `-Verify` mode; do not bypass the hook.
+- For documentation/instruction-only work, inspect only the scoped diff and staging; do not build, test, format, install hooks, or clean.
+- Use PowerShell 7 only and invoke commands through `pwsh -NoProfile`. Prefer `pwsh -NoProfile -File <script.ps1>` and, for short commands, `pwsh -NoProfile -Command '<single-quoted command>'`; pass arguments explicitly instead of composing nested shell strings.
+- Prefer parser checks and dry runs before destructive scripts. Run builds only for supported Windows SDK x64/ARM64 targets.
+- Use ignored `artifacts/` as the only repository-local location for all temporary, generated, compiled, and packaging output created during work, including intermediates, logs, reports, and scratch files; organize them in dedicated subdirectories. Do not write such output at the repository root or beside source files. Scripts must not overwrite tracked manifest templates or release-version inputs.
+- If a task generated build/test output, follow Mandatory artifact cleanup after final use with the matching `dotnet clean` (x64 by default), then remove leftover task-owned intermediates. Preserve the newly validated portable ZIP and explicitly pending Store uploads; prune superseded packages only after checking their retention needs and verifying their resolved paths are under this repository's `artifacts/`.
+
+Authorized checks, when relevant:
+
+```powershell
+git status
+dotnet restore .\WorkTrail\WorkTrail.csproj
+dotnet build .\WorkTrail\WorkTrail.csproj -c Debug-Unpackaged -p:Platform=x64 -p:GenerateAppxPackageOnBuild=false -p:AppxPackageSigningEnabled=false
+```
+
+## Engineering invariants
+
+- Do not add or retain backward-compatibility layers for superseded filenames, paths, settings, or APIs unless explicitly requested. Replace obsolete paths, adapters, and fallbacks.
+- This repository is in beta. Open activity databases on a best-effort basis: do not reject them because of schema versions, exact table definitions, columns, indexes, or additional schema objects. Create missing database objects without replacing existing data. Do not add version-specific compatibility layers or reset stored history to bypass an opening failure.
+- Report actual persistence, interop, startup, and unexpected application failures in a durable local log and a visible error dialog. Database failure reporting must work before the main window exists. Do not silently ignore errors or pretend an operation succeeded.
+- Keep WinUI views/code-behind and renderers passive: they collect input, bind/render DTOs, and invoke `IWorkTrailApplication`. They must not construct infrastructure services or perform I/O, process, registry, environment, HTTP, hook, or persistence work.
+- Put application behavior, persistence, OS interop, environment access, HTTP, retention, and startup behind `WorkTrail.Core` application services. Serialize persistence mutations in the application layer.
+- Do not create a second widget runtime. Use the hashed-installation mutex and same-user versioned named-pipe protocol through the shared facade.
+- Use the environment-variable secret flow. Never put secrets in CLI arguments, settings, history, logs, IPC diagnostics, or tests.
+- Start first-party C# files with `// SPDX-License-Identifier: MIT`; preserve notices in generated and third-party files. Add XML documentation to public/protected methods and short comments for critical I/O, OS/process interop, external calls, and non-obvious failure behavior.
+- Give every icon-only WinUI button or toggle a localized tooltip and the same localized accessible name.
+
+## Repository map and records
+
+- `WorkTrail/`: Windows-first WinUI 3 app (`net10.0-windows10.0.19041.0`, x64/ARM64).
+- `scripts/`: repository utilities. `.github/`: governance, workflows, and tasks.
+- Keep `.github/tasks/todo.md` limited to unfinished outcomes and acceptance conditions. Consolidate duplicate checks; remove completed items, stale installed-version claims, run transcripts, and repeated authorization rules.
+- Do not create `story`, `history`, `validation.md` or completed-task archives. Keep only the latest delivery's minimal verification metadata under ignored `artifacts/`; replace it on the next delivery. Do not repeat PR numbers, CI run transcripts or past test results in product documentation. Keep `.github/tasks/lessons.md` limited to reusable failure mechanisms that add to these rules. Preserve dependency provenance and first-import scan evidence while the unchanged dependency is in use.
+- When preparing or updating a PR, record notable implemented user or contributor changes in `CHANGELOG.md` under `Unreleased`, in the same PR. Use the final diff and completed task records as evidence; do not copy open tasks, private plans, or claim unverified fixes. Internal-only changes may omit an entry when the PR explains why.
+- Keep changelog entries concise and group them under Added, Changed, Fixed, Removed, or Security as applicable. Put detailed validation evidence in the PR, not in the backlog or milestone index. Update entries if the PR scope changes. Move `Unreleased` entries to a dated version only during an explicitly authorized release; never infer a release from a merge or local build.
+- Keep repository-wide rules here. Copilot support has been removed; do not recreate Copilot instructions, prompt files, or agent configuration.
+
+## Licensing
+
+- Project-authored code and documentation use the canonical MIT License in `LICENSE` unless a file says otherwise; do not add commercial-use or distribution restrictions.
+- The WorkTrail name, logos, icons, and project-authored brand art are outside the MIT grant; follow `TRADEMARKS.md` and asset provenance records.
+- Preserve third-party licenses and attribution in `THIRD_PARTY_NOTICES.md` and adjacent notices.

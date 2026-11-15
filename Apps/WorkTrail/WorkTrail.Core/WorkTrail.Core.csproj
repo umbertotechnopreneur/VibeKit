@@ -1,0 +1,53 @@
+<!-- VBWR B
+
+  Project: WorkTrail
+  Repository: https://github.com/umbertotechnopreneur/WorkTrail
+  Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+
+  VibeWare: Human intent, AI execution, and plenty of tokens
+  Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+
+  Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+  Human guidance: Umberto Giacobbi; requested VibeWare branding.
+
+  Copyright (c) 2026 Umberto Giacobbi
+  License: MIT - see LICENSE
+  SPDX-License-Identifier: MIT
+
+VBWR E -->
+
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <RootNamespace>WorkTrail</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Infrastructure\Services\*.cs" />
+    <Compile Include="Application\*.cs" />
+    <Compile Include="Runtime\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Localization\*.json" LogicalName="WorkTrail.Localization.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Data\meteor-showers.json" LogicalName="WorkTrail.Data.meteor-showers.json" />
+    <EmbeddedResource Include="Data\sky-catalog.json" LogicalName="WorkTrail.Data.sky-catalog.json" />
+    <EmbeddedResource Include="Data\sky-palette.json" LogicalName="WorkTrail.Data.sky-palette.json" />
+    <EmbeddedResource Include="Data\ui-automation-names.json" LogicalName="WorkTrail.Data.ui-automation-names.json" />
+    <EmbeddedResource Include="Data\important-dates.json" LogicalName="WorkTrail.Data.important-dates.json" />
+    <EmbeddedResource Include="Data\celestial-calendar.json" LogicalName="WorkTrail.Data.celestial-calendar.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.14" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
+    <PackageReference Include="CosineKitty.AstronomyEngine" Version="2.1.19" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
+    <PackageReference Include="SkiaSharp" Version="4.154.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="4.154.0" />
+    <PackageReference Include="SGP.NET" Version="1.6.0" />
+  </ItemGroup>
+</Project>

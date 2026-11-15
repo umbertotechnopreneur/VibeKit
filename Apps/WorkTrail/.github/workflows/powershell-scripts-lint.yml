@@ -1,0 +1,91 @@
+# VBWR B
+#
+# Project: WorkTrail
+# Repository: https://github.com/umbertotechnopreneur/WorkTrail
+# Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+#
+# VibeWare: Human intent, AI execution, and plenty of tokens
+# Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+#
+# Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+# Human guidance: Umberto Giacobbi; requested VibeWare branding.
+#
+# Copyright (c) 2026 Umberto Giacobbi
+# License: MIT - see LICENSE
+# SPDX-License-Identifier: MIT
+#
+# VBWR E
+
+name: powershell-scripts-lint
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/**/*.ps1'
+      - 'scripts/**/*.psm1'
+      - 'scripts/**/*.psd1'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/powershell-scripts-lint.yml'
+      - 'WorkTrail/WorkTrail.csproj'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'scripts/**/*.ps1'
+      - 'scripts/**/*.psm1'
+      - 'scripts/**/*.psd1'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/powershell-scripts-lint.yml'
+      - 'WorkTrail/WorkTrail.csproj'
+
+jobs:
+  parse:
+    name: parse powershell scripts
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Parse PowerShell files
+        shell: pwsh -NoProfile -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $files = Get-ChildItem -Path '.\scripts' -Recurse -File |
+            Where-Object { $_.Extension -in '.ps1', '.psm1', '.psd1' }
+
+          if (-not $files) {
+            Write-Host 'No PowerShell files found under scripts/.'
+            exit 0
+          }
+
+          $failed = $false
+
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+
+            if ($errors.Count -gt 0) {
+              $failed = $true
+              foreach ($error in $errors) {
+                $line = $error.Extent.StartLineNumber
+                $column = $error.Extent.StartColumnNumber
+                Write-Host "::error file=$($file.FullName),line=$line,column=$column::$($error.Message)"
+              }
+            }
+          }
+
+          if ($failed) {
+            throw 'PowerShell parser found syntax errors.'
+          }
+
+          Write-Host "PowerShell parser checks passed for $($files.Count) files."
+
+      - name: Test release packaging safeguards
+        shell: pwsh -NoProfile -File {0}
+        run: |
+          ./scripts/Test-ReleasePackaging.ps1
+          ./scripts/Test-PortableReleasePackaging.ps1

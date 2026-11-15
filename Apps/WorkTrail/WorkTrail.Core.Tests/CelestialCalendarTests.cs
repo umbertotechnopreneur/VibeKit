@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: MIT
+/* VBWR B
+ *
+ * Project: WorkTrail
+ * Repository: https://github.com/umbertotechnopreneur/WorkTrail
+ * Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+ *
+ * VibeWare: Human intent, AI execution, and plenty of tokens
+ * Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+ *
+ * Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+ * Human guidance: Umberto Giacobbi; requested VibeWare branding.
+ *
+ * Copyright (c) 2026 Umberto Giacobbi
+ * License: MIT - see LICENSE
+ *
+ * VBWR E */
+
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading;
+
+using WorkTrail.Application;
+using WorkTrail.Services;
+using Xunit;
+
+namespace WorkTrail.Core.Tests;
+
+/// <summary>Checks offline holiday coverage, local event times, and country selection validation.</summary>
+public sealed class CelestialCalendarTests
+{
+    #region Implementation
+
+    /// <summary>Keeps the reviewed country coverage and required holiday metadata in the offline catalog.</summary>
+    [Fact]
+    public void Catalog_ContainsReviewedOfflineCoverage()
+    {
+        var catalog = CelestialCalendarCatalog.Current;
+
+        Assert.Equal(new DateOnly(2026, 1, 1), catalog.CoverageStart);
+        Assert.Equal(new DateOnly(2028, 3, 31), catalog.CoverageEnd);
+        Assert.Equal(49, catalog.Countries.Count);
+        Assert.Equal(1512, catalog.Holidays.Count);
+        Assert.Equal(17, catalog.Holidays.Count(h => h.Country == "HK" && h.Date.Year == 2027));
+        Assert.Equal(18, catalog.Holidays.Count(h => h.Country == "ID" && h.Date.Year == 2027));
+        Assert.All(catalog.Countries.Where(c => c.Code is "HK" or "ID"),
+            c => Assert.Equal(new DateOnly(2027, 12, 31), c.CoverageEnd));
+        Assert.Equal(211, catalog.Saints.Count);
+        Assert.All(catalog.Holidays, holiday => Assert.Matches("^[A-Za-z0-9._-]+\\.png$", holiday.ArtworkFileName));
+        Assert.Contains(catalog.Holidays, holiday => holiday.ArtworkFileName == "new-year-v1.png");
+        Assert.Contains(catalog.Saints, saint => saint.EventKey == "StFrancisAssisi"
+            && saint.NameLatin.Contains("Francisci", StringComparison.Ordinal));
+    }
+
+    /// <summary>Places holidays at nine in the observer time zone and removes duplicate selections.</summary>
+    [Fact]
+    public void Events_StartAtNineLocalAndDeduplicateSelectedHolidays()
+    {
+        var city = new WorldClockCitySummary("rome", "Rome", "IT", "Europe/Rome", 41.9028, 12.4964, true);
+        var instant = new DateTimeOffset(2026, 9, 24, 0, 0, 0, TimeSpan.Zero);
+        var snapshot = CelestialService.Build(new CelestialRequest(city.Id, instant),
+            new WorldClockCityCatalog([city], 12), CancellationToken.None);
+        var zone = TimeZoneInfo.FindSystemTimeZoneById(city.TimeZoneId);
+        var today = new DateOnly(2026, 9, 24);
+        var holidays = new[]
+        {
+            new CelestialCalendarHoliday(
+                today, "IT", "Test holiday", "holiday", "rule_based", "holiday-it-v1.png", "https://example.com"),
+            new CelestialCalendarHoliday(
+                today, "FR", "Other country", "holiday", "rule_based", "holiday-fr-v1.png", "https://example.com"),
+            new CelestialCalendarHoliday(
+                today, "IT", "Make-up day", "workday", "rule_based", "holiday-it-v1.png", "https://example.com")
+        };
+        var saints = new[] { new CelestialCalendarSaint(9, 24, "OwnerOurLadyOfMercy", "Beatae Mariae Virginis de Mercede", "https://example.com") };
+        var calendar = CelestialCalendarEventService.Build(snapshot, zone, holidays, saints, ["IT", "FR"], true, CancellationToken.None);
+
+        Assert.Equal(2, calendar.Count);
+        Assert.All(calendar,
+            item => Assert.Equal(new TimeOnly(9, 0), TimeOnly.FromDateTime(item.StartLocal.DateTime)));
+        Assert.Equal(CelestialEventKind.Holiday, calendar[0].Kind);
+        Assert.Equal("holiday-fr-v1.png", calendar[0].CalendarArtworkFileName);
+        Assert.Equal(CelestialEventKind.Saint, calendar[1].Kind);
+        Assert.Empty(CelestialCalendarEventService.Build(snapshot, zone, holidays, saints, [], false, CancellationToken.None));
+    }
+
+    /// <summary>Rejects unsupported or malformed holiday country selections before saving settings.</summary>
+    [Fact]
+    public void Settings_RejectUnsupportedOrMalformedCountrySelections()
+    {
+        var initial = new AppSettings();
+        var valid = SettingsCatalog.Apply(initial, new SettingsPatch(new Dictionary<string, string?>
+        {
+            ["astronomy.agenda.city_id"] = "rome",
+            ["astronomy.agenda.country_codes"] = "IT,VN,JP",
+            ["astronomy.agenda.show_saints"] = "false"
+        }));
+
+        Assert.True(valid.Succeeded);
+        Assert.Equal(new[] { "IT", "VN", "JP" }, valid.Value!.AstronomyAgendaCountryCodes);
+        Assert.False(valid.Value.AstronomyAgendaShowSaints);
+
+        foreach (var malformed in new[] { "IT,,VN", "XX", "IT,IT" })
+        {
+            Assert.False(SettingsCatalog.Apply(initial, new SettingsPatch(new Dictionary<string, string?>
+            {
+                ["astronomy.agenda.country_codes"] = malformed
+            })).Succeeded);
+        }
+    }
+
+    #endregion
+}

@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'Widgets/WaterRipple/**'
+      - '!Widgets/WaterRipple/**/*.md'
       - '.github/workflows/desktop-ripple-linux.yml'
   pull_request:
     paths:
       - 'Widgets/WaterRipple/**'
+      - '!Widgets/WaterRipple/**/*.md'
       - '.github/workflows/desktop-ripple-linux.yml'
   workflow_dispatch:
 

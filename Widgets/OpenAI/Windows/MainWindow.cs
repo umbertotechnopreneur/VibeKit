@@ -25,6 +25,7 @@ public sealed class MainWindow : Window
     private const double CountdownWidth = 290;
     private const double MetricHeadingSize = 16, MetricValueSize = 27;
     private const string UsageUrl = "https://chatgpt.com/settings/usage";
+    private const string ManifestoUrl = "https://umbertogiacobbi.biz/vibeware/manifesto";
     private static readonly int[] WindowOpacityOptions = [25, 50, 75, 100];
     private static readonly (double Percent, uint Light, uint Dark)[] UsageColors =
     [
@@ -199,7 +200,32 @@ public sealed class MainWindow : Window
         var view=new Viewbox { Child=strip, Stretch=Stretch.Uniform, VerticalAlignment=VerticalAlignment.Center };
         root.Children.Add(WarmAccent(.24, .72, .32, 28, 248, 112, 42));
         root.Children.Add(WarmAccent(.68, .25, .28, 23, 233, 65, 68));
-        root.Children.Add(view); Content=root; ApplyTopmost(); UpdatePinVisual();
+        root.Children.Add(view);
+        var manifesto = new HyperlinkButton
+        {
+            NavigateUri = new Uri(ManifestoUrl),
+            Content = new Image
+            {
+                Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Branding", "VibeWare.png"))),
+                Width = 16, Height = 16, Stretch = Stretch.Uniform
+            },
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new(0, 0, 10, 4), Padding = new(0),
+            MinWidth = 0, MinHeight = 0, BorderThickness = new(0),
+            Background = new SolidColorBrush(Colors.Transparent), Opacity = .78
+        };
+        foreach (string state in new[] { "", "PointerOver", "Pressed", "Disabled" })
+        {
+            manifesto.Resources["HyperlinkButtonBackground" + state] = new SolidColorBrush(Colors.Transparent);
+            manifesto.Resources["HyperlinkButtonBorderBrush" + state] = new SolidColorBrush(Colors.Transparent);
+        }
+        ToolTipService.SetToolTip(manifesto, "VibeWare manifesto");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(manifesto, "VibeWare manifesto");
+        manifesto.PointerEntered += (_, _) => manifesto.Opacity = 1;
+        manifesto.PointerExited += (_, _) => manifesto.Opacity = .78;
+        root.Children.Add(manifesto);
+        Content=root; ApplyTopmost(); UpdatePinVisual();
         root.SizeChanged+=(_,_)=>UpdateDragRegions(); actions.SizeChanged+=(_,_)=>UpdateDragRegions(); view.SizeChanged+=(_,_)=>UpdateDragRegions();
         forecastRow.SizeChanged += (_, _) => UpdateDragRegions();
         usageLink.SizeChanged += (_, _) => UpdateDragRegions();

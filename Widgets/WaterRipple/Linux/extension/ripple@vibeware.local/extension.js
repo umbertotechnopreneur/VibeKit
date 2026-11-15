@@ -27,10 +27,15 @@ export default class RippleExtension extends Extension {
         this._lastClick = 0;
         this._previousFrame = 0;
         this._lagCount = 0;
+        this._diagnosticTimer = 0;
+        this._diagnosticPrevious = null;
         // A new login/extension reload always starts with refraction off.
         this._settings.set_boolean('active', false);
         this._settings.set_string('status', 'Ready');
         this._connect(this._settings, 'changed', (_settings, key) => {
+            // Heartbeats change every second and must never produce log traffic.
+            if (key !== 'lease-until')
+                this._queueDiagnostic();
             if (key === 'active') {
                 if (!this._settings.get_boolean('active')) {
                     this._clear();
@@ -65,9 +70,10 @@ export default class RippleExtension extends Extension {
         this._connect(Main.layoutManager, 'monitors-changed', () => this._clear());
         this._connect(Main.sessionMode, 'updated', () => this._clear());
         this._syncPanic();
+        this._logDiagnostic('extension-enabled');
         this._leaseTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, () => {
             if (this._settings.get_boolean('active') && !this._leaseValid())
-                this._stop('Effect stopped because the controller closed');
+                this._stop('Controller heartbeat expired or invalid');
             return GLib.SOURCE_CONTINUE;
         });
     }
@@ -129,6 +135,45 @@ export default class RippleExtension extends Extension {
     _leaseValid() {
         const remaining = this._settings.get_double('lease-until') - now();
         return remaining > 0 && remaining <= 8;
+    }
+
+    _diagnosticValues() {
+        const values = this._values();
+        for (const key of ['active', 'status', 'target', 'fps', 'patch-size',
+            'max-waves', 'panic-enabled', 'panic-available'])
+            values[key] = this._settings.get_value(key).deep_unpack();
+        return values;
+    }
+
+    _queueDiagnostic() {
+        if (this._diagnosticTimer)
+            GLib.source_remove(this._diagnosticTimer);
+        this._diagnosticTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
+            this._diagnosticTimer = 0;
+            this._logDiagnostic('settings-changed');
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _logDiagnostic(event, details = {}) {
+        if (this._diagnosticTimer) {
+            GLib.source_remove(this._diagnosticTimer);
+            this._diagnosticTimer = 0;
+        }
+        const values = this._diagnosticValues();
+        const changed = {};
+        if (this._diagnosticPrevious) {
+            for (const [key, value] of Object.entries(values)) {
+                if (value !== this._diagnosticPrevious[key])
+                    changed[key] = [this._diagnosticPrevious[key], value];
+            }
+        }
+        this._diagnosticPrevious = values;
+        if (event === 'settings-changed' && !Object.keys(changed).length)
+            return;
+        console.log('Ripple: ' + JSON.stringify({event, active: values.active,
+            status: values.status, target: values.target, fps: values.fps,
+            ...details, ...(Object.keys(changed).length ? {changed} : {})}));
     }
 
     _values() {
@@ -249,13 +294,13 @@ export default class RippleExtension extends Extension {
         }
         if (delay > 0.25) {
             this._timer = 0;
-            this._stop('Effect stopped after a compositor delay');
+            this._stop('Effect stopped after a compositor delay', {delayMs: Math.round(delay * 1000)});
             return GLib.SOURCE_REMOVE;
         }
         this._lagCount = delay > 0.09 ? this._lagCount + 1 : Math.max(0, this._lagCount - 1);
         if (this._lagCount >= 3) {
             this._timer = 0;
-            this._stop('Effect stopped after repeated compositor delays');
+            this._stop('Effect stopped after repeated compositor delays', {delayMs: Math.round(delay * 1000)});
             return GLib.SOURCE_REMOVE;
         }
         const lifetime = this._settings.get_double('lifetime');
@@ -293,10 +338,15 @@ export default class RippleExtension extends Extension {
         this._lagCount = 0;
     }
 
-    _stop(message) {
+    _stop(message, details = {}) {
+        const context = {reason: message, waves: this._patches.length,
+            lagCount: this._lagCount,
+            leaseRemainingMs: Math.round((this._settings.get_double('lease-until') - now()) * 1000),
+            ...details};
         this._clear();
         this._settings.set_boolean('active', false);
         this._settings.set_string('status', message);
+        this._logDiagnostic('effect-stopped', context);
     }
 
     disable() {
@@ -311,6 +361,8 @@ export default class RippleExtension extends Extension {
             object.disconnect(id);
         this._signals = [];
         this._settings.set_boolean('active', false);
+        this._logDiagnostic('extension-disabled');
+        this._diagnosticPrevious = null;
         this._settings = null;
     }
 }

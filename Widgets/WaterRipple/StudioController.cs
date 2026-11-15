@@ -2,7 +2,6 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Windows.Input;
 using System.Threading.Tasks;
@@ -26,41 +25,35 @@ internal sealed partial class StudioController : IDisposable
 {
     private readonly StudioModel model;
     private readonly Window window;
-    private readonly SwapChainPanel canvas;
+    private readonly FrameworkElement surface;
     private readonly IntPtr hwnd;
-    private readonly DispatcherQueueTimer timer, resourceTimer;
+    private readonly DispatcherQueueTimer resourceTimer;
     private readonly ResourceMonitor monitor;
     private readonly TrayService tray;
     private readonly StartupService startup;
     private readonly CaptureConsentService captureConsent;
     private readonly EmergencyShortcut emergencyShortcut;
-    private EffectFrameState frame = new();
-    private IntPtr renderer;
     private ScreenEffectSession? screen;
     private GpuMemory memory;
     private long generation;
     private double nextPerformanceLog;
     internal ICommand ToggleScreenCommand { get; }
-    internal ICommand ToggleCaptureCommand { get; }
-    internal ICommand DropCommand { get; }
     internal ICommand RestartCommand { get; }
     internal ICommand OpenSettingsCommand { get; }
     internal ICommand MinimizeToTrayCommand { get; }
     internal ICommand InspectScreenCommand { get; }
     internal bool IsInTray => model.State.IsInTray;
 
-    internal StudioController(StudioModel model, Window window, SwapChainPanel canvas)
+    internal StudioController(StudioModel model, Window window, FrameworkElement surface)
     {
-        this.model = model; this.window = window; this.canvas = canvas;
+        this.model = model; this.window = window; this.surface = surface;
         startup = new StartupService(model.State);
         captureConsent = new CaptureConsentService(model.State);
         hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
         tray = new TrayService(hwnd, Path.Combine(AppContext.BaseDirectory, "Assets", "WaterRipple.ico"), ShowFromTray, OpenSettings, ExitApp);
         window.AppWindow.Closing += MainWindowClosing;
         ToggleScreenCommand = new DelegateCommand(ToggleScreen);
-        ToggleCaptureCommand = new DelegateCommand(() => { if (model.State.CanFreeze) _ = RefreshPreviewAsync(); });
-        DropCommand = new DelegateCommand(() => { frame.AddWave(.5, .5); });
-        RestartCommand = new DelegateCommand(StartPreview);
+        RestartCommand = new DelegateCommand(CheckCapabilities);
         OpenSettingsCommand = new DelegateCommand(OpenSettings);
         MinimizeToTrayCommand = new DelegateCommand(() =>
         {
@@ -69,7 +62,6 @@ internal sealed partial class StudioController : IDisposable
         });
         InspectScreenCommand = new DelegateCommand(() => screen?.InspectCapture());
 
-        timer = window.DispatcherQueue.CreateTimer(); timer.Interval = TimeSpan.FromMilliseconds(4); timer.Tick += (_, _) => RenderPreview();
         resourceTimer = window.DispatcherQueue.CreateTimer(); resourceTimer.Interval = TimeSpan.FromSeconds(1); resourceTimer.Tick += (_, _) => UpdateResources(); resourceTimer.Start();
         monitor = new ResourceMonitor(warning: sample =>
         {
@@ -82,164 +74,32 @@ internal sealed partial class StudioController : IDisposable
         model.Settings.PropertyChanged += SettingsChanged;
     }
 
+    private bool initialized;
     internal void SurfaceLoaded()
     {
-        if (renderer == IntPtr.Zero && screen is null && !model.State.IsInTray && !model.State.IsClosing) StartPreview();
+        if (initialized || model.State.IsClosing) return;
+        initialized = true;
+        CheckCapabilities();
+        if (screen is null) StartScreen();
 #if DEBUG
-        if (Array.IndexOf(Environment.GetCommandLineArgs(), "--exercise-overlay") >= 0 && !checksStarted)
-        { checksStarted = true; _ = ExerciseOverlayAsync(); }
+        if (Array.IndexOf(Environment.GetCommandLineArgs(), "--exercise-overlay") >= 0)
+            _ = ExerciseOverlayAsync();
 #endif
     }
 
-    internal void StartPreview()
+    private void CheckCapabilities()
     {
-        if (model.State.IsClosing) return;
-        if (screen is not null) { StopScreen(); return; }
-        generation++;
-        ReleasePreview();
-        frame = new EffectFrameState();
-        model.State.IsCaptureLive = false;
-        model.State.CaptureAllowed = Native.SetWindowDisplayAffinity(hwnd, 0);
-        model.State.IsCaptureValid = false;
-        model.State.OverlayPhase = "PreviewStarting";
         try
         {
+            model.State.CaptureAllowed = Native.SetWindowDisplayAffinity(hwnd, 0);
             var b = Bounds();
-            Log.Information("Checking preview GPU Generation={Generation} Width={Width} Height={Height} CaptureAllowed={CaptureAllowed}",
-                generation, b.Width, b.Height, model.State.CaptureAllowed);
-            int result = Native.RippleCheckCapabilities(b.X, b.Y, b.Width, b.Height, out var caps);
+            int hr = Native.RippleCheckCapabilities(b.X, b.Y, b.Width, b.Height, out var caps);
             model.State.GpuName = caps.AdapterName ?? "Display GPU";
             model.State.DedicatedVramBytes = caps.DedicatedVideoMemory;
-            model.State.CanApply = result >= 0 && caps.Supported != 0 && model.State.CaptureAllowed;
-            model.State.CapabilityText = Describe(caps, result);
-            Log.Information("PreviewStarting Generation={Generation} GPU={GPU} DedicatedVRAM={Vram} FeatureLevel=0x{FeatureLevel:X} Supported={Supported} Reason={Reason} HRESULT=0x{HResult:X8}",
-                generation, caps.AdapterName, caps.DedicatedVideoMemory, caps.FeatureLevel, caps.Supported, caps.Reason, result);
-            IntPtr panel = WinRT.MarshalInspectable<SwapChainPanel>.FromManaged(canvas);
-            try { Marshal.ThrowExceptionForHR(Native.RippleCreate(panel, Path.Combine(AppContext.BaseDirectory, "Shaders"), out renderer)); }
-            finally { Marshal.Release(panel); }
-            Log.Information("Preview renderer created Generation={Generation}", generation);
-            model.State.CaptureMessage = "Desktop snapshot. Refresh background captures again; this window remains available in screenshots.";
-            model.State.StatusMessage = "";
-            // Let WinUI finish its Loaded/Activate transaction before changing visibility.
-            long expected = generation;
-            window.DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
-            {
-                if (!model.State.IsClosing && generation == expected) _ = RefreshPreviewAsync();
-            });
+            model.State.CanApply = hr >= 0 && caps.Supported != 0 && model.State.CaptureAllowed;
+            model.State.CapabilityText = Describe(caps, hr);
         }
-        catch (Exception ex) { Fail("Preview could not start", ex); ReleasePreview(); }
-    }
-
-    private void RenderPreview()
-    {
-        if (model.State.IsClosing || renderer == IntPtr.Zero || Native.IsIconic(hwnd) || canvas.ActualWidth < 2 || canvas.ActualHeight < 2) return;
-        double now = frame.Clock.Elapsed.TotalSeconds;
-        var settings = model.Settings;
-        if (now < frame.NextFrame) return;
-        frame.NextFrame = Math.Max(frame.NextFrame + 1 / settings.AnimationFps, now);
-        frame.Prepare(settings, now);
-        var b = Bounds();
-        int hr = Native.RippleRender(renderer, b.X, b.Y, b.Width, b.Height, (float)canvas.ActualWidth, (float)canvas.ActualHeight,
-            (float)settings.Strength, (float)(settings.WaveSize * .35), (float)settings.Speed, (float)settings.Duration,
-            settings.ChromaticEnabled ? (float)(settings.ChromaticSeparation / 100) : 0, (float)(settings.ChromaticBlend / 100),
-            settings.CrestEnabled ? (float)(settings.CrestIntensity / 100) : 0, settings.RipplesEnabled ? (float)(settings.RipplesIntensity / 100) : 0, settings.LiquidEnabled ? (float)(settings.LiquidIntensity / 100) : 0,
-            frame.ShaderWaves, frame.Waves.Count, 0, 0);
-        if (hr < 0) { Fail("Preview rendering stopped", new COMException("Graphics operation failed", hr)); timer.Stop(); return; }
-        if (frame.StatisticsClock.Elapsed.TotalSeconds >= 1 && Native.RippleGetStats(renderer, out var stats) >= 0)
-        {
-            double seconds = frame.StatisticsClock.Elapsed.TotalSeconds;
-            model.State.IsCaptureValid = (stats.Status & 32) != 0;
-            model.State.ActiveWaveCount = frame.Waves.Count;
-            model.State.MetricsText = $"Presents\t{(stats.PresentCount - frame.LastPresents) / seconds:F1} /s\nDesktop updates\t{(stats.CaptureCount - frame.LastCaptures) / seconds:F1} /s\nCapture submit\t{stats.LastCaptureMs:F2} ms\nRender submit\t{stats.LastRenderCpuMs:F2} ms\nCapture size\t{stats.CaptureWidth} × {stats.CaptureHeight} px\nActive events\t{frame.Waves.Count}";
-            frame.LastPresents = stats.PresentCount; frame.LastCaptures = stats.CaptureCount;
-            if (Native.RippleGetGpuMemory(renderer, out var gpu) == 0) memory = gpu;
-            frame.StatisticsClock.Restart();
-        }
-    }
-
-    internal void AddPreviewWave(double x, double y)
-    {
-        frame.AddWave(x / Math.Max(1, canvas.ActualWidth), y / Math.Max(1, canvas.ActualHeight));
-
-    }
-
-    private async Task RefreshPreviewAsync()
-    {
-        if (renderer == IntPtr.Zero || screen is not null || model.State.IsClosing || model.State.IsInTray || model.State.OverlayPhase == "CapturingPreviewSnapshot") return;
-        long expected = generation;
-        model.State.OverlayPhase = "CapturingPreviewSnapshot";
-        timer.Stop();
-        try
-        {
-            var bounds = Bounds();
-            float widthDip = (float)canvas.ActualWidth, heightDip = (float)canvas.ActualHeight;
-            Log.Information("Starting preview snapshot Generation={Generation} Width={Width} Height={Height} WidthDip={WidthDip} HeightDip={HeightDip}",
-                expected, bounds.Width, bounds.Height, widthDip, heightDip);
-            int disableTransitions = 1;
-            Native.DwmSetWindowAttribute(hwnd, 3, in disableTransitions, sizeof(int));
-            window.AppWindow.Hide();
-            Native.ShowWindow(hwnd, 0);
-            Native.DwmFlush();
-            // Visibility changes from WinUI need a compositor turn before WGC starts.
-            await Task.Delay(80);
-            if (model.State.IsClosing || generation != expected || renderer == IntPtr.Zero || model.State.IsInTray) return;
-            Native.DwmFlush();
-            bool valid = false;
-            long firstValidAt = -1;
-            var settle = Stopwatch.StartNew();
-            int statsResult = 0;
-            uint captureStatus = 0;
-            for (int attempt = 0; attempt < 30; attempt++)
-            {
-                if (model.State.IsClosing || generation != expected || renderer == IntPtr.Zero || model.State.IsInTray) return;
-                var s = model.Settings;
-                int hr = Native.RippleRender(renderer, bounds.X, bounds.Y, bounds.Width, bounds.Height,
-                    widthDip, heightDip, (float)s.Strength, (float)(s.WaveSize * .35), (float)s.Speed, (float)s.Duration,
-                    s.ChromaticEnabled ? (float)(s.ChromaticSeparation / 100) : 0, (float)(s.ChromaticBlend / 100),
-                    s.CrestEnabled ? (float)(s.CrestIntensity / 100) : 0, s.RipplesEnabled ? (float)(s.RipplesIntensity / 100) : 0, s.LiquidEnabled ? (float)(s.LiquidIntensity / 100) : 0,
-                    frame.ShaderWaves, 0, 1, 1);
-                Marshal.ThrowExceptionForHR(hr);
-                statsResult = Native.RippleGetStats(renderer, out var stats);
-                captureStatus = unchecked((uint)stats.Status);
-                if (statsResult == 0 && (captureStatus & 32) != 0)
-                {
-                    valid = true;
-                    if (firstValidAt < 0)
-                    {
-                        firstValidAt = settle.ElapsedMilliseconds;
-                        Log.Information("First valid preview capture Generation={Generation} Attempt={Attempt} ElapsedMs={ElapsedMs} CaptureWidth={CaptureWidth} CaptureHeight={CaptureHeight} Presents={PresentCount} Status=0x{Status:X}",
-                            expected, attempt + 1, firstValidAt, stats.CaptureWidth, stats.CaptureHeight, stats.PresentCount, captureStatus);
-                    }
-                    if (settle.ElapsedMilliseconds - firstValidAt >= 100) break;
-                }
-                await Task.Delay(35);
-            }
-            if (!valid)
-            {
-                Log.Warning("Preview capture timed out Generation={Generation} ElapsedMs={ElapsedMs} StatsHRESULT=0x{HResult:X8} Status=0x{Status:X}",
-                    expected, settle.ElapsedMilliseconds, statsResult, captureStatus);
-                throw new InvalidOperationException("No desktop snapshot could be captured.");
-            }
-            model.State.IsCaptureValid = true;
-            Log.Information("Preview snapshot captured Generation={Generation} Width={Width} Height={Height}", expected, bounds.Width, bounds.Height);
-        }
-        catch (Exception ex) { Fail("Background refresh failed", ex); }
-        finally
-        {
-            if (!model.State.IsClosing && generation == expected && !model.State.IsInTray)
-            {
-                model.State.OverlayPhase = "Preview";
-                try
-                {
-                    Log.Information("Restoring Studio window after preview capture Generation={Generation}", expected);
-                    window.AppWindow.Show(true); window.Activate();
-                    timer.Start();
-                }
-                catch (Exception ex) { Fail("Preview window could not be restored", ex); }
-            }
-            int enableTransitions = 0;
-            Native.DwmSetWindowAttribute(hwnd, 3, in enableTransitions, sizeof(int));
-        }
+        catch (Exception ex) { model.State.CanApply = false; Fail("GPU check failed", ex); }
     }
 
     private async void ToggleScreen()
@@ -263,10 +123,8 @@ internal sealed partial class StudioController : IDisposable
     private void StartScreen(bool atSignIn = false)
     {
         generation++;
-        timer.Stop(); // Retain the frozen preview surface; its WGC session is already closed.
         try
         {
-            // At sign-in the Studio canvas has not been loaded or laid out.
             var b = atSignIn ? (window.AppWindow.Position.X, window.AppWindow.Position.Y,
                 window.AppWindow.Size.Width, window.AppWindow.Size.Height) : Bounds();
             Log.Information("Checking screen effect GPU Generation={Generation} StartupTask={StartupTask} Width={Width} Height={Height} CaptureAllowed={CaptureAllowed}",
@@ -277,7 +135,6 @@ internal sealed partial class StudioController : IDisposable
             model.State.CapabilityText = Describe(caps, hr);
             if (hr < 0 || caps.Supported == 0 || !model.State.CaptureAllowed)
             {
-                if (!atSignIn) StartPreview();
                 model.State.StatusMessage = model.State.CaptureAllowed ? Describe(caps, hr) : "Desktop capture is unavailable.";
                 return;
             }
@@ -288,7 +145,7 @@ internal sealed partial class StudioController : IDisposable
             }, (closed, reason) => { if (ReferenceEquals(screen, closed)) StopScreen(reason); });
             screen = session;
             model.State.IsScreenEffectActive = true; model.State.CanApply = true;
-            model.State.CaptureMessage = "Preview is not active because the effect is applied to the entire screen.";
+            model.State.StatusMessage = "Changes apply immediately to the screen effect.";
             Log.Information("Starting screen effect session Generation={Generation}", generation);
             session.Start();
             if (ReferenceEquals(screen, session) && !model.State.IsInTray)
@@ -300,7 +157,6 @@ internal sealed partial class StudioController : IDisposable
         {
             Log.Error(ex, "Apply failed Generation={Generation} HRESULT=0x{HResult:X8}", generation, ex.HResult);
             StopScreen(ex.Message);
-            if (renderer == IntPtr.Zero) QueuePreview(ex.Message);
         }
     }
 
@@ -314,25 +170,7 @@ internal sealed partial class StudioController : IDisposable
         Native.SetTopmost(hwnd, false);
         memory = default;
         Log.Information("ScreenStopped Generation={Generation} Reason={Reason}", generation, reason);
-        if (!model.State.IsClosing && !model.State.IsInTray) QueuePreview(reason);
-    }
-
-    private void QueuePreview(string reason)
-    {
-        long expected = ++generation;
-        window.DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
-        {
-            if (model.State.IsClosing || model.State.IsInTray || screen is not null || expected != generation) return;
-            StartPreview();
-            if (reason.Length > 0) model.State.StatusMessage = reason;
-        });
-    }
-
-    private void ReleasePreview()
-    {
-        timer.Stop();
-        if (renderer != IntPtr.Zero) { Native.RippleDestroy(renderer); renderer = IntPtr.Zero; }
-        Log.Information("PreviewReleased Generation={Generation}", generation);
+        model.State.StatusMessage = reason.Length > 0 ? reason : "Screen effect stopped.";
     }
 
     private void UpdateResources()
@@ -398,7 +236,6 @@ internal sealed partial class StudioController : IDisposable
             tray.Show();
             if (!tray.IsVisible) throw new InvalidOperationException("The Windows notification area is unavailable.");
             model.State.IsInTray = true;
-            if (screen is null) ReleasePreview();
             window.AppWindow.Hide();
             Log.Information("Main window minimized to tray ScreenActive={ScreenActive}", model.State.IsScreenEffectActive);
         }
@@ -406,7 +243,7 @@ internal sealed partial class StudioController : IDisposable
     }
     internal void ActivateExistingInstance()
     {
-        if (model.State.IsClosing || model.State.OverlayPhase == "CapturingPreviewSnapshot") return;
+        if (model.State.IsClosing) return;
         if (model.State.IsInTray)
         {
             ShowFromTray();
@@ -423,13 +260,7 @@ internal sealed partial class StudioController : IDisposable
         // Use WinUI activation directly: a startup-task window may never have
         // been activated before this point.
         window.Activate();
-        if (screen is null)
-        {
-            // On the first activation Loaded will start the preview after layout.
-            if (renderer == IntPtr.Zero && canvas.IsLoaded)
-                window.DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, SurfaceLoaded);
-        }
-        else Native.SetTopmost(hwnd, true);
+        if (screen is not null) Native.SetTopmost(hwnd, true);
         Log.Information("Main window restored from tray");
     }
     private void ExitApp()
@@ -440,7 +271,6 @@ internal sealed partial class StudioController : IDisposable
     }
 
 #if DEBUG
-    private bool checksStarted;
     internal async void CheckHiddenStartup()
     {
         try
@@ -452,8 +282,8 @@ internal sealed partial class StudioController : IDisposable
                 throw new InvalidOperationException("Startup did not present the screen effect: " + model.State.StatusMessage);
             Console.WriteLine("PASS startup keeps Studio hidden while the screen effect runs");
             ShowFromTray();
-            for (int i = 0; i < 80 && !canvas.IsLoaded; i++) await Task.Delay(50);
-            if (model.State.IsInTray || !Native.IsWindowVisible(hwnd) || !canvas.IsLoaded)
+            for (int i = 0; i < 80 && !surface.IsLoaded; i++) await Task.Delay(50);
+            if (model.State.IsInTray || !Native.IsWindowVisible(hwnd) || !surface.IsLoaded)
                 throw new InvalidOperationException("Studio could not be restored from its first hidden startup.");
             Console.WriteLine("PASS Studio restores with its XAML content loaded");
         }
@@ -465,31 +295,30 @@ internal sealed partial class StudioController : IDisposable
     {
         try
         {
-            for (int wait = 0; wait < 80 && (model.State.OverlayPhase != "Preview" || !model.State.IsCaptureValid); wait++) await Task.Delay(25);
-            if (model.State.OverlayPhase != "Preview" || !model.State.IsCaptureValid) throw new InvalidOperationException("Preview snapshot did not become ready");
+            StopScreen();
             for (int i = 1; i <= 3; i++)
             {
-                ToggleScreen();
+                StartScreen();
                 await Task.Delay(1600);
                 if (!model.State.IsScreenEffectActive || !model.State.ScreenOverlayVisible || !model.State.IsCaptureValid)
                     throw new InvalidOperationException($"Overlay cycle {i} failed to present valid pixels: {model.State.StatusMessage}");
                 StopScreen();
                 await Task.Delay(700);
-                if (model.State.IsScreenEffectActive || model.State.ScreenOverlayVisible || renderer == IntPtr.Zero)
-                    throw new InvalidOperationException($"Overlay cycle {i} did not restore preview");
+                if (model.State.IsScreenEffectActive || model.State.ScreenOverlayVisible)
+                    throw new InvalidOperationException($"Overlay cycle {i} did not stop");
                 using var process = Process.GetCurrentProcess(); process.Refresh();
                 Console.WriteLine($"PASS overlay cycle {i}; private={process.PrivateMemorySize64 / 1048576} MiB; phase={model.State.OverlayPhase}");
             }
             Log.Information("Overlay cycle checks passed");
             MinimizeToTray();
             await Task.Delay(300);
-            if (!model.State.IsInTray || !tray.IsVisible || Native.IsWindowVisible(hwnd) || renderer != IntPtr.Zero)
-                throw new InvalidOperationException("Tray minimization did not release the preview and hide the main window");
+            if (!model.State.IsInTray || !tray.IsVisible || Native.IsWindowVisible(hwnd))
+                throw new InvalidOperationException("Tray minimization did not hide the main window");
             ShowFromTray();
             await Task.Delay(500);
-            if (model.State.IsInTray || tray.IsVisible || !Native.IsWindowVisible(hwnd) || renderer == IntPtr.Zero)
-                throw new InvalidOperationException("Tray restore did not restore the main window and preview");
-            Console.WriteLine("PASS native tray minimize/restore and preview resource release");
+            if (model.State.IsInTray || tray.IsVisible || !Native.IsWindowVisible(hwnd))
+                throw new InvalidOperationException("Tray restore did not restore the main window");
+            Console.WriteLine("PASS native tray minimize/restore and screen control");
         }
         catch (Exception ex) { Environment.ExitCode = 1; Console.Error.WriteLine(ex); Log.Error(ex, "Overlay cycle checks failed"); }
         finally { ExitApp(); }
@@ -499,8 +328,6 @@ internal sealed partial class StudioController : IDisposable
     {
         switch (key)
         {
-            case VirtualKey.F5: DropCommand.Execute(null); return true;
-            case VirtualKey.F6: ToggleCaptureCommand.Execute(null); return true;
             case VirtualKey.F7: ToggleScreen(); return true;
             case VirtualKey.F8: OpenSettings(); return true;
             case VirtualKey.Escape: if (screen is not null) StopScreen(); else window.Close(); return true;
@@ -509,11 +336,8 @@ internal sealed partial class StudioController : IDisposable
     }
     private (int X, int Y, int Width, int Height) Bounds()
     {
-        double scale = canvas.XamlRoot?.RasterizationScale ?? 1;
-        var p = canvas.TransformToVisual(null).TransformPoint(new Windows.Foundation.Point());
-        var origin = new NativePoint { X = (int)Math.Round(p.X * scale), Y = (int)Math.Round(p.Y * scale) };
-        if (!Native.ClientToScreen(hwnd, ref origin)) throw new System.ComponentModel.Win32Exception();
-        return (origin.X, origin.Y, Math.Max(2, (int)Math.Round(canvas.ActualWidth * scale)), Math.Max(2, (int)Math.Round(canvas.ActualHeight * scale)));
+        return (window.AppWindow.Position.X, window.AppWindow.Position.Y,
+            Math.Max(2, window.AppWindow.Size.Width), Math.Max(2, window.AppWindow.Size.Height));
     }
     private void Fail(string operation, Exception ex)
     {
@@ -550,12 +374,11 @@ internal sealed partial class StudioController : IDisposable
         tray.Dispose(); startup.Dispose();
         model.Settings.PropertyChanged -= SettingsChanged;
         resourceTimer.Stop(); monitor.Dispose();
-        StopScreen(); ReleasePreview();
+        StopScreen(); model.Pipelines.Dispose();
 
     }
 }
 internal static partial class Native
 {
     [DllImport("user32.dll", EntryPoint = "MessageBoxW", CharSet = CharSet.Unicode)] internal static extern int MessageBox(IntPtr hwnd, string message, string title, uint flags);
-    [DllImport("dwmapi.dll")] internal static extern int DwmSetWindowAttribute(IntPtr hwnd, uint attribute, in int value, int size);
 }

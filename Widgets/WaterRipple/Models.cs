@@ -73,23 +73,12 @@ public sealed class AppSettings : ObservableModel
 
     private void ApplyPresetValues(int index)
     {
-        var values = index switch
-        {
-            0 => (Strength: 4d, Size: 85d, Speed: 100d, Duration: 1.7),
-            2 => (Strength: 14d, Size: 150d, Speed: 90d, Duration: 2.5),
-            3 => (Strength: 20d, Size: 65d, Speed: 260d, Duration: 1d),
-            4 => (Strength: 2.5d, Size: 50d, Speed: 160d, Duration: .8d),
-            5 => (Strength: 6d, Size: 180d, Speed: 80d, Duration: 2.8d),
-            6 => (Strength: 11d, Size: 55d, Speed: 210d, Duration: 1.1d),
-            7 => (Strength: 3.5d, Size: 40d, Speed: 300d, Duration: .65d),
-            8 => (Strength: 18d, Size: 190d, Speed: 70d, Duration: 2.7d),
-            9 => (Strength: 12d, Size: 210d, Speed: 130d, Duration: 3d),
-            _ => (Strength: 9d, Size: 100d, Speed: 150d, Duration: 1.5)
-        };
-        Strength = values.Strength;
-        WaveSize = values.Size;
-        Speed = values.Speed;
-        Duration = values.Duration;
+        var catalog = PipelineCatalog.Load();
+        var preset = System.Linq.Enumerable.First(catalog.Presets, p => p.Name == PresetNames[index]);
+        Strength = preset.Values["strength"].GetDouble();
+        WaveSize = preset.Values["wavelength"].GetDouble() / .35;
+        Speed = preset.Values["speed"].GetDouble();
+        Duration = preset.Values["lifetime"].GetDouble();
     }
 
     private static double Number(double value, double minimum, double maximum, double fallback) =>
@@ -100,12 +89,12 @@ public sealed class AppSettings : ObservableModel
 // Transient application data is observable but never serialized to settings.json.
 public sealed class AppState : ObservableModel
 {
-    private bool isScreenEffectActive, isCaptureLive = true, captureAllowed, canApply, isClosing;
+    private bool isScreenEffectActive, captureAllowed, canApply, isClosing;
     private bool screenOverlayVisible, isCaptureValid;
     private bool isClosePromptOpen, isInTray, isExiting;
     private string overlayPhase = "Inactive";
     private string persistenceError = "";
-    private string statusMessage = "", captureMessage = "Starting…", metricsText = "Waiting for frames";
+    private string statusMessage = "", metricsText = "Waiting for frames";
     private string resourcesText = "Reading process resources…", capabilityText = "Checking the display GPU…", gpuName = "";
     private ulong dedicatedVramBytes, localGpuUsageBytes, localGpuBudgetBytes;
     private double cpuPercent;
@@ -129,19 +118,12 @@ public sealed class AppState : ObservableModel
         {
             if (!SetProperty(ref isScreenEffectActive, value)) return;
             RaisePropertyChanged(nameof(ApplyButtonText));
-            RaisePropertyChanged(nameof(CanFreeze));
-            RaisePropertyChanged(nameof(ScreenModeText));
         }
-    }
-    public bool IsCaptureLive
-    {
-        get => isCaptureLive;
-        set { if (SetProperty(ref isCaptureLive, value)) RaisePropertyChanged(nameof(FreezeButtonText)); }
     }
     public bool CaptureAllowed
     {
         get => captureAllowed;
-        set { if (SetProperty(ref captureAllowed, value)) RaisePropertyChanged(nameof(CanFreeze)); }
+        set => SetProperty(ref captureAllowed, value);
     }
     public bool CanApply { get => canApply; set => SetProperty(ref canApply, value); }
     public bool ScreenOverlayVisible { get => screenOverlayVisible; set => SetProperty(ref screenOverlayVisible, value); }
@@ -154,10 +136,9 @@ public sealed class AppState : ObservableModel
     public bool IsClosing
     {
         get => isClosing;
-        set { if (SetProperty(ref isClosing, value)) RaisePropertyChanged(nameof(CanFreeze)); }
+        set => SetProperty(ref isClosing, value);
     }
     public string StatusMessage { get => statusMessage; set => SetProperty(ref statusMessage, value ?? ""); }
-    public string CaptureMessage { get => captureMessage; set => SetProperty(ref captureMessage, value ?? ""); }
     public string MetricsText { get => metricsText; set => SetProperty(ref metricsText, value ?? ""); }
     public string ResourcesText { get => resourcesText; set => SetProperty(ref resourcesText, value ?? ""); }
     public string CapabilityText { get => capabilityText; set => SetProperty(ref capabilityText, value ?? ""); }
@@ -169,10 +150,7 @@ public sealed class AppState : ObservableModel
     public long PrivateRamBytes { get => privateRamBytes; set => SetProperty(ref privateRamBytes, Math.Max(0, value)); }
     public long WorkingSetBytes { get => workingSetBytes; set => SetProperty(ref workingSetBytes, Math.Max(0, value)); }
     public int ActiveWaveCount { get => activeWaveCount; set => SetProperty(ref activeWaveCount, Math.Clamp(value, 0, 8)); }
-    public string ApplyButtonText => IsScreenEffectActive ? "Stop screen effect" : "Apply to screen";
-    public string FreezeButtonText => IsCaptureLive ? "Freeze desktop" : "Refresh background";
-    public bool CanFreeze => CaptureAllowed && !IsScreenEffectActive && !IsClosing;
-    public string ScreenModeText => IsScreenEffectActive ? "Screen effect" : "Studio preview";
+    public string ApplyButtonText => IsScreenEffectActive ? "Stop screen effect" : "Enable screen effect";
 
 }
 
@@ -182,7 +160,9 @@ public sealed class StudioModel
     {
         Settings = settings ?? throw new ArgumentNullException(nameof(settings));
         State = new AppState();
+        Pipelines = new PipelineModel(settings);
     }
     public AppSettings Settings { get; }
     public AppState State { get; }
+    public PipelineModel Pipelines { get; }
 }

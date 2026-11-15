@@ -1,0 +1,485 @@
+{
+  "version": 1,
+  "parameters": [
+    {
+      "key": "strength",
+      "title": "Refraction \u00b7 px",
+      "default": 7,
+      "min": 0,
+      "max": 28,
+      "step": 1,
+      "windowsProperty": "Strength",
+      "windowsScale": 1,
+      "windowsMin": 0,
+      "windowsMax": 25
+    },
+    {
+      "key": "speed",
+      "title": "Speed \u00b7 px/s",
+      "default": 190,
+      "min": 50,
+      "max": 300,
+      "step": 5,
+      "windowsProperty": "Speed",
+      "windowsScale": 1,
+      "windowsMin": 40,
+      "windowsMax": 350
+    },
+    {
+      "key": "wavelength",
+      "title": "Ring spacing \u00b7 px",
+      "default": 104,
+      "min": 14,
+      "max": 160,
+      "step": 1,
+      "windowsProperty": "WaveSize",
+      "windowsScale": 2.857142857142857,
+      "windowsMin": 10.5,
+      "windowsMax": 77,
+      "windowsTitle": "Wave size \u00b7 px"
+    },
+    {
+      "key": "lifetime",
+      "title": "Duration \u00b7 s",
+      "default": 3.2,
+      "min": 0.6,
+      "max": 6,
+      "step": 0.1,
+      "windowsProperty": "Duration",
+      "windowsScale": 1,
+      "windowsMin": 0.4,
+      "windowsMax": 3
+    },
+    {
+      "key": "rings",
+      "title": "Rings",
+      "default": 1,
+      "min": 1,
+      "max": 6,
+      "step": 0.1
+    },
+    {
+      "key": "damping",
+      "title": "Damping",
+      "default": 1.2,
+      "min": 0.3,
+      "max": 3,
+      "step": 0.1
+    },
+    {
+      "key": "light",
+      "title": "Highlights",
+      "default": 1,
+      "min": 0,
+      "max": 15,
+      "step": 0.5
+    },
+    {
+      "key": "radius",
+      "title": "Initial radius \u00b7 px",
+      "default": 8,
+      "min": 0,
+      "max": 100,
+      "step": 2
+    },
+    {
+      "key": "aspect",
+      "title": "Shape",
+      "default": 1,
+      "min": 0.6,
+      "max": 1.6,
+      "step": 0.05
+    },
+    {
+      "key": "invert",
+      "title": "Invert refraction",
+      "default": false
+    },
+    {
+      "key": "chromatic-enabled",
+      "title": "Enable",
+      "default": true,
+      "windowsProperty": "ChromaticEnabled",
+      "windowsScale": 1
+    },
+    {
+      "key": "chromatic-separation",
+      "title": "Channel separation \u00b7 %",
+      "default": 18,
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "windowsProperty": "ChromaticSeparation",
+      "windowsScale": 1
+    },
+    {
+      "key": "chromatic-blend",
+      "title": "Color blend \u00b7 %",
+      "default": 45,
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "windowsProperty": "ChromaticBlend",
+      "windowsScale": 1
+    },
+    {
+      "key": "crest-enabled",
+      "title": "Enable",
+      "default": false,
+      "windowsProperty": "CrestEnabled",
+      "windowsScale": 1
+    },
+    {
+      "key": "crest-intensity",
+      "title": "Intensity \u00b7 %",
+      "default": 50,
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "windowsProperty": "CrestIntensity",
+      "windowsScale": 1
+    },
+    {
+      "key": "ripples-enabled",
+      "title": "Enable",
+      "default": false,
+      "windowsProperty": "RipplesEnabled",
+      "windowsScale": 1
+    },
+    {
+      "key": "ripples-intensity",
+      "title": "Intensity \u00b7 %",
+      "default": 50,
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "windowsProperty": "RipplesIntensity",
+      "windowsScale": 1
+    },
+    {
+      "key": "liquid-enabled",
+      "title": "Enable",
+      "default": false,
+      "windowsProperty": "LiquidEnabled",
+      "windowsScale": 1
+    },
+    {
+      "key": "liquid-intensity",
+      "title": "Intensity \u00b7 %",
+      "default": 50,
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "windowsProperty": "LiquidIntensity",
+      "windowsScale": 1
+    }
+  ],
+  "groups": [
+    {
+      "title": "Ripple",
+      "keys": [
+        "strength",
+        "speed",
+        "wavelength",
+        "lifetime",
+        "rings",
+        "damping",
+        "light",
+        "radius",
+        "aspect",
+        "invert"
+      ]
+    },
+    {
+      "title": "RGB refraction",
+      "enabled": "chromatic-enabled",
+      "keys": [
+        "chromatic-separation",
+        "chromatic-blend"
+      ],
+      "presets": [
+        {
+          "name": "Subtle",
+          "description": "A delicate color fringe for a natural ripple.",
+          "values": {
+            "chromatic-separation": 12,
+            "chromatic-blend": 35
+          }
+        },
+        {
+          "name": "Balanced",
+          "description": "A balanced color trail along the wave.",
+          "values": {
+            "chromatic-separation": 18,
+            "chromatic-blend": 45
+          }
+        },
+        {
+          "name": "Vivid",
+          "description": "A stronger, more colorful refracted trail.",
+          "values": {
+            "chromatic-separation": 45,
+            "chromatic-blend": 70
+          }
+        }
+      ]
+    },
+    {
+      "title": "Crest reflections",
+      "enabled": "crest-enabled",
+      "keys": [
+        "crest-intensity"
+      ],
+      "presets": [
+        {
+          "name": "Soft glint",
+          "description": "A faint glint follows the wave.",
+          "values": {
+            "crest-intensity": 25
+          }
+        },
+        {
+          "name": "Water shine",
+          "description": "Adds a clear reflection to the crests.",
+          "values": {
+            "crest-intensity": 50
+          }
+        },
+        {
+          "name": "Bright crest",
+          "description": "Gives the crests a pronounced bright shine.",
+          "values": {
+            "crest-intensity": 85
+          }
+        }
+      ]
+    },
+    {
+      "title": "Multiple ripples",
+      "enabled": "ripples-enabled",
+      "keys": [
+        "ripples-intensity"
+      ],
+      "presets": [
+        {
+          "name": "Fine ripples",
+          "description": "Adds fine secondary ripples.",
+          "values": {
+            "ripples-intensity": 25
+          }
+        },
+        {
+          "name": "Layered waves",
+          "description": "Adds a visible pattern of smaller waves.",
+          "values": {
+            "ripples-intensity": 50
+          }
+        },
+        {
+          "name": "Choppy water",
+          "description": "Makes the secondary ripples more pronounced.",
+          "values": {
+            "ripples-intensity": 85
+          }
+        }
+      ]
+    },
+    {
+      "title": "Glass / liquid",
+      "enabled": "liquid-enabled",
+      "keys": [
+        "liquid-intensity"
+      ],
+      "presets": [
+        {
+          "name": "Soft lens",
+          "description": "Adds a gentle lens-like distortion.",
+          "values": {
+            "liquid-intensity": 25
+          }
+        },
+        {
+          "name": "Liquid glass",
+          "description": "Gives the wave a liquid-glass refraction.",
+          "values": {
+            "liquid-intensity": 50
+          }
+        },
+        {
+          "name": "Deep lens",
+          "description": "Strengthens the lens-like refraction.",
+          "values": {
+            "liquid-intensity": 85
+          }
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "id": "calm",
+      "name": "Calm water",
+      "values": {
+        "strength": 7,
+        "speed": 190,
+        "wavelength": 104,
+        "rings": 1,
+        "lifetime": 3.2,
+        "damping": 1.2,
+        "light": 1,
+        "radius": 8,
+        "aspect": 1
+      }
+    },
+    {
+      "id": "water-drop",
+      "name": "Water drop",
+      "values": {
+        "strength": 16,
+        "speed": 240,
+        "wavelength": 100,
+        "rings": 1,
+        "lifetime": 2.4,
+        "damping": 0.8,
+        "light": 3,
+        "radius": 0,
+        "aspect": 1
+      }
+    },
+    {
+      "id": "elastic",
+      "name": "Elastic glass",
+      "values": {
+        "strength": 23,
+        "speed": 110,
+        "wavelength": 130,
+        "rings": 2,
+        "lifetime": 4.2,
+        "damping": 1.4,
+        "light": 0,
+        "radius": 8,
+        "aspect": 1
+      }
+    },
+    {
+      "id": "fine",
+      "name": "Fine ripples",
+      "values": {
+        "strength": 7,
+        "speed": 160,
+        "wavelength": 32,
+        "rings": 4,
+        "lifetime": 3.8,
+        "damping": 0.9,
+        "light": 1,
+        "radius": 8,
+        "aspect": 1
+      }
+    },
+    {
+      "id": "original",
+      "name": "Original",
+      "values": {
+        "strength": 21,
+        "speed": 175,
+        "wavelength": 30.65,
+        "rings": 4.9,
+        "lifetime": 3.2,
+        "damping": 1.25,
+        "light": 5.5,
+        "radius": 0,
+        "aspect": 1
+      }
+    },
+    {
+      "id": "classic-0",
+      "name": "Gentle",
+      "values": {
+        "strength": 4,
+        "speed": 100,
+        "wavelength": 29.75,
+        "lifetime": 1.7
+      }
+    },
+    {
+      "id": "classic-1",
+      "name": "Deep water",
+      "values": {
+        "strength": 14,
+        "speed": 90,
+        "wavelength": 52.5,
+        "lifetime": 2.5
+      }
+    },
+    {
+      "id": "classic-2",
+      "name": "Shockwave",
+      "values": {
+        "strength": 20,
+        "speed": 260,
+        "wavelength": 22.75,
+        "lifetime": 1
+      }
+    },
+    {
+      "id": "classic-3",
+      "name": "Dew",
+      "values": {
+        "strength": 2.5,
+        "speed": 160,
+        "wavelength": 17.5,
+        "lifetime": 0.8
+      }
+    },
+    {
+      "id": "classic-4",
+      "name": "Pond",
+      "values": {
+        "strength": 6,
+        "speed": 80,
+        "wavelength": 63.0,
+        "lifetime": 2.8
+      }
+    },
+    {
+      "id": "classic-5",
+      "name": "Raindrop",
+      "values": {
+        "strength": 11,
+        "speed": 210,
+        "wavelength": 19.25,
+        "lifetime": 1.1
+      }
+    },
+    {
+      "id": "classic-6",
+      "name": "Glass",
+      "values": {
+        "strength": 3.5,
+        "speed": 300,
+        "wavelength": 14.0,
+        "lifetime": 0.65
+      }
+    },
+    {
+      "id": "classic-7",
+      "name": "Jelly",
+      "values": {
+        "strength": 18,
+        "speed": 70,
+        "wavelength": 66.5,
+        "lifetime": 2.7
+      }
+    },
+    {
+      "id": "classic-8",
+      "name": "Echo",
+      "values": {
+        "strength": 12,
+        "speed": 130,
+        "wavelength": 73.5,
+        "lifetime": 3
+      }
+    }
+  ]
+}

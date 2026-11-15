@@ -6,32 +6,30 @@ import GLib from 'gi://GLib';
 
 export const UUID = 'ripple@vibeware.local';
 export {SCHEMA} from './schema.js';
-const SPECS = [
-    ['strength', 'Refraction', 0, 28, 1, 0],
-    ['speed', 'Speed', 50, 300, 5, 0],
-    ['wavelength', 'Ring spacing', 14, 160, 2, 0],
-    ['rings', 'Rings', 1, 6, 1, 0],
-    ['lifetime', 'Duration', 0.6, 6, 0.1, 1],
-    ['damping', 'Damping', 0.3, 3, 0.1, 1],
-    ['light', 'Highlights', 0, 15, 1, 0],
-    ['radius', 'Initial radius', 0, 100, 2, 0],
-    ['aspect', 'Shape', 0.6, 1.6, 0.05, 2],
-];
-const PRESETS = {
-    'Calm water': [7, 190, 104, 1, 3.2, 1.2, 1, 8, 1],
-    'Water drop': [16, 240, 100, 1, 2.4, 0.8, 3, 0, 1],
-    'Elastic glass': [23, 110, 130, 2, 4.2, 1.4, 0, 8, 1],
-    'Fine ripples': [7, 160, 32, 4, 3.8, 0.9, 1, 8, 1],
-    'Original': [21, 175, 30.65, 4.9, 3.2, 1.25, 5.5, 0, 1],
-};
+import {loadPipelines} from './pipelines.js';
+import {pipelineControls} from './pipeline-ui.js';
 
-export function buildControls(window, settings, application = null, externalLease = false, startEffect = false) {
+export function buildControls(window, settings, application = null, externalLease = false, startEffect = false, extensionConnection = Gio.DBus.session) {
     window.set_title('Ripple');
-    window.set_default_size(420, 690);
-    const page = new Adw.PreferencesPage();
+    window.set_default_size(760, 860);
+    const {model: pipelines, path: libraryPath} = loadPipelines(settings);
+    const page = new Adw.PreferencesPage({title: 'Effect', icon_name: 'preferences-desktop-effects-symbolic'});
+    let content = page;
+    let stack = null;
+    const library = pipelineControls(window, pipelines, libraryPath, () => {
+        if (stack) stack.visible_child_name = 'effect';
+        else window.set_visible_page(page);
+    });
     if (!application) {
         window.set_search_enabled(false);
-        window.add(page);
+        window.add(page); window.add(library.page);
+    } else {
+        stack = new Adw.ViewStack({vexpand: true});
+        stack.add_titled(page, 'effect', 'Effect').icon_name = 'preferences-desktop-effects-symbolic';
+        stack.add_titled(library.page, 'pipelines', 'Pipelines').icon_name = 'view-list-symbolic';
+        content = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL});
+        content.append(new Adw.ViewSwitcher({stack, policy: Adw.ViewSwitcherPolicy.WIDE, halign: Gtk.Align.CENTER}));
+        content.append(stack);
     }
     const group = new Adw.PreferencesGroup();
     page.add(group);
@@ -65,111 +63,75 @@ export function buildControls(window, settings, application = null, externalLeas
     target.selected = Math.max(0, targets.indexOf(settings.get_string('target')));
     target.connect('notify::selected', () => settings.set_string('target', targets[target.selected]));
     group.add(target);
-    const preset = new Adw.ComboRow({title: 'Preset', model: Gtk.StringList.new([...Object.keys(PRESETS), 'Custom'])});
-    let applying = false;
-    const match = Object.values(PRESETS).findIndex(values => values.every((value, i) => Math.abs(value - settings.get_double(SPECS[i][0])) < 0.001));
-    preset.selected = match >= 0 ? match : 5;
+    const pipelineGroup = new Adw.PreferencesGroup({description: 'Changes apply immediately. Saved pipelines update automatically; duplicate a built-in pipeline to keep your changes.'});
+    page.add(pipelineGroup);
+    const preset = new Adw.ComboRow({title: 'Pipeline'});
+    pipelineGroup.add(preset);
+    let syncing = false;
+    const pipelineError = new Adw.ActionRow({title: pipelines.error, use_markup: false});
+    pipelineGroup.add(pipelineError);
+    const refreshPipeline = () => {
+        syncing = true;
+        const names = ['Custom', ...pipelines.items.map(p => p.name)];
+        if (!preset.model || preset.model.get_n_items() !== names.length || names.some((name, index) => preset.model.get_string(index) !== name))
+            preset.model = Gtk.StringList.new(names);
+        preset.selected = pipelines.selected ? pipelines.items.indexOf(pipelines.selected) + 1 : 0;
+        pipelineError.title = pipelines.error;
+        pipelineError.visible = Boolean(pipelines.error);
+        syncing = false;
+    };
+    const unsubscribePipeline = pipelines.subscribe(refreshPipeline);
     preset.connect('notify::selected', () => {
-        const values = Object.values(PRESETS)[preset.selected];
-        if (!values)
-            return;
-        applying = true;
-        values.forEach((value, i) => settings.set_double(SPECS[i][0], value));
-        settings.set_boolean('invert', false);
-        applying = false;
+        if (syncing) return;
+        if (preset.selected === 0 && pipelines.selected) pipelines.detach();
+        else if (preset.selected > 0 && pipelines.items[preset.selected - 1] !== pipelines.selected)
+            pipelines.select(pipelines.items[preset.selected - 1]);
     });
-    const parameters = new Adw.PreferencesGroup();
-    page.add(parameters);
-    const ripple = new Adw.ExpanderRow({title: 'Ripple'});
-    parameters.add(ripple);
-    ripple.add_row(preset);
-    for (const [key, title, low, high, step, digits] of SPECS) {
-        const row = new Adw.SpinRow({title, digits, adjustment: new Gtk.Adjustment({
-            lower: low, upper: high, step_increment: step, page_increment: step * 5,
-        })});
-        settings.bind(key, row, 'value', Gio.SettingsBindFlags.DEFAULT);
-        ripple.add_row(row);
-        row.connect('notify::value', () => {
-            if (!applying)
-                preset.selected = 5;
-        });
-    }
-    const invert = new Adw.SwitchRow({title: 'Invert refraction'});
-    settings.bind('invert', invert, 'active', Gio.SettingsBindFlags.DEFAULT);
-    ripple.add_row(invert);
-
-    const filters = new Adw.PreferencesGroup({title: 'Filters'});
-    page.add(filters);
-    const filterChanges = [];
-    for (const [title, enabledKey, valueKeys, presets] of [
-        ['RGB refraction', 'chromatic-enabled', ['chromatic-separation', 'chromatic-blend'], [
-            ['Subtle', [12, 35], 'A delicate color fringe for a natural ripple.'],
-            ['Balanced', [18, 45], 'A balanced color trail along the wave.'],
-            ['Vivid', [45, 70], 'A stronger, more colorful refracted trail.'],
-        ]],
-        ['Crest reflections', 'crest-enabled', ['crest-intensity'], [
-            ['Soft glint', [25], 'A faint glint follows the wave.'],
-            ['Water shine', [50], 'Adds a clear reflection to the crests.'],
-            ['Bright crest', [85], 'Gives the crests a pronounced bright shine.'],
-        ]],
-        ['Multiple ripples', 'ripples-enabled', ['ripples-intensity'], [
-            ['Fine ripples', [25], 'Adds fine secondary ripples.'],
-            ['Layered waves', [50], 'Adds a visible pattern of smaller waves.'],
-            ['Choppy water', [85], 'Makes the secondary ripples more pronounced.'],
-        ]],
-        ['Glass / liquid', 'liquid-enabled', ['liquid-intensity'], [
-            ['Soft lens', [25], 'Adds a gentle lens-like distortion.'],
-            ['Liquid glass', [50], 'Gives the wave a liquid-glass refraction.'],
-            ['Deep lens', [85], 'Strengthens the lens-like refraction.'],
-        ]],
-    ]) {
-        const section = new Adw.ExpanderRow({title});
-        filters.add(section);
-        const enabled = new Adw.SwitchRow({title: 'Enable'});
-        settings.bind(enabledKey, enabled, 'active', Gio.SettingsBindFlags.DEFAULT);
-        section.add_row(enabled);
-        const choice = new Adw.ComboRow({
-            title: 'Preset', model: Gtk.StringList.new(['Custom', ...presets.map(preset => preset[0])]),
-        });
-        settings.bind(enabledKey, choice, 'sensitive', Gio.SettingsBindFlags.GET);
-        section.add_row(choice);
-
-        let updating = false;
-        const syncPreset = () => {
-            updating = true;
-            const match = presets.findIndex(([, values]) =>
-                values.every((value, index) => settings.get_double(valueKeys[index]) === value));
-            choice.selected = match + 1;
-            choice.subtitle = match < 0 ? 'Adjust the values below.' : presets[match][2];
-            updating = false;
-        };
-        choice.connect('notify::selected', () => {
-            if (updating)
-                return;
-            if (choice.selected === 0) {
-                choice.subtitle = 'Adjust the values below.';
-                return;
-            }
-            updating = true;
-            presets[choice.selected - 1][1].forEach((value, index) => settings.set_double(valueKeys[index], value));
-            syncPreset();
-        });
-        for (const key of valueKeys) {
-            const label = key === 'chromatic-separation' ? 'Channel separation · %'
-                : key === 'chromatic-blend' ? 'Color blend · %' : 'Intensity · %';
-            const row = new Adw.SpinRow({title: label, adjustment: new Gtk.Adjustment({
-                lower: 0, upper: 100, step_increment: 1, page_increment: 5,
-            })});
-            settings.bind(key, row, 'value', Gio.SettingsBindFlags.DEFAULT);
-            settings.bind(enabledKey, row, 'sensitive', Gio.SettingsBindFlags.GET);
-            section.add_row(row);
-            filterChanges.push(settings.connect(`changed::${key}`, () => {
-                if (!updating)
-                    syncPreset();
-            }));
+    refreshPipeline();
+    const parameters = new Map(pipelines.catalog.parameters.map(p => [p.key, p]));
+    const filterUpdates = [];
+    for (const spec of pipelines.catalog.groups) {
+        const section = new Adw.PreferencesGroup(); page.add(section);
+        const expander = new Adw.ExpanderRow({title: spec.title, expanded: !spec.enabled}); section.add(expander);
+        if (spec.enabled) {
+            const row = new Adw.SwitchRow({title: 'Enable'});
+            settings.bind(spec.enabled, row, 'active', Gio.SettingsBindFlags.DEFAULT); expander.add_row(row);
         }
-        syncPreset();
+        if (spec.presets) {
+            const choice = new Adw.ComboRow({title: 'Preset', model: Gtk.StringList.new(['Custom', ...spec.presets.map(p => p.name)])});
+            let updating = false;
+            const syncFilter = () => {
+                updating = true;
+                choice.selected = pipelines.filterPresetIndex(spec);
+                choice.subtitle = choice.selected === 0 ? 'Adjust the values below.' : spec.presets[choice.selected - 1].description;
+                updating = false;
+            };
+            choice.connect('notify::selected', () => {
+                if (!updating && choice.selected > 0 && choice.selected !== pipelines.filterPresetIndex(spec))
+                    pipelines.applyFilterPreset(spec.presets[choice.selected - 1]);
+            });
+            settings.bind(spec.enabled, choice, 'sensitive', Gio.SettingsBindFlags.GET);
+            filterUpdates.push(syncFilter); syncFilter(); expander.add_row(choice);
+        }
+        for (const key of spec.keys) {
+            const p = parameters.get(key);
+            let row;
+            if (typeof p.default === 'boolean') {
+                row = new Adw.SwitchRow({title: p.title});
+                settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
+            } else {
+                row = new Adw.SpinRow({title: p.title, digits: p.step < 0.1 ? 2 : p.step < 1 ? 1 : 0,
+                    adjustment: new Gtk.Adjustment({lower: p.min, upper: p.max, step_increment: p.step, page_increment: p.step * 5})});
+                settings.bind(key, row, 'value', Gio.SettingsBindFlags.DEFAULT);
+            }
+            if (spec.enabled) settings.bind(spec.enabled, row, 'sensitive', Gio.SettingsBindFlags.GET);
+            expander.add_row(row);
+        }
     }
+    const pipelineChanged = settings.connect('changed', (_settings, key) => {
+        pipelines.changed(key);
+        if (parameters.has(key)) for (const update of filterUpdates) update();
+    });
     const limits = new Adw.PreferencesGroup({title: 'Limits'});
     page.add(limits);
     for (const [key, title, low, high, step] of [
@@ -190,7 +152,7 @@ export function buildControls(window, settings, application = null, externalLeas
     });
     page.add(foot);
     const stop = new Gtk.Button({label: 'Stop', css_classes: ['destructive-action'], margin_top: 6});
-    let enableWhenReady = startEffect;
+    let enableWhenReady = application ? true : startEffect;
     stop.connect('clicked', () => {
         enableWhenReady = false;
         settings.set_boolean('active', false);
@@ -217,17 +179,17 @@ export function buildControls(window, settings, application = null, externalLeas
         settings.disconnect(changed);
         for (const handler of emergencyChanges)
             settings.disconnect(handler);
-        for (const handler of filterChanges)
-            settings.disconnect(handler);
+        settings.disconnect(pipelineChanged);
+        unsubscribePipeline(); library.dispose();
         return false;
     });
     // Let GNOME load the installed extension through its supported API only.
-    if (application) {
+    if (application && extensionConnection) {
         active.set_sensitive(false);
         const cancellable = new Gio.Cancellable();
         let retries = startEffect ? 3 : 0;
         function enableExtension() {
-            Gio.DBus.session.call('org.gnome.Shell.Extensions', '/org/gnome/Shell/Extensions',
+            extensionConnection.call('org.gnome.Shell.Extensions', '/org/gnome/Shell/Extensions',
                 'org.gnome.Shell.Extensions', 'EnableExtension', new GLib.Variant('(s)', [UUID]),
                 null, Gio.DBusCallFlags.NONE, 2000, cancellable, (connection, result) => {
                     if (closed)
@@ -263,5 +225,5 @@ export function buildControls(window, settings, application = null, externalLeas
         enableExtension();
         window.connect('close-request', () => { cancellable.cancel(); return false; });
     }
-    return {page, active, preset, stop, status};
+    return {page: content, active, preset, stop, status, pipelines};
 }

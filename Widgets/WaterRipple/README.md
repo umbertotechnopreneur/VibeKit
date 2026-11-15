@@ -4,35 +4,41 @@ A small Windows 11 click-ripple app by Umberto Giacobbi, using C# / WinUI 3 and 
 
 ## Use
 
-**Ripple Studio** previews water ripples over a desktop snapshot. Click the preview or use **Drop in the center**. Choose a preset or adjust refraction, wave size, speed and duration. **Refresh background** captures a new snapshot while briefly hiding Studio; the main window remains available in ordinary screenshots.
+Ripple opens a control panel and starts click ripples on the current monitor when the GPU and capture service are available. The **Effect** tab selects a pipeline and edits the ripple and filter settings. Changes apply immediately to the running screen effect; there is no preview or Apply step. **Stop screen effect** pauses the effect, and **Enable screen effect** resumes it. Clicks pass through the overlay. **Ctrl+Alt+Esc** stops it; the optional **Ctrl+Alt+Shift+W** emergency shortcut closes Ripple.
 
-The Studio provides expandable sections for **RGB refraction**, **Crest reflections**, **Multiple ripples**, and **Glass / liquid**. Each filter can be enabled and adjusted independently and includes described presets. These settings apply to the preview and screen effect and are saved immediately.
+The **Pipelines** tab lists saved effect combinations with a summary and an actions menu. **New pipeline** saves the current settings under a name. Saved pipelines update automatically as you edit them. Built-in pipelines remain unchanged; use **Duplicate** to customize one, then rename or delete your copies. Editing a built-in directly switches to **Custom** until you save it as a new pipeline. **Import** and **Export** exchange JSON libraries with the Linux edition.
 
-**Settings** opens a small dialog inside Studio. It contains the ripple preset and parameters, capture/animation limits, Acrylic preference and **Start with Windows**. Ordinary preferences save immediately; startup is managed by the packaged Windows `StartupTask` API and is enabled by default for new installations. Existing Windows startup choices and policy are respected. Windows administrator policy or a user decision in Startup Apps cannot be overridden by the app. Unpackaged builds explain that an MSIX installation is needed for this toggle.
+Expandable sections retain **RGB refraction**, **Crest reflections**, **Multiple ripples**, and **Glass / liquid**, with independent enable switches, described filter presets and numeric controls. **Settings** contains capture/animation limits, Acrylic and **Start with Windows**. Startup uses the packaged Windows `StartupTask` API. Existing Windows startup choices and policy are respected; unpackaged builds explain that an MSIX installation is needed.
 
-**Apply to screen** applies click ripples to the current monitor. Clicks pass through the overlay. Stop with **Stop screen effect** or **Ctrl+Alt+Esc**. The overlay stays hidden until capture and presentation are valid and hides before GPU resources are released. The screen overlay alone is excluded from capture to prevent feedback.
+Closing offers tray minimization, exit or cancel. Tray mode keeps an enabled effect running. The overlay stays hidden until capture and presentation are valid and hides before GPU resources are released. Only the screen overlay is excluded from capture to prevent feedback.
 
-Closing offers tray minimization, exit or cancel. Tray mode keeps an enabled click ripple running; the idle Studio renderer is released while hidden. Acrylic, About, VibeWare branding and resource monitoring are retained.
+## Portable pipeline model
+
+[Shared/pipeline-catalog.json](Shared/pipeline-catalog.json) defines the common parameter keys, defaults, ranges, groups and built-in presets. The Windows model and Linux JavaScript model own pipeline selection, validation, editing and storage; native views render that state and send actions. Both editions use version 1 JSON documents with a `pipelines` array of `{id, name, values}` entries; `selectedId` is optional local selection metadata. Libraries support 64 saved pipelines, names up to 80 characters and files up to 512 KiB. Invalid imports leave the library unchanged; unreadable libraries are preserved and saving reports an error.
+
+Windows stores the library in `%LOCALAPPDATA%\VibeWare\Ripple\pipelines.json`; Linux uses `$XDG_CONFIG_HOME/VibeWare/Ripple/pipelines.json` (normally `~/.config/VibeWare/Ripple/pipelines.json`). Import/export transfers copies; it does not synchronize computers automatically. Ordinary preferences retain their existing storage.
+
+Common filter values transfer directly. The Windows adapter maps shared `wavelength` to `WaveSize × 0.35` and clamps values to renderer limits. Linux-only parameters, including ring count, damping and shape, are retained in imported pipelines on Windows. Capture limits, startup, effect on/off state, emergency shortcuts and GNOME's target selection remain local preferences. Rendering is platform-specific, so the same pipeline can look different on the two systems.
 
 ## Scope and branches
 
-`main` contains only Studio and click-driven water ripples. There are no window-event hooks, transitions, window texture caches, click pulses, border/flash effects or automatic drops. The complete experimental desktop/window effects version is preserved in `codex/window-effects`.
+`main` contains the control panel and click-driven water ripples. There are no window-event hooks, transitions, window texture caches, click pulses, border/flash effects or automatic drops. The complete experimental desktop/window effects version is preserved in `codex/window-effects`.
 
 User preferences are bound to `AppSettings`, transient UI state belongs to `AppState`, and settings save immediately by atomic replacement in `%LOCALAPPDATA%\VibeWare\WaterRipple\settings-ripple.json`. This separate file preserves the full version's original `settings.json` when switching branches.
 
 ## Performance
 
-Capture uses Windows.Graphics.Capture with two GPU buffers and no CPU pixel readback. The ripple shader uses one desktop texture, a 192-byte constant buffer and at most eight waves. Frozen preview snapshots close their capture session. Capture and animation rates have separate limits. One monitor is supported at a time; rotated displays remain unsupported.
+Capture uses Windows.Graphics.Capture with two GPU buffers and no CPU pixel readback. The ripple shader uses one desktop texture, a 192-byte constant buffer and at most eight waves. Capture and animation rates have separate limits. One monitor is supported at a time; rotated displays remain unsupported.
 
 Screen mode retains the hardware Direct3D 11 requirement and at least 8,000,000,000 bytes of dedicated VRAM. Shared memory does not count. The resource monitor samples private RAM, working set and CPU; it warns at 500 MB private RAM about a possible memory leak and asks for a report. GPU budget and CPU submission timings are shown separately from presentation rates.
 
 ## Diagnostics
 
-Early Windows releases keep detailed local logs to help diagnose black previews and crashes across different Windows builds and GPUs. The logs record WinUI startup checkpoints, GPU capabilities, capture dimensions and status, the first valid preview capture, and failures with their Windows error codes.
+Early Windows releases keep detailed local logs to help diagnose capture failures and crashes across different Windows builds and GPUs. The logs record WinUI startup checkpoints, GPU capabilities, capture dimensions and status, and failures with their Windows error codes.
 
 Serilog writes through a bounded background queue. Logs rotate weekly, keep up to four files, and are capped at 8 MiB per week. They are stored in `%LOCALAPPDATA%\VibeWare\WaterRipple\logs`. The local test MSIX stores them in `%LOCALAPPDATA%\Packages\VibeWare.WaterRipple_af9ft7172qtwj\LocalCache\Local\VibeWare\WaterRipple\logs`. Frames, screenshots and private window titles are not logged.
 
-When reporting a black preview or an unexpected exit, include the approximate time and the relevant log lines. Windows Event Viewer may record a crash even when the app exits before its last log entries can be written.
+When reporting an invisible effect or an unexpected exit, include the approximate time and the relevant log lines. Windows Event Viewer may record a crash even when the app exits before its last log entries can be written.
 
 ## Build from source
 
@@ -66,16 +72,12 @@ Created by [Umberto Giacobbi](https://umbertogiacobbi.biz). **Human intent, AI e
 
 This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
 
-## Capture border and preview status
+## Capture border
 
-Windows owns the colored capture border. The package declares `graphicsCaptureWithoutBorder`, and Ripple can set `GraphicsCaptureSession.IsBorderRequired(false)` when permitted. During manual **Apply to screen**, an in-app dialog offers **Ask Windows** or **Keep border** when permission is needed. Ripple requests optional consent only when you choose **Ask Windows**. Automatic startup leaves the border visible when Windows requires it. Another app capturing the same display can also require the border. See [Microsoft's IsBorderRequired documentation](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.graphicscapturesession.isborderrequired).
+Windows owns the colored capture border. The package declares `graphicsCaptureWithoutBorder`, and Ripple can set `GraphicsCaptureSession.IsBorderRequired(false)` when permitted. Starting Ripple automatically leaves the border visible when Windows requires it. Manually enabling the effect offers **Ask Windows** or **Keep border** when permission is needed. Another capturing app can also require the border. See [Microsoft's IsBorderRequired documentation](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.graphicscapturesession.isborderrequired).
 
-While the screen effect runs, the Studio preview is covered with a clear paused message. The sidebar and Settings scrollbars are hidden outside their hovered area; mouse-wheel scrolling remains available. No mouse/keyboard automation is needed to build or install these changes.
+The MSIX execution alias is `waterripple.exe`, exposed at `%LOCALAPPDATA%\Microsoft\WindowsApps\waterripple.exe`. Startup uses the Windows-managed task and does not depend on a versioned installation path.
 
-## Studio convenience controls
+## Model checks
 
-A floating **Minimize to tray** button overlays the bottom-left corner without reserving another layout row. Footer hyperlinks measure only their visible labels, so blank footer space does not launch a page. Scrollbars fade in and out over 500 ms without shifting content or fading the controls themselves.
-
-The preset list includes Gentle, Water drop, Deep water, Shockwave, Dew, Pond, Raindrop, Glass, Jelly and Echo. The six additional presets vary refraction, wave size, speed and lifetime while keeping the same eight-wave GPU limit.
-
-The MSIX execution alias is `waterripple.exe`, exposed by Windows at `%LOCALAPPDATA%\Microsoft\WindowsApps\waterripple.exe`. This launcher path stays independent of the versioned package installation directory. Windows users can manage it under App execution aliases. Startup uses the package's Windows-managed startup task and does not depend on a hard-coded installation path.
+`dotnet run --project tests/PipelineChecks.csproj` exercises the C# data model without WinUI. `node tests/pipeline-checks.mjs` checks the JavaScript model. Setting `RIPPLE_EXCHANGE` to the same temporary JSON path, running Node, then C#, then Node with `--read`, checks interchange in both directions. Build and overlay checks on Windows are still required for capture, startup and native presentation.

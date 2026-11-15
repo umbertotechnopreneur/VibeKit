@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Models.cs" Link="Models.cs" />
+    <Compile Include="../SettingsStore.cs" Link="SettingsStore.cs" />
+    <Compile Include="../SettingsChecks.cs" Link="SettingsChecks.cs" />
+    <Compile Include="../PipelineModel.cs" Link="PipelineModel.cs" />
+    <EmbeddedResource Include="../Shared/pipeline-catalog.json" LogicalName="WaterRipple.pipeline-catalog.json" />
+  </ItemGroup>
+</Project>

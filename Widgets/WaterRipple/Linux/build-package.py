@@ -23,6 +23,7 @@ with tempfile.TemporaryDirectory(prefix='water-ripple-') as staging_directory:
     stage = Path(staging_directory) / 'package'
     target = stage / 'usr/share/gnome-shell/extensions' / EXTENSION_ID
     shutil.copytree(source, target, ignore=shutil.ignore_patterns('gschemas.compiled', '*.pyc', '__pycache__'))
+    shutil.copytree(root.parent / 'Shared', target / 'shared')
     subprocess.run(['glib-compile-schemas', '--strict', str(target / 'schemas')], check=True)
 
     common = stage / 'usr/share/glib-2.0/schemas'

@@ -24,8 +24,10 @@ let about = null;
 let closeDialog = null;
 let exiting = false;
 let leaseProcess = null;
+let startupHidden = false;
 
 function showPanel() {
+    startupHidden = false;
     window.unminimize();
     window.present();
 }
@@ -158,6 +160,7 @@ function activate(startMinimized) {
         return;
     }
 
+    startupHidden = startMinimized;
     window = new Adw.ApplicationWindow({application: app});
     const header = new Adw.HeaderBar({decoration_layout: ':close'});
     const minimize = new Gtk.Button({
@@ -228,7 +231,7 @@ function activate(startMinimized) {
         }, available => {
             minimize.set_sensitive(available);
             closeDialog?.set_response_enabled('hide', available);
-            if (panelReady && !available && !window.visible)
+            if (panelReady && !startupHidden && !available && !window.visible)
                 showPanel();
         });
         const updateTrayEffect = () => tray.setEffect(active.active, active.sensitive);
@@ -236,10 +239,7 @@ function activate(startMinimized) {
         active.connect('notify::sensitive', updateTrayEffect);
         updateTrayEffect();
     }
-    if (startMinimized) {
-        window.minimize();
-        window.set_visible(true);
-    } else {
+    if (!startMinimized) {
         showPanel();
     }
     panelReady = true;

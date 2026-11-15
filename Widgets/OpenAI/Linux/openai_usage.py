@@ -75,6 +75,7 @@ def request_x11_above(surface, enabled):
         x11.XCloseDisplay(display)
 
 ROOT = Path(__file__).resolve().parents[1]
+MANIFESTO_URL = "https://umbertogiacobbi.biz/vibeware/manifesto"
 DEFAULT_BACKEND = ROOT / "backend/OpenAIUsage.Backend.dll"
 if not DEFAULT_BACKEND.is_file():
     DEFAULT_BACKEND = ROOT / "Backend/bin/Debug/net10.0/OpenAIUsage.Backend.dll"
@@ -159,6 +160,15 @@ button.icon-action:hover, button.icon-action:active { color: @window_fg_color; }
 button.icon-action:hover { background: alpha(@window_fg_color, .07); }
 button.icon-action:active { background: alpha(@accent_bg_color, .15); }
 button.icon-action:checked { color: @accent_bg_color; background: alpha(@accent_bg_color, .15); }
+button.vibeware-badge,
+button.vibeware-badge:hover,
+button.vibeware-badge:active,
+button.vibeware-badge:checked {
+    background: transparent; border: none; box-shadow: none;
+    padding: 0; min-width: 0; min-height: 0;
+}
+button.vibeware-badge image { opacity: .78; }
+button.vibeware-badge:hover image { opacity: 1; }
 window.widget-about, .widget-about .about-body { background-color: #fff4dc; color: #232a2f; }
 .widget-about .about-body { font-family: monospace; font-size: 15px; }
 .widget-about .about-body label { color: #232a2f; }
@@ -421,12 +431,19 @@ class UsageWindow(Gtk.ApplicationWindow):
         drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         drag.connect("pressed",self.begin_move)
         handle.add_controller(drag)
-        self.set_child(handle)
+        overlay = Gtk.Overlay(child=handle)
+        manifesto = Gtk.LinkButton(uri=MANIFESTO_URL, halign=Gtk.Align.END, valign=Gtk.Align.END,
+                                   margin_end=10, margin_bottom=3, tooltip_text="VibeWare manifesto")
+        manifesto.set_child(about_mark("VibeWare.png", 16))
+        manifesto.add_css_class("vibeware-badge")
+        manifesto.update_property([Gtk.AccessibleProperty.LABEL], ["VibeWare manifesto"])
+        overlay.add_overlay(manifesto)
+        self.set_child(overlay)
         log_event("window.compact","Compact-only native widget; no full-mode or caption sizing controls.")
         try:
             self.tray=StatusTray({"open":self.present,"about":self.show_about,"settings":self.show_settings,
                                  "website":lambda:Gio.AppInfo.launch_default_for_uri("https://umbertogiacobbi.biz",None),
-                                 "manifesto":lambda:Gio.AppInfo.launch_default_for_uri("https://umbertogiacobbi.biz/vibeware/manifesto",None),
+                                 "manifesto":lambda:Gio.AppInfo.launch_default_for_uri(MANIFESTO_URL,None),
                                  "exit":self.exit_application})
         except Exception as error:
             log_event("tray.unavailable",type(error).__name__)

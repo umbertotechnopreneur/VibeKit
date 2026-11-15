@@ -10,6 +10,8 @@ The widget shows the selected allowance remaining as a percentage, estimated tim
 
 The shared generated icon is used by the executable, window/header, About, Start/app-menu entries and packages. Metrics use monospace typography. Text gradients use the system accent and adjust their lightness to the system theme: native WinUI gradient brushes on Windows and native Pango/Cairo snapshots on GTK. Toolbar controls show only their icons at rest.
 
+Both widgets show a discreet VibeWare logo in the bottom-right corner. The icon has no button background or border and opens the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto) when clicked.
+
 Both interfaces are native. No HTML, JavaScript UI, WebView or WebGPU renderer is used. Windows App SDK brings three WebView2 binaries transitively; they are present in the package but are not instantiated by this app. Their disk presence is distinct from a browser runtime running in memory.
 
 ## Memory protection and diagnostics

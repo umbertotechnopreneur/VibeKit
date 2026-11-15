@@ -21,14 +21,6 @@ internal sealed class SettingsDialog : ContentDialog
         Ui.Bind(status, TextBlock.TextProperty, model.State, nameof(AppState.StartupStatus));
         content.Children.Add(status);
         Ui.Toggle(content, "Acrylic background", model.Settings, nameof(AppSettings.UseAcrylic));
-        var preset = new ComboBox { Header = "Ripple preset", HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = AppSettings.PresetNames };
-        Ui.Bind(preset, ComboBox.SelectedIndexProperty, model.Settings, nameof(AppSettings.PresetIndex), BindingMode.TwoWay);
-        content.Children.Add(preset);
-        Ui.Slider(content, "Refraction", model.Settings, nameof(AppSettings.Strength), 0, 25, 1, "px");
-        Ui.Slider(content, "Wave size", model.Settings, nameof(AppSettings.WaveSize), 30, 220, 1, "px");
-        Ui.Slider(content, "Expansion", model.Settings, nameof(AppSettings.Speed), 40, 350, 1, "px/s");
-        Ui.Slider(content, "Duration", model.Settings, nameof(AppSettings.Duration), .4, 3, .1, "s");
         Ui.Slider(content, "Animation limit", model.Settings, nameof(AppSettings.AnimationFps), 15, 120, 1, "fps");
         Ui.Slider(content, "Capture limit", model.Settings, nameof(AppSettings.CaptureFps), 5, 60, 1, "fps");
         content.Children.Add(new TextBlock { Text = "Changes are saved immediately. Windows manages the startup preference.", TextWrapping = TextWrapping.Wrap, FontSize = 12 });

@@ -6,3 +6,7 @@ Private collection of desktop utilities for Windows and Linux.
 - [Desktop Ripple](Widgets/WaterRipple/README.md): desktop ripple effects. See the [Linux edition](Widgets/WaterRipple/Linux/README.md).
 
 Each utility keeps its own build and packaging instructions. Windows Store MSIX and Debian packages are planned; consult each project for current capabilities and verification status.
+
+## Applications and shared tools
+
+The [Apps](Apps/) directory contains AgentInbox, HelpMe, MarkVibe, ThermalRight Panel, UlanziDock, VoiceDucker, and WorkTrail. Each project keeps its own documentation and scripts. Shared shell utilities are in [scripts](scripts/), and [import notes](docs/project-imports.md) describe the retained histories and migration limitations.

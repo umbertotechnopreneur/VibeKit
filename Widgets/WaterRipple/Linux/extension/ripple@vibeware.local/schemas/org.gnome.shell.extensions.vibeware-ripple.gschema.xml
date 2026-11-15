@@ -1,0 +1,95 @@
+<schemalist>
+  <schema id="org.gnome.shell.extensions.vibeware-ripple" path="/org/gnome/shell/extensions/vibeware-ripple/">
+    <key name="strength" type="d">
+      <range min="0.0" max="28.0" />
+      <default>7.0</default>
+      <summary>Refraction · px</summary>
+    </key>
+    <key name="speed" type="d">
+      <range min="50.0" max="300.0" />
+      <default>190.0</default>
+      <summary>Speed · px/s</summary>
+    </key>
+    <key name="wavelength" type="d">
+      <range min="14.0" max="160.0" />
+      <default>104.0</default>
+      <summary>Ring spacing · px</summary>
+    </key>
+    <key name="rings" type="d">
+      <range min="1.0" max="6.0" />
+      <default>1.0</default>
+      <summary>Number of rings</summary>
+    </key>
+    <key name="lifetime" type="d">
+      <range min="0.6" max="6.0" />
+      <default>3.2</default>
+      <summary>Duration · seconds</summary>
+    </key>
+    <key name="damping" type="d">
+      <range min="0.3" max="3.0" />
+      <default>1.2</default>
+      <summary>Damping</summary>
+    </key>
+    <key name="light" type="d">
+      <range min="0.0" max="15.0" />
+      <default>1.0</default>
+      <summary>Highlights · %</summary>
+    </key>
+    <key name="radius" type="d">
+      <range min="0.0" max="100.0" />
+      <default>8.0</default>
+      <summary>Initial radius · px</summary>
+    </key>
+    <key name="aspect" type="d">
+      <range min="0.6" max="1.6" />
+      <default>1.0</default>
+      <summary>Aspect ratio</summary>
+    </key>
+    <key name="chromatic-enabled" type="b"><default>true</default></key>
+    <key name="crest-enabled" type="b"><default>false</default></key>
+    <key name="ripples-enabled" type="b"><default>false</default></key>
+    <key name="liquid-enabled" type="b"><default>false</default></key>
+    <key name="chromatic-separation" type="d"><range min="0.0" max="100.0"/><default>18.0</default></key>
+    <key name="chromatic-blend" type="d"><range min="0.0" max="100.0"/><default>45.0</default></key>
+    <key name="crest-intensity" type="d"><range min="0.0" max="100.0"/><default>50.0</default></key>
+    <key name="ripples-intensity" type="d"><range min="0.0" max="100.0"/><default>50.0</default></key>
+    <key name="liquid-intensity" type="d"><range min="0.0" max="100.0"/><default>50.0</default></key>
+    <key name="active" type="b">
+      <default>false</default>
+    </key>
+    <key name="target" type="s">
+      <default>'desktop'</default>
+      <choices><choice value="desktop"/><choice value="windows"/><choice value="both"/></choices>
+    </key>
+    <key name="invert" type="b">
+      <default>false</default>
+    </key>
+    <key name="lease-until" type="d">
+      <default>0.0</default>
+    </key>
+    <key name="fps" type="i">
+      <default>24</default>
+      <range min="15" max="30" />
+    </key>
+    <key name="patch-size" type="i">
+      <default>384</default>
+      <range min="256" max="512" />
+    </key>
+    <key name="max-waves" type="i">
+      <default>1</default>
+      <range min="1" max="2" />
+    </key>
+    <key name="panic-enabled" type="b">
+      <default>true</default>
+    </key>
+    <key name="panic-available" type="b">
+      <default>false</default>
+    </key>
+    <key name="panic" type="as">
+      <default>['&lt;Super&gt;&lt;Shift&gt;Escape']</default>
+    </key>
+    <key name="status" type="s">
+      <default>'Ready'</default>
+    </key>
+  </schema>
+</schemalist>

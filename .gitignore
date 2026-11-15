@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/dist/
+**/artifacts/
+**/__pycache__/
+**/.venv/
+*.pyc
+.env
+.env.*
+!.env.example

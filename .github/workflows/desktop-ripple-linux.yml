@@ -1,0 +1,37 @@
+name: Desktop Ripple Linux
+
+on:
+  push:
+    paths:
+      - 'Widgets/WaterRipple/**'
+      - '.github/workflows/desktop-ripple-linux.yml'
+  pull_request:
+    paths:
+      - 'Widgets/WaterRipple/**'
+      - '.github/workflows/desktop-ripple-linux.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript models
+        run: |
+          node Widgets/WaterRipple/tests/pipeline-checks.mjs
+          node Widgets/WaterRipple/tests/diagnostics-checks.mjs
+      - name: Build Debian package and GNOME extension archive
+        run: python3 Widgets/WaterRipple/Linux/build-package.py --output-dir artifacts/desktop-ripple
+      - name: Inspect Debian package
+        run: dpkg-deb --info artifacts/desktop-ripple/*.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-ripple-linux
+          path: artifacts/desktop-ripple/
+          if-no-files-found: error

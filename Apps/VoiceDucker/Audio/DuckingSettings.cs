@@ -1,0 +1,126 @@
+/* VBWR B
+ * Project: VoiceDucker
+ * Repository: https://github.com/umbertotechnopreneur/VoiceDucker
+ * Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+ * VibeWare: Human intent, AI execution, and plenty of tokens
+ * Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+ * Created with AI: See file history for implementation provenance.
+ * Modified with AI: OpenAI Codex; source attribution and release preparation, 2026-10-09.
+ * Human guidance: Umberto Giacobbi requested branding and the public 0.1.0 release.
+ * Evidence: Git history and GitHub Actions; this header does not certify human review.
+ * Copyright (c) 2026 Umberto Giacobbi
+ * SPDX-License-Identifier: MIT
+ * License: MIT - see LICENSE
+ * VBWR E */
+
+using System.Collections.Immutable;
+
+namespace VoiceDucker.Audio;
+
+/// <summary>Identifies a numeric audio preference for validation and editing.</summary>
+internal enum SettingKey
+{
+    ReductionPercent,
+    FadeDownMilliseconds,
+    FadeUpMilliseconds,
+    RestoreDelayMilliseconds,
+    HysteresisDecibels,
+    SensitivityDecibels,
+    ThresholdDecibels
+}
+
+/// <summary>
+/// Immutable user preferences consumed together by detection and playback control.
+/// Validation defines the supported ranges for persisted and live settings.
+/// </summary>
+internal sealed record DuckingSettings(
+    int ReductionPercent = 90,
+    int FadeDownMilliseconds = 300,
+    int FadeUpMilliseconds = 2000,
+    bool IncludeOtherSources = true)
+{
+    #region Defaults and preferences
+
+    public static readonly double DefaultThresholdDecibels = 20 * Math.Log10(0.018);
+
+    public double ThresholdDecibels { get; init; } = DefaultThresholdDecibels;
+
+    public int HysteresisDecibels { get; init; } = 3;
+
+    public int MicrophoneGainDecibels { get; init; } = 0;
+
+    public string MicrophoneDeviceId { get; init; } = string.Empty;
+
+    public int RestoreDelayMilliseconds { get; init; } = 650;
+
+    public ImmutableArray<string> BlacklistedProcesses { get; init; } = [];
+
+    public string LastSettingsSection { get; init; } = string.Empty;
+
+    public bool SmoothTransitions { get; init; } = true;
+
+    public ImmutableArray<ListeningProfile> Profiles { get; init; } = [];
+
+    public string SelectedProfileId { get; init; } = ListeningPresets.DefaultId;
+
+    public bool EnableMicrophoneOnWindowsStartup { get; init; }
+
+    #endregion
+
+    #region Public methods
+
+    /// <summary>Converts the configured dBFS threshold to a linear RMS amplitude.</summary>
+    public double GetThresholdAmplitude() => Math.Pow(10, ThresholdDecibels / 20);
+
+    /// <summary>Returns the saved microphone opt-in for any application launch.</summary>
+    public bool ShouldEnableMicrophoneOnLaunch() => EnableMicrophoneOnWindowsStartup;
+
+    /// <summary>Excludes this application and user-hidden process names from ducking.</summary>
+    public bool IsProcessExcluded(string name) => PlaybackIdentity.IsOwnProcess(name) ||
+        BlacklistedProcesses.Any(hidden => PlaybackIdentity.NormalizeProcessName(hidden).Equals(
+            PlaybackIdentity.NormalizeProcessName(name), StringComparison.OrdinalIgnoreCase));
+
+    #endregion
+
+    #region Validation
+
+    public static (double Minimum, double Maximum) GetNumericRange(SettingKey key) => key switch
+    {
+        SettingKey.ReductionPercent => (0, 100),
+        SettingKey.FadeDownMilliseconds => (0, 5000),
+        SettingKey.FadeUpMilliseconds => (0, 30000),
+        SettingKey.RestoreDelayMilliseconds => (0, 10000),
+        SettingKey.HysteresisDecibels => (0, 12),
+        SettingKey.SensitivityDecibels => (-24, 36),
+        SettingKey.ThresholdDecibels => (-60, 0),
+        _ => throw new ArgumentOutOfRangeException(nameof(key))
+    };
+
+    public static bool IsInNumericRange(SettingKey key, double value)
+    {
+        var (minimum, maximum) = GetNumericRange(key);
+        return value >= minimum && value <= maximum;
+    }
+
+    /// <summary>Checks all settings before they enter the worker or saved state.</summary>
+    public bool IsValid => IsInNumericRange(SettingKey.ThresholdDecibels, ThresholdDecibels) &&
+                           IsInNumericRange(SettingKey.HysteresisDecibels, HysteresisDecibels) &&
+                           IsInNumericRange(SettingKey.SensitivityDecibels, MicrophoneGainDecibels) &&
+                           IsInNumericRange(SettingKey.ReductionPercent, ReductionPercent) &&
+                           MicrophoneDeviceId is not null &&
+                           IsInNumericRange(SettingKey.RestoreDelayMilliseconds, RestoreDelayMilliseconds) &&
+                           IsInNumericRange(SettingKey.FadeDownMilliseconds, FadeDownMilliseconds) &&
+                           IsInNumericRange(SettingKey.FadeUpMilliseconds, FadeUpMilliseconds) &&
+                           LastSettingsSection is "" or "microphone" or "volume" or "apps" or "profiles" &&
+                           !Profiles.IsDefault && Profiles.Length <= 32 &&
+                           Profiles.All(profile => profile is not null && profile.IsValid) &&
+                           Profiles.Select(profile => profile.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() == Profiles.Length &&
+                           Profiles.Select(profile => profile.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() == Profiles.Length &&
+                           SelectedProfileId is not null && (SelectedProfileId.Length == 0 ||
+                               ListeningPresets.Find(SelectedProfileId) is not null ||
+                               Profiles.Any(profile => profile.Id == SelectedProfileId)) &&
+                           !BlacklistedProcesses.IsDefault &&
+                           BlacklistedProcesses.All(name => !string.IsNullOrWhiteSpace(name));
+
+    #endregion
+}

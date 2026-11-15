@@ -1,0 +1,26 @@
+SHORT TITLE
+VoiceDucker
+
+VOICE TITLE
+Voice Ducker
+
+SHORT DESCRIPTION
+Your voice takes the lead. VoiceDucker lowers Spotify and other Windows playback when you speak, then brings it back. Keep music on during AI chats, calls, demos and streams, without chasing the volume slider.
+
+KEYWORDS (enter each separately)
+audio ducking
+microphone
+music volume
+voice control
+video calls
+digital assistants
+background audio
+
+COPYRIGHT AND TRADEMARK INFO
+Copyright (c) 2026 Umberto Giacobbi.
+
+ADDITIONAL LICENSE TERMS
+https://github.com/umbertotechnopreneur/VoiceDucker/blob/main/LICENSE
+
+DEVELOPED BY
+Umberto Giacobbi

@@ -1,0 +1,103 @@
+DESCRIPTION
+
+You talk. Music turns down. You stop. It comes back.
+
+Keep your soundtrack during AI chats, calls and demos. VoiceDucker lowers selected Windows playback when your microphone detects sound, then brings it back when things go quiet.
+
+Play some music and press Enable. Spotify is included by default. Turn on "Also lower other apps" for browsers and other players. Hide any app you want to leave alone, including your meeting app.
+
+YOUR LISTENING SETUP
+Start with five presets: Talking to AI, Client calls, Meetings, Recording a demo and Relaxed conversation. Save personal profiles with your reduction, fade times and detection settings. Switch profiles manually when you need a different setup. Hidden apps stay excluded across all profiles.
+
+YOUR AMOUNT OF QUIET
+Choose how far playback drops, how quickly it fades and how long it waits before returning. Softer transitions gently eases the start and end of fades. Each app's slider shows its current volume; Normal shows the level used when detected sound ends. Windows master volume stays unchanged.
+
+TAKE A BREAK
+Pause monitoring for 5, 15 or 30 minutes. Resume early or cancel the timer. The microphone stops during the break, and automatic resumption requires successful audio readiness and license checks.
+
+YOUR MICROPHONE, YOUR CHOICE
+Choose your microphone and tune detection for your room. Monitoring is off by default. Start with Windows and Enable microphone on startup are independent choices. The microphone startup preference applies on the next launch, including manual launches.
+
+Audio is processed locally in memory, without microphone recordings, speech transcription or audio uploads. Preferences and profiles are saved on your device.
+
+GOOD TO KNOW
+VoiceDucker reacts to sound levels, so background noise can also trigger it. Profiles do not enable monitoring or change your microphone device or startup preferences. Disable and exit restore sessions changed by the app to their saved startup safety levels; restoration problems are reported.
+
+For OBS Studio, Microsoft Clipchamp or similar tools, VoiceDucker changes Windows playback. What reaches a recording or stream depends on your audio sources and routing. Check a short recording before your demo or stream.
+
+Built for Windows 11 with WinUI 3.
+
+Try VoiceDucker free for 30 days. The trial does not automatically charge you. Continue with a one-time purchase through Microsoft Store at the price shown for your market.
+
+SHORT-DESCRIPTION
+
+Lower music when you speak, then bring it back. VoiceDucker makes room for AI chats, calls and demos with listening profiles, adjustable fades and timed monitoring pauses.
+
+FEATURES
+
+Automatically lower selected playback when your microphone detects sound.
+Use Spotify by default; include other apps and hide exclusions.
+Choose from five listening presets or save personal profiles.
+Adjust volume reduction, fade times, return delay and softer transitions.
+Pause monitoring for 5, 15 or 30 minutes, with early resume or cancellation.
+Choose your microphone and tune sensitivity, threshold and hysteresis.
+See current playback volume, Normal listening level and per-app signal meters.
+Choose app startup and microphone startup independently; monitoring is off by default.
+Process microphone audio locally without recordings, transcription or uploads.
+
+WHATS-NEW
+
+Five listening presets and personal profiles for your preferred audio setup.
+Temporary monitoring pauses of 5, 15 or 30 minutes, with early resume or cancellation.
+Optional softer transitions for automatic volume changes.
+Current-volume and Normal listening controls with playback signal meters.
+
+KEYWORDS
+
+audio ducking
+volume control
+microphone
+Spotify
+background music
+voice assistant
+calls
+
+SCREENSHOT-CAPTIONS
+
+01 — 01-VoiceDucker.png
+VoiceDucker lowers selected Windows playback when your microphone detects sound, then brings it back when things go quiet.
+
+02 — 02-Main-window.png
+The main view brings together microphone activity, listening profiles, monitoring controls and playback volume. The screenshot shows monitoring enabled.
+
+03 — 03-Listening-profiles.png
+Start with five presets or save a personal profile with your detection, reduction, timing and app choices. Selecting a profile does not enable monitoring.
+
+04 — 04-Microphone-detection.png
+Choose your microphone and adjust sensitivity, detection threshold and hysteresis. These settings affect VoiceDucker detection, not your call microphone level.
+
+05 — 05-Volume-timing.png
+Set volume reduction, fade down, wait before fade back and fade back. Softer transitions eases the start and end of automatic volume changes.
+
+06 — 06-App-controls.png
+Spotify is included by default. Optionally include other playing apps and hide exclusions. Volume shows the current level; Normal is the level used after detection ends.
+
+07 — 07-Temporary-pause.png
+Pause monitoring for 5, 15 or 30 minutes. Resume early or cancel the timer. Timed resumption requires successful audio readiness and license checks.
+
+08 — 08-Startup-privacy.png
+App startup and microphone startup are independent opt-ins; both are enabled in this example. Microphone audio is processed locally without recording or uploading.
+
+LINKS
+
+Website: https://umbertogiacobbi.biz/voiceducker/
+Guide: https://umbertogiacobbi.biz/voiceducker/guide/
+Support: https://github.com/umbertotechnopreneur/VoiceDucker/issues
+Privacy: https://umbertogiacobbi.biz/privacy/
+Terms: https://umbertogiacobbi.biz/terms/
+
+IDENTITY
+
+Short title: VoiceDucker
+Developed by: Umberto Giacobbi
+Copyright: Copyright (c) 2026 Umberto Giacobbi.

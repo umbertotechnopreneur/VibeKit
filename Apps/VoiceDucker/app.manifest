@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- VBWR B
+  Project: VoiceDucker
+  Repository: https://github.com/umbertotechnopreneur/VoiceDucker
+  Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+  VibeWare initiative: Human intent, AI execution, and plenty of tokens
+  Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+  Created with AI: OpenAI Codex assisted the initial implementation; Git history
+  Human guidance: Umberto Giacobbi defined the purpose and audio behavior
+  Evidence: Git history
+  Copyright (c) 2026 Umberto Giacobbi
+  License: MIT
+VBWR E -->
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="VibeWare.VoiceDucker.app"/>
+
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Declare Windows 10 and later compatibility for per-monitor DPI handling. -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
+    </application>
+  </compatibility>
+
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+    </windowsSettings>
+  </application>
+</assembly>

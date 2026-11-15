@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+node_modules/
+src/MarkVibe.Browser/wwwroot/js/
+artifacts/
+.vs/
+.vscode/
+*.user
+*.suo
+*.pfx
+*.p12
+*.key
+desktop.ini

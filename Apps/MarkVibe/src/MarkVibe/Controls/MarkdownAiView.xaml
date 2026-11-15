@@ -1,0 +1,164 @@
+<!-- VBWR B
+ Project: MarkVibe
+ Repository: https://github.com/umbertotechnopreneur/MarkVibe
+ Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+ VibeWare: Human intent, AI execution, and plenty of tokens
+ Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+ Modified with AI: OpenAI Codex; docked assistant with compact references and information tooltips; 2026-10-16
+ Modified with AI: OpenAI Codex; keep information icons visibly blue through owner foreground bindings; 2026-10-16
+ Human guidance: Umberto Giacobbi; less visible text, standard splitters and blue information icons
+ Evidence: AI-DEVELOPMENT-DISCLOSURE.md; .github/tasks/archive.md
+ Copyright (c) 2026 Umberto Giacobbi
+ License: MIT (see LICENSE)
+ VBWR E -->
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:MarkVibe.Controls" x:Class="MarkVibe.Controls.MarkdownAiView" Foreground="{StaticResource ShellText}">
+    <Border x:Name="AiSurface" Background="{StaticResource PanelBackground}">
+        <Grid Margin="12,10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="32"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="Heading" Text="AI Assistant" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
+                <Button Grid.Column="1" x:Name="AssistantInfoButton" Style="{StaticResource CompactIconButton}" Foreground="#3688D8" Click="ShowInformation" LostFocus="HideInformation" AutomationProperties.Name="AI Assistant">
+                    <controls:VectorIcon Symbol="about" Foreground="#3688D8" Width="16" Height="16"/>
+                </Button>
+                <Button Grid.Column="2" x:Name="CloseButton" Style="{StaticResource CompactIconButton}" Click="ClosePanel" ToolTipService.ToolTip="Close" AutomationProperties.Name="Close">
+                    <controls:VectorIcon Symbol="close"/>
+                </Button>
+            </Grid>
+            <Grid Grid.Row="1" Margin="0,8,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Expander x:Name="CollectionExpander" Header="References" Style="{StaticResource MinimalExpander}" FontSize="11">
+                        <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel x:Name="CollectionRows"/>
+                        </ScrollViewer>
+                    </Expander>
+                    <Button x:Name="CollectionInfoButton" Grid.Column="1" VerticalAlignment="Top" Style="{StaticResource CompactIconButton}" Foreground="#3688D8" Click="ShowInformation" LostFocus="HideInformation" AutomationProperties.Name="AI collection">
+                        <controls:VectorIcon Symbol="about" Foreground="#3688D8" Width="16" Height="16"/>
+                    </Button>
+                    <Button x:Name="AddContextButton" Grid.Column="2" VerticalAlignment="Top" Style="{StaticResource CompactIconButton}" Click="AddCurrentContext" ToolTipService.ToolTip="Add current document" AutomationProperties.Name="Add current document">
+                        <controls:VectorIcon Symbol="add" Width="14" Height="14"/>
+                    </Button>
+                    <Button x:Name="ClearContextButton" Grid.Column="3" VerticalAlignment="Top" Style="{StaticResource CompactIconButton}" Click="ClearContext" ToolTipService.ToolTip="Clear collection" AutomationProperties.Name="Clear collection">
+                        <controls:VectorIcon Symbol="close" Width="14" Height="14"/>
+                    </Button>
+                </Grid>
+                    <StackPanel x:Name="KeyBanner" Grid.Row="1" Visibility="Collapsed">
+                        <TextBlock x:Name="KeyHint" Text="Configure OpenAI in Settings." TextWrapping="Wrap"/>
+                        <Button x:Name="KeyButton" Content="Settings" Click="OpenSettings" Style="{StaticResource AppBarButton}"/>
+                    </StackPanel>
+                    <Grid x:Name="Composer" Grid.Row="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <!-- Only the response scrolls; the prompt and its actions stay in place. -->
+                        <Border x:Name="ResponseSurface" Grid.Row="0" Visibility="Collapsed" Padding="0,8" Margin="0,0,0,8">
+                            <ScrollViewer x:Name="ResponseScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="AI response">
+                                <StackPanel>
+                                    <TextBlock x:Name="Status" FontSize="12" TextWrapping="Wrap" LineHeight="19" Margin="0,0,0,6"/>
+                                    <TextBlock x:Name="ReviewText" Visibility="Collapsed" TextWrapping="Wrap" FontSize="13" LineHeight="21"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                        <StackPanel Grid.Row="1">
+                        <Border x:Name="ComposerSurface" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource ShellBorder}" BorderThickness="1" CornerRadius="10" Padding="10,4">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Grid MinHeight="52">
+                                    <TextBox x:Name="PromptInput" MinHeight="52" MaxHeight="112" AcceptsReturn="True" TextWrapping="Wrap" MaxLength="16000" Style="{StaticResource ComposerTextBox}" TextChanged="PromptChanged" KeyDown="PromptKeyDown" AutomationProperties.Name="Describe how to edit this Markdown…"/>
+                                    <TextBlock x:Name="PromptPlaceholder" Foreground="{StaticResource MutedText}" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap" IsHitTestVisible="False"/>
+                                </Grid>
+                                <Grid Grid.Row="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Button x:Name="ModelButton" VerticalAlignment="Center" HorizontalContentAlignment="Stretch" Style="{StaticResource ComposerChoiceButton}" Click="OpenModelFlyout" ToolTipService.ToolTip="Model and reasoning" AutomationProperties.Name="Model and reasoning">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="ModelLabel" Text="GPT-6.1 Sol" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock x:Name="EffortLabel" Grid.Column="1" MaxWidth="85" TextTrimming="CharacterEllipsis" Foreground="{StaticResource MutedText}" Margin="8,0,0,0"/>
+                                            <controls:VectorIcon Grid.Column="2" Symbol="chevron-down" Width="12" Height="12" Margin="5,2,0,0"/>
+                                        </Grid>
+                                    </Button>
+                                    <Button x:Name="SendButton" Grid.Column="1" Style="{StaticResource ComposerSendButton}" Click="SendPrompt" ToolTipService.ToolTip="Send" AutomationProperties.Name="Send">
+                                        <controls:VectorIcon x:Name="SendIcon" Symbol="send"/>
+                                    </Button>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                        <StackPanel x:Name="DraftActions" Orientation="Horizontal" Visibility="Collapsed">
+                            <Button x:Name="UndoButton" Style="{StaticResource CompactIconButton}" Click="UndoEdit" ToolTipService.ToolTip="Undo Markdown edit" AutomationProperties.Name="Undo Markdown edit">
+                                <controls:VectorIcon Symbol="undo"/>
+                            </Button>
+                            <Button x:Name="RedoButton" Style="{StaticResource CompactIconButton}" Click="RedoEdit" ToolTipService.ToolTip="Redo Markdown edit" AutomationProperties.Name="Redo Markdown edit">
+                                <controls:VectorIcon Symbol="redo"/>
+                            </Button>
+                            <Button x:Name="SaveButton" Style="{StaticResource CompactIconButton}" Click="SaveEdit" ToolTipService.ToolTip="Save Markdown copy" AutomationProperties.Name="Save Markdown copy">
+                                <controls:VectorIcon Symbol="save"/>
+                            </Button>
+                            <Button x:Name="RestoreButton" Style="{StaticResource CompactIconButton}" Click="RestoreEdit" ToolTipService.ToolTip="Restore original Markdown" AutomationProperties.Name="Restore original Markdown">
+                                <controls:VectorIcon Symbol="close"/>
+                            </Button>
+                        </StackPanel>
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Margin="0,6,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="NextSend" FontSize="10" Foreground="{StaticResource MutedText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                <Button x:Name="UsageInfoButton" Grid.Column="1" Style="{StaticResource CompactIconButton}" Foreground="#3688D8" Click="ShowInformation" LostFocus="HideInformation" AutomationProperties.Name="Budget and usage">
+                                    <controls:VectorIcon Symbol="about" Foreground="#3688D8" Width="16" Height="16"/>
+                                </Button>
+                            </Grid>
+                            <ProgressBar x:Name="ContextBar" Minimum="0" Maximum="100" Height="3" Foreground="{StaticResource SystemAccent}"/>
+                            <TextBlock x:Name="ContextWarning" Visibility="Collapsed" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="{StaticResource SystemAccent}"/>
+                        </StackPanel>
+                    </Grid>
+            </Grid>
+            <Popup x:Name="ModelFlyout" IsOpen="False" Closed="ModelFlyoutClosed">
+                <Border x:Name="ModelFlyoutSurface" Style="{StaticResource FlyoutSurface}" Padding="14" KeyDown="FlyoutKeyDown">
+                    <StackPanel>
+                        <ScrollViewer MaxHeight="270" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel x:Name="ModelOptions"/>
+                        </ScrollViewer>
+                        <Border Height="1" Background="{StaticResource ShellBorder}" Margin="0,10"/>
+                        <TextBlock x:Name="FlyoutEffort" FontSize="15" HorizontalAlignment="Center"/>
+                        <Slider x:Name="EffortSlider" Style="{StaticResource ReasoningSlider}" Minimum="0" Maximum="4" SmallChange="1" LargeChange="1" ValueChanged="EffortChanged" Margin="0,8" AutomationProperties.Name="Reasoning effort"/>
+                        <Grid>
+                            <TextBlock x:Name="LowLabel" FontSize="10" Foreground="{StaticResource MutedText}"/>
+                            <TextBlock x:Name="MaxLabel" FontSize="10" Foreground="{StaticResource MutedText}" HorizontalAlignment="Right"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Popup>
+        </Grid>
+    </Border>
+</UserControl>

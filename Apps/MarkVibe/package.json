@@ -1,0 +1,24 @@
+{
+  "name": "markvibe",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "check": "pwsh -NoProfile -File scripts/check.ps1",
+    "bundle": "node scripts/bundle.mjs",
+    "bundle:debug": "node scripts/bundle.mjs --debug",
+    "test:client": "node --test tests/client/path.test.mjs tests/client/zip.test.mjs tests/client/rendering.test.mjs",
+    "test:browser": "node tests/browser/smoke.mjs",
+    "test:windows": "node tests/windows/smoke.mjs"
+  },
+  "dependencies": {
+    "dompurify": "3.4.16",
+    "fflate": "0.8.3",
+    "highlight.js": "11.12.0",
+    "mermaid": "12.1.0",
+    "monaco-editor": "0.57.0"
+  },
+  "devDependencies": { "esbuild": "0.28.2", "playwright": "1.62.1" }
+}

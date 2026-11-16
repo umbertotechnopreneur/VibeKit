@@ -40,16 +40,16 @@ Token quantities use decimal prefixes **K, M, G, T, P, E** (powers of 1,000). Th
 
 ## Installers
 
-Installer targets for **0.4.2**, generated on demand from the current source. These paths exist only until cleanup:
+Installer targets for **0.4.3**, generated on demand from the current source. These paths exist only until cleanup:
 
 - Signed Windows 11 x64 MSIX: per-user installation with a Start menu entry and optional startup at sign-in. Includes .NET and Windows App SDK runtime files. It uses the same local data directory as the MSI.
-- `artifacts/installers/OpenAIUsage-0.4.2-windows-x64.msi`: per-user Windows x64 installation under `%LOCALAPPDATA%/Programs/OpenAI Usage`, Start menu shortcut and standard Windows uninstall/upgrade support. Includes .NET and Windows App SDK runtime files.
-- `artifacts/installers/openai-usage_0.4.2-1_amd64.deb`: Ubuntu amd64 package with a self-contained Linux .NET backend, launcher and desktop entry. GTK/Python/system-library prerequisites are declared as APT dependencies. Targets Ubuntu 24.04+; runtime execution on Ubuntu is not verified here.
+- `artifacts/installers/OpenAIUsage-0.4.3-windows-x64.msi`: per-user Windows x64 installation under `%LOCALAPPDATA%/Programs/OpenAI Usage`, Start menu shortcut and standard Windows uninstall/upgrade support. Includes .NET and Windows App SDK runtime files.
+- `artifacts/installers/openai-usage_0.4.3-1_amd64.deb`: Ubuntu amd64 package with a self-contained Linux .NET backend, launcher and desktop entry. GTK/Python/system-library prerequisites are declared as APT dependencies. Targets Ubuntu 24.04+; runtime execution on Ubuntu is not verified here.
 
 All packages require a separately installed Codex CLI and your own ChatGPT sign-in. The installers contain no credentials and do not install or sign in to Codex. The local MSI and DEB are unsigned. Package validation, Windows installation/startup and native GTK runtime validation are separate checks; report their results in the current task rather than retaining a historical report.
 
 ```sh
-sudo apt install ./openai-usage_0.4.2-1_amd64.deb
+sudo apt install ./openai-usage_0.4.3-1_amd64.deb
 ```
 
 On Windows, open the MSI to install, then launch **OpenAI Usage** from Start. Use Settings > Apps to uninstall; private observation history is outside the installation directory. The installer builder forces clean source rebuilds and checks the compiled version. Successful packaging keeps only the current MSI/DEB until installation or hand-off, while removing imported dependencies, staging payloads, bin/obj and Python caches. Run `Packaging/Clean-BuildOutputs.ps1` to remove all generated material, including the latest installers. No release history, antivirus report, scan hash inventory or persistent import cache is kept.
@@ -79,7 +79,7 @@ Token buckets expose dates without a documented timezone. Labels are preserved r
 Source-built Debug output, available only before cleanup:
 
 ```powershell
-& 'E:\tools\Widgets\OpenAI\artifacts\windows-x64\OpenAIUsage.Windows.exe'
+& '.\artifacts\windows-x64\OpenAIUsage.Windows.exe'
 ```
 
 Requires Windows x64, .NET 10 runtime and an installed Codex CLI signed in with ChatGPT. Windows App SDK components are included. Keep the output folder intact; this is an unpackaged app, not an installer. Run `codex login` yourself when needed, or set the native Codex executable path in Settings.
@@ -105,7 +105,8 @@ No Linux distribution is installed in the current Windows/WSL environment. Nativ
 Use the pinned SDK in `global.json`, Windows SDK tooling and Python. Import preparation is an explicit separate step in the same PowerShell execution:
 
 ```powershell
-Set-Location 'E:\tools\Widgets\OpenAI'
+# From the VibeKit repository root:
+Set-Location '.\Widgets\OpenAI'
 $imports = & .\Prepare-Imports.ps1
 & .\Build.ps1 -Imports $imports -Configuration Debug
 ```
@@ -135,14 +136,15 @@ The packaging workflow forces clean source rebuilds, checks the compiled version
 & .\Packaging\Clean-BuildOutputs.ps1
 ```
 
-No build/release history or antivirus evidence files are retained. The dependency-free C# checks cover forecast arithmetic, reset ordering, exhausted/zero/missing usage, incomplete coverage, monitoring gaps, plan changes, DST, current-day exclusion, token totals, duplicate dates, quota selection, credits and account-isolated atomic persistence. Native GTK behavior still requires a GNOME smoke test.
+No build/release history or antivirus evidence files are retained. The dependency-free C# checks cover forecast arithmetic, reset ordering, exhausted/zero/missing usage, incomplete coverage, monitoring gaps, plan changes, DST, current-day exclusion, token totals, duplicate dates, quota selection, credits, malformed optional API fields and account-isolated atomic persistence. Python checks also cover settings revisions, exit during a save and failed-save recovery. Native GTK behavior still requires a GNOME smoke test. `Tests/gtk_settings_checks.py` exercises real GTK close/save ordering with a synthetic backend; run it on an isolated display, session bus and XDG directories, then repeat with `--fail-first` for the error/retry path.
 
 ## Local state
 
 - Windows: `%LOCALAPPDATA%/OpenAIUsage`.
 - Linux: `$XDG_STATE_HOME/openai-usage`, otherwise `~/.local/state/openai-usage`.
 - Settings and up to 16 days of quota observations stay outside the repository. Account identities are hashed. Emails, credentials and conversation contents are not persisted by the widget. Remote token buckets stay in memory.
-- A locked or corrupt history file is reported as unavailable rather than silently overwritten or treated as zero usage.
+- History is validated before any update, with an 8 MiB / 65,536-observation bound. Invalid samples, timestamps, percentages, plans and duplicate timestamps make history unavailable without overwriting its source. Live account values remain available; forecasts do not use rejected history.
+- GTK waits for the latest pending settings revision before exiting. A failed save cancels exit and leaves the window available with the error; retrying exit is an explicit user action. Refreshes do not replace unsaved settings.
 - Windows records unexpected application exceptions in a local `startup-error.log` for troubleshooting. It is not uploaded or placed in the repository.
 
 ## First external import

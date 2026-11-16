@@ -57,8 +57,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Behavioral checks failed.' }
     & python -m py_compile 'Linux/openai_usage.py' 'Linux/watchdog.py' 'Linux/tray.py' 'Packaging/package.py'
     if ($LASTEXITCODE -ne 0) { throw 'Python syntax checks failed.' }
-    & python 'Tests/test_watchdog.py'
-    if ($LASTEXITCODE -ne 0) { throw 'Linux watchdog ownership checks failed.' }
+    & python -B -m unittest discover -s Tests -p 'test_*.py'
+    if ($LASTEXITCODE -ne 0) { throw 'Linux watchdog and settings lifecycle checks failed.' }
     foreach ($file in @('openai_usage.py','watchdog.py','tray.py','run.sh','openai-usage.desktop')) {
         Copy-Item -LiteralPath (Join-Path $projectRoot "Linux\$file") -Destination (Join-Path $linuxPayload "Linux\$file")
     }

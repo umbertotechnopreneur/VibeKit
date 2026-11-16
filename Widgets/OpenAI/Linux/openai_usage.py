@@ -322,6 +322,9 @@ class UsageWindow(Gtk.ApplicationWindow):
         self.busy = False
         self.refresh_pending = False
         self.settings_revision = 0
+        self.saved_settings_revision = 0
+        self.settings_error = None
+        self.exit_pending = False
         self.saving = False
         self.closed = False
         self.last_reset_refresh = 0.0
@@ -460,6 +463,8 @@ class UsageWindow(Gtk.ApplicationWindow):
     def refresh(self):
         if self.closed:
             return False
+        if self.exit_pending:
+            return True
         if self.busy:
             self.refresh_pending=True
             return True
@@ -478,7 +483,8 @@ class UsageWindow(Gtk.ApplicationWindow):
         return True
 
     def settings_loaded(self, settings, revision):
-        if not self.closed and revision == self.settings_revision and not self.saving:
+        if (not self.closed and revision == self.settings_revision and not self.saving
+                and self.saved_settings_revision == self.settings_revision):
             self.settings = settings
             self.settings_ready = True
             self.sync_pin()
@@ -627,8 +633,9 @@ class UsageWindow(Gtk.ApplicationWindow):
         if stale:
             status += " · STALE"
         self.brand.set_tooltip_text(status)
-        self.problem.set_tooltip_text(status)
-        self.problem.set_visible(not self.state.get("connected",False) or stale)
+        problem_status = "Saving settings before closing…" if self.exit_pending else self.settings_error or status
+        self.problem.set_tooltip_text(problem_status)
+        self.problem.set_visible(self.exit_pending or bool(self.settings_error) or not self.state.get("connected",False) or stale)
         if seconds==0 and time.monotonic()-self.last_reset_refresh>=60:
             self.last_reset_refresh=time.monotonic()
             self.refresh()
@@ -666,15 +673,25 @@ class UsageWindow(Gtk.ApplicationWindow):
                 if self.closed:
                     return False
                 if error:
+                    self.settings_error = error
                     if error_label is not None:
                         error_label.set_text(error)
                     self.problem.set_visible(True)
                     self.problem.set_tooltip_text(error)
                     log_event("settings.failed", error)
+                    if revision == self.settings_revision and self.exit_pending:
+                        self.exit_pending = False
+                        self.allow_close = False
+                        self.present()
                 elif revision == self.settings_revision:
+                    self.settings_error = None
+                    self.saved_settings_revision = revision
                     if error_label is not None:
                         error_label.set_text("")
-                    self.refresh()
+                    if self.exit_pending:
+                        self.close()
+                    else:
+                        self.refresh()
                 if revision != self.settings_revision:
                     self.save_async(error_label)
                 return False
@@ -774,7 +791,7 @@ class UsageWindow(Gtk.ApplicationWindow):
         content.append(about_mark("app-icon-512.png", 100))
         identity = box(5)
         identity.append(centered("OpenAI Usage", "about-heading"))
-        identity.append(centered("Version 0.4.1", "about-note"))
+        identity.append(centered("Version 0.4.3", "about-note"))
         content.append(identity)
         content.append(centered("I built OpenAI Usage to see my Codex allowance, tokens and credits at a glance."))
         content.append(centered("I provide this software independently and as-is, without warranty.", "about-note"))
@@ -791,7 +808,7 @@ class UsageWindow(Gtk.ApplicationWindow):
                             column_spacing=8, row_spacing=4, halign=Gtk.Align.CENTER)
         for label, url, icon in (
             ("UmbertoGiacobbi.biz", website, "web-browser-symbolic"),
-            ("Private source", "https://github.com/umbertotechnopreneur/Tools/tree/main/Widgets/OpenAI", "folder-remote-symbolic"),
+            ("Source", "https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/OpenAI", "folder-remote-symbolic"),
             ("Terms", website + "/terms/", "text-x-generic-symbolic"),
             ("Privacy", website + "/privacy/", "changes-prevent-symbolic"),
         ):
@@ -799,8 +816,8 @@ class UsageWindow(Gtk.ApplicationWindow):
             pair.append(Gtk.Image.new_from_icon_name(icon))
             pair.append(Gtk.Label(label=label))
             link = about_link(label, url, pair)
-            if label == "Private source":
-                link.set_tooltip_text("Private GitHub repository. Access is required.")
+            if label == "Source":
+                link.set_tooltip_text("View this utility in the VibeKit repository.")
             links.append(link)
         content.append(links)
 
@@ -843,6 +860,7 @@ class UsageWindow(Gtk.ApplicationWindow):
             surface.begin_move(device,Gdk.BUTTON_PRIMARY,surface_x,surface_y,event.get_time())
 
     def exit_application(self):
+        self.exit_pending = True
         self.allow_close = True
         self.close()
 
@@ -868,6 +886,13 @@ class UsageWindow(Gtk.ApplicationWindow):
             dialog.connect("response", response)
             self.close_dialog = dialog
             dialog.present()
+            return True
+        if self.saving or self.saved_settings_revision != self.settings_revision:
+            self.exit_pending = True
+            self.problem.set_visible(True)
+            self.problem.set_tooltip_text("Saving settings before closing…")
+            if not self.saving:
+                self.save_async()
             return True
         self.closed = True
         if self.tray:

@@ -562,7 +562,7 @@ public sealed class MainWindow : Window
         var content = WidgetAbout.Create(Logo(100), initiative, "OpenAI Usage",
             $"Version {typeof(App).Assembly.GetName().Version?.ToString(3) ?? "unknown"}",
             "I built OpenAI Usage to see my Codex allowance, tokens and credits at a glance.",
-            "https://github.com/umbertotechnopreneur/Tools/tree/main/Widgets/OpenAI",
+            "https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/OpenAI",
             "I provide this software independently and as-is, without warranty.", details);
         content.Width = 590;
         await ShowDialogAsync("About OpenAI Usage", content, width:640, height:620, about:true);

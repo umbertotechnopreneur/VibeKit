@@ -81,7 +81,7 @@ public sealed class UsageService(Storage storage)
         {
             List<Sample> history;
             try { history = storage.Record(usage.Identity, window, usage.Plan, now.ToUnixTimeSeconds()); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or System.Text.Json.JsonException)
             {
                 state.Status = "Live · Local history unavailable (file busy, corrupt or not writable)";
                 history = [];

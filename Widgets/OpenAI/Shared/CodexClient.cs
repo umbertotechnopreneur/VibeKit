@@ -85,6 +85,8 @@ public sealed class CodexClient : IAsyncDisposable
 
     public static AccountUsage Parse(JsonElement account, JsonElement limits, JsonElement? usage, string? tokenError = null)
     {
+        if (account.ValueKind != JsonValueKind.Object || limits.ValueKind != JsonValueKind.Object)
+            throw new InvalidOperationException("The account and allowance responses must be objects.");
         string plan = Text(account, "planType") ?? "Unknown";
         string? identity = Text(limits, "accountId") ?? Text(account, "email");
         if (string.IsNullOrEmpty(identity)) throw new IOException("Account identity unavailable; history cannot be safely separated.");
@@ -99,13 +101,14 @@ public sealed class CodexClient : IAsyncDisposable
         bool unlimited = false, blocked = false;
         foreach (var (key, bucket) in buckets.OrderBy(b => b.Item1 == "codex" ? 0 : 1))
         {
+            if (bucket.ValueKind != JsonValueKind.Object) continue;
             foreach (var name in new[] { "primary", "secondary" })
             {
                 if (!bucket.TryGetProperty(name, out var w) || w.ValueKind != JsonValueKind.Object) continue;
                 var used = Number(w, "usedPercent");
                 var minutes = Number(w, "windowDurationMins");
                 if (used is null || minutes is null || minutes <= 0 || minutes > int.MaxValue || used < 0 || !double.IsFinite(used.Value)) continue;
-                long? reset = w.TryGetProperty("resetsAt", out var r) && r.TryGetInt64(out var t) && t > 0 && t < 253402300799 ? t : null;
+                long? reset = Timestamp(w, "resetsAt");
                 string duration = minutes == 10080 ? "Weekly" : minutes == 300 ? "5-hour" : $"{minutes / 60:0.#}-hour";
                 windows.Add(new($"{key}:{minutes.Value:0}", $"{duration} · {Text(bucket, "limitName") ?? key}",
                     Math.Clamp(used.Value, 0, 100), (int)minutes.Value, reset));
@@ -123,11 +126,11 @@ public sealed class CodexClient : IAsyncDisposable
             }
         }
         var days = new List<TokenDay>();
-        if (usage is { } u && u.TryGetProperty("dailyUsageBuckets", out var daily) && daily.ValueKind == JsonValueKind.Array)
+        if (usage is { ValueKind: JsonValueKind.Object } u && u.TryGetProperty("dailyUsageBuckets", out var daily) && daily.ValueKind == JsonValueKind.Array)
         {
             foreach (var d in daily.EnumerateArray())
-                if (DateOnly.TryParseExact(Text(d, "startDate"), "yyyy-MM-dd", out var date) &&
-                    d.TryGetProperty("tokens", out var tokens) && tokens.TryGetInt64(out var n) && n >= 0)
+                if (d.ValueKind == JsonValueKind.Object && DateOnly.TryParseExact(Text(d, "startDate"), "yyyy-MM-dd", out var date) &&
+                    d.TryGetProperty("tokens", out var tokens) && tokens.ValueKind == JsonValueKind.Number && tokens.TryGetInt64(out var n) && n >= 0)
                     days.Add(new(date.ToString("yyyy-MM-dd"), n));
         }
         // Conflicting duplicate dates are unknown, not double counted.
@@ -152,17 +155,18 @@ public sealed class CodexClient : IAsyncDisposable
             foreach (var credit in credits.EnumerateArray())
             {
                 if (credit.ValueKind != JsonValueKind.Object || Text(credit, "status") != "available") continue;
-                long? expiry = credit.TryGetProperty("expiresAt", out var date) && date.ValueKind == JsonValueKind.Number &&
-                    date.TryGetInt64(out long seconds) && seconds > 0 && seconds <= 253402300799 ? seconds : null;
+                long? expiry = Timestamp(credit, "expiresAt");
                 expirations.Add(expiry);
             }
         }
         return new(available, expirations.OrderBy(expiry => expiry ?? long.MaxValue).Take(available).ToArray());
     }
 
-    private static string? Text(JsonElement e, string name) => e.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String ? p.GetString() : null;
-    private static double? Number(JsonElement e, string name) => e.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.Number && p.TryGetDouble(out var n) ? n : null;
-    private static bool? Flag(JsonElement e, string name) => e.TryGetProperty(name, out var p) && p.ValueKind is JsonValueKind.True or JsonValueKind.False ? p.GetBoolean() : null;
+    private static long? Timestamp(JsonElement e, string name) => e.ValueKind == JsonValueKind.Object &&
+        e.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt64(out long n) && n > 0 && n <= 253402300799 ? n : null;
+    private static string? Text(JsonElement e, string name) => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String ? p.GetString() : null;
+    private static double? Number(JsonElement e, string name) => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.Number && p.TryGetDouble(out var n) ? n : null;
+    private static bool? Flag(JsonElement e, string name) => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var p) && p.ValueKind is JsonValueKind.True or JsonValueKind.False ? p.GetBoolean() : null;
 
     public async ValueTask DisposeAsync()
     {

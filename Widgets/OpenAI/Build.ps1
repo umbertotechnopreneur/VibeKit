@@ -71,8 +71,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Shared behavioral checks failed.' }
     & python -m py_compile 'Linux/openai_usage.py' 'Linux/watchdog.py' 'Linux/tray.py'
     if ($LASTEXITCODE -ne 0) { throw 'GTK Python syntax check failed.' }
-    & python 'Tests/test_watchdog.py'
-    if ($LASTEXITCODE -ne 0) { throw 'Linux watchdog ownership checks failed.' }
+    & python -B -m unittest discover -s Tests -p 'test_*.py'
+    if ($LASTEXITCODE -ne 0) { throw 'Linux watchdog and settings lifecycle checks failed.' }
     & dotnet publish 'Windows/OpenAIUsage.Windows.csproj' -c $Configuration --no-restore -o 'artifacts/windows-x64'
     if ($LASTEXITCODE -ne 0) { throw 'Windows source publish failed.' }
     foreach ($resource in @('OpenAIUsage.Windows.pri','App.xbf')) {

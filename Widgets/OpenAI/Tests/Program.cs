@@ -71,6 +71,7 @@ using var unlimited = JsonDocument.Parse("""{"rateLimits":{"credits":{"unlimited
 Check(CodexClient.Parse(account.RootElement, unlimited.RootElement, null).UnlimitedCredits, "Unlimited credits represented separately from balance");
 
 string temporary = Path.Combine(Path.GetTempPath(), "openai-usage-tests-" + Guid.NewGuid().ToString("N"));
+ParserChecks.Run(Check);
 try
 {
     var store = new Storage(temporary);
@@ -103,6 +104,7 @@ try
     Check(other.Count == 1, "Accounts never share history");
     var duplicate = store.Record("different-account", parsed.Windows[0], "pro", now.ToUnixTimeSeconds());
     Check(duplicate.Count == 1, "Same-timestamp observations do not double count");
+    StorageChecks.Run(Check, Path.Combine(temporary, "integrity"), now.ToUnixTimeSeconds());
 }
 finally
 {

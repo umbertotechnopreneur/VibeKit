@@ -18,6 +18,10 @@ I also wanted something I could customize completely. As usual, I started writin
 code. Having a small codebase of my own means I can make it behave exactly how I
 want, without finding my way through a huge application first.
 
+## Built with care
+
+I want a reader that respects your computer as well as your documents. I review third-party dependencies and their sources, pay attention to memory and performance, and keep potentially consequential actions under your control. The project's checks and limitations are documented separately.
+
 ## What it does
 
 - Opens local Markdown files, folders and documentation ZIPs, including relative

@@ -8,6 +8,10 @@ hm "How do I undo my last local commit without losing my changes?"
 
 I maintain HelpMe with help from a few contributors. It is a .NET 10 console app in pre-production. AI features use your own OpenAI API account; API charges apply.
 
+## Built with care
+
+I want terminal help to stay useful without wasting your computer's resources. I review third-party dependencies and their sources, pay attention to memory and performance, and keep you in control of commands. Checks and protections depend on the feature; they are not a security guarantee.
+
 ## Get started
 
 Install the .NET 10 SDK, Git, and PowerShell 7, then run from source:

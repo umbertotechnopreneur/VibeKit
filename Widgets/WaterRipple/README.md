@@ -2,6 +2,10 @@
 
 A small Windows 11 click-ripple app by Umberto Giacobbi, using C# / WinUI 3 and C++ / Direct3D 11 HLSL.
 
+## Built with care
+
+Desktop effects should respect your computer. I review third-party dependencies and their sources, pay attention to memory and rendering performance, and keep stop controls available. The Windows and Linux editions have different safeguards, documented in their respective guides.
+
 ## Use
 
 Ripple opens a control panel and starts click ripples on the current monitor when the GPU and capture service are available. The **Effect** tab selects a pipeline and edits the ripple and filter settings. Changes apply immediately to the running screen effect; there is no preview or Apply step. **Stop screen effect** pauses the effect, and **Enable screen effect** resumes it. Clicks pass through the overlay. **Ctrl+Alt+Esc** stops it; the optional **Ctrl+Alt+Shift+W** emergency shortcut closes Ripple.

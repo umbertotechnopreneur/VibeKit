@@ -20,6 +20,10 @@ My email was spread across several accounts. I built AgentInbox so I could ask m
 
 Connect as many compatible mailboxes as you need: Gmail, Microsoft, iCloud, GoDaddy and other IMAP or POP3 providers. One MCP connection lets your AI assistant work across them.
 
+## Built with care
+
+Email deserves careful handling. I review third-party dependencies and their sources, keep an eye on memory and performance, and design controls so you choose what your assistant can access. The checks and limits documented below describe this project, not a security guarantee.
+
 ## Get started
 
 1. Download the Windows ZIP, extract the whole folder and open `AgentInbox.Desktop.exe`.

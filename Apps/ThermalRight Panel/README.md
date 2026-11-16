@@ -47,6 +47,10 @@ For any theme, adjust hue, saturation, brightness and contrast. Choose a refresh
 
 </details>
 
+## Built with care
+
+I want the display software to respect your computer's resources. My development approach includes reviewing third-party dependencies and their sources, and investigating memory and performance. This hobby project still needs further security and performance review; see the limits below.
+
 ## A small app that runs on your PC
 
 Every theme is a Python script. Python is a widely used programming language that is simple to read and learn. A theme is **a small app that runs on your PC**: it can read the data supplied by the engine, draw charts, arrange information and change pages. You can change its colors, layout and behavior. The [theme guide](docs/theme-packs.md) shows where to start.

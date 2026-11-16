@@ -1,6 +1,6 @@
 # OpenAI Usage
 
-Two native desktop clients in the existing `E:/tools` repository:
+Two native desktop clients in VibeKit:
 
 - **Windows:** C# / WinUI 3, a single compact desktop-acrylic strip and optional always-on-top.
 - **Linux:** Python / GTK 4 / libadwaita, one compact native window surface. Follows the GNOME 50 design, with compatible theme colors for libadwaita 1.5+ on Ubuntu 24.04 and newer.
@@ -13,6 +13,10 @@ The shared generated icon is used by the executable, window/header, About, Start
 Both widgets show a discreet VibeWare logo in the bottom-right corner. The icon has no button background or border and opens the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto) when clicked.
 
 Both interfaces are native. No HTML, JavaScript UI, WebView or WebGPU renderer is used. Windows App SDK brings three WebView2 binaries transitively; they are present in the package but are not instantiated by this app. Their disk presence is distinct from a browser runtime running in memory.
+
+## Built with care
+
+I review third-party dependencies and their sources and pay attention to memory and CPU use. The watchdog below is a concrete protection, with platform-specific behavior and limits; it is not a blanket security guarantee.
 
 ## Memory protection and diagnostics
 

@@ -19,6 +19,10 @@ WorkTrail uses native **WinUI 3** windows. Keep the planner, world clocks, calen
 
 *Actual world-clock window from an earlier build, shown in Italian. The new launcher is not pictured. See the [screenshot provenance](docs/images/readme/celestial-screenshots-PROVENANCE.md).*
 
+## Built with care
+
+I review third-party dependencies and their sources and pay attention to memory, CPU and performance as I develop. When a feature needs a safeguard, I want its behavior and your controls to be clear. The project's documented checks and limits are not a blanket security guarantee.
+
 ## Get WorkTrail
 
 WorkTrail targets **Windows 11 x64 and ARM64**. The Microsoft Store channel is separate from the [GitHub Releases](https://github.com/umbertotechnopreneur/WorkTrail/releases) channel. GitHub release downloads use **portable ZIPs**: extract the complete archive and run `WorkTrail.exe`. Keep its DLLs and resource folders together. Linux and macOS are source-only, without binaries or compatibility promises.

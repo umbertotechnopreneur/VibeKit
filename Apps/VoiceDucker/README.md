@@ -12,6 +12,10 @@ It can lower browser videos and other Windows apps too.
 Useful for AI chats, Zoom or Teams calls, and demos or streams with
 OBS Studio, Microsoft Clipchamp, or similar tools.
 
+## Built with care
+
+I want an audio utility that respects your computer and your choices. I review third-party dependencies and their sources, pay attention to memory and performance, and keep microphone use under your control. The documented checks and protections are specific to this project.
+
 ## A small personal note
 
 No sales pitch here: now that I use VoiceDucker every day, I appreciate it more

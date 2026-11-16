@@ -183,8 +183,8 @@ internal sealed class RippleView : Grid
                     open.Click += (_, _) => { pipelines.Select(pipeline); Show(false); };
                     row.Children.Add(open);
                     var menu = new MenuFlyout();
-                    MenuFlyoutItem Action(string title, Action action)
-                    { var item = new MenuFlyoutItem { Text = title }; item.Click += (_, _) => action(); return item; }
+                    MenuFlyoutItem Action(string actionTitle, Action action)
+                    { var item = new MenuFlyoutItem { Text = actionTitle }; item.Click += (_, _) => action(); return item; }
                     menu.Items.Add(Action("Duplicate", () => pipelines.Duplicate(pipeline)));
                     if (!pipeline.IsBuiltIn)
                     {

@@ -44,6 +44,7 @@ TestResults/
 appsettings.local.json
 client_secret*.json
 credentials*.json
+*.backup
 token*.json
 *.pfx
 *.p12

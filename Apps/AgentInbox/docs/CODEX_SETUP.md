@@ -63,6 +63,8 @@ See [MCP tools](MCP_CONTRACT.md) and [privacy](PRIVACY.md).
 
 ## Export the Python plugin
 
+For another computer, create a portable source ZIP with `python -B scripts/build-python-bundle.py` from the AgentInbox application directory. Give the destination agent the extracted ZIP and ask it to follow `AGENTS.md`. First export accounts from the full app using **Accounts → Export accounts**. Supply that encrypted backup separately at restore time and enter its passphrase in your terminal. Keep backups and credentials outside Git. See the [agent setup instructions](PYTHON_AGENT_SETUP.md).
+
 The files under `integrations/codex` are source templates. When source packaging is authorized, create a fresh local marketplace containing the Python engine:
 
 ```text

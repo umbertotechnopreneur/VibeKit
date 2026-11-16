@@ -61,6 +61,16 @@ Without `-TaskDirectory`, cleanup leaves output untouched. It does not wipe `art
 
 ## Export a source plugin
 
+To prepare a portable handoff for an agent on another computer, run from the AgentInbox application directory.
+
+```text
+python -B scripts/build-python-bundle.py
+```
+
+The command creates a new `artifacts/python-bundle/agentinbox-python-<version>.zip` from tracked Python modules and explicit setup resources. It includes `AGENTS.md` with the destination setup steps and the existing plugin exporter. It reads no account profile. Export accounts separately from the full app before migration and keep that encrypted backup outside Git and the source ZIP. The destination agent chooses local Python and profile paths, guides the hidden-passphrase import and connects MCP. See [agent setup instructions](../docs/PYTHON_AGENT_SETUP.md).
+
+`--output artifacts/<new-name>.zip` selects another new ZIP filename. Existing output is preserved. Generated bundles remain available for manual cleanup.
+
 `export-plugin.py` copies the Python engine into a fresh local plugin tree; it does not bundle an interpreter, install the plugin or validate a client connection.
 
 ```text

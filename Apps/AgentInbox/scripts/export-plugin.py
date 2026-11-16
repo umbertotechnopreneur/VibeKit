@@ -81,8 +81,9 @@ def main():
             "Read mail and send through optional SMTP when requested through your assistant. "
             "Password is the default; Microsoft OAuth2 requires explicit selection and a suitable public-client app registration. "
             "Authentication never switches automatically, and Google OAuth is not included. "
-            "Configure the chosen profile through Windows setup or the source management CLI before use. "
-            "For the CLI, pass a local JSON request to `python -B python/run.py manage`; "
+            "Restore the chosen empty profile with `python -B python/run.py profile import FILE` "
+            "using a separately exported encrypted backup. Enter its passphrase in your own terminal. "
+            "For Microsoft accounts, complete a new sign-in after restore. "
             "use the same `AGENTINBOX_DATA_DIR` as the MCP process. "
             "The interpreter and profile paths are specific to this installation. "
             "Keep passwords and tokens out of plugin configuration.\n\n"
@@ -95,11 +96,9 @@ def main():
             "On macOS, Keychain must be available to the user running the MCP process. "
             "Export separately on each target machine with Python 3.11 or newer; a virtual environment's interpreter path is preserved. "
             "The Windows app only configures connections. Sending through MCP has no separate app confirmation.\n\n"
-            "Before importing or running external libraries or binaries, scan their archives and "
-            "extracted files with an explicit targeted Microsoft Defender scan. "
-            "Record the official source, version or SHA-256, command and completed clean result. "
-            "Unavailable, failed or unfinished scans block the import. No existing dependency is "
-            "certified as scanned by this source export.\n", encoding="utf-8")
+            "Use official sources for any missing Python or operating-system dependencies and follow "
+            "the destination computer's installation rules. Keep the encrypted account backup outside "
+            "Git and the plugin directory. Preserve generated setup material for manual cleanup.\n", encoding="utf-8")
     except Exception:
         # Keep an incomplete export visible for diagnosis, never present it as usable.
         sys.stderr.write("Plugin export failed. The incomplete output must not be installed.\n")

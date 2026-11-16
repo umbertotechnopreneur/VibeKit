@@ -32,6 +32,7 @@ public sealed class WidgetSettings
     public bool Alert50 { get; set; }
     public bool Alert20 { get; set; }
     public bool Alert5 { get; set; }
+    public WidgetSettings Copy() => (WidgetSettings)MemberwiseClone();
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(CodexPath)) throw new ArgumentException("Choose a Codex executable.");

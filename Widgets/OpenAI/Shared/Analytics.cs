@@ -18,14 +18,14 @@ public static class Analytics
             double covered = 0, used = 0;
             for (int i = 1; i < samples.Length; i++)
             {
-                var a = samples[i - 1]; var b = samples[i];
-                if (b.At <= start || a.At >= end) continue;
-                long elapsed = b.At - a.At;
-                if (elapsed <= 0 || elapsed > MaximumSampleGapSeconds || a.Reset is null || a.Reset != b.Reset ||
-                    a.Plan != plan || b.Plan != plan || b.Used < a.Used || b.At > a.Reset) continue;
-                long overlap = Math.Max(0, Math.Min(end, b.At) - Math.Max(start, a.At));
+                var previous = samples[i - 1]; var current = samples[i];
+                if (current.At <= start || previous.At >= end) continue;
+                long elapsed = current.At - previous.At;
+                if (elapsed <= 0 || elapsed > MaximumSampleGapSeconds || previous.Reset is null || previous.Reset != current.Reset ||
+                    previous.Plan != plan || current.Plan != plan || current.Used < previous.Used || current.At > previous.Reset) continue;
+                long overlap = Math.Max(0, Math.Min(end, current.At) - Math.Max(start, previous.At));
                 covered += overlap;
-                used += (b.Used - a.Used) * overlap / elapsed;
+                used += (current.Used - previous.Used) * overlap / elapsed;
             }
             double coverage = Math.Clamp(covered / (end - start), 0, 1);
             result.Add(new(date.ToString("yyyy-MM-dd"), coverage >= 0.999999 ? used : null, coverage));
@@ -69,12 +69,12 @@ public static class Analytics
         double seconds = 0, used = 0;
         for (int i = 1; i < samples.Length; i++)
         {
-            var a = samples[i - 1]; var b = samples[i];
-            long elapsed = b.At - a.At;
-            if (elapsed <= 0 || elapsed > MaximumSampleGapSeconds || a.Reset is null || a.Reset != b.Reset ||
-                a.Plan != plan || b.Plan != plan || b.Used < a.Used || b.At > a.Reset) continue;
+            var previous = samples[i - 1]; var current = samples[i];
+            long elapsed = current.At - previous.At;
+            if (elapsed <= 0 || elapsed > MaximumSampleGapSeconds || previous.Reset is null || previous.Reset != current.Reset ||
+                previous.Plan != plan || current.Plan != plan || current.Used < previous.Used || current.At > previous.Reset) continue;
             seconds += elapsed;
-            used += b.Used - a.Used;
+            used += current.Used - previous.Used;
         }
         if (remaining <= 0) return new(null, 0, 0, "Allowance exhausted", "Wait for the reset or check available credits in Codex.");
         if (reset is { } expired && expired <= now.ToUnixTimeSeconds())
@@ -99,7 +99,7 @@ public static class Analytics
     {
         if (!double.IsFinite(days) || days > 36500) return "Over 100 years at this pace";
         long minutes = Math.Max(0, (long)Math.Floor(days * 1440));
-        if (minutes < 1) return "Less than a minute";
+        if (minutes < 1) return "Less than previous minute";
         if (minutes < 60) return $"{minutes} minutes";
         if (minutes < 1440) return $"{minutes / 60} hours {minutes % 60} minutes";
         return $"{minutes / 1440} days {minutes % 1440 / 60} hours";

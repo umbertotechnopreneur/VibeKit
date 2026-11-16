@@ -18,7 +18,7 @@ using WindowsColor = global::Windows.UI.Color;
 
 namespace OpenAIUsage.Windows;
 
-public sealed class MainWindow : Window
+public sealed partial class MainWindow : Window
 {
     private const string StartupTaskId = "OpenAIUsageStartup";
     private const int EstimateSeconds = 10, VoucherSeconds = 5;
@@ -43,6 +43,10 @@ public sealed class MainWindow : Window
     private static readonly LinearGradientBrush ValueGradient=new() { StartPoint=new(0,0), EndPoint=new(1,.25), GradientStops={new(),new(){Offset=1}} };
     private readonly Storage storage=new();
     private WidgetSettings settings;
+    private readonly SettingsSaveQueue settingsWriter;
+    private string? settingsError;
+    private bool exitPending;
+    private TextBlock? settingsStatus;
     private WidgetState state=new();
     private readonly Grid root=new() { Background=new SolidColorBrush(Colors.Transparent) };
     private readonly Grid strip = new() { ColumnSpacing = 14, Margin = new(10, 8, 10, 8) };
@@ -93,8 +97,27 @@ public sealed class MainWindow : Window
 
     public MainWindow()
     {
-        try { settings=storage.LoadSettings(); }
-        catch(Exception error) { settings=new(); Diagnostics.Record("settings.failed",error.Message); }
+        SettingsForEditing editableSettings;
+        try { editableSettings = storage.LoadSettingsForEditing(); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            editableSettings = new(new(), "Settings could not be read. " + error.Message);
+            Diagnostics.Record("settings.failed", error.Message);
+        }
+        settings = editableSettings.Settings;
+        settingsError = editableSettings.RecoveryMessage;
+        settingsWriter = new SettingsSaveQueue(storage.SaveSettings);
+        settingsWriter.Saved += error => DispatcherQueue.TryEnqueue(() =>
+        {
+            if (closed) return;
+            settingsError = error?.Message;
+            UpdateSettingsStatus();
+            if (error is not null)
+            {
+                Diagnostics.Record("settings.failed", error.Message);
+                tray?.NotifyError("Could not save settings. Open Preferences to retry.");
+            }
+        });
         if (!WindowOpacityOptions.Contains(settings.WindowOpacityPercent))
             settings.WindowOpacityPercent = 100;
         Title="OpenAI Usage";
@@ -251,38 +274,10 @@ public sealed class MainWindow : Window
         Closed+=(_,_)=>{closed=true;activeDialog?.Close();tray?.Dispose();clock.Stop();refresh.Stop();usageColorTransition?.Stop();lifetime.Cancel();systemSettings.ColorValuesChanged-=ThemeChanged;};
     }
 
-    private async Task RefreshAsync()
-    {
-        if(closed)return;
-        if(busy){refreshPending=true;return;}
-        busy=true;
-        try
-        {
-            var next=await new UsageService(storage).RefreshAsync(settings,lifetime.Token);
-            if(closed)return;
-            if(state.Connected!=next.Connected || state.Status!=next.Status)
-            {
-                Diagnostics.Record(next.Connected?"connection.ready":"connection.failed",next.Status);
-                if(!next.Connected)tray?.NotifyError(next.Status);
-            }
-            if (next.ResetVoucherCount != state.ResetVoucherCount ||
-                next.ResetVoucherExpirations.Count != state.ResetVoucherExpirations.Count)
-                voucherCycle.Reset();
-            var previousRemaining = state.Remaining;
-            state=next;
-            remaining.Text=state.Remaining is {} value ? $"{value:0.#}%" : "—";
-            if (state.Remaining != previousRemaining) UpdateUsageColor(animate: previousRemaining.HasValue);
-            credits.Text=state.CreditsLabel;
-            CheckAlerts();
-            var creditDetail="Credits remaining as reported by Codex: "+state.CreditsLabel+". The displayed balance is rounded to a whole number.";
-            ToolTipService.SetToolTip(credits,creditDetail);
-            connectionError.Visibility=state.Connected?Visibility.Collapsed:Visibility.Visible; ToolTipService.SetToolTip(connectionError,state.Status);
-            Tick();
-        }
-        finally { busy=false; if(refreshPending && !closed){refreshPending=false;_=RefreshAsync();} }
-    }
     private void Tick()
     {
+        connectionError.Visibility = settingsError is not null || !state.Connected ? Visibility.Visible : Visibility.Collapsed;
+        ToolTipService.SetToolTip(connectionError, settingsError ?? state.Status);
         UpdateForecastMetric();
         long? seconds=state.ResetsAt is {} end?Math.Max(0,end-DateTimeOffset.UtcNow.ToUnixTimeSeconds()):null;
         string[] values=seconds is {} s?[$"{s/86400:00}",$"{s/3600%24:00}",$"{s/60%60:00}",$"{s%60:00}"]:["--","--","--","--"];
@@ -417,7 +412,27 @@ public sealed class MainWindow : Window
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(pin, description);
     }
     private void ShowWindow() {AppWindow.Show();if(activeDialog is not null)activeDialog.Activate();else Activate();}
-    private void ExitApplication() {allowClose=true;Close();}
+    private async void ExitApplication()
+    {
+        if (exitPending) return;
+        exitPending = true;
+        root.IsHitTestVisible = false;
+        activeDialog?.Close();
+        try
+        {
+            await settingsWriter.FlushAsync();
+            allowClose = true;
+            Close();
+        }
+        catch (Exception error)
+        {
+            settingsError = error.Message;
+            Diagnostics.Record("settings.failed", error.Message);
+            ShowWindow();
+            await ShowDialogAsync("Settings were not saved", Text(error.Message + " Retry Exit to save again.", 15), height: 280);
+        }
+        finally { exitPending = false; root.IsHitTestVisible = true; }
+    }
     private static void OpenLink(string url)
     {
         try {System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url){UseShellExecute=true});}
@@ -474,98 +489,6 @@ public sealed class MainWindow : Window
         }
         catch(Exception error){Diagnostics.Record("close.prompt.failed",error.Message);}
         finally{closingPrompt=false;}
-    }
-    private async Task<ContentDialogResult> ShowDialogAsync(string title,UIElement content,
-        string closeButtonText="Close",string? primaryButtonText=null,string? secondaryButtonText=null,
-        bool isPrimaryEnabled=true,Func<bool>? onPrimary=null,double width=500,double height=590,bool about=false)
-    {
-        if(!dialogGate.Wait(0))return ContentDialogResult.None;
-        var host=new Window {Title=title};
-        if(!about && WidgetAcrylicBackdrop.IsSupported)host.SystemBackdrop=new WidgetAcrylicBackdrop();
-        var surface=new Grid {RequestedTheme=about?ElementTheme.Light:root.ActualTheme,Background=about?WidgetAbout.Paper():root.Background};
-        surface.RowDefinitions.Add(new(){Height=new(about?0:44)});surface.RowDefinitions.Add(new(){Height=new(1,GridUnitType.Star)});surface.RowDefinitions.Add(new(){Height=GridLength.Auto});
-        var titleBar=new StackPanel {Orientation=Orientation.Horizontal,Spacing=10,Margin=new(20,0,60,0),VerticalAlignment=VerticalAlignment.Center};
-        if(!about){titleBar.Children.Add(Logo(22));titleBar.Children.Add(Text(title,16,true));surface.Children.Add(titleBar);}
-        FrameworkElement body = about
-            ? new Viewbox { Child=content, Stretch=Stretch.Uniform, StretchDirection=StretchDirection.DownOnly, Margin=new(16,12,16,8) }
-            : new ScrollViewer { Content=content, Margin=new(24,12,24,16), HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled, VerticalScrollBarVisibility=ScrollBarVisibility.Auto };
-        Grid.SetRow(body,1);surface.Children.Add(body);
-        var buttons=new StackPanel {Orientation=Orientation.Horizontal,Spacing=10,HorizontalAlignment=HorizontalAlignment.Right,Margin=new(24,0,24,20)};
-        Grid.SetRow(buttons,2);surface.Children.Add(buttons);
-        var loaded=new TaskCompletionSource();var result=new TaskCompletionSource<ContentDialogResult>();
-        surface.Loaded+=(_,_)=>loaded.TrySetResult();
-        bool dismissing=false;
-        void Complete(ContentDialogResult choice)=>result.TrySetResult(choice);
-        if(about)surface.KeyDown+=(_,e)=>{if(e.Key==global::Windows.System.VirtualKey.Escape){e.Handled=true;Complete(ContentDialogResult.None);}};
-        Button Command(string label,ContentDialogResult choice,bool enabled=true)
-        {
-            var button=new Button {Content=label,MinWidth=100,IsEnabled=enabled};
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button,label);
-            button.Click+=(_,_)=>{if(choice!=ContentDialogResult.Primary || onPrimary is null || onPrimary())Complete(choice);};
-            return button;
-        }
-        if(primaryButtonText is not null)buttons.Children.Add(Command(primaryButtonText,ContentDialogResult.Primary,isPrimaryEnabled));
-        if(secondaryButtonText is not null)buttons.Children.Add(Command(secondaryButtonText,ContentDialogResult.Secondary));
-        buttons.Children.Add(Command(closeButtonText,ContentDialogResult.None));
-        host.Content=surface;activeDialog=host;
-        host.AppWindow.Closing+=(_,e)=>{if(!dismissing){e.Cancel=true;Complete(ContentDialogResult.None);loaded.TrySetResult();}};
-        nint owner=WinRT.Interop.WindowNative.GetWindowHandle(this);
-        try
-        {
-            host.AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory,"Branding","app-icon.ico"));
-            if(!about)
-            {
-                host.ExtendsContentIntoTitleBar=true;host.SetTitleBar(titleBar);
-                host.AppWindow.TitleBar.ButtonBackgroundColor=Colors.Transparent;
-                host.AppWindow.TitleBar.ButtonInactiveBackgroundColor=Colors.Transparent;
-                host.AppWindow.TitleBar.ButtonForegroundColor=PrimaryText.Color;
-                host.AppWindow.TitleBar.ButtonInactiveForegroundColor=SecondaryText.Color;
-            }
-            // An owned utility window stays above its widget without creating another taskbar entry.
-            host.AppWindow.IsShownInSwitchers=false;
-            SetWindowLongPtr(WinRT.Interop.WindowNative.GetWindowHandle(host),-8,owner);
-            double dpi=root.XamlRoot.RasterizationScale;var area=DisplayArea.GetFromWindowId(AppWindow.Id,DisplayAreaFallback.Primary).WorkArea;
-            int w=(int)Math.Min(width*dpi,area.Width*.94),h=(int)Math.Min(height*dpi,area.Height*.94);
-            host.AppWindow.MoveAndResize(new(area.X+(area.Width-w)/2,area.Y+(area.Height-h)/2,w,h));
-            if(host.AppWindow.Presenter is OverlappedPresenter p){p.IsMinimizable=false;p.IsMaximizable=false;p.IsResizable=about;p.IsAlwaysOnTop=settings.AlwaysOnTop;}
-            host.Activate();await loaded.Task;
-            if(result.Task.IsCompleted)return await result.Task;
-            EnableWindow(owner,false);
-            if(Microsoft.UI.Xaml.Input.FocusManager.FindFirstFocusableElement(content) is Control first)first.Focus(FocusState.Programmatic);
-            if(!about)Diagnostics.Record("window.preferences","Flat acrylic utility window opened; switchers=False; owned=True.");
-            return await result.Task;
-        }
-        finally
-        {
-            EnableWindow(owner,true);activeDialog=null;dismissing=true;host.Close();dialogGate.Release();
-            if(!closed)Activate();
-        }
-    }
-    private async Task ShowAboutAsync()
-    {
-        ShowWindow();
-        var initiative = new Image
-        {
-            Width = 64, Height = 64, Stretch = Stretch.Uniform,
-            Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Branding", "VibeWare.png")))
-        };
-        var details = new Expander
-        {
-            Header = "Technical details",
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Content = new TextBlock
-            {
-                Text = $"Separate watchdog · 1 GB process-tree limit\nDiagnostic logs: {Diagnostics.DirectoryPath}",
-                FontFamily = MetricFont, TextWrapping = TextWrapping.Wrap
-            }
-        };
-        var content = WidgetAbout.Create(Logo(100), initiative, "OpenAI Usage",
-            $"Version {typeof(App).Assembly.GetName().Version?.ToString(3) ?? "unknown"}",
-            "I built OpenAI Usage to see my Codex allowance, tokens and credits at a glance.",
-            "https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/OpenAI",
-            "I provide this software independently and as-is, without warranty.", details);
-        content.Width = 590;
-        await ShowDialogAsync("About OpenAI Usage", content, width:640, height:620, about:true);
     }
     private static Image Logo(double size)=>new(){Source=new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory,"Branding","app-icon-512.png"))),Width=size,Height=size,HorizontalAlignment=HorizontalAlignment.Left};
     private void ThemeChanged(UISettings sender,object args)=>DispatcherQueue.TryEnqueue(ApplySystemTheme);
@@ -673,188 +596,6 @@ public sealed class MainWindow : Window
                 }
             }
         };
-
-    private void SaveSettings(){try{storage.SaveSettings(settings);}catch(Exception error){Diagnostics.Record("settings.failed",error.Message);tray?.NotifyError("Could not save settings.");}}
-
-    private static async Task AddStartupPreferenceAsync(StackPanel content)
-    {
-        var startup = new CheckBox { Content = "Start with Windows", IsEnabled = false };
-        var hint = Text("Available with the MSIX installation.", 12);
-        content.Children.Add(startup);
-        content.Children.Add(hint);
-
-        StartupTask task;
-        try { task = await StartupTask.GetAsync(StartupTaskId); }
-        catch (Exception error)
-        {
-            Diagnostics.Record("startup.unavailable", error.GetType().Name);
-            const string runPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
-            const string valueName = "OpenAIUsage";
-            string? executable = Environment.ProcessPath;
-            if (string.IsNullOrEmpty(executable) || Path.GetFileNameWithoutExtension(executable).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
-            {
-                hint.Text = "Startup is unavailable when running through dotnet.";
-                return;
-            }
-            string command = "\"" + executable + "\"";
-            try
-            {
-                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(runPath);
-                bool registered = string.Equals(key?.GetValue(valueName) as string, command, StringComparison.OrdinalIgnoreCase);
-                using var approved = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run");
-                var approval = approved?.GetValue(valueName) as byte[];
-                bool disabledByUser = registered && approval is { Length: > 0 } && (approval[0] & 1) != 0;
-                startup.IsChecked = registered && !disabledByUser;
-                startup.IsEnabled = !disabledByUser;
-                hint.Text = disabledByUser ? "Re-enable OpenAI Usage in Windows Settings > Apps > Startup." : "Applies immediately when changed.";
-            }
-            catch (Exception registryError) { hint.Text = "Could not read the Windows startup setting."; Diagnostics.Record("startup.failed", registryError.GetType().Name); return; }
-            startup.Click += (_, _) =>
-            {
-                try
-                {
-                    using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(runPath);
-                    if (startup.IsChecked == true) key.SetValue(valueName, command);
-                    else key.DeleteValue(valueName, false);
-                    hint.Text = "Applies immediately when changed.";
-                }
-                catch (Exception registryError)
-                {
-                    startup.IsChecked = startup.IsChecked != true;
-                    hint.Text = "Could not change the Windows startup setting.";
-                    Diagnostics.Record("startup.failed", registryError.GetType().Name);
-                }
-            };
-            return;
-        }
-
-        void ShowState(StartupTaskState state)
-        {
-            startup.IsChecked = state is StartupTaskState.Enabled or StartupTaskState.EnabledByPolicy;
-            startup.IsEnabled = state is StartupTaskState.Enabled or StartupTaskState.Disabled;
-            hint.Text = state switch
-            {
-                StartupTaskState.DisabledByUser => "Re-enable OpenAI Usage in Windows Settings > Apps > Startup.",
-                StartupTaskState.DisabledByPolicy or StartupTaskState.EnabledByPolicy => "Managed by Windows policy.",
-                _ => "Applies immediately when changed."
-            };
-        }
-
-        ShowState(task.State);
-        startup.Click += async (_, _) =>
-        {
-            startup.IsEnabled = false;
-            var state = task.State;
-            try
-            {
-                if (startup.IsChecked == true && state == StartupTaskState.Disabled)
-                    state = await task.RequestEnableAsync();
-                else if (startup.IsChecked == false && state == StartupTaskState.Enabled)
-                {
-                    task.Disable();
-                    state = task.State;
-                }
-                ShowState(state);
-            }
-            catch (Exception error)
-            {
-                ShowState(state);
-                hint.Text = "Could not change the Windows startup setting.";
-                Diagnostics.Record("startup.failed", error.GetType().Name);
-            }
-        };
-    }
-
-    private async Task ShowSettingsAsync()
-    {
-        ShowWindow();
-        var executable = new TextBox { Header = "Codex executable", Text = settings.CodexPath };
-        var timezone = new ComboBox { Header = "Time zone", HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = TimeZoneInfo.GetSystemTimeZones(), DisplayMemberPath = "DisplayName", SelectedValuePath = "Id",
-            SelectedValue = settings.TimeZoneId };
-        var taskbar = new CheckBox { Content = "Show in taskbar", IsChecked = settings.ShowInTaskbar };
-        var bigSize = new CheckBox { Content = "Larger widget (+25%)", IsChecked = settings.BigSize };
-        var opacity = new ComboBox
-        {
-            Header = "Window opacity",
-            ItemsSource = WindowOpacityOptions.Select(percent => $"{percent}%").ToArray(),
-            SelectedIndex = Array.IndexOf(WindowOpacityOptions, settings.WindowOpacityPercent)
-        };
-        var alert50 = new CheckBox { Content = "50% remaining", IsChecked = settings.Alert50 };
-        var alert20 = new CheckBox { Content = "20% remaining", IsChecked = settings.Alert20 };
-        var alert5 = new CheckBox { Content = "5% remaining", IsChecked = settings.Alert5 };
-        var content = new StackPanel { Spacing = 10 };
-        content.Children.Add(executable);
-        content.Children.Add(timezone);
-        content.Children.Add(Text("Uses your existing Codex ChatGPT sign-in.", 12));
-
-        var columns = new Grid { ColumnSpacing = 24, Margin = new(0, 8, 0, 0) };
-        columns.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
-        columns.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
-        var windowOptions = new StackPanel { Spacing = 4 };
-        windowOptions.Children.Add(Text("Widget", 16, true));
-        windowOptions.Children.Add(taskbar);
-        windowOptions.Children.Add(bigSize);
-        await AddStartupPreferenceAsync(windowOptions);
-        windowOptions.Children.Add(opacity);
-        columns.Children.Add(windowOptions);
-
-        var notifications = new StackPanel { Spacing = 4 };
-        notifications.Children.Add(Text("Notify", 16, true));
-        notifications.Children.Add(alert50);
-        notifications.Children.Add(alert20);
-        notifications.Children.Add(alert5);
-        Grid.SetColumn(notifications, 1);
-        columns.Children.Add(notifications);
-        content.Children.Add(columns);
-
-        var error = Text("", 12);
-        error.Foreground = WarningText;
-        error.Visibility = Visibility.Collapsed;
-        content.Children.Add(error);
-        void Apply()
-        {
-            try
-            {
-                var next = new WidgetSettings
-                {
-                    CodexPath = string.IsNullOrWhiteSpace(executable.Text) ? settings.CodexPath : executable.Text.Trim(),
-                    TimeZoneId = timezone.SelectedValue as string ?? settings.TimeZoneId,
-                    AlwaysOnTop = settings.AlwaysOnTop,
-                    ShowInTaskbar = taskbar.IsChecked == true,
-                    BigSize = bigSize.IsChecked == true,
-                    WindowOpacityPercent = opacity.SelectedIndex >= 0
-                        ? WindowOpacityOptions[opacity.SelectedIndex] : settings.WindowOpacityPercent,
-                    Alert50 = alert50.IsChecked == true, Alert20 = alert20.IsChecked == true, Alert5 = alert5.IsChecked == true,
-                    SelectedWindow = settings.SelectedWindow
-                };
-                bool opacityChanged = next.WindowOpacityPercent != settings.WindowOpacityPercent;
-                if (opacityChanged) ApplyOpacity(next.WindowOpacityPercent);
-                try { storage.SaveSettings(next); }
-                catch
-                {
-                    if (opacityChanged) ApplyOpacity(settings.WindowOpacityPercent);
-                    throw;
-                }
-                bool refreshNeeded = next.CodexPath != settings.CodexPath || next.TimeZoneId != settings.TimeZoneId;
-                settings = next;
-                error.Text = string.IsNullOrWhiteSpace(executable.Text) ? "Choose a Codex executable." : "";
-                ApplyTaskbarVisibility();
-                ApplySize();
-                CheckAlerts();
-                if(refreshNeeded)_=RefreshAsync();
-            }
-            catch (Exception ex) { error.Text = ex.Message; }
-            error.Visibility = error.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
-        }
-        executable.TextChanged += (_, _) => Apply();
-        timezone.SelectionChanged += (_, _) => Apply();
-        taskbar.Click += (_, _) => Apply();
-        bigSize.Click += (_, _) => Apply();
-        opacity.SelectionChanged += (_, _) => Apply();
-        alert50.Click += (_, _) => Apply(); alert20.Click += (_, _) => Apply(); alert5.Click += (_, _) => Apply();
-        await ShowDialogAsync("OpenAI Usage · Preferences", content, width: 620, height: 510);
-    }
 
     private static TextBlock Text(string text,double size,bool bold=false)=>new(){Text=text,FontSize=size,TextWrapping=TextWrapping.Wrap,FontWeight=bold?Microsoft.UI.Text.FontWeights.SemiBold:Microsoft.UI.Text.FontWeights.Normal,Foreground=PrimaryText};
     private static TextBlock MetricHeading(string label, TextAlignment alignment) => new()

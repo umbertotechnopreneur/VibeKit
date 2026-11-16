@@ -105,6 +105,7 @@ try
     var duplicate = store.Record("different-account", parsed.Windows[0], "pro", now.ToUnixTimeSeconds());
     Check(duplicate.Count == 1, "Same-timestamp observations do not double count");
     StorageChecks.Run(Check, Path.Combine(temporary, "integrity"), now.ToUnixTimeSeconds());
+    await SettingsChecks.RunAsync(Check, Path.Combine(temporary, "settings-recovery"));
 }
 finally
 {

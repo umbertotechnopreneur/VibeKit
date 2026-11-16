@@ -20,7 +20,7 @@ public sealed class UsageService(Storage storage)
         {
             return new() { Status = "Unexpected Codex response. Update Codex and refresh; no account values were inferred." };
         }
-        catch (Exception ex) when (ex is IOException or System.ComponentModel.Win32Exception or ArgumentException or System.Text.Json.JsonException or TimeZoneNotFoundException or InvalidTimeZoneException)
+        catch (Exception ex) when (ex is IOException or InvalidDataException or System.ComponentModel.Win32Exception or ArgumentException or System.Text.Json.JsonException or TimeZoneNotFoundException or InvalidTimeZoneException)
         {
             return new() { Status = ex is System.ComponentModel.Win32Exception ? "Codex executable not found. Set its path in Settings and sign in with 'codex login'." : ex.Message };
         }

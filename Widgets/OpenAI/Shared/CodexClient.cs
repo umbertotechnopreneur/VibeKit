@@ -11,6 +11,7 @@ public sealed class CodexClient : IAsyncDisposable
 {
     private readonly Process process;
     private readonly Task stderrDrain;
+    private readonly BoundedTextReader responses;
     private int requestId;
 
     public CodexClient(string executable)
@@ -24,12 +25,15 @@ public sealed class CodexClient : IAsyncDisposable
         start.ArgumentList.Add("app-server");
         start.ArgumentList.Add("--stdio");
         process = Process.Start(start) ?? throw new IOException("Could not start Codex.");
+        responses = new BoundedTextReader(process.StandardOutput, 4 * 1024 * 1024);
         stderrDrain = DrainAsync(process.StandardError);
     }
 
     private static async Task DrainAsync(StreamReader reader)
     {
-        while (await reader.ReadLineAsync() is not null) { }
+        // Discard diagnostics in fixed chunks: a child can emit a line without a newline.
+        var buffer = new char[4096];
+        while (await reader.ReadAsync(buffer.AsMemory()) != 0) { }
     }
 
     private async Task<JsonElement> CallAsync(string method, object? parameters, CancellationToken ct)
@@ -39,7 +43,7 @@ public sealed class CodexClient : IAsyncDisposable
         await process.StandardInput.FlushAsync(ct);
         while (true)
         {
-            var line = await process.StandardOutput.ReadLineAsync(ct);
+            var line = await responses.ReadLineAsync(ct);
             if (line is null) throw new IOException("Codex closed its connection. Check the executable and sign-in.");
             using var doc = JsonDocument.Parse(line);
             var root = doc.RootElement;
@@ -69,18 +73,18 @@ public sealed class CodexClient : IAsyncDisposable
         await process.StandardInput.WriteLineAsync("{\"method\":\"initialized\"}");
         await process.StandardInput.FlushAsync(ct);
         var account = await CallAsync("account/read", new { refreshToken = false }, ct);
-        var a = account.GetProperty("account");
-        if (a.ValueKind == JsonValueKind.Null) throw new IOException("Sign in with ChatGPT using 'codex login', then refresh.");
-        if (Text(a, "type") != "chatgpt") throw new IOException("ChatGPT sign-in is required. API-key billing does not expose this allowance.");
+        var accountDetails = account.GetProperty("account");
+        if (accountDetails.ValueKind == JsonValueKind.Null) throw new IOException("Sign in with ChatGPT using 'codex login', then refresh.");
+        if (Text(accountDetails, "type") != "chatgpt") throw new IOException("ChatGPT sign-in is required. API-key billing does not expose this allowance.");
         var limits = await CallAsync("account/rateLimits/read", null, ct);
         JsonElement? usage = null;
         string? tokenError = null;
         try { usage = await CallAsync("account/usage/read", null, ct); }
         catch (IOException) { tokenError = "Token history unavailable from this Codex version or account."; }
         var check = await CallAsync("account/read", new { refreshToken = false }, ct);
-        if (check.GetProperty("account").GetRawText() != a.GetRawText())
+        if (check.GetProperty("account").GetRawText() != accountDetails.GetRawText())
             throw new IOException("Account changed while refreshing. Refresh again.");
-        return Parse(a, limits, usage, tokenError);
+        return Parse(accountDetails, limits, usage, tokenError);
     }
 
     public static AccountUsage Parse(JsonElement account, JsonElement limits, JsonElement? usage, string? tokenError = null)
@@ -91,7 +95,7 @@ public sealed class CodexClient : IAsyncDisposable
         string? identity = Text(limits, "accountId") ?? Text(account, "email");
         if (string.IsNullOrEmpty(identity)) throw new IOException("Account identity unavailable; history cannot be safely separated.");
         identity = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..24];
-        var buckets = new List<(string, JsonElement)>();
+        var buckets = new List<(string LimitId, JsonElement Details)>();
         if (limits.TryGetProperty("rateLimitsByLimitId", out var map) && map.ValueKind == JsonValueKind.Object)
             buckets.AddRange(map.EnumerateObject().Select(p => (p.Name, p.Value)));
         if (buckets.Count == 0 && limits.TryGetProperty("rateLimits", out var single) && single.ValueKind == JsonValueKind.Object)
@@ -99,16 +103,16 @@ public sealed class CodexClient : IAsyncDisposable
         var windows = new List<QuotaWindow>();
         decimal? credits = null;
         bool unlimited = false, blocked = false;
-        foreach (var (key, bucket) in buckets.OrderBy(b => b.Item1 == "codex" ? 0 : 1))
+        foreach (var (key, bucket) in buckets.OrderBy(limit => limit.LimitId == "codex" ? 0 : 1))
         {
             if (bucket.ValueKind != JsonValueKind.Object) continue;
             foreach (var name in new[] { "primary", "secondary" })
             {
-                if (!bucket.TryGetProperty(name, out var w) || w.ValueKind != JsonValueKind.Object) continue;
-                var used = Number(w, "usedPercent");
-                var minutes = Number(w, "windowDurationMins");
+                if (!bucket.TryGetProperty(name, out var quotaWindow) || quotaWindow.ValueKind != JsonValueKind.Object) continue;
+                var used = Number(quotaWindow, "usedPercent");
+                var minutes = Number(quotaWindow, "windowDurationMins");
                 if (used is null || minutes is null || minutes <= 0 || minutes > int.MaxValue || used < 0 || !double.IsFinite(used.Value)) continue;
-                long? reset = Timestamp(w, "resetsAt");
+                long? reset = Timestamp(quotaWindow, "resetsAt");
                 string duration = minutes == 10080 ? "Weekly" : minutes == 300 ? "5-hour" : $"{minutes / 60:0.#}-hour";
                 windows.Add(new($"{key}:{minutes.Value:0}", $"{duration} · {Text(bucket, "limitName") ?? key}",
                     Math.Clamp(used.Value, 0, 100), (int)minutes.Value, reset));
@@ -116,26 +120,26 @@ public sealed class CodexClient : IAsyncDisposable
             if (key == "codex" || buckets.Count == 1)
             {
                 blocked = Flag(bucket, "spendControlReached") == true;
-                if (bucket.TryGetProperty("credits", out var c) && c.ValueKind == JsonValueKind.Object)
+                if (bucket.TryGetProperty("credits", out var creditDetails) && creditDetails.ValueKind == JsonValueKind.Object)
                 {
-                    unlimited = Flag(c, "unlimited") == true;
-                    if (c.TryGetProperty("balance", out var balance) && decimal.TryParse(balance.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var amount) && amount >= 0)
+                    unlimited = Flag(creditDetails, "unlimited") == true;
+                    if (creditDetails.TryGetProperty("balance", out var balance) && decimal.TryParse(balance.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var amount) && amount >= 0)
                         credits = amount;
-                    else if (Flag(c, "hasCredits") == false) credits = 0;
+                    else if (Flag(creditDetails, "hasCredits") == false) credits = 0;
                 }
             }
         }
         var days = new List<TokenDay>();
-        if (usage is { ValueKind: JsonValueKind.Object } u && u.TryGetProperty("dailyUsageBuckets", out var daily) && daily.ValueKind == JsonValueKind.Array)
+        if (usage is { ValueKind: JsonValueKind.Object } usageDetails && usageDetails.TryGetProperty("dailyUsageBuckets", out var daily) && daily.ValueKind == JsonValueKind.Array)
         {
-            foreach (var d in daily.EnumerateArray())
-                if (d.ValueKind == JsonValueKind.Object && DateOnly.TryParseExact(Text(d, "startDate"), "yyyy-MM-dd", out var date) &&
-                    d.TryGetProperty("tokens", out var tokens) && tokens.ValueKind == JsonValueKind.Number && tokens.TryGetInt64(out var n) && n >= 0)
-                    days.Add(new(date.ToString("yyyy-MM-dd"), n));
+            foreach (var dailyBucket in daily.EnumerateArray())
+                if (dailyBucket.ValueKind == JsonValueKind.Object && DateOnly.TryParseExact(Text(dailyBucket, "startDate"), "yyyy-MM-dd", out var date) &&
+                    dailyBucket.TryGetProperty("tokens", out var tokens) && tokens.ValueKind == JsonValueKind.Number && tokens.TryGetInt64(out var tokenCount) && tokenCount >= 0)
+                    days.Add(new(date.ToString("yyyy-MM-dd"), tokenCount));
         }
         // Conflicting duplicate dates are unknown, not double counted.
-        days = days.GroupBy(d => d.Date).Select(g => new TokenDay(g.Key,
-            g.Select(d => d.Tokens).Distinct().Count() == 1 ? g.First().Tokens : null)).OrderBy(d => d.Date).ToList();
+        days = days.GroupBy(dailyBucket => dailyBucket.Date).Select(g => new TokenDay(g.Key,
+            g.Select(dailyBucket => dailyBucket.Tokens).Distinct().Count() == 1 ? g.First().Tokens : null)).OrderBy(dailyBucket => dailyBucket.Date).ToList();
         return new(identity, plan, windows, credits, unlimited, Flag(limits, "ordinaryUsageAllowed"), blocked, days, tokenError)
         {
             ResetVouchers = ReadResetVouchers(limits)

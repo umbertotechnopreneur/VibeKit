@@ -69,7 +69,7 @@ try {
     }
     & dotnet run --project 'Tests/OpenAIUsage.Tests.csproj' -c $Configuration --no-build --no-restore
     if ($LASTEXITCODE -ne 0) { throw 'Shared behavioral checks failed.' }
-    & python -m py_compile 'Linux/openai_usage.py' 'Linux/watchdog.py' 'Linux/tray.py'
+    & python -m py_compile 'Linux/openai_usage.py' 'Linux/watchdog.py' 'Linux/tray.py' 'Linux/backend.py' 'Linux/settings_ui.py' 'Linux/ui_helpers.py'
     if ($LASTEXITCODE -ne 0) { throw 'GTK Python syntax check failed.' }
     & python -B -m unittest discover -s Tests -p 'test_*.py'
     if ($LASTEXITCODE -ne 0) { throw 'Linux watchdog and settings lifecycle checks failed.' }
@@ -86,7 +86,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Portable backend source publish failed.' }
     $linuxDirectory = Join-Path $PSScriptRoot 'artifacts\linux\Linux'
     New-Item -ItemType Directory -Path $linuxDirectory -Force | Out-Null
-    foreach ($name in @('openai_usage.py','watchdog.py','tray.py','run.sh','openai-usage.desktop')) {
+    foreach ($name in @('openai_usage.py','watchdog.py','tray.py','backend.py','settings_ui.py','ui_helpers.py','run.sh','openai-usage.desktop')) {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot "Linux\$name") -Destination (Join-Path $linuxDirectory $name) -Force
     }
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Branding') -Destination (Join-Path $PSScriptRoot 'artifacts\linux\Branding') -Recurse -Force

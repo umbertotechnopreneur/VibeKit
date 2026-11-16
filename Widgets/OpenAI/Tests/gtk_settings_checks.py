@@ -19,8 +19,8 @@ fail = args.fail_first
 
 def invoke(command="snapshot", value=None):
     global attempts
-    if command == "settings":
-        return {"codexPath": "codex", "timeZoneId": "UTC", "alwaysOnTop": False, "bigSize": False}
+    if command == "settings-status":
+        return {"settings": {"codexPath": "codex", "timeZoneId": "UTC", "alwaysOnTop": False, "bigSize": False}, "recoveryMessage": None}
     if command == "save-settings":
         attempts += 1
         if attempts == 1 and not release.wait(10):

@@ -24,14 +24,17 @@ class SettingsLifecycleChecks(unittest.TestCase):
             fixture.saved.append(dict(value))
 
         source = ast.parse((Path(__file__).resolve().parents[1] / "Linux/openai_usage.py").read_text())
+        coordinator = ast.parse((Path(__file__).resolve().parents[1] / "Linux/settings_ui.py").read_text())
         window = next(node for node in source.body if isinstance(node, ast.ClassDef) and node.name == "UsageWindow")
+        helper = next(node for node in coordinator.body if isinstance(node, ast.ClassDef) and node.name == "SettingsUiMixin")
+        window.body += helper.body
         methods = [node for node in window.body if isinstance(node, ast.FunctionDef) and node.name in
                    ("save_async", "on_close", "exit_application", "settings_loaded")]
         environment = {"threading": SimpleNamespace(Thread=Worker), "invoke": invoke,
                        "GLib": SimpleNamespace(idle_add=self.callbacks.append, source_remove=lambda _: None),
                        "log_event": lambda *_: None}
         exec(compile(ast.Module(body=methods, type_ignores=[]), str(__file__), "exec"), environment)
-        self.window = SimpleNamespace(saving=False, settings={"bigSize": True}, settings_revision=1,
+        self.window = SimpleNamespace(saving=False, backend=invoke, settings_save_source=0, settings={"bigSize": True}, settings_revision=1,
                                       saved_settings_revision=0, closed=False, exit_pending=False,
                                       settings_error=None,
                                       allow_close=False, tray=None, clock_id=1, refresh_id=2,
@@ -94,8 +97,16 @@ class SettingsLifecycleChecks(unittest.TestCase):
         self.assertEqual(self.saved[-1], self.window.settings)
 
     def test_refresh_does_not_replace_unsaved_settings(self):
-        self.window.settings_loaded({"bigSize": False}, 1)
+        self.window.settings_loaded({"settings": {"bigSize": False}, "recoveryMessage": None}, 1)
         self.assertEqual(self.window.settings, {"bigSize": True})
+
+    def test_invalid_settings_still_enable_editing(self):
+        self.window.saved_settings_revision = self.window.settings_revision
+        self.window.sync_pin = lambda: None
+        self.window.apply_size = lambda: None
+        self.window.settings_loaded({"settings": {"bigSize": False}, "recoveryMessage": "Original preserved on save"}, 1)
+        self.assertTrue(self.window.settings_ready)
+        self.assertEqual(self.window.settings_error, "Original preserved on save")
 
 
 if __name__ == "__main__":

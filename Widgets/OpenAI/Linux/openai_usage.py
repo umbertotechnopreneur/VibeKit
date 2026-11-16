@@ -6,16 +6,11 @@ import ctypes
 import ctypes.util
 import datetime as dt
 import fcntl
-import json
 import math
 import os
 from pathlib import Path
-import signal
-import subprocess
 import sys
-import threading
 import time
-from zoneinfo import available_timezones
 from watchdog import start as start_watchdog, record as log_event, state_dir
 GUARD = None
 
@@ -30,7 +25,7 @@ sys.excepthook = report_unhandled
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, GdkPixbuf, GLib, Gtk, Pango, PangoCairo, Gio
+from gi.repository import Adw, Gdk, GLib, Gtk, Pango, PangoCairo, Gio
 from tray import StatusTray
 import cairo
 
@@ -76,33 +71,9 @@ def request_x11_above(surface, enabled):
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFESTO_URL = "https://umbertogiacobbi.biz/vibeware/manifesto"
-DEFAULT_BACKEND = ROOT / "backend/OpenAIUsage.Backend.dll"
-if not DEFAULT_BACKEND.is_file():
-    DEFAULT_BACKEND = ROOT / "Backend/bin/Debug/net10.0/OpenAIUsage.Backend.dll"
-BACKEND = Path(os.environ.get("OPENAI_USAGE_BACKEND", str(DEFAULT_BACKEND)))
-
-
-def invoke(command="snapshot", value=None):
-    if not BACKEND.is_file():
-        raise RuntimeError("Shared backend is missing. Build Backend/OpenAIUsage.Backend.csproj or set OPENAI_USAGE_BACKEND.")
-    native_backend = BACKEND.with_suffix("")
-    backend_command = [str(native_backend)] if native_backend.is_file() else ["dotnet", str(BACKEND)]
-    process = subprocess.Popen([*backend_command, command], stdin=subprocess.PIPE,
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                               start_new_session=True)
-    try:
-        output, _ = process.communicate(json.dumps(value) if value is not None else "", timeout=45)
-    except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
-        process.communicate()
-        raise RuntimeError("Account reader timed out. Check Codex and your connection.") from None
-    try:
-        result = json.loads(output)
-    except ValueError:
-        raise RuntimeError("Account reader failed. Verify the .NET 10 runtime is installed.") from None
-    if "error" in result:
-        raise RuntimeError(result["error"])
-    return result
+from backend import invoke
+from settings_ui import SettingsUiMixin
+from ui_helpers import text, box, about_mark, about_link, metric
 
 
 CSS = b"""
@@ -178,37 +149,6 @@ window.widget-about, .widget-about .about-body { background-color: #fff4dc; colo
 .widget-about .about-body .about-link { padding: 4px; font-size: 13px; }
 .widget-about .about-body .about-link:hover { background-color: alpha(#3a6a96, .10); }
 """
-
-
-def text(value, style=None):
-    label = Gtk.Label(label=value, xalign=0, wrap=True)
-    if style:
-        label.add_css_class(style)
-    return label
-
-
-def box(spacing=8, horizontal=False):
-    return Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL if horizontal else Gtk.Orientation.VERTICAL, spacing=spacing)
-
-
-def about_mark(filename, size):
-    image = GdkPixbuf.Pixbuf.new_from_file_at_scale(str(ROOT / "Branding" / filename), size, size, True)
-    return Gtk.Image.new_from_paintable(Gdk.Texture.new_for_pixbuf(image))
-
-
-def about_link(label, url, child):
-    link = Gtk.LinkButton(uri=url, halign=Gtk.Align.CENTER, tooltip_text=label)
-    link.set_child(child)
-    link.add_css_class("about-link")
-    link.update_property([Gtk.AccessibleProperty.LABEL], [label])
-    return link
-
-
-def metric(label, number):
-    content = box(4)
-    content.append(text(label, "dim"))
-    content.append(number)
-    return content
 
 
 class FlipTile(Gtk.Box):
@@ -308,7 +248,7 @@ class FlipTile(Gtk.Box):
         cr.restore()
 
 
-class UsageWindow(Gtk.ApplicationWindow):
+class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
     def __init__(self, app):
         # Adw.ApplicationWindow imposes a minimum height larger than the strip.
         super().__init__(application=app, title="OpenAI Usage", default_height=62,
@@ -317,6 +257,9 @@ class UsageWindow(Gtk.ApplicationWindow):
         self.rotation_start = time.monotonic()
         self.settings = {}
         self.settings_ready = False
+        self.settings_dialog = None
+        self.settings_save_source = 0
+        self.backend = invoke
         self.notified_thresholds = set()
         self.alert_window = None
         self.busy = False
@@ -459,37 +402,6 @@ class UsageWindow(Gtk.ApplicationWindow):
         result.set_wrap(False)
         self.labels[key]=result
         return result
-
-    def refresh(self):
-        if self.closed:
-            return False
-        if self.exit_pending:
-            return True
-        if self.busy:
-            self.refresh_pending=True
-            return True
-        self.busy=True
-        revision=self.settings_revision
-        self.brand.set_tooltip_text("Refreshing Codex account…")
-        def worker():
-            try:
-                settings=invoke("settings")
-                GLib.idle_add(self.settings_loaded, settings, revision)
-                state=invoke()
-            except (OSError,RuntimeError) as exc:
-                settings,state={}, {"connected":False,"status":str(exc)}
-            GLib.idle_add(self.received,settings,state,revision)
-        threading.Thread(target=worker,daemon=True).start()
-        return True
-
-    def settings_loaded(self, settings, revision):
-        if (not self.closed and revision == self.settings_revision and not self.saving
-                and self.saved_settings_revision == self.settings_revision):
-            self.settings = settings
-            self.settings_ready = True
-            self.sync_pin()
-            self.apply_size()
-        return False
 
     def x11_surface(self):
         surface = self.get_surface()
@@ -655,113 +567,6 @@ class UsageWindow(Gtk.ApplicationWindow):
             tile.face.set_content_width(45 if big else 36)
             tile.face.set_content_height(40 if big else 32)
         self.set_default_size(-1, 78 if big else 62)
-
-    def save_async(self, error_label=None):
-        if self.saving:
-            return
-        self.saving = True
-        settings = dict(self.settings)
-        revision = self.settings_revision
-        def worker():
-            try:
-                invoke("save-settings", settings)
-                error = None
-            except (OSError, RuntimeError) as exc:
-                error = str(exc)
-            def done():
-                self.saving = False
-                if self.closed:
-                    return False
-                if error:
-                    self.settings_error = error
-                    if error_label is not None:
-                        error_label.set_text(error)
-                    self.problem.set_visible(True)
-                    self.problem.set_tooltip_text(error)
-                    log_event("settings.failed", error)
-                    if revision == self.settings_revision and self.exit_pending:
-                        self.exit_pending = False
-                        self.allow_close = False
-                        self.present()
-                elif revision == self.settings_revision:
-                    self.settings_error = None
-                    self.saved_settings_revision = revision
-                    if error_label is not None:
-                        error_label.set_text("")
-                    if self.exit_pending:
-                        self.close()
-                    else:
-                        self.refresh()
-                if revision != self.settings_revision:
-                    self.save_async(error_label)
-                return False
-            GLib.idle_add(done)
-        threading.Thread(target=worker, daemon=True).start()
-
-    def show_settings(self, *_):
-        self.present()
-        if not self.settings_ready:
-            self.problem.set_visible(True)
-            self.problem.set_tooltip_text("Settings are not available yet; retry after the account reader starts.")
-            self.refresh()
-            return
-        dialog = Gtk.Window(title="Settings", transient_for=self, modal=True, default_width=460, icon_name="biz.umbertogiacobbi.OpenAIUsage")
-        content = box(12)
-        for setter in (content.set_margin_start, content.set_margin_end, content.set_margin_top, content.set_margin_bottom):
-            setter(24)
-        executable = Gtk.Entry(text=self.settings.get("codexPath", "codex"))
-        zones = sorted(available_timezones())
-        current = self.settings.get("timeZoneId", "UTC")
-        if current not in zones:
-            zones.insert(0, current)
-        timezone = Gtk.DropDown.new_from_strings(zones)
-        timezone.set_selected(zones.index(current))
-        timezone.set_enable_search(True)
-        content.append(text("Codex executable", "dim"))
-        content.append(executable)
-        content.append(text("Time zone", "dim"))
-        content.append(timezone)
-        content.append(text("Uses your existing Codex ChatGPT sign-in.", "dim"))
-        big_size = Gtk.Switch(active=self.settings.get("bigSize", False), halign=Gtk.Align.END)
-        big_row = box(12, True)
-        big_label = text("Big size (+25%)")
-        big_label.set_hexpand(True)
-        big_row.append(big_label)
-        big_row.append(big_size)
-        content.append(big_row)
-        alerts = {}
-        for threshold in (50, 20, 5):
-            check = Gtk.CheckButton(label=f"Notify at {threshold}% remaining", active=self.settings.get(f"alert{threshold}", False))
-            alerts[threshold] = check
-            content.append(check)
-        error = text("", "warning")
-        content.append(error)
-        def apply(*_):
-            path = executable.get_text().strip()
-            if not path:
-                error.set_text("Choose a Codex executable.")
-                path = self.settings.get("codexPath", "codex")
-            selected = timezone.get_selected()
-            if selected >= len(zones):
-                return
-            updated = dict(self.settings, codexPath=path, timeZoneId=zones[selected], bigSize=big_size.get_active(),
-                           **{f"alert{threshold}": check.get_active() for threshold, check in alerts.items()})
-            if updated != self.settings:
-                self.settings = updated
-                self.settings_revision += 1
-                self.apply_size()
-                self.check_alerts()
-                self.save_async(error)
-        executable.connect("changed", apply)
-        timezone.connect("notify::selected", apply)
-        big_size.connect("notify::active", apply)
-        for check in alerts.values():
-            check.connect("toggled", apply)
-        close = Gtk.Button(label="Close")
-        close.connect("clicked", lambda *_: dialog.close())
-        content.append(close)
-        dialog.set_child(content)
-        dialog.present()
 
     def show_about(self, *_):
         self.present()

@@ -6,6 +6,7 @@ namespace OpenAIUsage;
 
 public sealed class Storage
 {
+    public const int MaximumSettingsBytes = 64 * 1024;
     private const int MaximumHistoryBytes = 8 * 1024 * 1024;
     private const int MaximumHistorySamples = 65_536;
     private const long MaximumTimestamp = 253402300799;
@@ -23,7 +24,15 @@ public sealed class Storage
     public WidgetSettings LoadSettings()
     {
         if (!File.Exists(SettingsPath)) return new();
-        var settings = JsonSerializer.Deserialize<WidgetSettings>(File.ReadAllText(SettingsPath), JsonOptions.Default) ?? new();
+        using var stream = File.OpenRead(SettingsPath);
+        if (stream.Length > MaximumSettingsBytes)
+            throw new InvalidDataException("The settings file exceeds the supported size.");
+        // The allocation and read stay bounded even if another process grows the open file.
+        var contents = new byte[(int)stream.Length];
+        stream.ReadExactly(contents);
+        if (stream.ReadByte() != -1) throw new InvalidDataException("The settings file changed while reading.");
+        var settings = JsonSerializer.Deserialize<WidgetSettings>(contents, JsonOptions.Default)
+            ?? throw new InvalidDataException("The settings file must contain an object.");
         settings.Validate();
         return settings;
     }
@@ -31,8 +40,35 @@ public sealed class Storage
     public void SaveSettings(WidgetSettings settings)
     {
         settings.Validate();
-        AtomicWrite(SettingsPath, settings);
+        using var guard = new FileStream(SettingsPath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        string? preserved = null;
+        try { LoadSettings(); }
+        catch (Exception error) when (IsInvalidSettings(error))
+        {
+            // Move instead of copying: even an oversized invalid file costs no duplicate storage.
+            preserved = SettingsPath + ".invalid-" + Guid.NewGuid().ToString("N");
+            File.Move(SettingsPath, preserved);
+        }
+        try { AtomicWrite(SettingsPath, settings, MaximumSettingsBytes); }
+        catch
+        {
+            if (preserved is not null && !File.Exists(SettingsPath)) File.Move(preserved, SettingsPath);
+            throw;
+        }
     }
+
+    public SettingsForEditing LoadSettingsForEditing()
+    {
+        try { return new(LoadSettings(), null); }
+        catch (Exception error) when (IsInvalidSettings(error))
+        {
+            return new(new(), "Saved settings are invalid. Defaults are shown for editing; save to recover. " +
+                "The original file will be preserved beside the settings file.");
+        }
+    }
+
+    private static bool IsInvalidSettings(Exception error) => error is
+        JsonException or InvalidDataException or ArgumentException or TimeZoneNotFoundException or InvalidTimeZoneException;
 
     public List<Sample> Record(string identity, QuotaWindow window, string plan, long now)
     {
@@ -70,18 +106,35 @@ public sealed class Storage
             var timestamps = new HashSet<long>();
             foreach (var value in root.EnumerateArray())
             {
-                if (value.ValueKind != JsonValueKind.Object ||
-                    !value.TryGetProperty("at", out var at) || at.ValueKind != JsonValueKind.Number || !at.TryGetInt64(out long seconds) || seconds is <= 0 or > MaximumTimestamp ||
-                    !value.TryGetProperty("used", out var used) || used.ValueKind != JsonValueKind.Number || !used.TryGetDouble(out double percentage) || !double.IsFinite(percentage) || percentage is < 0 or > 100 ||
-                    !value.TryGetProperty("reset", out var reset) || (reset.ValueKind != JsonValueKind.Null &&
-                        (reset.ValueKind != JsonValueKind.Number || !reset.TryGetInt64(out long expiry) || expiry is <= 0 or > MaximumTimestamp)) ||
-                    !value.TryGetProperty("plan", out var samplePlan) || samplePlan.ValueKind != JsonValueKind.String || samplePlan.GetString() != plan ||
-                    !timestamps.Add(seconds))
-                    throw new InvalidDataException("Local history contains an invalid observation; the source file was preserved.");
-                result.Add(new(seconds, percentage, reset.ValueKind == JsonValueKind.Null ? null : reset.GetInt64(), plan));
+                var sample = ParseSample(value, plan);
+                if (!timestamps.Add(sample.At))
+                    throw new InvalidDataException("Local history contains duplicate timestamps; the source file was preserved.");
+                result.Add(sample);
             }
             return result;
         }
+    }
+
+    private static Sample ParseSample(JsonElement value, string expectedPlan)
+    {
+        const string invalid = "Local history contains an invalid observation; the source file was preserved.";
+        if (value.ValueKind != JsonValueKind.Object) throw new InvalidDataException(invalid);
+        long observedAt = 0, resetsAt = 0;
+        double percentage = 0;
+        bool validTimestamp = value.TryGetProperty("at", out var timestamp) &&
+            timestamp.ValueKind == JsonValueKind.Number && timestamp.TryGetInt64(out observedAt) &&
+            observedAt is > 0 and <= MaximumTimestamp;
+        bool validPercentage = value.TryGetProperty("used", out var used) &&
+            used.ValueKind == JsonValueKind.Number && used.TryGetDouble(out percentage) &&
+            double.IsFinite(percentage) && percentage is >= 0 and <= 100;
+        bool validReset = value.TryGetProperty("reset", out var reset) &&
+            (reset.ValueKind == JsonValueKind.Null || (reset.ValueKind == JsonValueKind.Number &&
+                reset.TryGetInt64(out resetsAt) && resetsAt is > 0 and <= MaximumTimestamp));
+        bool validPlan = value.TryGetProperty("plan", out var plan) &&
+            plan.ValueKind == JsonValueKind.String && plan.GetString() == expectedPlan;
+        if (!validTimestamp || !validPercentage || !validReset || !validPlan)
+            throw new InvalidDataException(invalid);
+        return new(observedAt, percentage, reset.ValueKind == JsonValueKind.Null ? null : resetsAt, expectedPlan);
     }
 
     private static void AtomicWrite<T>(string path, T data, long? maximumBytes = null)
@@ -102,3 +155,5 @@ public sealed class Storage
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 }
+
+public sealed record SettingsForEditing(WidgetSettings Settings, string? RecoveryMessage);

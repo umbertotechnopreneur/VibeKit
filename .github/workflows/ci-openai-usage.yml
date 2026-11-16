@@ -43,6 +43,7 @@ jobs:
         run: |
           python3 scripts/ci/run_isolated_gtk.py -- /usr/bin/python3 Widgets/OpenAI/Tests/gtk_settings_checks.py
           python3 scripts/ci/run_isolated_gtk.py -- /usr/bin/python3 Widgets/OpenAI/Tests/gtk_settings_checks.py --fail-first
+          python3 scripts/ci/run_isolated_gtk.py -- /usr/bin/python3 Widgets/OpenAI/Tests/gtk_settings_recovery_checks.py
   windows-ui:
     runs-on: windows-latest
     timeout-minutes: 30

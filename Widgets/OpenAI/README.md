@@ -136,7 +136,7 @@ The packaging workflow forces clean source rebuilds, checks the compiled version
 & .\Packaging\Clean-BuildOutputs.ps1
 ```
 
-No build/release history or antivirus evidence files are retained. The dependency-free C# checks cover forecast arithmetic, reset ordering, exhausted/zero/missing usage, incomplete coverage, monitoring gaps, plan changes, DST, current-day exclusion, token totals, duplicate dates, quota selection, credits, malformed optional API fields and account-isolated atomic persistence. Python checks also cover settings revisions, exit during a save and failed-save recovery. Native GTK behavior still requires a GNOME smoke test. `Tests/gtk_settings_checks.py` exercises real GTK close/save ordering with a synthetic backend; run it on an isolated display, session bus and XDG directories, then repeat with `--fail-first` for the error/retry path.
+No build/release history or antivirus evidence files are retained. The dependency-free C# checks cover forecast arithmetic, reset ordering, exhausted/zero/missing usage, incomplete coverage, monitoring gaps, plan changes, DST, current-day exclusion, token totals, duplicate dates, quota selection, credits, malformed optional API fields and account-isolated atomic persistence. Python checks also cover settings revisions, exit during a save and failed-save recovery. Native GTK behavior still requires a GNOME smoke test. `Tests/gtk_settings_checks.py` exercises real GTK close/save ordering with a synthetic backend; run it on an isolated display, session bus and XDG directories, then repeat with `--fail-first` for the error/retry path. `Tests/gtk_settings_recovery_checks.py` verifies the native recovery message, reusable settings dialog, and explicit save without an account connection. Shared checks exercise coalescing, serialized writes, failed flush/retry, throwing UI observers, preserved invalid settings, and payload bounds.
 
 ## Local state
 
@@ -144,8 +144,14 @@ No build/release history or antivirus evidence files are retained. The dependenc
 - Linux: `$XDG_STATE_HOME/openai-usage`, otherwise `~/.local/state/openai-usage`.
 - Settings and up to 16 days of quota observations stay outside the repository. Account identities are hashed. Emails, credentials and conversation contents are not persisted by the widget. Remote token buckets stay in memory.
 - History is validated before any update, with an 8 MiB / 65,536-observation bound. Invalid samples, timestamps, percentages, plans and duplicate timestamps make history unavailable without overwriting its source. Live account values remain available; forecasts do not use rejected history.
-- GTK waits for the latest pending settings revision before exiting. A failed save cancels exit and leaves the window available with the error; retrying exit is an explicit user action. Refreshes do not replace unsaved settings.
+- GTK and Windows debounce settings edits, serialize writes, and wait for the latest pending settings revision before exiting. A failed save cancels exit and leaves the window available with the error; retrying exit is an explicit user action. Refreshes do not replace unsaved settings.
+- Invalid settings stay untouched while the preferences show editable defaults and a recovery message. Saving a correction preserves the original as `settings.json.invalid-<unique id>` beside the corrected file.
+- Settings files and Linux request payloads are limited to 64 KiB; .NET stdin accepts at most 65,536 decoded characters. Codex JSON lines are capped at 4,194,304 decoded characters; Linux backend stdout at 8 MiB and discarded stderr at 1 MiB. Timeouts and the separate memory watchdog remain independent safeguards.
 - Windows records unexpected application exceptions in a local `startup-error.log` for troubleshooting. It is not uploaded or placed in the repository.
+
+## Maintenance boundaries
+
+`Shared/` owns parsing, quota analytics, storage, bounded JSON framing, and the settings save queue. The native UI receives snapshots and presents errors; it does not duplicate quota calculations. Windows preferences, dialogs and refresh presentation live in focused `MainWindow.*.cs` partials, with disk/process work dispatched off the UI thread. Linux separates bounded child-process transport (`backend.py`), settings and refresh lifecycle (`settings_ui.py`), and small widget builders (`ui_helpers.py`) from the strip renderer. `Build.ps1` includes those modules in the Linux payload.
 
 ## First external import
 

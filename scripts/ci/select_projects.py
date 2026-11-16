@@ -19,6 +19,7 @@ PROJECTS = {
     "ghostty-shaders": "Apps/Ghostty Shaders/",
     "openai-usage": "Widgets/OpenAI/",
     "desktop-ripple": "Widgets/WaterRipple/",
+    "retro-terminal": "Widgets/RetroTerminal/",
 }
 
 

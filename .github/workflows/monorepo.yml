@@ -24,12 +24,13 @@ on:
           - ghostty-shaders
           - openai-usage
           - desktop-ripple
+          - retro-terminal
 
 permissions:
   contents: read
 
 concurrency:
-  group: vibekit-ci-${{ github.event.pull_request.number || github.ref }}
+  group: vibekit-ci-${{ github.event.pull_request.number || github.ref }}-${{ inputs.project || 'changed' }}
   cancel-in-progress: true
 
 jobs:
@@ -102,11 +103,15 @@ jobs:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.projects), 'openai-usage')
     uses: ./.github/workflows/ci-openai-usage.yml
+  retro-terminal:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'retro-terminal')
+    uses: ./.github/workflows/ci-retro-terminal.yml
 
   required:
     name: VibeKit CI required
     if: always()
-    needs: [changes, agentinbox, helpme, markvibe, ramtaskman, thermalright, ulanzideck, voiceducker, worktrail, worktrail-scripts, ghostty-shaders, desktop-ripple, openai-usage]
+    needs: [changes, agentinbox, helpme, markvibe, ramtaskman, thermalright, ulanzideck, voiceducker, worktrail, worktrail-scripts, ghostty-shaders, desktop-ripple, openai-usage, retro-terminal]
     runs-on: ubuntu-24.04
     steps:
       - name: Require every selected pipeline to succeed

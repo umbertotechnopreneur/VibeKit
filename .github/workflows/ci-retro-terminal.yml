@@ -1,0 +1,70 @@
+name: Retro Terminal checks
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install native GTK check dependencies
+        run: sudo apt-get update && sudo apt-get install -y gjs gir1.2-adw-1 gir1.2-gtk-4.0 libglib2.0-bin xvfb xauth dbus-x11
+      - name: Check pure models and resource policies
+        run: |
+          node Widgets/RetroTerminal/tests/guard-checks.mjs
+          node Widgets/RetroTerminal/tests/customization-checks.mjs
+          node Widgets/RetroTerminal/tests/capture-plan-checks.mjs
+          node Widgets/RetroTerminal/tests/pipeline-checks.mjs
+      - name: Check portable Windows settings and scheduler
+        run: |
+          for check in settings persistence; do
+            c++ -std=c++20 -Wall -Wextra -Werror -pedantic "Widgets/RetroTerminal/Windows/tests/$check-checks.cpp" -o "$RUNNER_TEMP/retro-$check-checks"
+            "$RUNNER_TEMP/retro-$check-checks"
+          done
+      - name: Build Debian package and extension archive
+        run: python3 Widgets/RetroTerminal/Linux/build-package.py --output-dir artifacts/retro-terminal
+      - name: Check real GTK controls and isolated storage
+        run: |
+          unzip -q artifacts/retro-terminal/retro-terminal@vibeware.local.shell-extension.zip -d "$RUNNER_TEMP/retro-extension"
+          python3 scripts/ci/run_isolated_gtk.py -- gjs -m Widgets/RetroTerminal/tests/gtk-checks.js "$RUNNER_TEMP/retro-extension"
+          python3 scripts/ci/run_isolated_gtk.py -- gjs -m Widgets/RetroTerminal/tests/library-checks.js "$RUNNER_TEMP/retro-extension"
+      - name: Inspect Debian package
+        run: dpkg-deb --info artifacts/retro-terminal/*.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: retro-terminal-linux
+          path: artifacts/retro-terminal/
+          if-no-files-found: error
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Compile native application and portable checks
+        shell: pwsh
+        run: |
+          cmake -S Widgets/RetroTerminal/Windows -B "$env:RUNNER_TEMP/retro-build" -A x64 -DCMAKE_SYSTEM_VERSION=10.0.26100.0
+          if ($LASTEXITCODE -ne 0) { throw 'CMake configuration failed.' }
+          cmake --build "$env:RUNNER_TEMP/retro-build" --config Release
+          if ($LASTEXITCODE -ne 0) { throw 'Native Windows build failed.' }
+          ctest --test-dir "$env:RUNNER_TEMP/retro-build" -C Release --output-on-failure --no-tests=error
+          if ($LASTEXITCODE -ne 0) { throw 'Windows settings checks failed.' }
+      - name: Compile production HLSL entry points
+        shell: pwsh
+        run: |
+          $sdk = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin'
+          $fxc = Get-ChildItem $sdk -Directory | Where-Object { $_.Name -match '^10\.0\.\d+\.0$' } | Sort-Object { [version]$_.Name } -Descending | ForEach-Object { Join-Path $_.FullName 'x64/fxc.exe' } | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $fxc) { throw 'Windows SDK shader compiler is missing.' }
+          & $fxc /nologo /WX /T vs_5_0 /E VSMain /O3 /Fo "$env:RUNNER_TEMP/retro-vs.cso" Widgets/RetroTerminal/Windows/Shaders/Retro.hlsl
+          if ($LASTEXITCODE -ne 0) { throw 'Vertex shader compilation failed.' }
+          & $fxc /nologo /WX /T ps_5_0 /E PSMain /O3 /Fo "$env:RUNNER_TEMP/retro-ps.cso" Widgets/RetroTerminal/Windows/Shaders/Retro.hlsl
+          if ($LASTEXITCODE -ne 0) { throw 'Pixel shader compilation failed.' }

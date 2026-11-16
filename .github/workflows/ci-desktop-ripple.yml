@@ -10,6 +10,7 @@ permissions:
 jobs:
   package:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,12 +26,33 @@ jobs:
           node Widgets/WaterRipple/tests/pipeline-checks.mjs
           node Widgets/WaterRipple/tests/diagnostics-checks.mjs
           node Widgets/WaterRipple/tests/recovery-checks.mjs
+          node Widgets/WaterRipple/tests/frame-pacing-checks.mjs
+      - name: Install native GTK check dependencies
+        run: sudo apt-get update && sudo apt-get install -y gjs gir1.2-adw-1 gir1.2-gtk-4.0 libglib2.0-bin xvfb xauth dbus-x11
       - name: Build Debian package and GNOME extension archive
         run: python3 Widgets/WaterRipple/Linux/build-package.py --output-dir artifacts/desktop-ripple
       - name: Inspect Debian package
         run: dpkg-deb --info artifacts/desktop-ripple/*.deb
+      - name: Check real GTK controls and isolated storage
+        run: |
+          unzip -q artifacts/desktop-ripple/ripple@vibeware.local.shell-extension.zip -d "$RUNNER_TEMP/ripple-extension"
+          python3 scripts/ci/run_isolated_gtk.py -- gjs -m Widgets/WaterRipple/tests/gtk-checks.js "$RUNNER_TEMP/ripple-extension"
+          python3 scripts/ci/run_isolated_gtk.py -- gjs -m Widgets/WaterRipple/tests/library-checks.js "$RUNNER_TEMP/ripple-extension"
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-ripple-linux
           path: artifacts/desktop-ripple/
           if-no-files-found: error
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Compile WinUI, native renderer and production shaders
+        shell: pwsh
+        run: |
+          dotnet build Widgets/WaterRipple/WaterRipple.csproj -c Release -p:Platform=x64 --artifacts-path "$env:RUNNER_TEMP/ripple-build" -p:NuGetAudit=false
+          if ($LASTEXITCODE -ne 0) { throw 'Windows application build failed.' }

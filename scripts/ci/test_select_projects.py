@@ -23,6 +23,9 @@ class ProjectSelectionTests(unittest.TestCase):
         self.assertEqual(select_paths(["Widgets/WaterRipple/README.md"]), [])
         self.assertEqual(select_paths(["Widgets/WaterRipple/Linux/extension.js"]), ["desktop-ripple"])
         self.assertEqual(select_paths(["Widgets/OpenAI/Shared/Analytics.cs"]), ["openai-usage"])
+        self.assertEqual(select_paths(["Widgets/RetroTerminal/Linux/extension/retro-terminal@vibeware.local/persistence.js"]), ["retro-terminal"])
+        self.assertEqual(select_paths(["Widgets/RetroTerminal/Windows/Main.cpp"]), ["retro-terminal"])
+        self.assertEqual(select_paths([".github/workflows/ci-retro-terminal.yml"]), ["retro-terminal"])
         self.assertEqual(select_paths(["Widgets/Shared/WidgetAbout.cs"]), ["openai-usage", "desktop-ripple"])
 
     def test_complete_push_and_cross_app_move(self):

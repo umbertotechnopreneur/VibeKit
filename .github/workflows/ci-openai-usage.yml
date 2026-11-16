@@ -32,3 +32,30 @@ jobs:
         run: dotnet run --project Tests/OpenAIUsage.Tests.csproj --configuration Release --artifacts-path "${{ runner.temp }}/openai-usage-checks" -p:RuntimeIdentifiers= -p:NuGetAudit=false
       - name: Check watchdog process ownership with synthetic data
         run: python -B -m unittest discover -s Tests -p 'test_*.py' -v
+  gtk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install native GTK check dependencies
+        run: sudo apt-get update && sudo apt-get install -y python3-gi gir1.2-adw-1 gir1.2-gtk-4.0 xvfb xauth dbus-x11
+      - name: Check save, close and error recovery with a synthetic backend
+        run: |
+          python3 scripts/ci/run_isolated_gtk.py -- /usr/bin/python3 Widgets/OpenAI/Tests/gtk_settings_checks.py
+          python3 scripts/ci/run_isolated_gtk.py -- /usr/bin/python3 Widgets/OpenAI/Tests/gtk_settings_checks.py --fail-first
+  windows-ui:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: Widgets/OpenAI/global.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Prepare imports and compile native Windows UI
+        shell: pwsh
+        run: |
+          $imports = & ./Widgets/OpenAI/Prepare-Imports.ps1
+          & ./Widgets/OpenAI/Build.ps1 -Imports $imports -Configuration Release

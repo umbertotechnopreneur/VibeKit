@@ -45,8 +45,8 @@ internal static class WidgetAbout
 
         var links = new Grid { ColumnSpacing = 8, RowSpacing = 4 };
         links.Children.Add(Link("UmbertoGiacobbi.biz", Website, "\uE774", dark));
-        var source = Link("Private source", sourceUrl, "\uE943", dark);
-        ToolTipService.SetToolTip(source, "Private GitHub repository. Access is required.");
+        var source = Link("Source", sourceUrl, "\uE943", dark);
+        ToolTipService.SetToolTip(source, "View this utility in the VibeKit repository.");
         links.Children.Add(source);
         links.Children.Add(Link("Terms", Terms, "\uE8A5", dark));
         links.Children.Add(Link("Privacy", Privacy, "\uE72E", dark));

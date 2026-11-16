@@ -31,7 +31,7 @@ internal sealed class AboutWindow : Window
             ImageAsset("VibeWare.png", 64),
             "Water Ripple", VersionText(),
             "A little ripple for every click. Water Ripple brings a touch of movement to your desktop.",
-            "https://github.com/umbertotechnopreneur/Tools/tree/main/Widgets/WaterRipple",
+            "https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/WaterRipple",
             "I provide this software independently and as-is, without warranty.", dark: true);
         content.Margin = new Thickness(0, 12, 0, 12);
         root.Children.Add(new ScrollViewer

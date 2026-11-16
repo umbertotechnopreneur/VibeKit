@@ -1,5 +1,9 @@
 <schemalist>
   <schema id="org.gnome.shell.extensions.vibeware-ripple" path="/org/gnome/shell/extensions/vibeware-ripple/">
+    <key name="show-gpu-jokes" type="b">
+      <default>true</default>
+      <summary>Show rotating GPU jokes in the preferences panel</summary>
+    </key>
     <key name="strength" type="d">
       <range min="0.0" max="28.0" />
       <default>7.0</default>
@@ -49,10 +53,6 @@
     <key name="crest-enabled" type="b"><default>false</default></key>
     <key name="ripples-enabled" type="b"><default>false</default></key>
     <key name="liquid-enabled" type="b"><default>false</default></key>
-    <key name="liquid-glass-experimental" type="b">
-      <default>false</default>
-      <summary>Experimental Liquid Glass rendering</summary>
-    </key>
     <key name="chromatic-separation" type="d"><range min="0.0" max="100.0"/><default>18.0</default></key>
     <key name="chromatic-blend" type="d"><range min="0.0" max="100.0"/><default>45.0</default></key>
     <key name="crest-intensity" type="d"><range min="0.0" max="100.0"/><default>50.0</default></key>
@@ -79,8 +79,8 @@
       <default>0.0</default>
     </key>
     <key name="fps" type="i">
-      <default>24</default>
-      <range min="15" max="30" />
+      <default>60</default>
+      <range min="15" max="120" />
     </key>
     <key name="patch-size" type="i">
       <default>384</default>

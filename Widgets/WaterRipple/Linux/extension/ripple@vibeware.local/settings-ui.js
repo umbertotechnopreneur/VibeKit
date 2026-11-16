@@ -8,12 +8,22 @@ export const UUID = 'ripple@vibeware.local';
 export {SCHEMA} from './schema.js';
 import {loadPipelines} from './pipelines.js';
 import {pipelineControls} from './pipeline-ui.js';
+import {createAbout} from './about.js';
+import {createGpuJokes} from './gpu-jokes.js';
 
 export function buildControls(window, settings, application = null, externalLease = false, startEffect = false, extensionConnection = Gio.DBus.session) {
     window.set_title('Ripple');
     window.set_default_size(760, 860);
     const {model: pipelines, path: libraryPath} = loadPipelines(settings);
     const page = new Adw.PreferencesPage({title: 'Effect', icon_name: 'preferences-desktop-effects-symbolic'});
+    const about = createAbout(window);
+    const aboutPage = new Adw.PreferencesPage({title: 'About', icon_name: 'help-about-symbolic'});
+    const aboutGroup = new Adw.PreferencesGroup({title: 'VibeWare', description: 'Desktop toys by Umberto Giacobbi'});
+    const aboutRow = new Adw.ActionRow({title: 'About Ripple', subtitle: 'Version, credits, license and project links', activatable: true});
+    aboutRow.add_suffix(new Gtk.Image({icon_name: 'go-next-symbolic'}));
+    aboutRow.connect('activated', () => about.show());
+    aboutGroup.add(aboutRow);
+    aboutPage.add(aboutGroup);
     let content = page;
     let stack = null;
     const library = pipelineControls(window, pipelines, libraryPath, () => {
@@ -22,26 +32,23 @@ export function buildControls(window, settings, application = null, externalLeas
     });
     if (!application) {
         window.set_search_enabled(false);
-        window.add(page); window.add(library.page);
+        window.add(page); window.add(library.page); window.add(aboutPage);
     } else {
         stack = new Adw.ViewStack({vexpand: true});
         stack.add_titled(page, 'effect', 'Effect').icon_name = 'preferences-desktop-effects-symbolic';
         stack.add_titled(library.page, 'pipelines', 'Pipelines').icon_name = 'view-list-symbolic';
+        stack.add_titled(aboutPage, 'about', 'About').icon_name = 'help-about-symbolic';
         content = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL});
         content.append(new Adw.ViewSwitcher({stack, policy: Adw.ViewSwitcherPolicy.WIDE, halign: Gtk.Align.CENTER}));
         content.append(stack);
     }
     const group = new Adw.PreferencesGroup();
     page.add(group);
+    const jokes = createGpuJokes(settings);
+    page.add(jokes.group);
     const active = new Adw.SwitchRow({title: 'Effect'});
     settings.bind('active', active, 'active', Gio.SettingsBindFlags.DEFAULT);
     group.add(active);
-    const glass = new Adw.SwitchRow({
-        title: 'Liquid Glass (experimental)',
-        subtitle: 'Use glass-like waves and directional reflections; may use more GPU',
-    });
-    settings.bind('liquid-glass-experimental', glass, 'active', Gio.SettingsBindFlags.DEFAULT);
-    group.add(glass);
     const autoRestart = new Adw.SwitchRow({
         title: 'Auto restart',
         subtitle: 'Resume after a performance pause when the system is stable',
@@ -144,12 +151,12 @@ export function buildControls(window, settings, application = null, externalLeas
         pipelines.changed(key);
         if (parameters.has(key)) for (const update of filterUpdates) update();
     });
-    const limits = new Adw.PreferencesGroup({title: 'Limits'});
+    const limits = new Adw.PreferencesGroup({title: 'Limits', description: 'Animation follows the monitor frame clock, up to this FPS limit. 60 FPS is recommended for a 60 Hz display.'});
     page.add(limits);
     for (const [key, title, low, high, step] of [
         ['patch-size', 'Area · px', 256, 512, 64],
         ['max-waves', 'Simultaneous waves', 1, 2, 1],
-        ['fps', 'FPS limit', 15, 30, 1],
+        ['fps', 'FPS limit', 15, 120, 1],
     ]) {
         const row = new Adw.SpinRow({title, adjustment: new Gtk.Adjustment({
             lower: low, upper: high, step_increment: step, page_increment: step,
@@ -183,6 +190,8 @@ export function buildControls(window, settings, application = null, externalLeas
     }
     const changed = settings.connect('changed::status', () => status.set_title(settings.get_string('status')));
     window.connect('close-request', () => {
+        jokes.dispose();
+        about.dispose();
         pipelines.dispose();
         closed = true;
         settings.set_boolean('recovery-pending', false);
@@ -198,6 +207,8 @@ export function buildControls(window, settings, application = null, externalLeas
         unsubscribePipeline(); library.dispose();
         return false;
     });
+    // Direct destruction bypasses close-request. Hiding to the tray only unmaps.
+    window.connect('unrealize', () => { jokes.dispose(); about.dispose(); });
     // Let GNOME load the installed extension through its supported API only.
     if (application && extensionConnection) {
         active.set_sensitive(false);
@@ -240,5 +251,5 @@ export function buildControls(window, settings, application = null, externalLeas
         enableExtension();
         window.connect('close-request', () => { cancellable.cancel(); return false; });
     }
-    return {page: content, active, glass, preset, stop, status, pipelines};
+    return {page: content, active, preset, stop, status, pipelines, about, aboutRow, aboutPage, jokes};
 }

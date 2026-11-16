@@ -6,6 +6,10 @@ I pay attention to rendering performance, resource use and the provenance of thi
 
 Open **Ripple** from the applications menu, choose where the effect should appear, and adjust **Effect**. The controller enables the effect when GNOME accepts the extension request. Use the minus button or choose **Hide to tray** from the close dialog to keep it running. From the top bar menu, choose **Open** to restore the panel, **Effect** to toggle the waves, **About** for app information, or **Quit** to stop Ripple and close it. Use **Super + Shift + Esc** to stop the effect. The emergency shortcut can be disabled in the panel, which also shows if GNOME could not register it. The icon needs a StatusNotifier host, such as Ubuntu AppIndicators.
 
+The **About** tab is available in both the application and GNOME extension preferences. It uses the same VibeWare-branded dialog as the top bar menu, with the installed version, Umberto Giacobbi credits, license and project links.
+
+**GPU excuses** adds a small rotating joke to the Effect panel. **Rotate GPU jokes** hides or shows it independently of your pipelines. The copy changes every 12 seconds only while the panel is mapped; it stops when hidden or closed. These are jokes, not CPU/GPU readings or claims about the price of your hardware.
+
 The compositor limits the effect to a local region around the click and at most two waves. The controller keeps the effect alive while running, including when hidden. If its heartbeat stops or the compositor detects sustained delays, the extension turns the effect off.
 
 **Auto restart** is enabled by default. After a compositor delay it pauses the effect for at least one minute, then resumes it once CPU and memory have been healthy and the desktop event loop responsive for 30 seconds. If the effect stops again within five minutes, the waiting time doubles up to five minutes. Missing resource information prevents automatic recovery. The status row shows when recovery is pending; **Stop**, the emergency shortcut, quitting the controller, or turning off Auto restart cancels it. Other failures, including an expired controller heartbeat, do not restart the effect automatically.
@@ -14,7 +18,7 @@ Ripple shows desktop notifications when it pauses for performance, resumes autom
 
 Use the **Effect** tab to choose a pipeline and expand **Ripple**, **RGB refraction**, **Crest reflections**, **Multiple ripples**, or **Glass / liquid**. Filters retain their individual presets and controls. Changes apply immediately to active waves and save automatically, without a preview or Apply step.
 
-**Liquid Glass (experimental)** switches to an alternative GNOME renderer with broad irregular rings, directional highlights and subtle color separation. It is off by default and can be toggled at any time. It is a local rendering preference, not part of a portable pipeline. The Ripple controls for speed, duration, damping, aspect, radius, ring spacing, ring count, refraction and inversion still apply; the other filter controls apply to the standard renderer only. Existing area, wave-count and frame-rate limits and performance safeguards also apply. Effects remain confined to individual wallpaper or window patches; they do not refract a combined desktop scene.
+Animation uses the source actor's native compositor frame clock while waves exist. The default **FPS limit** is 60, adjustable from 15 to 120 and naturally bounded by the monitor's cadence. Existing explicitly saved FPS limits are preserved. The clock is detached when the last wave disappears. Ages use monotonic elapsed time rather than frame counts; a late frame does not slow the wave or trigger a catch-up burst. Changing the FPS limit applies to existing waves without clearing them. Performance guards observe every native frame callback before deliberate FPS skipping.
 
 The **Pipelines** tab lists built-in and personal pipelines with effect summaries and actions. **New pipeline** saves the current combination. Duplicate a built-in to customize it, rename or delete your copies, and use **Import** / **Export** to transfer JSON libraries between Linux and Windows. Saved pipelines update automatically as parameters change. The library lives at `$XDG_CONFIG_HOME/VibeWare/Ripple/pipelines.json`, normally `~/.config/VibeWare/Ripple/pipelines.json`. Renderer limits are applied locally; rendering can differ across platforms. The library excludes the effect switch, target, performance limits and emergency shortcut.
 
@@ -44,7 +48,7 @@ Build the Debian package and extension archive with Python 3, `glib-compile-sche
 
 ```sh
 python3 build-package.py --output-dir /tmp/water-ripple
-sudo apt install /tmp/water-ripple/vibeware-ripple_0.1.5_all.deb
+sudo apt install /tmp/water-ripple/vibeware-ripple_0.1.7_all.deb
 ```
 
 If GNOME has yet to discover a new extension installation, sign out and back in so Ripple can enable it through GNOME's extension service.
@@ -54,3 +58,24 @@ If GNOME has yet to discover a new extension installation, sign out and back in 
 Run `tests/library-checks.js` the same way, with its own empty `XDG_CONFIG_HOME`, to check real GIO writes, separate D-Bus lock owners, stale panels, timed saves and closing with pending changes. Model checks in `tests/pipeline-checks.mjs` additionally inject failed writes and verify rollback of each library action.
 
 The extension, controller, and package files in this directory are licensed under [GPL-3.0-or-later](LICENSE).
+
+
+## Rendering regression checks
+
+From the widget directory:
+
+```sh
+node tests/frame-pacing-checks.mjs
+node tests/diagnostics-checks.mjs
+python3 scripts/check-shader.py --output-dir /tmp/ripple-shader-check
+python3 scripts/smoke-gnome.py --output-dir /tmp/ripple-animation-check
+```
+
+The shader harness renders the exact production GLSL into a real 512 × 512 GPU
+framebuffer, compares rendering against a Git baseline, and checks that
+the ripple responds to every control. It uses synthetic text and grid imagery only.
+`--baseline-ref` selects the prior Git revision for comparison. GPU times exclude
+GNOME composition, capture and presentation. The animation smoke test uses a
+separate headless GNOME session with private runtime, configuration and D-Bus
+paths; it never restarts the user's desktop. It measures actual shader-update
+cadence, rather than treating the configured FPS limit as a measurement.

@@ -5,6 +5,8 @@ import vm from 'node:vm';
 
 const recoverySource = readFileSync(new URL('../Linux/extension/ripple@vibeware.local/recovery.js', import.meta.url), 'utf8');
 const {RecoveryPolicy, readResourceSample, retryDelay} = await import(`data:text/javascript;base64,${Buffer.from(recoverySource).toString('base64')}`);
+const pacingSource = readFileSync(new URL('../Linux/extension/ripple@vibeware.local/frame-pacing.js', import.meta.url), 'utf8');
+const {FramePacer} = await import(`data:text/javascript;base64,${Buffer.from(pacingSource).toString('base64')}`);
 const source = name => readFileSync(new URL(`../Linux/extension/ripple@vibeware.local/${name}`, import.meta.url), 'utf8')
     .replace(/^import .*;\n/gm, '');
 const timers = new Map();
@@ -24,7 +26,7 @@ const GLib = {
 };
 const Extension = vm.runInNewContext(source('extension.js')
     .replace('export default class RippleExtension', 'class RippleExtension') + '\nRippleExtension;', {
-    GLib, Extension: class {}, RecoveryPolicy, readResourceSample, retryDelay, TextDecoder,
+    GLib, Extension: class {}, RecoveryPolicy, readResourceSample, retryDelay, FramePacer, TextDecoder,
     Clutter: {ModifierType: {BUTTON1_MASK: 1}},
     console: {log: message => logs.push(JSON.parse(message.slice('Ripple: '.length)))},
     Main: {wm: {removeKeybinding() {}}, overview: {}, layoutManager: {}, sessionMode: {},

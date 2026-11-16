@@ -4,6 +4,7 @@
   "description": "Click refraction on the desktop background or application windows, with bounded rendering and a controller heartbeat.",
   "shell-version": ["50"],
   "settings-schema": "org.gnome.shell.extensions.vibeware-ripple",
-  "version": 4,
-  "version-name": "0.1.5"
+  "version": 6,
+  "version-name": "0.1.7",
+  "url": "https://github.com/umbertotechnopreneur/VibeKit"
 }

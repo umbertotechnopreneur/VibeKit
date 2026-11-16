@@ -8,12 +8,12 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {RippleEffect} from './effect.js';
 import {RecoveryPolicy, readResourceSample, retryDelay} from './recovery.js';
+import {FramePacer} from './frame-pacing.js';
 
 const NUMBERS = ['strength', 'speed', 'wavelength', 'rings', 'lifetime',
     'damping', 'light', 'radius', 'aspect', 'chromatic-separation', 'chromatic-blend',
     'crest-intensity', 'ripples-intensity', 'liquid-intensity'];
-const SWITCHES = ['invert', 'chromatic-enabled', 'crest-enabled', 'ripples-enabled', 'liquid-enabled',
-    'liquid-glass-experimental'];
+const SWITCHES = ['invert', 'chromatic-enabled', 'crest-enabled', 'ripples-enabled', 'liquid-enabled'];
 const now = () => GLib.get_monotonic_time() / 1e6;
 
 export default class RippleExtension extends Extension {
@@ -23,7 +23,9 @@ export default class RippleExtension extends Extension {
         this._signals = [];
         this._panicRegistered = false;
         this._settings.set_boolean('panic-available', false);
-        this._timer = 0;
+        this._timeline = null;
+        this._frameSignal = 0;
+        this._pacer = new FramePacer(this._settings.get_int('fps'));
         this._pointerTimer = 0;
         this._lastPressed = false;
         this._lastClick = 0;
@@ -62,7 +64,9 @@ export default class RippleExtension extends Extension {
                 this._cancelRecovery();
             else if (key === 'panic-enabled')
                 this._syncPanic();
-            else if (['target', 'patch-size', 'fps'].includes(key))
+            else if (key === 'fps')
+                this._pacer.setRate(this._settings.get_int('fps'));
+            else if (['target', 'patch-size'].includes(key))
                 this._clear();
             else if (key === 'max-waves') {
                 while (this._patches.length > this._settings.get_int('max-waves'))
@@ -287,15 +291,36 @@ export default class RippleExtension extends Extension {
             this._patches.push(patch);
             while (this._patches.length > this._settings.get_int('max-waves'))
                 this._removePatch(this._patches[0]);
-            if (!this._timer) {
-                this._previousFrame = now();
-                const interval = Math.ceil(1000 / this._settings.get_int('fps'));
-                this._timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, interval, () => this._tick());
-            }
+            this._startAnimation();
         } catch (error) {
             this._stop('Effect stopped. ' + error.message);
             console.error('Ripple:', error);
         }
+    }
+
+    _startAnimation() {
+        if (this._timeline || !this._patches.length) return;
+        this._previousFrame = now();
+        this._pacer.setRate(this._settings.get_int('fps'));
+        this._timeline = Clutter.Timeline.new_for_actor(this._patches[0].actor, 1000);
+        this._timeline.set_repeat_count(-1);
+        this._frameSignal = this._timeline.connect('new-frame', () => {
+            try { this._tick(); }
+            catch (error) {
+                this._stop('Animation stopped. ' + error.message);
+                console.error('Ripple:', error);
+            }
+        });
+        this._timeline.start();
+    }
+
+    _stopAnimation() {
+        if (!this._timeline) return;
+        this._timeline.stop();
+        if (this._frameSignal) this._timeline.disconnect(this._frameSignal);
+        this._timeline.set_actor(null);
+        this._timeline = null;
+        this._frameSignal = 0;
     }
 
     _tick() {
@@ -303,21 +328,20 @@ export default class RippleExtension extends Extension {
         const delay = time - this._previousFrame;
         this._previousFrame = time;
         if (!this._leaseValid() || !this._settings.get_boolean('active')) {
-            this._timer = 0;
             this._clear();
             return GLib.SOURCE_REMOVE;
         }
         if (delay > 0.25) {
-            this._timer = 0;
             this._stop('Effect stopped after a compositor delay', {delayMs: Math.round(delay * 1000)}, true);
             return GLib.SOURCE_REMOVE;
         }
         this._lagCount = delay > 0.09 ? this._lagCount + 1 : Math.max(0, this._lagCount - 1);
         if (this._lagCount >= 3) {
-            this._timer = 0;
             this._stop('Effect stopped after repeated compositor delays', {delayMs: Math.round(delay * 1000)}, true);
             return GLib.SOURCE_REMOVE;
         }
+        // The guard above observes every native callback, not intentionally skipped frames.
+        if (!this._pacer.shouldRender(time)) return GLib.SOURCE_CONTINUE;
         const lifetime = this._settings.get_double('lifetime');
         for (const patch of [...this._patches]) {
             const age = time - patch.born;
@@ -327,7 +351,7 @@ export default class RippleExtension extends Extension {
                 patch.effect.setAge(age);
         }
         if (!this._patches.length) {
-            this._timer = 0;
+            this._stopAnimation();
             return GLib.SOURCE_REMOVE;
         }
         return GLib.SOURCE_CONTINUE;
@@ -338,16 +362,15 @@ export default class RippleExtension extends Extension {
         if (index < 0)
             return;
         this._patches.splice(index, 1);
+        if (!this._patches.length) this._stopAnimation();
+        else if (index === 0 && this._timeline) this._timeline.set_actor(this._patches[0].actor);
         for (const id of patch.sourceSignals)
             patch.source.disconnect(id);
         patch.actor.destroy();
     }
 
     _clear() {
-        if (this._timer) {
-            GLib.source_remove(this._timer);
-            this._timer = 0;
-        }
+        this._stopAnimation();
         for (const patch of [...this._patches])
             this._removePatch(patch);
         this._lagCount = 0;

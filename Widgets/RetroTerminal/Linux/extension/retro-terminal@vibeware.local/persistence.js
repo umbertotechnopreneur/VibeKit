@@ -4,6 +4,7 @@ import Cogl from 'gi://Cogl';
 import GLib from 'gi://GLib';
 import Mtk from 'gi://Mtk';
 import {MAX_PIXELS} from './guard.js';
+import {planCapture} from './capture-plan.js';
 
 const INTERVAL_MS = 42; // Under 24 capture/composition passes per second.
 const now = () => GLib.get_monotonic_time() / 1e6;
@@ -28,6 +29,7 @@ export class PhosphorPersistence {
     get running() { return this._timer !== 0; }
     get hasHistory() { return this._history; }
     get captureCount() { return this._captureCount ?? 0; }
+    get captureInfo() { return this._captureInfo ?? null; }
 
     configure(settings, width, height) {
         const changedSize = width !== this._width || height !== this._height;
@@ -44,10 +46,13 @@ export class PhosphorPersistence {
         if (this.running || !this._enabled) return;
         try {
             this._rect = new Mtk.Rectangle({x: 0, y: 0, width: this._width, height: this._height});
-            const [ok, width, height, scale] = global.stage.get_capture_final_size(this._rect);
-            if (!ok || width <= 0 || height <= 0 || width > 8192 || height > 8192 || width * height > MAX_PIXELS)
-                throw Error('Persistence capture exceeds the physical surface limit');
+            const [ok, nativeWidth, nativeHeight, nativeScale] = global.stage.get_capture_final_size(this._rect);
+            if (!ok || nativeWidth <= 0 || nativeHeight <= 0)
+                throw Error('The desktop cannot be captured for afterglow');
+            const plan = planCapture(this._width, this._height, nativeScale, MAX_PIXELS);
+            const {width, height, scale} = plan;
             this._scale = scale;
+            this._captureInfo = Object.freeze({...plan, nativeWidth, nativeHeight, nativeScale});
             const context = global.stage.get_context().get_backend().get_cogl_context();
             for (let i = 0; i < 2; i++) {
                 const texture = Cogl.Texture2D.new_with_size(context, width, height);
@@ -123,5 +128,6 @@ export class PhosphorPersistence {
         this._buffers = [];
         this._history = false;
         this._rect = null;
+        this._captureInfo = null;
     }
 }

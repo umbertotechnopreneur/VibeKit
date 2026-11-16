@@ -11,6 +11,28 @@ const delay = ms => new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAUL
     resolve(); return GLib.SOURCE_REMOVE;
 }));
 
+// The private test compositor owns this bus. Never touch the user's display.
+async function setFractionalTestScale() {
+    const call = (method, parameters = null) => new Promise((resolve, reject) => {
+        Gio.DBus.session.call('org.gnome.Mutter.DisplayConfig', '/org/gnome/Mutter/DisplayConfig',
+            'org.gnome.Mutter.DisplayConfig', method, parameters, null, Gio.DBusCallFlags.NONE, 5000, null,
+            (connection, result) => {
+                try { resolve(connection.call_finish(result).deep_unpack()); }
+                catch (error) { reject(error); }
+            });
+    });
+    const [serial, monitors] = await call('GetCurrentState');
+    if (monitors.length !== 1) throw Error('Oversized test requires exactly one private virtual monitor');
+    const [spec, modes] = monitors[0];
+    const mode = modes.find(item => item[1] === 6720 && item[2] === 2160 && item[5].includes(1.5));
+    if (!mode) throw Error('Private virtual monitor does not support the required fractional test mode');
+    await call('ApplyMonitorsConfig', new GLib.Variant('(uua(iiduba(ssa{sv}))a{sv})',
+        [serial, 1, [[0, 0, 1.5, 0, true, [[spec[0], mode[0], {}]]]], {'layout-mode': new GLib.Variant('u', 1)}]));
+    await delay(1000);
+    if (global.stage.width !== 4480 || global.stage.height !== 1440)
+        throw Error(`Unexpected private stage size: ${global.stage.width}×${global.stage.height}`);
+}
+
 export default class SmokeTest extends ProductionExtension {
     enable() {
         super.enable();
@@ -20,6 +42,8 @@ export default class SmokeTest extends ProductionExtension {
         });
     }
     async exercise() {
+        const oversized = GLib.getenv('RETRO_TEST_OVERSIZED') === '1';
+        if (oversized) await setFractionalTestScale();
         Main.overview.hide();
         const demo = new St.BoxLayout({vertical: true, x: 160, y: 170, width: 960, height: 420,
             style: 'background-color: #101827; padding: 40px; border-radius: 14px; border: 1px solid #6d7b8f;'});
@@ -31,6 +55,9 @@ export default class SmokeTest extends ProductionExtension {
         const marker = new St.Widget({x: 240, y: 650, width: 120, height: 36,
             style: 'background-color: #ffffff;'});
         Main.layoutManager.uiGroup.add_child(marker);
+        const farMarker = oversized ? new St.Widget({x: global.stage.width - 240, y: global.stage.height - 180,
+            width: 120, height: 36, style: 'background-color: #ffffff;'}) : null;
+        if (farMarker) Main.layoutManager.uiGroup.add_child(farMarker);
         try {
             const shot = async (name, settle = 700) => {
                 await delay(settle);
@@ -42,6 +69,34 @@ export default class SmokeTest extends ProductionExtension {
             await shot('gnome-original');
             this._settings.set_boolean('active', true);
             if (!this._effect) throw Error(this._settings.get_string('status'));
+            if (oversized) {
+                this._settings.set_double('persistence-duration', 0.5);
+                this._settings.set_double('persistence-strength', 0.6);
+                this._settings.set_boolean('persistence-enabled', true);
+                await delay(350);
+                const info = this._persistence?.captureInfo;
+                if (!info?.reduced || info.nativeWidth * info.nativeHeight <= 9000000 ||
+                    info.width * info.height > 9000000 || info.width > 8192 || info.height > 8192 ||
+                    !this._persistence.hasHistory || this._persistence.captureCount < 2 || this._persistence._buffers.length !== 2)
+                    throw Error(`Oversized native capture was not bounded: ${JSON.stringify(info)}`);
+                if (!this._settings.get_string('status').includes('(scaled)'))
+                    throw Error('Reduced history resolution must be visible in status');
+                console.log(`RETRO_CAPTURE_INFO ${JSON.stringify({...info, logicalWidth: global.stage.width, logicalHeight: global.stage.height})}`);
+                marker.x = 800;
+                farMarker.x -= 400;
+                await shot('gnome-persistence', 70);
+                this._settings.set_boolean('persistence-enabled', false);
+                if (this._persistence.running || this._persistence.hasHistory || this._persistence.captureInfo)
+                    throw Error('Disabling scaled persistence retained history or dimensions');
+                await shot('gnome-persistence-off', 100);
+                this._settings.set_boolean('active', false);
+                if (this._effect || this._persistence || this._timer)
+                    throw Error('Scaled history Stop retained resources');
+                await delay(200);
+                if (this._settings.get_boolean('active')) throw Error('Stop must not restart');
+                console.log('RETRO_SMOKE_PASS: oversized native capture, bounded scaled history, status, complete stop');
+                return;
+            }
             for (const [index, name] of ['green', 'amber', 'color'].entries()) {
                 this._settings.set_int('preset', index);
                 await shot(`gnome-${name}`);
@@ -104,6 +159,7 @@ export default class SmokeTest extends ProductionExtension {
             this._stop('Smoke test finished');
             demo.destroy();
             marker.destroy();
+            farMarker?.destroy();
         }
     }
 }

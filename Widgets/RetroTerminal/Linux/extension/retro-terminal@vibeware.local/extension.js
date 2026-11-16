@@ -68,7 +68,7 @@ export default class RetroTerminal extends Extension {
                     if (!key.startsWith('glitch')) this._configurePersistence();
                 } catch (error) {
                     console.error('Retro Terminal:', error);
-                    this._stop('Could not apply settings; restart manually');
+                    this._stop(`Could not apply settings: ${error.message}. Enable CRT again to retry.`);
                 }
             }
         });
@@ -101,6 +101,13 @@ export default class RetroTerminal extends Extension {
         if (this._settings.get_boolean('persistence-enabled') && this._settings.get_double('intensity') > 0 &&
             this._settings.get_double('persistence-strength') > 0) this._persistence.start();
         else this._persistence.stop();
+        this._updateActiveStatus();
+    }
+    _updateActiveStatus() {
+        if (!this._effect) return;
+        const capture = this._persistence?.captureInfo;
+        const history = capture ? `Afterglow ${capture.width}×${capture.height}${capture.reduced ? ' (scaled)' : ''} · ` : '';
+        this._settings.set_string('status', `Active · ${history}Super+Shift+F12 stops CRT`);
     }
     _configureGlitches() {
         this._cancelGlitchTimers();
@@ -187,12 +194,12 @@ export default class RetroTerminal extends Extension {
             Main.layoutManager.uiGroup.add_effect_with_name(this.uuid, this._effect);
             this._persistence = new PhosphorPersistence({onError: error => {
                 console.error('Retro Terminal persistence:', error);
-                this._stop('Afterglow failed; restart manually');
+                this._stop(`Afterglow stopped: ${error.message}. Enable CRT again to retry.`);
             }});
             this._configurePersistence();
             if (!this._effect) return;
             this._configureGlitches();
-            this._settings.set_string('status', 'Active · Super+Shift+F12 stops CRT');
+            this._updateActiveStatus();
             const guard = new DelayGuard(now());
             this._timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
                 if (guard.sample(now())) {
@@ -205,7 +212,7 @@ export default class RetroTerminal extends Extension {
             });
         } catch (error) {
             console.error('Retro Terminal:', error);
-            this._stop('Could not start CRT; inspect the GNOME journal');
+            this._stop(`Could not start CRT: ${error.message}. Enable CRT again to retry.`);
         }
     }
     _clear() {

@@ -6,9 +6,11 @@ only the short-lived test session. Screenshots contain a synthetic fixture.
 """
 # SPDX-License-Identifier: MIT
 import argparse
+import json
 import os
 from pathlib import Path
 import shutil
+import re
 import subprocess
 import tempfile
 from PIL import Image
@@ -18,6 +20,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--mode', choices=['user', 'ubuntu'], default='user')
+    parser.add_argument('--oversized-capture', action='store_true', help='Exercise a real 6720×2160 capture at 150% scale with bounded afterglow')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     output = args.output_dir.resolve()
@@ -39,6 +42,8 @@ def main():
         env['GSETTINGS_BACKEND'] = 'dconf'
         env['RETRO_TEST_OUTPUT'] = str(output)
         env['RETRO_TEST_MODE'] = args.mode
+        env['RETRO_TEST_OVERSIZED'] = '1' if args.oversized_capture else '0'
+        env['RETRO_TEST_MONITOR'] = '6720x2160' if args.oversized_capture else '1280x800'
         extension = stage / 'data/gnome-shell/extensions' / uuid
         shutil.copytree(root / 'Linux/extension' / uuid, extension)
         (extension / 'extension.js').rename(extension / 'production-extension.js')
@@ -50,7 +55,8 @@ set -eu
 gsettings set org.gnome.shell enabled-extensions "['retro-terminal@vibeware.local']"
 gsettings set org.gnome.shell disable-user-extensions false
 gsettings set org.gnome.shell welcome-dialog-last-shown-version '50'
-exec gnome-shell --headless --wayland --no-x11 --virtual-monitor=1280x800 --wayland-display=retro-test-only --mode="$RETRO_TEST_MODE"
+gsettings set org.gnome.mutter experimental-features "['scale-monitor-framebuffer']"
+exec gnome-shell --headless --wayland --no-x11 --virtual-monitor="$RETRO_TEST_MONITOR" --wayland-display=retro-test-only --mode="$RETRO_TEST_MODE"
 ''')
         result = subprocess.run(['timeout', '--signal=TERM', '40s', 'dbus-run-session', '--', 'sh', str(runner)],
                                 env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=50)
@@ -65,15 +71,28 @@ exec gnome-shell --headless --wayland --no-x11 --virtual-monitor=1280x800 --wayl
             history = image.convert('RGB')
         with Image.open(output / 'gnome-persistence-off.png') as image:
             cleared = image.convert('RGB')
-        def difference(y_start, y_end):
+        info_match = re.search(r'RETRO_CAPTURE_INFO (\{[^\n]+\})', result.stdout)
+        info = json.loads(info_match.group(1)) if info_match else None
+        if args.oversized_capture and not info:
+            raise SystemExit('Oversized capture test did not report actual capture dimensions')
+        scale = history.width / info['logicalWidth'] if info else 1
+        def difference(x_start, x_end, y_start, y_end):
             values = [sum(history.getpixel((x, y))) - sum(cleared.getpixel((x, y)))
-                      for y in range(y_start, y_end) for x in range(260, 340)]
+                      for y in range(round(y_start * scale), round(y_end * scale))
+                      for x in range(round(x_start * scale), round(x_end * scale))]
             return sum(values) / len(values)
-        residual = difference(655, 680) - difference(625, 640)
-        if residual <= 10:
-            raise SystemExit('Temporal check failed: old marker position has no retained afterglow')
-        print(f'PASS retained old-position afterglow: background-adjusted RGB-sum difference {residual:.1f}')
-        print(f'PASS real GNOME {args.mode} session: custom controls, glitches, history, stop and cleanup; screenshots in {output}')
+        markers = [(240, 650)]
+        if info:
+            markers.append((info['logicalWidth'] - 240, info['logicalHeight'] - 180))
+        for x, y in markers:
+            residual = difference(x + 20, x + 100, y + 5, y + 30) - difference(x + 20, x + 100, y - 25, y - 10)
+            if residual <= 10:
+                raise SystemExit(f'Temporal check failed: old marker at {x},{y} has no retained afterglow')
+            print(f'PASS retained afterglow at {x},{y}: background-adjusted RGB-sum difference {residual:.1f}')
+        if info:
+            print(f"PASS native capture {info['nativeWidth']}×{info['nativeHeight']} reduced to {info['width']}×{info['height']}")
+        checks = 'oversized capture, scaled history, stop and cleanup' if args.oversized_capture else 'custom controls, glitches, history, stop and cleanup'
+        print(f'PASS real GNOME {args.mode} session: {checks}; screenshots in {output}')
 
 
 if __name__ == '__main__':

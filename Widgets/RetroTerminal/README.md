@@ -24,13 +24,15 @@ applications-grid launcher.
 
 The **About** tab opens the VibeWare-branded information window with the installed
 version, author, MIT license, source, website, manifesto, terms and privacy links.
-**GPU excuses** rotates playful captions every 12 seconds while the CRT
-preferences page is visible. Turn off **Rotate GPU jokes** to hide them. This
+**GPU excuses** rotates playful captions every 12 seconds while its panel
+is visible. Turn off **Rotate GPU jokes** to hide them. This
 preference is independent of saved looks. Captions are jokes, not telemetry or
 hardware-price estimates; they never poll sensors or increase the effect workload.
 Hidden panels have no caption timer.
 
-Preferences expose:
+The Effect page uses collapsible sections for phosphor, monitor surface,
+afterglow and signal glitches. Power, status, pipeline selection and Stop remain
+available above the sections. Preferences expose:
 
 - Green, amber or source-color palettes, plus a native custom-color picker.
 - Effect mix, black level and contrast.
@@ -41,12 +43,22 @@ Preferences expose:
 - Four individually allowed glitches: local RGB separation, horizontal tear,
   line interference and a soft scanning band.
 
-**Looks** contains Clean green, Worn terminal, Arcade and Long phosphor presets.
-Load a look, adjust its controls, and use **Save new look** with a unique name.
-Up to 32 personal looks are stored in GSettings. Saved looks omit power, runtime
-status, shortcuts and preview requests. Duplicate names and malformed libraries
-are rejected without overwriting existing data. Deleting applies only to saved
-looks. Ordinary control values persist immediately.
+**Pipelines** contains Clean green, Worn terminal, Arcade and Long phosphor.
+Select a pipeline from the Effect page or the library. Built-ins are protected;
+duplicate one to keep your changes. Personal pipelines update automatically as
+you adjust controls. **New pipeline** saves the current appearance; personal
+copies can be renamed or deleted, and **Import** / **Export** transfers JSON
+libraries. **Custom** detaches the controls from the saved selection.
+
+The library holds up to 64 personal pipelines and is stored in
+`$XDG_CONFIG_HOME/VibeWare/RetroTerminal/pipelines.json`.
+Existing saved looks are migrated without deleting the original GSettings data
+or changing the active appearance. Power, status, shortcuts, preview requests
+and the jokes preference are excluded. Malformed libraries are preserved and
+reported; concurrent panels cannot silently overwrite each other's changes.
+A panel that loses a save conflict preserves the current shared settings and
+blocks further library writes until reopened.
+The file format is specific to Retro Terminal and is not a Ripple pipeline.
 
 **Random glitches** starts off. Configure minimum/maximum intervals (5–300 s),
 duration (80–1200 ms) and intensity. Reversed endpoints are normalized by the
@@ -70,11 +82,17 @@ Decay is an e-folding time on GNOME; Windows uses a half-life, so the same numer
 value does not imply identical trails. Visible mix is separate from history decay.
 GNOME captures/composes at most 24 times per second while afterglow is enabled,
 including on an otherwise idle desktop. No CPU readback or image file is involved.
+For large or mixed-scale desktops, the history capture is downsampled on the GPU
+to fit at most 9 million pixels and 8192 pixels per dimension. The overlay still
+covers the complete desktop, while the main CRT shader keeps its normal
+resolution. Status shows the actual history dimensions and whether they are
+scaled. This can soften afterglow detail; it does not move input coordinates.
 The history overlay does not receive input. Stop or disabling persistence removes
 it and releases the history references. A capture error or gap over 250 ms stops
 CRT without automatic recovery. This mode uses additional GPU time and memory;
 it is off by default. The two RGBA8 texture payloads alone require
-`width × height × 4 × 2` bytes, excluding compositor resources and driver overhead.
+`capture_width × capture_height × 4 × 2` bytes (at most 72 MB), excluding compositor
+resources and driver overhead.
 
 Before enabling, the desktop layout must fit within 9 million physical pixels
 and 8192 pixels per dimension. This is a layout preflight check, not a GPU memory
@@ -97,6 +115,12 @@ use `gnome-extensions install` with the generated archive instead. New extension
 discovery can require a new login; never restart or close the user's session
 automatically. The top-bar switch remains off until explicitly enabled.
 
+GNOME caches extension modules for the session. After installing a renderer
+update, open a new login session manually to load it; reopening preferences
+alone updates the panel but does not replace already-loaded rendering code.
+The updated panel detects an older loaded version and explains the required
+sign-in before allowing the effect to be enabled. Stop remains available.
+
 Stop from a terminal if needed:
 
 ```sh
@@ -118,8 +142,11 @@ The two platforms share the visual direction, not their compositor architecture.
 ```sh
 node tests/guard-checks.mjs
 node tests/customization-checks.mjs
+node tests/capture-plan-checks.mjs
+node tests/pipeline-checks.mjs
 python3 scripts/benchmark-shader.py --output-dir /tmp/retro-terminal-benchmark
 python3 scripts/smoke-gnome.py --mode ubuntu --output-dir /tmp/retro-terminal-smoke
+python3 scripts/smoke-gnome.py --mode ubuntu --oversized-capture --output-dir /tmp/retro-terminal-large-smoke
 ```
 
 The GTK checks run against an extracted extension archive with
@@ -127,6 +154,7 @@ The GTK checks run against an extracted extension archive with
 
 ```sh
 gjs -m tests/gtk-checks.js /tmp/retro-terminal-extension
+gjs -m tests/library-checks.js /tmp/retro-terminal-extension
 ```
 
 GPU shader timings from an isolated framebuffer do not include GNOME's offscreen

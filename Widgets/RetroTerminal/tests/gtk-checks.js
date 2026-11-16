@@ -1,21 +1,31 @@
-// Run with memory settings and a temporary configuration directory.
+// Run with memory settings and an empty temporary XDG_CONFIG_HOME.
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Gdk from 'gi://Gdk?version=4.0';
 const directory = Gio.File.new_for_path(ARGV[0]);
 const {buildControls} = await import(directory.get_child('settings-ui.js').get_uri());
+const {DEFAULTS} = await import(directory.get_child('settings-model.js').get_uri());
 Adw.init();
 const source = Gio.SettingsSchemaSource.new_from_directory(directory.get_child('schemas').get_path(), Gio.SettingsSchemaSource.get_default(), false);
 const settings = Gio.Settings.new_full(source.lookup('org.gnome.shell.extensions.vibeware-retro-terminal', true), null, null);
 const check = (value, message) => { if (!value) throw Error(message); };
+check(GLib.getenv('GSETTINGS_BACKEND') === 'memory', 'GTK checks require memory settings');
+settings.set_string('saved-presets', JSON.stringify([{name: 'Previous look', values: {...DEFAULTS, preset: 1}}]));
+const legacy = settings.get_string('saved-presets');
 const window = new Adw.PreferencesWindow();
 const ui = buildControls(window, settings);
 check(!ui.active.active, 'Must start disabled');
+check(Object.values(ui.expanders).length === 4 && Object.values(ui.expanders).every(row => !row.expanded),
+    'All four control sections start collapsed');
+check(ui.pipelines.items.some(item => item.name === 'Previous look') && settings.get_string('saved-presets') === legacy,
+    'The old saved look migrates without deleting the original');
+check(ui.preset.selected === 0, 'Opening the library must not apply a migrated look');
+check(!ui.jokes.running, 'Captions are idle on the Effect page');
 ui.active.active = true;
 check(settings.get_boolean('active'), 'Enable binding');
 ui.preset.selected = 1;
-check(settings.get_int('preset') === 1, 'Preset binding');
+check(settings.get_int('preset') === 1, 'Palette binding');
 ui.controls.intensity.value = 0.42;
 check(Math.abs(settings.get_double('intensity') - 0.42) < 0.001, 'Intensity binding');
 for (const [key, value] of [
@@ -49,65 +59,107 @@ for (const key of ['glitch-rgb', 'glitch-tear', 'glitch-noise', 'glitch-band']) 
 const request = settings.get_uint('glitch-request');
 ui.tryGlitch.emit('clicked');
 check(settings.get_uint('glitch-request') === request + 1, 'Try now command');
-ui.saveName.text = 'Custom cyan';
-ui.save.emit('clicked');
-const library = JSON.parse(settings.get_string('saved-presets'));
-check(library.length === 1 && library[0].name === 'Custom cyan', 'Save personal look');
-check(library[0].values['phosphor-color'] === '#fedcba' && library[0].values['scanline-spacing'] === 5,
-    'Saved look includes color and raster settings');
-check(!Object.hasOwn(library[0].values, 'active') && !Object.hasOwn(library[0].values, 'glitch-request') &&
-    !Object.hasOwn(library[0].values, 'show-gpu-jokes'), 'Saved look must exclude live commands and interface preferences');
-ui.look.selected = 0;
-ui.applyPreset.emit('clicked');
-check(!settings.get_boolean('glitches-enabled') && !settings.get_boolean('persistence-enabled'), 'Clean look applies');
-ui.look.selected = 4;
-ui.applyPreset.emit('clicked');
-check(settings.get_boolean('persistence-enabled') && settings.get_string('phosphor-color') === '#fedcba',
-    'Saved look restores custom settings');
-ui.removePreset.emit('clicked');
-check(JSON.parse(settings.get_string('saved-presets')).length === 0, 'Delete personal look');
-settings.set_string('saved-presets', '{broken');
-check(!ui.save.sensitive && settings.get_string('saved-presets') === '{broken', 'Corrupt library remains preserved');
-settings.set_string('saved-presets', '[]');
-ui.stop.emit('clicked');
-check(!settings.get_boolean('active') && !ui.active.active, 'Stop binding');
-check(!ui.tryGlitch.sensitive, 'Try now unavailable while CRT stopped');
+
+// Exercise the visible library actions, not just direct model calls.
+ui.library.create.emit('clicked');
+ui.library.name.text = '<Custom & cyan>';
+ui.library.save.emit('clicked');
+check(!ui.pipelines.error, ui.pipelines.error);
+check(ui.pipelines.selected?.name === '<Custom & cyan>' && !ui.library.editor.visible, 'Create pipeline from the current controls');
+const selectedId = ui.pipelines.selected.id;
+check(ui.pipelines.selected.values['phosphor-color'] === '#fedcba', 'New pipeline stores the custom color');
+for (const key of ['active', 'glitch-request', 'show-gpu-jokes'])
+    check(!Object.hasOwn(ui.pipelines.selected.values, key), `Pipeline excludes ${key}`);
+ui.library.actions.get(selectedId).rename.emit('clicked');
+ui.library.name.text = 'Personal cyan';
+ui.library.save.emit('clicked');
+check(ui.pipeline.model.get_string(ui.pipeline.selected) === 'Personal cyan', 'Selector follows rename');
+ui.pipeline.selected = 1;
+check(ui.pipelines.builtIn(ui.pipelines.selected) && !settings.get_boolean('glitches-enabled'), 'Pipeline selector applies the built-in immediately');
+const original = ui.pipelines.selected;
+check(!ui.library.actions.get(original.id).rename && !ui.library.actions.get(original.id).delete,
+    'Built-in pipelines expose duplication, not rename or delete');
+ui.library.actions.get(original.id).duplicate.emit('clicked');
+const duplicateId = ui.pipelines.selected.id;
+check(duplicateId !== original.id && !ui.pipelines.builtIn(ui.pipelines.selected), 'Duplicate creates an editable personal pipeline');
+ui.controls.intensity.value = 0.35;
+check(ui.pipelines.selected.values.intensity === 0.35 && original.values.intensity !== 0.35,
+    'Editing a duplicated pipeline keeps its built-in unchanged');
+
 window.present();
 const loop = new GLib.MainLoop(null, false);
-let failed = false;
-const after = (delay, callback) => GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
-    try { callback(); }
-    catch (error) { failed = true; logError(error); window.destroy(); loop.quit(); }
-    return GLib.SOURCE_REMOVE;
-});
-after(300, () => {
-    check(ui.jokes.running, 'Visible page starts the joke timer');
-    const first = ui.jokes.row.title;
-    after(13500, () => {
-        check(ui.jokes.row.title !== first, 'Caption advances at the normal 12 second interval');
+let failed = null;
+let firstCaption;
+let restoredWindow;
+const steps = [
+    [450, () => {
+        check(ui.stop.get_mapped(), 'Stop stays accessible above the collapsed controls');
+        check(!ui.controls.intensity.get_mapped(), 'Collapsed Phosphor hides its controls');
+        ui.expanders.phosphor.expanded = true;
+    }],
+    [400, () => {
+        check(ui.controls.intensity.get_mapped(), 'Opening Phosphor reveals its controls');
+        ui.expanders.phosphor.expanded = false;
+        check(ui.pipelines.flush(), ui.pipelines.error);
+        ui.library.actions.get(duplicateId).delete.emit('clicked');
+        check(!ui.pipelines.items.some(item => item.id === duplicateId), 'Delete removes only the chosen personal pipeline');
+        ui.pipeline.selected = ui.pipelines.items.findIndex(item => item.id === selectedId) + 1;
+        check(settings.get_string('phosphor-color') === '#fedcba', 'Selecting personal pipeline restores its color');
+        ui.controls['scanline-spacing'].value = 6;
+    }],
+    [350, () => {
+        check(ui.pipelines.selected.values['scanline-spacing'] === 6 && !ui.pipelines.error, 'Personal edits save after the quiet interval');
+        window.set_visible_page(ui.library.page);
+    }],
+    [350, () => {
+        check(!ui.jokes.running, 'Pipelines page does not run the joke timer');
+        ui.stop.emit('clicked');
+        check(!settings.get_boolean('active') && !ui.tryGlitch.sensitive, 'Stop cancels the effect and disables glitch preview');
+        window.set_visible_page(ui.aboutPage);
+    }],
+    [400, () => {
+        check(ui.jokes.running, 'Captions run only on the visible About page');
+        firstCaption = ui.jokes.row.title;
+    }],
+    [13500, () => {
+        check(ui.jokes.row.title !== firstCaption, 'Captions advance at the normal 12 second interval');
         ui.jokes.toggle.active = false;
         check(!settings.get_boolean('show-gpu-jokes') && !ui.jokes.running && !ui.jokes.row.visible,
-            'Disabling captions hides the row and removes the timer');
+            'The caption switch hides the row and removes its timer');
         ui.jokes.toggle.active = true;
-        check(ui.jokes.running, 'Re-enabling visible captions resumes the timer');
         window.hide();
         check(!ui.jokes.running, 'Hidden preferences have no caption timer');
         window.present();
-        window.set_visible_page(ui.aboutPage);
-        after(400, () => {
-            check(!ui.jokes.running, 'About page leaves captions unmapped and stopped');
-            ui.aboutButton.emit('clicked');
-            const about = ui.about.show();
-            check(about.get_title() === 'About Retro Terminal' && about.get_visible(), 'Branded About opens');
-            about.close();
-            check(ui.about.show() !== about, 'About can reopen after closing');
-            window.destroy();
-            check(!ui.jokes.running && ui.about.show() === null, 'Destroying preferences disposes About and ticker');
-            ui.jokes.dispose(); ui.about.dispose();
-            print('PASS native GTK controls, saved looks, stop, About open/reopen/parent destruction, visible-only 12s jokes and cleanup');
-            loop.quit();
-        });
+    }],
+    [250, () => {
+        ui.aboutButton.emit('clicked');
+        const about = ui.about.show();
+        check(about.get_title() === 'About Retro Terminal' && about.get_visible(), 'Branded About opens');
+        about.close();
+        check(ui.about.show() !== about, 'About reopens after closing');
+        window.destroy();
+        check(!ui.jokes.running && ui.about.show() === null, 'Destroying preferences disposes About and ticker');
+        restoredWindow = new Adw.PreferencesWindow();
+        const restored = buildControls(restoredWindow, settings);
+        check(restored.pipelines.selected?.id === selectedId && settings.get_double('scanline-spacing') === 6,
+            'A new panel restores pipeline selection and values');
+        restoredWindow.present();
+    }],
+    [100, () => {
+        restoredWindow.close();
+        check(settings.get_string('saved-presets') === legacy, 'Legacy data remains preserved after pipeline edits');
+        print('PASS GTK expanders, native controls, pipeline create/duplicate/rename/autosave/delete/restore, Stop, About and visible-only captions');
+        loop.quit();
+    }],
+];
+const next = () => {
+    const [delay, action] = steps.shift();
+    GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
+        try { action(); if (steps.length) next(); }
+        catch (error) { failed = error; window.destroy(); restoredWindow?.destroy(); loop.quit(); }
+        return GLib.SOURCE_REMOVE;
     });
-});
+};
+next();
 loop.run();
-if (failed) throw Error('Native GTK checks failed');
+if (failed) throw failed;

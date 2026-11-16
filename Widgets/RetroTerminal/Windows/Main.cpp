@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include "Renderer.h"
 #include "SettingsStore.h"
+#include "CloseDialog.h"
 #include <commdlg.h>
 #include <vector>
 #include <iterator>
@@ -45,9 +46,18 @@ namespace
         int Dip(int value) const { return MulDiv(value, int(GetDpiForWindow(window)), 96); }
         void Status(const std::wstring& text) { SetWindowTextW(status, text.c_str()); }
         double Time() const { return std::chrono::duration<double>(Clock::now().time_since_epoch()).count(); }
-        void SavePreferences()
+        bool SavePreferences()
         {
-            if (!WriteSettings(settings)) Status(L"Could not save preferences. Current values still apply until closing.");
+            if (WriteSettings(settings)) return true;
+            Status(L"Could not save preferences. Your current values are retained in this panel. Close to retry saving.");
+            return false;
+        }
+        bool RequestClose()
+        {
+            return RequestSafeClose(
+                [this] { Stop(L"Stopped"); },
+                [this] { return SavePreferences(); },
+                [this] { return ShowSaveFailure(window); });
         }
         void Changed(bool save = true)
         {
@@ -79,8 +89,8 @@ namespace
         void SyncControls()
         {
             syncing = true;
-            SendMessageW(palette, CB_SETCURSEL, settings.palette, 0);
-            SendMessageW(mask, CB_SETCURSEL, settings.mask, 0);
+            SendMessageW(palette, CB_SETCURSEL, int(settings.palette), 0);
+            SendMessageW(mask, CB_SETCURSEL, int(settings.mask), 0);
             SendMessageW(persistence, BM_SETCHECK, settings.persistence ? BST_CHECKED : BST_UNCHECKED, 0);
             SendMessageW(randomToggle, BM_SETCHECK, settings.randomGlitches ? BST_CHECKED : BST_UNCHECKED, 0);
             for (unsigned i = 0; i < 4; ++i)
@@ -93,7 +103,7 @@ namespace
                 swprintf_s(label, L"%s · %.2f", spec.title, double(value));
                 SetWindowTextW(sliderLabels[i], label);
             }
-            EnableWindow(color, settings.palette == 3);
+            EnableWindow(color, settings.palette == Palette::Custom);
             syncing = false;
         }
         void CreateControls()
@@ -360,11 +370,11 @@ namespace
                 else if (!app->glitches.Trigger(app->Time(), app->settings)) app->Status(L"Select an allowed glitch and wait for the current episode or rest period to finish.");
             }
             else if (id == PaletteId && HIWORD(wParam) == CBN_SELCHANGE) {
-                app->settings.palette = int(SendMessageW(app->palette, CB_GETCURSEL, 0, 0));
+                app->settings.palette = Palette(SendMessageW(app->palette, CB_GETCURSEL, 0, 0));
                 app->Changed(); app->SyncControls();
             }
             else if (id == MaskId && HIWORD(wParam) == CBN_SELCHANGE) {
-                app->settings.mask = int(SendMessageW(app->mask, CB_GETCURSEL, 0, 0)); app->Changed();
+                app->settings.mask = PhosphorMask(SendMessageW(app->mask, CB_GETCURSEL, 0, 0)); app->Changed();
             }
             else if (id == PersistenceId) {
                 app->settings.persistence = SendMessageW(app->persistence, BM_GETCHECK, 0, 0) == BST_CHECKED; app->Changed();
@@ -443,9 +453,7 @@ namespace
             return 0;
         }
         case WM_CLOSE:
-            app->SavePreferences();
-            app->Stop(L"Stopped");
-            DestroyWindow(window);
+            if (app->RequestClose()) DestroyWindow(window);
             return 0;
         case WM_DESTROY:
             UnregisterHotKey(window, EmergencyHotkey);

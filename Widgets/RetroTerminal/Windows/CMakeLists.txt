@@ -12,3 +12,16 @@ target_link_libraries(RetroTerminal PRIVATE d3d11 dxgi dcomp d3dcompiler windows
 add_custom_command(TARGET RetroTerminal POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:RetroTerminal>/Shaders"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/Retro.hlsl" "$<TARGET_FILE_DIR:RetroTerminal>/Shaders/Retro.hlsl")
+
+include(CTest)
+if(BUILD_TESTING)
+    foreach(check IN ITEMS settings persistence registry)
+        add_executable(${check}-checks tests/${check}-checks.cpp)
+        target_compile_features(${check}-checks PRIVATE cxx_std_20)
+        target_compile_definitions(${check}-checks PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+        # Assertions must remain active in the Release configuration used by CI.
+        target_compile_options(${check}-checks PRIVATE /W4 /WX /EHsc /permissive- /utf-8 /UNDEBUG)
+        add_test(NAME ${check}-checks COMMAND ${check}-checks)
+    endforeach()
+    target_link_libraries(registry-checks PRIVATE advapi32)
+endif()

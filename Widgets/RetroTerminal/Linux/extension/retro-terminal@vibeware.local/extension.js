@@ -190,7 +190,8 @@ export default class RetroTerminal extends Extension {
         try {
             this._effect = new CrtEffect();
             this._configure();
-            // Process the complete desktop once, without clones, capture or input grabs.
+            // The base CRT pass transforms uiGroup once, without clones or input grabs.
+            // Optional temporal afterglow separately captures the composed stage on the GPU.
             Main.layoutManager.uiGroup.add_effect_with_name(this.uuid, this._effect);
             this._persistence = new PhosphorPersistence({onError: error => {
                 console.error('Retro Terminal persistence:', error);

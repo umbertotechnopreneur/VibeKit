@@ -70,10 +70,20 @@ const selectedId = ui.pipelines.selected.id;
 check(ui.pipelines.selected.values['phosphor-color'] === '#fedcba', 'New pipeline stores the custom color');
 for (const key of ['active', 'glitch-request', 'show-gpu-jokes'])
     check(!Object.hasOwn(ui.pipelines.selected.values, key), `Pipeline excludes ${key}`);
-ui.library.actions.get(selectedId).rename.emit('clicked');
+const selectedView = ui.library.rows.get(selectedId);
+const renameButton = ui.library.actions.get(selectedId).rename;
+const stableViews = new Map(ui.library.rows);
+for (let value = 0.30; value <= 0.40; value += 0.01) ui.controls.intensity.value = value;
+for (const [id, view] of stableViews)
+    check(ui.library.rows.get(id) === view, 'Editing parameters must retain hidden pipeline rows');
+check(ui.library.actions.get(selectedId).rename === renameButton, 'Editing retains the row actions');
+renameButton.emit('clicked');
+check(ui.library.name.text === '<Custom & cyan>', 'An existing action resolves the current immutable item');
 ui.library.name.text = 'Personal cyan';
 ui.library.save.emit('clicked');
 check(ui.pipeline.model.get_string(ui.pipeline.selected) === 'Personal cyan', 'Selector follows rename');
+check(ui.library.rows.get(selectedId) === selectedView && selectedView.row.title === 'Personal cyan',
+    'Renaming updates the same native row');
 ui.pipeline.selected = 1;
 check(ui.pipelines.builtIn(ui.pipelines.selected) && !settings.get_boolean('glitches-enabled'), 'Pipeline selector applies the built-in immediately');
 const original = ui.pipelines.selected;
@@ -81,6 +91,8 @@ check(!ui.library.actions.get(original.id).rename && !ui.library.actions.get(ori
     'Built-in pipelines expose duplication, not rename or delete');
 ui.library.actions.get(original.id).duplicate.emit('clicked');
 const duplicateId = ui.pipelines.selected.id;
+const duplicateView = ui.library.rows.get(duplicateId);
+const deleteDuplicate = ui.library.actions.get(duplicateId).delete;
 check(duplicateId !== original.id && !ui.pipelines.builtIn(ui.pipelines.selected), 'Duplicate creates an editable personal pipeline');
 ui.controls.intensity.value = 0.35;
 check(ui.pipelines.selected.values.intensity === 0.35 && original.values.intensity !== 0.35,
@@ -101,7 +113,9 @@ const steps = [
         check(ui.controls.intensity.get_mapped(), 'Opening Phosphor reveals its controls');
         ui.expanders.phosphor.expanded = false;
         check(ui.pipelines.flush(), ui.pipelines.error);
-        ui.library.actions.get(duplicateId).delete.emit('clicked');
+        check(ui.library.rows.get(duplicateId) === duplicateView, 'Autosave retains the native row');
+        deleteDuplicate.emit('clicked');
+        check(!ui.pipelines.error, 'An action retained across autosave resolves the latest item');
         check(!ui.pipelines.items.some(item => item.id === duplicateId), 'Delete removes only the chosen personal pipeline');
         ui.pipeline.selected = ui.pipelines.items.findIndex(item => item.id === selectedId) + 1;
         check(settings.get_string('phosphor-color') === '#fedcba', 'Selecting personal pipeline restores its color');

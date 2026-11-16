@@ -92,6 +92,16 @@ and one final clean frame. With mix zero, the output is an exact desktop passthr
 The panel reports presentations and **CPU submission time**, not GPU frame time
 or compositor FPS. No Windows performance measurements are claimed.
 
+Settings are saved as one versioned registry snapshot, so individual fields cannot
+be partially overwritten. Existing version 2 settings and personal slots are read
+until the next successful save. A damaged newer snapshot is rejected without
+falling back to stale legacy values. This is complete-value replacement, not a
+promise of durability across a power failure.
+
+Closing the panel stops the effect before saving. If saving fails, the native
+dialog offers **Retry saving**, **Keep settings open**, and **Close without saving**;
+keeping the panel open preserves the current values and leaves CRT stopped.
+
 ## Validation
 
 The portable settings and scheduler checks can run on Linux or Windows:
@@ -99,15 +109,24 @@ The portable settings and scheduler checks can run on Linux or Windows:
 ```sh
 c++ -std=c++20 -Wall -Wextra -pedantic tests/settings-checks.cpp -o /tmp/retro-settings-checks
 /tmp/retro-settings-checks
+c++ -std=c++20 -Wall -Wextra -pedantic tests/persistence-checks.cpp -o /tmp/retro-persistence-checks
+/tmp/retro-persistence-checks
 ```
 
 They exercise bounds and malformed numbers, allowed glitch types, interval and
 duration ordering, no overlapping events, mandatory rest, cancellation and
-presets. On Windows an MSVC developer terminal can use
+presets. The persistence checks cover snapshot round trips, rejected corrupt and
+truncated data, and every save-failure close decision with Stop preceding saving.
+On Windows an MSVC developer terminal can use
 `cl /std:c++20 /EHsc tests\settings-checks.cpp /Fe:settings-checks.exe`.
 
-**The native application and HLSL have not been built with MSVC or executed on
-Windows.** Required Windows checks include compilation, all controls at different
+The CMake build also registers all checks with CTest, including a Windows-only
+registry test using a temporary, uniquely named HKCU test key. Run
+`ctest --test-dir build -C Release --output-on-failure` after building. Assertions
+remain enabled for these checks in Release builds.
+
+The native application still requires interactive Windows validation. Required
+Windows checks include compilation, all controls at different
 DPI settings, personal preset round trips, capture exclusion/click-through,
 emergency stop during native color dialogs, each glitch, zero mix, two-buffer
 history with a moving test shape, decay after motion stops, repeated enable/stop

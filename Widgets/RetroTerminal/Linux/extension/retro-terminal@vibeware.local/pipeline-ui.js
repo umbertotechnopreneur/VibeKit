@@ -81,51 +81,91 @@ export function pipelineControls(window, model, path, showEffect) {
     feedback.add(error); page.add(feedback);
     const location = new Adw.PreferencesGroup({description: `Library: ${path}`});
     page.add(location);
-    let rows = [];
+    // Pipeline items are immutable snapshots. Retain native widgets by stable ID,
+    // and resolve the latest item when an action runs after an autosave or rename.
+    const rows = new Map();
     const actions = new Map();
+    let rowOrder = [];
+    const addRow = item => {
+        const currentItem = () => model.items.find(candidate => candidate.id === item.id);
+        const row = new Adw.ActionRow({use_markup: false, activatable: true});
+        const icon = new Gtk.Image();
+        row.add_prefix(icon);
+        row.connect('activated', () => {
+            const current = currentItem();
+            if (!current) return;
+            model.select(current);
+            if (!model.error) showEffect();
+        });
+        const menu = new Gtk.MenuButton({icon_name: 'view-more-symbolic', valign: Gtk.Align.CENTER});
+        const contents = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 4,
+            margin_top: 6, margin_bottom: 6, margin_start: 6, margin_end: 6});
+        const popover = new Gtk.Popover({child: contents});
+        menu.set_popover(popover);
+        const commands = {};
+        const action = (key, label, callback) => {
+            const button = makeButton(label, () => {
+                popover.popdown();
+                const current = currentItem();
+                if (current) callback(current);
+            });
+            button.add_css_class('flat');
+            contents.append(button);
+            commands[key] = button;
+        };
+        action('duplicate', 'Duplicate', current => model.duplicate(current));
+        if (!model.builtIn(item)) {
+            action('rename', 'Rename', edit);
+            action('delete', 'Delete', current => model.delete(current));
+        }
+        row.add_suffix(menu);
+        row.add_suffix(new Gtk.Image({icon_name: 'go-next-symbolic'}));
+        list.add(row);
+        const view = {row, icon, menu, item: null};
+        rows.set(item.id, view);
+        actions.set(item.id, commands);
+        return view;
+    };
     const refresh = () => {
-        for (const row of rows) list.remove(row);
-        rows = [];
-        actions.clear();
         error.title = model.error || '';
         error.visible = Boolean(model.error);
-        create.sensitive = importButton.sensitive = exportButton.sensitive = save.sensitive = model.writable !== false;
-        for (const item of model.items) {
-            const row = new Adw.ActionRow({title: item.name, subtitle: model.summary(item),
-                use_markup: false, activatable: true});
-            row.add_prefix(new Gtk.Image({icon_name: item === model.selected ? 'object-select-symbolic' :
-                model.builtIn(item) ? 'starred-symbolic' : 'document-edit-symbolic'}));
-            row.connect('activated', () => {
-                model.select(item);
-                if (!model.error) showEffect();
-            });
-            const menu = new Gtk.MenuButton({icon_name: 'view-more-symbolic', valign: Gtk.Align.CENTER,
-                tooltip_text: `Actions for ${item.name}`, sensitive: model.writable !== false});
-            const contents = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 4,
-                margin_top: 6, margin_bottom: 6, margin_start: 6, margin_end: 6});
-            const popover = new Gtk.Popover({child: contents});
-            menu.set_popover(popover);
-            const commands = {};
-            const action = (key, label, callback) => {
-                const button = makeButton(label, () => { popover.popdown(); callback(); });
-                button.add_css_class('flat');
-                contents.append(button);
-                commands[key] = button;
-            };
-            action('duplicate', 'Duplicate', () => model.duplicate(item));
-            if (!model.builtIn(item)) {
-                action('rename', 'Rename', () => edit(item));
-                action('delete', 'Delete', () => model.delete(item));
-            }
-            row.add_suffix(menu);
-            row.add_suffix(new Gtk.Image({icon_name: 'go-next-symbolic'}));
-            list.add(row); rows.push(row);
-            actions.set(item.id, commands);
+        const writable = model.writable !== false;
+        create.sensitive = importButton.sensitive = exportButton.sensitive = save.sensitive = writable;
+        const ids = new Set(model.items.map(item => item.id));
+        for (const [id, view] of rows) {
+            if (ids.has(id)) continue;
+            list.remove(view.row);
+            rows.delete(id);
+            actions.delete(id);
         }
+        // Parameter edits update just their existing row, including while this
+        // page is hidden. Reordering is reserved for actual library changes.
+        for (const item of model.items) {
+            const view = rows.get(item.id) ?? addRow(item);
+            if (view.item !== item) {
+                view.row.title = item.name;
+                view.row.subtitle = model.summary(item);
+                view.menu.tooltip_text = `Actions for ${item.name}`;
+                view.item = item;
+            }
+            const iconName = item === model.selected ? 'object-select-symbolic' :
+                model.builtIn(item) ? 'starred-symbolic' : 'document-edit-symbolic';
+            if (view.icon.icon_name !== iconName) view.icon.icon_name = iconName;
+            if (view.menu.sensitive !== writable) view.menu.sensitive = writable;
+        }
+        const nextOrder = model.items.map(item => item.id);
+        if (rowOrder.length && (rowOrder.length !== nextOrder.length ||
+            rowOrder.some((id, index) => id !== nextOrder[index]))) {
+            // Rollback can restore a deleted item in the middle. Reparent the
+            // same rows in model order without recreating buttons or callbacks.
+            for (const view of rows.values()) list.remove(view.row);
+            for (const id of nextOrder) list.add(rows.get(id).row);
+        }
+        rowOrder = nextOrder;
     };
     const unsubscribe = model.subscribe(refresh);
     refresh();
-    return {page, create, name, save, cancel, editor, error, actions, importButton, exportButton,
+    return {page, create, name, save, cancel, editor, error, actions, rows, importButton, exportButton,
         dispose() {
             if (disposed) return;
             disposed = true;

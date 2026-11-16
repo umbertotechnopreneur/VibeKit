@@ -149,6 +149,12 @@ python3 scripts/smoke-gnome.py --mode ubuntu --output-dir /tmp/retro-terminal-sm
 python3 scripts/smoke-gnome.py --mode ubuntu --oversized-capture --output-dir /tmp/retro-terminal-large-smoke
 ```
 
+The native library checks also compare every model default and numeric/enum
+range against the compiled GSettings schema. GTK regressions retain pipeline row
+and action identities across edits, renames and autosaves; callbacks always use
+the current pipeline snapshot. Numeric control builders are separate from page
+lifecycle and pipeline coordination.
+
 The GTK checks run against an extracted extension archive with
 `GSETTINGS_BACKEND=memory` and an empty temporary `XDG_CONFIG_HOME`:
 

@@ -1,37 +1,41 @@
 // SPDX-License-Identifier: MIT
-export const NUMERIC = [
-    ['intensity', 'Effect mix', 0, 1, 0.01, 0.9],
-    ['scanlines', 'Scanline strength', 0, 0.6, 0.01, 0.22],
-    ['scanline-spacing', 'Scanline spacing · px', 2, 12, 0.25, 3],
-    ['scanline-width', 'Scanline thickness · px', 0.25, 6, 0.25, 1],
-    ['glow', 'Phosphor glow', 0, 0.8, 0.01, 0.35],
-    ['glow-radius', 'Glow radius · px', 0.5, 8, 0.25, 2],
-    ['mask-strength', 'Phosphor mask strength', 0, 0.5, 0.01, 0.16],
-    ['black-level', 'Black level', -0.2, 0.2, 0.01, 0],
-    ['contrast', 'Contrast', 0.5, 2, 0.05, 1],
-    ['vignette', 'Darkened edges', 0, 0.6, 0.01, 0.25],
-    ['grain', 'Static grain', 0, 0.1, 0.005, 0.015],
-    ['persistence-duration', 'Phosphor decay · seconds', 0.04, 0.5, 0.01, 0.15],
-    ['persistence-strength', 'Afterglow strength', 0, 0.6, 0.01, 0.25],
-    ['glitch-intensity', 'Glitch intensity', 0, 1, 0.01, 0.25],
-    ['glitch-interval-min', 'Minimum interval · seconds', 5, 300, 1, 20],
-    ['glitch-interval-max', 'Maximum interval · seconds', 5, 300, 1, 60],
-    ['glitch-duration-min', 'Minimum duration · ms', 80, 1200, 10, 100],
-    ['glitch-duration-max', 'Maximum duration · ms', 80, 1200, 10, 250],
-];
+// Numeric IDs are persisted in GSettings and consumed by the shader.
+export const Palette = Object.freeze({GREEN: 0, AMBER: 1, ARCADE: 2});
+export const PhosphorMask = Object.freeze({NONE: 0, RGB_STRIPES: 1, DOTS: 2});
+// Named descriptors keep UI bounds, validation and defaults on the same contract.
+export const NUMERIC = Object.freeze([
+    {key: 'intensity', title: 'Effect mix', min: 0, max: 1, step: 0.01, defaultValue: 0.9, unit: 'ratio'},
+    {key: 'scanlines', title: 'Scanline strength', min: 0, max: 0.6, step: 0.01, defaultValue: 0.22, unit: 'ratio'},
+    {key: 'scanline-spacing', title: 'Scanline spacing · px', min: 2, max: 12, step: 0.25, defaultValue: 3, unit: 'px'},
+    {key: 'scanline-width', title: 'Scanline thickness · px', min: 0.25, max: 6, step: 0.25, defaultValue: 1, unit: 'px'},
+    {key: 'glow', title: 'Phosphor glow', min: 0, max: 0.8, step: 0.01, defaultValue: 0.35, unit: 'ratio'},
+    {key: 'glow-radius', title: 'Glow radius · px', min: 0.5, max: 8, step: 0.25, defaultValue: 2, unit: 'px'},
+    {key: 'mask-strength', title: 'Phosphor mask strength', min: 0, max: 0.5, step: 0.01, defaultValue: 0.16, unit: 'ratio'},
+    {key: 'black-level', title: 'Black level', min: -0.2, max: 0.2, step: 0.01, defaultValue: 0, unit: 'ratio'},
+    {key: 'contrast', title: 'Contrast', min: 0.5, max: 2, step: 0.05, defaultValue: 1, unit: 'ratio'},
+    {key: 'vignette', title: 'Darkened edges', min: 0, max: 0.6, step: 0.01, defaultValue: 0.25, unit: 'ratio'},
+    {key: 'grain', title: 'Static grain', min: 0, max: 0.1, step: 0.005, defaultValue: 0.015, unit: 'ratio'},
+    {key: 'persistence-duration', title: 'Phosphor decay · seconds', min: 0.04, max: 0.5, step: 0.01, defaultValue: 0.15, unit: 'seconds'},
+    {key: 'persistence-strength', title: 'Afterglow strength', min: 0, max: 0.6, step: 0.01, defaultValue: 0.25, unit: 'ratio'},
+    {key: 'glitch-intensity', title: 'Glitch intensity', min: 0, max: 1, step: 0.01, defaultValue: 0.25, unit: 'ratio'},
+    {key: 'glitch-interval-min', title: 'Minimum interval · seconds', min: 5, max: 300, step: 1, defaultValue: 20, unit: 'seconds'},
+    {key: 'glitch-interval-max', title: 'Maximum interval · seconds', min: 5, max: 300, step: 1, defaultValue: 60, unit: 'seconds'},
+    {key: 'glitch-duration-min', title: 'Minimum duration · ms', min: 80, max: 1200, step: 10, defaultValue: 100, unit: 'ms'},
+    {key: 'glitch-duration-max', title: 'Maximum duration · ms', min: 80, max: 1200, step: 10, defaultValue: 250, unit: 'ms'},
+].map(Object.freeze));
 export const BOOLEAN = [
     ['custom-color', false], ['persistence-enabled', false], ['glitches-enabled', false],
     ['glitch-rgb', true], ['glitch-tear', true], ['glitch-noise', true], ['glitch-band', true],
 ];
 export const DEFAULTS = Object.freeze({
-    ...Object.fromEntries(NUMERIC.map(([key, , , , , value]) => [key, value])),
-    ...Object.fromEntries(BOOLEAN), preset: 0, mask: 0, 'phosphor-color': '#33ff6b',
+    ...Object.fromEntries(NUMERIC.map(({key, defaultValue}) => [key, defaultValue])),
+    ...Object.fromEntries(BOOLEAN), preset: Palette.GREEN, mask: PhosphorMask.NONE, 'phosphor-color': '#33ff6b',
 });
 export const BUILTINS = [
     {name: 'Clean green', values: {...DEFAULTS, scanlines: 0.12, glow: 0.18, grain: 0}},
-    {name: 'Worn terminal', values: {...DEFAULTS, preset: 1, scanlines: 0.25,
+    {name: 'Worn terminal', values: {...DEFAULTS, preset: Palette.AMBER, scanlines: 0.25,
         'glitches-enabled': true, 'glitch-intensity': 0.2, 'glitch-band': false}},
-    {name: 'Arcade', values: {...DEFAULTS, preset: 2, mask: 1, 'mask-strength': 0.18, glow: 0.4}},
+    {name: 'Arcade', values: {...DEFAULTS, preset: Palette.ARCADE, mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.18, glow: 0.4}},
     {name: 'Long phosphor', values: {...DEFAULTS, 'persistence-enabled': true,
         'persistence-duration': 0.3, 'persistence-strength': 0.45}},
 ];
@@ -41,13 +45,14 @@ export function validateValues(values) {
     const clean = {...DEFAULTS};
     for (const [key, value] of Object.entries(values)) {
         if (!Object.hasOwn(DEFAULTS, key)) throw Error('Unknown preset setting');
-        const numeric = NUMERIC.find(p => p[0] === key);
+        const numeric = NUMERIC.find(spec => spec.key === key);
         if (numeric) {
-            if (!Number.isFinite(value) || value < numeric[2] || value > numeric[3]) throw Error('Invalid numeric setting');
+            if (!Number.isFinite(value) || value < numeric.min || value > numeric.max) throw Error('Invalid numeric setting');
         } else if (key === 'phosphor-color') {
             if (typeof value !== 'string' || !/^#[\da-f]{6}$/i.test(value)) throw Error('Invalid phosphor color');
         } else if (key === 'preset' || key === 'mask') {
-            if (!Number.isInteger(value) || value < 0 || value > 2) throw Error('Invalid style');
+            const allowed = key === 'preset' ? Palette : PhosphorMask;
+            if (!Object.values(allowed).includes(value)) throw Error('Invalid style');
         } else if (typeof value !== 'boolean') throw Error('Invalid switch');
         clean[key] = value;
     }

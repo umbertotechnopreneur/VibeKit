@@ -5,7 +5,6 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Input;
 using System.Threading.Tasks;
-using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -27,17 +26,15 @@ internal sealed partial class StudioController : IDisposable
     private readonly Window window;
     private readonly FrameworkElement surface;
     private readonly IntPtr hwnd;
-    private readonly DispatcherQueueTimer resourceTimer;
-    private readonly ResourceMonitor monitor;
+    private readonly StudioDiagnostics diagnostics;
     private readonly TrayService tray;
     private readonly StartupService startup;
     private readonly CaptureConsentService captureConsent;
     private readonly EmergencyShortcut emergencyShortcut;
+    private readonly CloseSequence closeSequence;
     private ScreenEffectSession? screen;
     private bool notifyWhenRestored;
-    private GpuMemory memory;
     private long generation;
-    private double nextPerformanceLog;
     internal ICommand ToggleScreenCommand { get; }
     internal ICommand RestartCommand { get; }
     internal ICommand OpenSettingsCommand { get; }
@@ -45,9 +42,29 @@ internal sealed partial class StudioController : IDisposable
     internal ICommand InspectScreenCommand { get; }
     internal bool IsInTray => model.State.IsInTray;
 
-    internal StudioController(StudioModel model, Window window, FrameworkElement surface)
+    internal StudioController(StudioModel model, Window window, FrameworkElement surface, Func<Task<bool>> flushSettings)
     {
         this.model = model; this.window = window; this.surface = surface;
+        closeSequence = new CloseSequence(
+            stop: () =>
+            {
+                StopScreen();
+                model.Pipelines.Flush();
+                model.State.StatusMessage = "Saving settings before closing…";
+            },
+            flush: flushSettings,
+            close: () =>
+            {
+                model.State.IsExiting = true;
+                Dispose();
+                window.Close();
+            },
+            failed: () =>
+            {
+                if (model.State.IsInTray) ShowFromTray();
+                else window.Activate();
+                model.State.StatusMessage = "Settings could not be saved. The effect is stopped; close again to retry.";
+            });
         startup = new StartupService(model.State);
         captureConsent = new CaptureConsentService(model.State);
         hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
@@ -63,12 +80,7 @@ internal sealed partial class StudioController : IDisposable
         });
         InspectScreenCommand = new DelegateCommand(() => screen?.InspectCapture());
 
-        resourceTimer = window.DispatcherQueue.CreateTimer(); resourceTimer.Interval = TimeSpan.FromSeconds(1); resourceTimer.Tick += (_, _) => UpdateResources(); resourceTimer.Start();
-        monitor = new ResourceMonitor(warning: sample =>
-        {
-            Log.Warning("Private memory threshold reached Bytes={PrivateBytes} WorkingSet={WorkingSet}", sample.PrivateBytes, sample.WorkingSetBytes);
-            Native.MessageBox(IntPtr.Zero, "Water Ripple Studio is using at least 500 MB of private memory. This could be a memory leak. Please report it and include the recent application logs.\n\nStop the screen effect or close the app if memory keeps growing.", "Water Ripple Studio · memory", 0x50030);
-        });
+        diagnostics = new StudioDiagnostics(model.State, window.DispatcherQueue);
         emergencyShortcut = new EmergencyShortcut(model.Settings.EmergencyShortcutEnabled, status =>
             window.DispatcherQueue.TryEnqueue(() => model.State.EmergencyShortcutStatus = status));
         model.Settings.PropertyChanged += EmergencyShortcutChanged;
@@ -106,7 +118,7 @@ internal sealed partial class StudioController : IDisposable
     private async void ToggleScreen()
     {
         if (screen is not null) { StopScreen(); return; }
-        if (model.State.IsClosing || model.State.IsCaptureConsentOpen || model.State.IsSettingsOpen) return;
+        if (closeSequence.IsPending || model.State.IsClosing || model.State.IsCaptureConsentOpen || model.State.IsSettingsOpen) return;
         await captureConsent.EnsureAsync(((FrameworkElement)window.Content).XamlRoot);
         if (model.State.IsClosing || screen is not null) return;
         StartScreen();
@@ -123,6 +135,7 @@ internal sealed partial class StudioController : IDisposable
 
     private void StartScreen(bool atSignIn = false)
     {
+        if (closeSequence.IsPending || model.State.IsClosing) return;
         generation++;
         try
         {
@@ -141,13 +154,12 @@ internal sealed partial class StudioController : IDisposable
             }
             var session = new ScreenEffectSession(model, caps, metrics =>
             {
-                memory = metrics.Memory;
+                diagnostics.Observe(metrics);
                 if (notifyWhenRestored && model.State.IsCaptureValid)
                 {
                     notifyWhenRestored = false;
                     NotifyEffect("Ripple resumed", "The screen effect is active again.");
                 }
-                model.State.MetricsText = $"Mode\tScreen effect\nPresents\t{metrics.Presents:F1} /s\nDesktop updates\t{metrics.Captures:F1} /s\nCapture submit\t{metrics.Native.LastCaptureMs:F2} ms\nRender submit\t{metrics.Native.LastRenderCpuMs:F2} ms\nCapture size\t{metrics.Native.CaptureWidth} × {metrics.Native.CaptureHeight} px";
             }, (closed, reason) => { if (ReferenceEquals(screen, closed)) StopScreen(reason); });
             screen = session;
             model.State.IsScreenEffectActive = true; model.State.CanApply = true;
@@ -174,7 +186,7 @@ internal sealed partial class StudioController : IDisposable
         model.State.IsCaptureValid = false;
         active?.Dispose();
         Native.SetTopmost(hwnd, false);
-        memory = default;
+        diagnostics.ClearCapture();
         Log.Information("ScreenStopped Generation={Generation} Reason={Reason}", generation, reason);
         model.State.StatusMessage = reason.Length > 0 ? reason : "Screen effect stopped.";
         if (active is not null && reason.Length > 0 && reason != "Stopped by global shortcut.")
@@ -190,20 +202,6 @@ internal sealed partial class StudioController : IDisposable
         catch (Exception ex) { Log.Warning(ex, "Ripple notification unavailable"); }
     }
 
-    private void UpdateResources()
-    {
-        var sample = monitor.Snapshot;
-        model.State.PrivateRamBytes = sample.PrivateBytes; model.State.WorkingSetBytes = sample.WorkingSetBytes; model.State.CpuPercent = sample.CpuPercent;
-        model.State.LocalGpuUsageBytes = memory.LocalUsage; model.State.LocalGpuBudgetBytes = memory.LocalBudget;
-        model.State.ResourcesText = $"Private RAM\t{sample.PrivateBytes / 1048576.0:F0} MiB\nWorking set\t{sample.WorkingSetBytes / 1048576.0:F0} MiB\nCPU\t{sample.CpuPercent:F1}%\nGPU local\t{memory.LocalUsage / 1048576.0:F0} / {memory.LocalBudget / 1048576.0:F0} MiB\nRAM warning\t500 MB";
-        double now = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
-        if (now >= nextPerformanceLog)
-        {
-            nextPerformanceLog = now + 60;
-            Log.Information("ResourceSummary ScreenActive={ScreenActive} PrivateBytes={PrivateBytes} WorkingSetBytes={WorkingSetBytes} CPU={CPU} GpuLocalBytes={GpuLocalBytes} DroppedLogs={DroppedLogs}",
-                model.State.IsScreenEffectActive, sample.PrivateBytes, sample.WorkingSetBytes, sample.CpuPercent, memory.LocalUsage, LoggingService.DroppedEvents);
-        }
-    }
     private void SettingsChanged(object? sender, PropertyChangedEventArgs e) => Log.Debug("Setting changed {Property}", e.PropertyName);
     private async void OpenSettings()
     {
@@ -223,7 +221,7 @@ internal sealed partial class StudioController : IDisposable
     {
         if (model.State.IsExiting) return;
         args.Cancel = true;
-        if (model.State.IsClosePromptOpen || model.State.IsSettingsOpen || model.State.IsCaptureConsentOpen) return;
+        if (closeSequence.IsPending || model.State.IsClosePromptOpen || model.State.IsSettingsOpen || model.State.IsCaptureConsentOpen) return;
         model.State.IsClosePromptOpen = true;
         try
         {
@@ -280,11 +278,10 @@ internal sealed partial class StudioController : IDisposable
         if (screen is not null) Native.SetTopmost(hwnd, true);
         Log.Information("Main window restored from tray");
     }
-    private void ExitApp()
+    private async void ExitApp()
     {
-        model.State.IsExiting = true;
-        Dispose();
-        window.Close();
+        try { await closeSequence.TryCloseAsync(); }
+        catch (Exception error) { Fail("Could not close Ripple", error); }
     }
 
 #if DEBUG
@@ -390,7 +387,7 @@ internal sealed partial class StudioController : IDisposable
         emergencyShortcut.Dispose();
         tray.Dispose(); startup.Dispose();
         model.Settings.PropertyChanged -= SettingsChanged;
-        resourceTimer.Stop(); monitor.Dispose();
+        diagnostics.Dispose();
         StopScreen(); model.Pipelines.Dispose();
 
     }

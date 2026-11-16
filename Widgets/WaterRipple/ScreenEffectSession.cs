@@ -87,16 +87,13 @@ internal sealed class ScreenEffectSession : IDisposable
             frame.Prepare(settings, now);
             bool captureDue = !inspecting && now >= frame.NextCapture;
             if (captureDue) frame.NextCapture = Math.Max(frame.NextCapture + 1 / settings.CaptureFps, now);
-            float scale = (float)(window.Surface.XamlRoot?.RasterizationScale ?? 1);
-            int hr = Native.RippleRender(renderer, caps.Left, caps.Top, caps.Width, caps.Height,
-                caps.Width / scale, caps.Height / scale, (float)settings.Strength, (float)(settings.WaveSize * .35), (float)settings.Speed, (float)settings.Duration,
-                settings.ChromaticEnabled ? (float)(settings.ChromaticSeparation / 100) : 0, (float)(settings.ChromaticBlend / 100),
-                settings.CrestEnabled ? (float)(settings.CrestIntensity / 100) : 0, settings.RipplesEnabled ? (float)(settings.RipplesIntensity / 100) : 0, settings.LiquidEnabled ? (float)(settings.LiquidIntensity / 100) : 0,
-                frame.ShaderWaves, frame.Waves.Count, inspecting ? 0 : 1, captureDue ? 1 : 0);
-            Marshal.ThrowExceptionForHR(hr);
+            float rasterizationScale = (float)(window.Surface.XamlRoot?.RasterizationScale ?? 1);
+            var parameters = RenderParameters.From(settings, caps, rasterizationScale, captureEnabled: !inspecting, captureDue);
+            int renderResult = Native.Render(renderer, parameters, frame.ShaderWaves, frame.Waves.Count);
+            Marshal.ThrowExceptionForHR(renderResult);
 
             if (Native.RippleGetStats(renderer, out var stats) < 0) return;
-            bool valid = (stats.Status & 96) == 96;
+            bool valid = stats.HasPresentedCapture;
             if (inspecting && !inspectionVisible && valid)
             {
                 // The WGC session was closed by Render(captureEnabled=false), so this cannot recurse.

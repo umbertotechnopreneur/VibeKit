@@ -3,18 +3,28 @@ using System.ComponentModel;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace WaterRipple;
 
 // Only user preferences are persisted. No native handles, runtime state or diagnostics.
-public sealed class SettingsStore : IDisposable
+public sealed class SettingsStore : IDisposable, IAsyncDisposable
 {
     private const int SchemaVersion = 1;
     private const int MaximumFileBytes = 64 * 1024;
     private readonly object sync = new();
     private readonly Action<Exception>? onError;
+    private readonly Action? onSaved;
+    private readonly Timer saveTimer;
+    private readonly int saveDelayMilliseconds;
     private AppSettings? observed;
-    private bool disposed;
+    private SettingsDocument? pending, failed;
+    private Task<bool> writerTask = Task.FromResult(true);
+    private Task? disposalTask;
+    private long saveAfter;
+    private bool disposed, writerRunning, flushRequested, writable = true;
+    private Exception? lastError;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -23,15 +33,32 @@ public sealed class SettingsStore : IDisposable
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip
     };
 
-    public SettingsStore(string? path = null, Action<Exception>? onError = null)
+    public SettingsStore(string? path = null, Action<Exception>? onError = null,
+        Action? onSaved = null, TimeSpan? saveDelay = null)
     {
         FilePath = Path.GetFullPath(path ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "VibeWare", "WaterRipple", "settings-ripple.json"));
         this.onError = onError;
+        this.onSaved = onSaved;
+        saveDelayMilliseconds = checked((int)(saveDelay ?? TimeSpan.FromMilliseconds(250)).TotalMilliseconds);
+        if (saveDelayMilliseconds < 1) throw new ArgumentOutOfRangeException(nameof(saveDelay));
+        saveTimer = new Timer(SaveWhenQuiet, null, Timeout.Infinite, Timeout.Infinite);
     }
 
     public string FilePath { get; }
+    public Exception? LastError { get { lock (sync) return lastError; } }
+
+    private void SaveWhenQuiet(object? state)
+    {
+        lock (sync)
+        {
+            if (disposed) return;
+            long remaining = saveAfter - Environment.TickCount64;
+            if (!flushRequested && remaining > 0) saveTimer.Change((int)remaining, Timeout.Infinite);
+            else StartWriter();
+        }
+    }
 
     public AppSettings Load()
     {
@@ -51,7 +78,9 @@ public sealed class SettingsStore : IDisposable
             }
             catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or NotSupportedException)
             {
-                // Loading never changes a corrupt or incompatible source file.
+                // A fallback model must not overwrite the unreadable source on its first edit.
+                writable = false;
+                lastError = error;
                 Report(error);
                 return new AppSettings();
             }
@@ -75,34 +104,97 @@ public sealed class SettingsStore : IDisposable
     {
         lock (sync)
         {
-            if (disposed || observed is null) return;
-            string temporary = FilePath + ".pending";
-            try
+            if (disposed || !writable || observed is null) return;
+            // Snapshot bound properties on their owning thread. The worker never reads the UI model.
+            pending = new SettingsDocument { Version = SchemaVersion, Settings = SettingsValues.FromModel(observed) };
+            saveAfter = Environment.TickCount64 + saveDelayMilliseconds;
+            saveTimer.Change(saveDelayMilliseconds, Timeout.Infinite);
+        }
+    }
+
+    public Task<bool> FlushAsync()
+    {
+        lock (sync)
+        {
+            if (disposed) return writerTask;
+            if (!writable) return Task.FromResult(false);
+            pending ??= failed; // Explicit flush retries a failed snapshot; the timer does not loop on errors.
+            flushRequested = true;
+            saveTimer.Change(Timeout.Infinite, Timeout.Infinite);
+            StartWriter();
+            return writerTask;
+        }
+    }
+
+    // Called with sync held. There is at most one active writer and one latest pending snapshot.
+    private void StartWriter()
+    {
+        if (writerRunning) return;
+        if (pending is null) { flushRequested = false; return; }
+        writerRunning = true;
+        writerTask = Task.Run(WritePending);
+    }
+
+    private bool WritePending()
+    {
+        while (true)
+        {
+            SettingsDocument document;
+            lock (sync)
             {
-                string? directory = Path.GetDirectoryName(FilePath);
-                if (string.IsNullOrEmpty(directory)) throw new IOException("The settings directory is unavailable.");
-                Directory.CreateDirectory(directory);
-                var document = new SettingsDocument { Version = SchemaVersion, Settings = SettingsValues.FromModel(observed) };
-                // A sibling replacement keeps each committed document complete on the same volume.
-                using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    JsonSerializer.Serialize(stream, document, JsonOptions);
-                    stream.Flush(flushToDisk: true);
-                }
-                if (File.Exists(FilePath)) File.Replace(temporary, FilePath, null);
-                else File.Move(temporary, FilePath);
+                document = pending!;
+                pending = null;
             }
+            Exception? failure = null;
+            try { Write(document); }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
+            { failure = error; }
+            lock (sync)
             {
-                Report(error);
+                lastError = failure;
+                failed = failure is null ? null : document;
             }
-            finally
+            if (failure is not null) Report(failure);
+            else
             {
-                // A failed replacement must not leave accumulating temporary documents.
-                try { if (File.Exists(temporary)) File.Delete(temporary); }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
+                // Notifications may originate on this worker; callers dispatch UI updates themselves.
+                try { onSaved?.Invoke(); }
+                catch (Exception) { }
             }
+            lock (sync)
+            {
+                if (flushRequested && pending is not null) continue;
+                writerRunning = false;
+                flushRequested = false;
+                if (pending is not null && !disposed)
+                    saveTimer.Change((int)Math.Max(1, saveAfter - Environment.TickCount64), Timeout.Infinite);
+                return failure is null;
+            }
+        }
+    }
+
+    private void Write(SettingsDocument document)
+    {
+        string temporary = FilePath + ".pending";
+        try
+        {
+            string? directory = Path.GetDirectoryName(FilePath);
+            if (string.IsNullOrEmpty(directory)) throw new IOException("The settings directory is unavailable.");
+            Directory.CreateDirectory(directory);
+            // A sibling replacement keeps each committed document complete on the same volume.
+            using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                JsonSerializer.Serialize(stream, document, JsonOptions);
+                stream.Flush(flushToDisk: true);
+            }
+            if (File.Exists(FilePath)) File.Replace(temporary, FilePath, null);
+            else File.Move(temporary, FilePath);
+        }
+        finally
+        {
+            try { if (File.Exists(temporary)) File.Delete(temporary); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
     }
 
@@ -113,16 +205,25 @@ public sealed class SettingsStore : IDisposable
         catch (Exception) { }
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         lock (sync)
         {
-            if (disposed) return;
+            if (disposalTask is not null) return new ValueTask(disposalTask);
             disposed = true;
             if (observed is not null) observed.PropertyChanged -= SettingsChanged;
             observed = null;
+            saveTimer.Dispose();
+            if (writable) pending ??= failed;
+            flushRequested = true;
+            StartWriter();
+            disposalTask = writerTask;
+            return new ValueTask(disposalTask);
         }
     }
+
+    // Non-UI callers retain deterministic disposal; the application awaits DisposeAsync on exit.
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     private sealed class SettingsDocument
     {

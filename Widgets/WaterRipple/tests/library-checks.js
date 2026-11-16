@@ -8,7 +8,8 @@ const {loadSchema} = await import(directory.get_child('schema.js').get_uri());
 const schema = loadSchema(directory.get_child('schema.js').get_uri());
 const settings = () => Gio.Settings.new_full(schema, null, null);
 function check(value, message) { if (!value) throw Error(message); }
-const first = loadPipelines(settings()), stale = loadPipelines(settings());
+let first = loadPipelines(settings());
+const stale = loadPipelines(settings());
 const file = Gio.File.new_for_path(first.path);
 const busName = `local.vibeware.Ripple.Library.l${GLib.compute_checksum_for_string(GLib.ChecksumType.SHA256, first.path, -1)}`;
 const other = Gio.DBusConnection.new_for_address_sync(Gio.dbus_address_get_for_bus_sync(Gio.BusType.SESSION, null),
@@ -18,6 +19,8 @@ other.call_sync('org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedeskto
 first.model.create('Blocked');
 check(first.model.error.includes('busy') && !file.query_exists(null) && !first.model.selected, 'First creation ignored a competing connection lock.');
 other.close_sync(null); // Simulates a crashed writer: the bus releases the lock.
+first.model.dispose();
+first = loadPipelines(settings()); // A blocked panel must be reopened before it can own a revision again.
 first.model.create('Saved');
 check(!first.model.error, first.model.error);
 const original = readLibrary(file);
@@ -37,6 +40,18 @@ GLib.timeout_add(GLib.PRIORITY_DEFAULT, 400, () => {
     liveSettings.set_double('strength', 6);
     live.dispose();
     check(JSON.parse(readLibrary(file)).pipelines[0].values.strength === 6, 'Closing did not flush the last value.');
+    const sharedSettings = settings();
+    const owner = loadPipelines(sharedSettings).model;
+    const otherPanel = loadPipelines(sharedSettings).model;
+    const sharedSignal = sharedSettings.connect('changed', (_settings, key) => {
+        owner.changed(key);
+        otherPanel.changed(key);
+    });
+    sharedSettings.set_double('strength', 7);
+    check(owner.flush() && !otherPanel.flush(), 'Shared-settings conflict did not occur.');
+    check(sharedSettings.get_double('strength') === 7 && JSON.parse(readLibrary(file)).pipelines[0].values.strength === 7,
+        'A stale real GSettings panel undid the winning writer.');
+    otherPanel.dispose(); owner.dispose(); sharedSettings.disconnect(sharedSignal);
     first.model.dispose(); stale.model.dispose();
     print('PASS GIO library locks, stale revisions, live coalesced edits, timed save and close flush');
     loop.quit();

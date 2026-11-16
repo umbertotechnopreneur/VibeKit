@@ -66,6 +66,7 @@ public sealed class PipelineCatalog
 // Owns pipeline selection, editing and persistence. Views only render this state and invoke actions.
 public sealed class PipelineModel : ObservableModel, IDisposable
 {
+    private sealed class LibraryConflictException(string message) : IOException(message);
     private sealed class Document
     {
         public int Version { get; set; } = 1;
@@ -79,7 +80,7 @@ public sealed class PipelineModel : ObservableModel, IDisposable
     private Checkpoint? pending;
     private IDisposable? saveTimer;
     private bool disposed;
-    private bool applying, writable = true;
+    private bool applying, conflicted, writable = true;
     private string error = "";
     private Pipeline? selected;
     public PipelineCatalog Catalog { get; } = PipelineCatalog.Load();
@@ -195,7 +196,7 @@ public sealed class PipelineModel : ObservableModel, IDisposable
     public void Export(string destination) => Run(() => Write(destination, new Document { Pipelines = Items.Where(p => !p.IsBuiltIn).ToList() }));
     private void SettingsChanged(object? sender, PropertyChangedEventArgs args)
     {
-        if (disposed || applying || !Catalog.Parameters.Any(p => p.WindowsProperty == args.PropertyName)) return;
+        if (disposed || conflicted || applying || !Catalog.Parameters.Any(p => p.WindowsProperty == args.PropertyName)) return;
         if (selected is null || (selected.IsBuiltIn && Matches(selected))) return;
         pending ??= Snapshot() with { Settings = new(selected.Values) };
         if (!selected.IsBuiltIn) selected.Values = Capture(selected.Values);
@@ -209,16 +210,17 @@ public sealed class PipelineModel : ObservableModel, IDisposable
     public bool Flush()
     {
         saveTimer?.Dispose(); saveTimer = null;
+        if (conflicted) return false;
         if (pending is null) return true;
         var checkpoint = pending; pending = null;
         try { Save(); Error = ""; }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
-        { Restore(checkpoint); Error = ex.Message; NotifySelection(); RaisePropertyChanged(nameof(Items)); return false; }
+        { Failed(ex, checkpoint); NotifySelection(); RaisePropertyChanged(nameof(Items)); return false; }
         NotifySelection(); RaisePropertyChanged(nameof(Items)); return true;
     }
     private Checkpoint Snapshot() => new(Items.ToArray(), selected, Capture(null),
         Items.Select(p => (p, p.Name, new Dictionary<string, JsonElement>(p.Values))).ToArray());
-    private void Restore(Checkpoint checkpoint)
+    private void Restore(Checkpoint checkpoint, bool restoreSettings = true)
     {
         applying = true;
         try
@@ -226,6 +228,7 @@ public sealed class PipelineModel : ObservableModel, IDisposable
             foreach (var (item, name, values) in checkpoint.Entries) { item.Name = name; item.Values = values; }
             Items.Clear(); foreach (var item in checkpoint.Items) Items.Add(item);
             selected = checkpoint.Selected;
+            if (!restoreSettings) return;
             foreach (var p in Catalog.Parameters.Where(p => p.WindowsProperty is not null))
             {
                 var value = checkpoint.Settings[p.Key];
@@ -233,6 +236,16 @@ public sealed class PipelineModel : ObservableModel, IDisposable
             }
         }
         finally { applying = false; }
+        NotifySelection();
+    }
+    private void Failed(Exception error, Checkpoint checkpoint)
+    {
+        // Multiple models can observe one AppSettings instance. A stale writer
+        // must not broadcast old settings back to the model that just saved them.
+        bool conflict = error is LibraryConflictException;
+        Restore(checkpoint, restoreSettings: !conflict);
+        if (conflict) { conflicted = true; selected = null; }
+        Error = error.Message;
         NotifySelection();
     }
     private Dictionary<string, JsonElement> Capture(Dictionary<string, JsonElement>? previous)
@@ -302,7 +315,7 @@ public sealed class PipelineModel : ObservableModel, IDisposable
         string full = Path.GetFullPath(path); Directory.CreateDirectory(Path.GetDirectoryName(full)!);
         using var locked = new FileStream(full + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         if (ReadContents(full) != expectedContents)
-            throw new IOException("Pipeline library changed in another window. Reopen this panel before saving.");
+            throw new LibraryConflictException("Pipeline library changed in another window. Reopen this panel before saving.");
         expectedContents = Write(full, new Document { SelectedId = selected?.Id, Pipelines = Items.Where(p => !p.IsBuiltIn).ToList() });
     }
     private static string Write(string destination, Document document)
@@ -338,11 +351,12 @@ public sealed class PipelineModel : ObservableModel, IDisposable
     private void NotifySelection() { RaisePropertyChanged(nameof(Selected)); RaisePropertyChanged(nameof(CurrentName)); }
     private void Run(Action action)
     {
+        if (conflicted) return;
         if (!Flush()) return;
         var checkpoint = Snapshot();
         try { Error = ""; action(); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
-        { Restore(checkpoint); Error = ex.Message; }
+        { Failed(ex, checkpoint); }
         RaisePropertyChanged(nameof(Items));
     }
     public void Dispose()

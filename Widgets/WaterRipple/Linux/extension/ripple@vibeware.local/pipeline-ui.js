@@ -49,32 +49,49 @@ export function pipelineControls(window, model, path, selectEffect) {
     const list = new Adw.PreferencesGroup(); page.add(list);
     const error = new Adw.PreferencesGroup(); page.add(error);
     const footer = new Adw.PreferencesGroup({description: `Library: ${path}`}); page.add(footer);
-    let oldRows = [];
+    const rows = new Map();
+    let order = [];
     const unsubscribe = model.subscribe(() => refresh());
     function refresh() {
-        for (const row of oldRows) list.remove(row);
-        oldRows = [];
         error.description = model.error;
-        for (const pipeline of model.items) {
-            const row = new Adw.ActionRow({
-                title: `${pipeline === model.selected ? '✓ ' : ''}${pipeline.name}`,
-                subtitle: model.summary(pipeline), activatable: true,
-                use_markup: false,
-            });
-            row.connect('activated', () => { model.select(pipeline); selectEffect(); });
-            const menu = new Gtk.MenuButton({icon_name: 'view-more-symbolic', valign: Gtk.Align.CENTER, tooltip_text: `Actions for ${pipeline.name}`});
-            const actions = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 4, margin_top: 6, margin_bottom: 6, margin_start: 6, margin_end: 6});
-            const popover = new Gtk.Popover({child: actions}); menu.set_popover(popover);
-            actions.append(button('Duplicate', () => { popover.popdown(); model.duplicate(pipeline); }));
-            if (!model.builtIn(pipeline)) {
-                actions.append(button('Rename', () => { popover.popdown(); renaming = pipeline; name.text = pipeline.name; editor.visible = true; name.grab_focus(); }));
-                actions.append(button('Delete', () => { popover.popdown(); model.delete(pipeline); }));
-            }
-            row.add_suffix(menu);
-            row.add_suffix(new Gtk.Image({icon_name: 'go-next-symbolic'}));
-            list.add(row); oldRows.push(row);
+        const nextOrder = model.items.map(pipeline => pipeline.id);
+        const structureChanged = order.length !== nextOrder.length || order.some((id, index) => id !== nextOrder[index]);
+        if (structureChanged) {
+            for (const id of order) list.remove(rows.get(id).row);
+            for (const id of order) if (!nextOrder.includes(id)) rows.delete(id);
         }
+        for (const pipeline of model.items) {
+            let record = rows.get(pipeline.id);
+            if (!record) {
+                record = createRow(pipeline);
+                rows.set(pipeline.id, record);
+            }
+            const {row, menu} = record;
+            row.title = `${pipeline === model.selected ? '✓ ' : ''}${pipeline.name}`;
+            row.subtitle = model.summary(pipeline);
+            row.activatable = !model.conflicted;
+            menu.tooltip_text = `Actions for ${pipeline.name}`;
+            menu.sensitive = !model.conflicted;
+            if (structureChanged) list.add(row);
+        }
+        order = nextOrder;
+    }
+    function createRow(pipeline) {
+        const row = new Adw.ActionRow({activatable: true, use_markup: false});
+        row.connect('activated', () => { model.select(pipeline); selectEffect(); });
+        const menu = new Gtk.MenuButton({icon_name: 'view-more-symbolic', valign: Gtk.Align.CENTER, tooltip_text: `Actions for ${pipeline.name}`});
+        const actions = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 4, margin_top: 6, margin_bottom: 6, margin_start: 6, margin_end: 6});
+        const popover = new Gtk.Popover({child: actions}); menu.set_popover(popover);
+        actions.append(button('Duplicate', () => { popover.popdown(); model.duplicate(pipeline); }));
+        if (!model.builtIn(pipeline)) {
+            actions.append(button('Rename', () => { popover.popdown(); renaming = pipeline; name.text = pipeline.name; editor.visible = true; name.grab_focus(); }));
+            actions.append(button('Delete', () => { popover.popdown(); model.delete(pipeline); }));
+        }
+        row.add_suffix(menu);
+        row.add_suffix(new Gtk.Image({icon_name: 'go-next-symbolic'}));
+        return {row, menu};
     }
     refresh();
-    return {page, dispose: unsubscribe};
+    // Stable row identity preserves focus and open action menus during live edits.
+    return {page, rowFor: id => rows.get(id)?.row, dispose: unsubscribe};
 }

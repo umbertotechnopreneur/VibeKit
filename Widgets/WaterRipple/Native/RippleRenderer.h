@@ -9,6 +9,18 @@ struct RippleWave
     float Active;
 };
 
+// Keep these values aligned with CaptureStatus in NativeInterop.cs.
+enum RippleCaptureStatus : int32_t
+{
+    StatusClipped = 1,
+    StatusWaiting = 2,
+    StatusAccessLost = 4,
+    StatusPresentBusy = 8,
+    StatusOccluded = 16,
+    StatusValidCapture = 32,
+    StatusPresentedCapture = 64,
+};
+
 struct RippleStats
 {
     int32_t CaptureWidth;
@@ -17,10 +29,8 @@ struct RippleStats
     int32_t PresentCount;
     float LastCaptureMs;
     float LastRenderCpuMs;
-    // Flags: 1 clipped, 2 waiting, 4 access lost, 8 present busy, 16 occluded,
-    // 32 valid captured pixels, 64 captured pixels successfully presented.
     // CaptureCount is cumulative and is not a validity test. Reveal a screen
-    // overlay only when both 32 and 64 are set; a busy Present alone is not enough.
+    // overlay only when StatusValidCapture and StatusPresentedCapture are both set.
     int32_t Status;
     int32_t Reserved;
 };

@@ -46,13 +46,6 @@ struct __declspec(uuid("63AAD0B8-7C24-40FF-85A8-640D944CC325")) RippleSwapChainP
 
 namespace
 {
-    constexpr int StatusClipped = 1;
-    constexpr int StatusWaiting = 2;
-    constexpr int StatusAccessLost = 4;
-    constexpr int StatusPresentBusy = 8;
-    constexpr int StatusOccluded = 16;
-    constexpr int StatusValidCapture = 32;
-    constexpr int StatusPresentedCapture = 64;
     // The minimum is decimal GB: Windows can report an 8 GB-class GPU's dedicated
     // capacity below 8 GiB after reservations. The reported value must still be >= 8e9.
     constexpr uint64_t MinimumDedicatedVideoMemory = 8'000'000'000ull;

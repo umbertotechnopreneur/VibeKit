@@ -117,19 +117,28 @@ public partial class App : Application
         Log.Information("Loading Studio settings");
         StudioModel? model = null;
         string pendingError = "";
+        Microsoft.UI.Dispatching.DispatcherQueue? persistenceDispatcher = null;
+        void UpdatePersistenceError(string message)
+        {
+            if (persistenceDispatcher is null) pendingError = message;
+            else persistenceDispatcher.TryEnqueue(() =>
+            {
+                if (model is not null) model.State.PersistenceError = message;
+            });
+        }
         store = new SettingsStore(onError: ex =>
         {
             Log.Error(ex, "Settings persistence failed");
-            pendingError = "Settings could not be saved: " + ex.Message;
-            if (model is not null) model.State.PersistenceError = pendingError;
-        });
+            UpdatePersistenceError("Settings could not be saved: " + ex.Message);
+        }, onSaved: () => UpdatePersistenceError(""));
         model = new StudioModel(store.Load());
         model.State.PersistenceError = pendingError;
         store.Attach(model.Settings);
         Log.Information("Constructing Studio window");
-        var mainWindow = new MainWindow(model, startAtSignIn);
+        var mainWindow = new MainWindow(model, startAtSignIn, store.FlushAsync);
         window = mainWindow;
         var dispatcher = mainWindow.DispatcherQueue;
+        persistenceDispatcher = dispatcher;
         RegisteredWaitHandle? activationListener = null;
         if (relaunchSignal is not null)
         {
@@ -145,6 +154,7 @@ public partial class App : Application
         {
             window = null;
             activationListener?.Unregister(null);
+            // The close sequence awaited FlushAsync before allowing native Window.Close.
             store.Dispose();
             Exit();
         };
@@ -170,7 +180,7 @@ internal sealed class MainWindow : Window
     private readonly bool startupWasLayered;
     private bool startupTransparent;
 
-    internal MainWindow(StudioModel model, bool startHidden)
+    internal MainWindow(StudioModel model, bool startHidden, Func<System.Threading.Tasks.Task<bool>> flushSettings)
     {
         if (startHidden)
         {
@@ -197,7 +207,7 @@ internal sealed class MainWindow : Window
         Content = root;
         Ui.AttachAppearance(this, root, model.Settings);
         root.Children.Add(Ui.BrandHeader("Water Ripple", "A ripple for every click. Changes apply immediately."));
-        Controller = new StudioController(model, this, root);
+        Controller = new StudioController(model, this, root, flushSettings);
         var controls = new RippleView(model, Controller, this);
         Grid.SetRow(controls, 1); root.Children.Add(controls);
         var footer = Ui.Footer(); Grid.SetRow((FrameworkElement)footer, 2); root.Children.Add(footer);

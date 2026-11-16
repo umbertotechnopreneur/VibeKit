@@ -15,7 +15,10 @@ check(!controls.jokes.running, 'Hidden preferences must not schedule joke update
 controls.preset.selected = 1;
 check(settings.get_double('strength') === 7, 'Pipeline selection did not reach settings.');
 controls.pipelines.create('<Test & water>');
+const originalRows = controls.pipelines.items.map(pipeline => controls.library.rowFor(pipeline.id));
 settings.set_double('strength', 13);
+check(controls.pipelines.items.every((pipeline, index) => controls.library.rowFor(pipeline.id) === originalRows[index]),
+    'A live parameter edit recreated pipeline rows.');
 check(controls.pipelines.selected.values.strength === 13, 'UI settings did not update the selected pipeline.');
 check(!controls.pipelines.error, controls.pipelines.error);
 const saved = controls.pipelines.selected;
@@ -28,6 +31,8 @@ controls.pipelines.applyFilterPreset(filter.presets[2]);
 check(settings.get_double('chromatic-separation') === 45 && controls.pipelines.filterPresetIndex(filter) === 3, 'Shared filter preset failed.');
 const selectedId = controls.pipelines.selected.id;
 controls.pipelines.rename(controls.pipelines.selected, 'Renamed');
+check(controls.library.rowFor(selectedId) === originalRows.at(-1), 'Rename recreated the selected pipeline row.');
+check(controls.library.rowFor(selectedId).title.includes('Renamed'), 'Stable row did not update its title.');
 check(controls.preset.model.get_string(controls.preset.selected) === 'Renamed', 'Selector did not reflect rename.');
 window.present();
 const loop = new GLib.MainLoop(null, false);

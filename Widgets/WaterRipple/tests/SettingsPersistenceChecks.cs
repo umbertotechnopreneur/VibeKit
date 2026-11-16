@@ -1,0 +1,74 @@
+using System.Text.Json;
+using WaterRipple;
+
+internal static class SettingsPersistenceChecks
+{
+    internal static void Run(string directory) => RunAsync(directory).GetAwaiter().GetResult();
+
+    private static async Task RunAsync(string directory)
+    {
+        static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
+        static double Strength(string path)
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            return document.RootElement.GetProperty("Settings").GetProperty("Strength").GetDouble();
+        }
+
+        string path = Path.Combine(directory, "coalesced-settings.json");
+        int writes = 0;
+        var settings = new AppSettings();
+        await using (var store = new SettingsStore(path, onSaved: () => Interlocked.Increment(ref writes),
+            saveDelay: TimeSpan.FromHours(1)))
+        {
+            store.Attach(settings);
+            for (int index = 0; index < 120; index++) settings.Strength = 1 + index / 100.0;
+            Check(writes == 0 && !File.Exists(path), "A bound setter performed disk I/O before the quiet period.");
+            Check(await store.FlushAsync(), "Explicit settings flush failed.");
+            Check(writes == 1 && Strength(path) == 2.19, "A burst was not saved as one final snapshot.");
+            settings.Strength = 7;
+        }
+        Check(writes == 2 && Strength(path) == 7, "Async disposal did not flush the final snapshot.");
+
+        // Hold the worker after its first commit while the UI delivers more edits.
+        using var firstWrite = new ManualResetEventSlim();
+        using var releaseWriter = new ManualResetEventSlim();
+        writes = 0;
+        path = Path.Combine(directory, "serialized-settings.json");
+        await using (var store = new SettingsStore(path, onSaved: () =>
+        {
+            if (Interlocked.Increment(ref writes) != 1) return;
+            firstWrite.Set();
+            if (!releaseWriter.Wait(TimeSpan.FromSeconds(5))) throw new TimeoutException("Writer gate timed out.");
+        }, saveDelay: TimeSpan.FromHours(1)))
+        {
+            store.Attach(settings);
+            settings.Strength = 3;
+            Task<bool> saving = store.FlushAsync();
+            Check(firstWrite.Wait(TimeSpan.FromSeconds(5)), "Background writer did not start.");
+            try
+            {
+                for (int index = 0; index < 120; index++) settings.Strength = 4 + index / 100.0;
+                Check(!saving.IsCompleted && writes == 1, "Writers overlapped or the flush returned before completion.");
+            }
+            finally { releaseWriter.Set(); }
+            Check(await saving && writes == 2 && Math.Abs(Strength(path) - 5.19) < 1e-10,
+                "The in-flight writer did not serialize the latest pending snapshot.");
+        }
+
+        string blocker = Path.Combine(directory, "settings-blocker");
+        File.WriteAllText(blocker, "not a directory");
+        int errors = 0;
+        await using (var store = new SettingsStore(Path.Combine(blocker, "settings.json"),
+            onError: _ => Interlocked.Increment(ref errors), saveDelay: TimeSpan.FromHours(1)))
+        {
+            store.Attach(settings);
+            settings.Strength = 11;
+            Check(!await store.FlushAsync() && errors == 1 && store.LastError is not null,
+                "A background save failure was not reported.");
+            File.Delete(blocker);
+            Check(await store.FlushAsync() && store.LastError is null && Strength(store.FilePath) == 11,
+                "An explicit retry did not save the failed snapshot or clear the error.");
+        }
+        Console.WriteLine("PASS async settings: coalesced edits, serialized writes, close flush, visible errors and explicit retry");
+    }
+}

@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -16,6 +17,7 @@ internal sealed class RippleView : Grid
     private readonly StackPanel effects = new() { Spacing = 16 };
     private readonly StackPanel library = new() { Spacing = 12 };
     private readonly StackPanel rows = new() { Spacing = 2 };
+    private readonly Dictionary<Pipeline, (Border Card, TextBlock Title, TextBlock Summary, Button More)> pipelineRows = new();
     private readonly TextBox name = new() { PlaceholderText = "Pipeline name", MaxLength = 80 };
     private readonly StackPanel editor = new() { Spacing = 8, Visibility = Visibility.Collapsed };
     private readonly ComboBox choice = new() { Header = "Pipeline", PlaceholderText = "Custom", HorizontalAlignment = HorizontalAlignment.Stretch, DisplayMemberPath = "Name" };
@@ -159,34 +161,56 @@ internal sealed class RippleView : Grid
             refreshing = true;
             choice.SelectedItem = pipelines.Selected;
             choice.PlaceholderText = pipelines.CurrentName;
-            rows.Children.Clear();
-            foreach (var pipeline in pipelines.Items)
+            foreach (var removed in pipelineRows.Keys.Except(pipelines.Items).ToArray())
             {
-                var row = new Grid { ColumnSpacing = 8 };
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                var label = new StackPanel { Spacing = 4 };
-                label.Children.Add(Ui.Text((pipeline == pipelines.Selected ? "✓ " : "") + pipeline.Name, 18));
-                label.Children.Add(Ui.Text(pipelines.Summary(pipeline), 12));
-                var open = new Button { Content = label, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left };
-                open.Click += (_, _) => { pipelines.Select(pipeline); Show(false); };
-                row.Children.Add(open);
-                var menu = new MenuFlyout();
-                MenuFlyoutItem Action(string title, Action action)
-                { var item = new MenuFlyoutItem { Text = title }; item.Click += (_, _) => action(); return item; }
-                menu.Items.Add(Action("Duplicate", () => pipelines.Duplicate(pipeline)));
-                if (!pipeline.IsBuiltIn)
+                rows.Children.Remove(pipelineRows[removed].Card);
+                pipelineRows.Remove(removed);
+            }
+            for (int index = 0; index < pipelines.Items.Count; index++)
+            {
+                var pipeline = pipelines.Items[index];
+                if (!pipelineRows.TryGetValue(pipeline, out var cached))
                 {
-                    menu.Items.Add(Action("Rename", () => { renaming = pipeline; name.Text = pipeline.Name; editor.Visibility = Visibility.Visible; }));
-                    menu.Items.Add(Action("Delete", () => pipelines.Delete(pipeline)));
+                    var row = new Grid { ColumnSpacing = 8 };
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    var label = new StackPanel { Spacing = 4 };
+                    var title = Ui.Text("", 18);
+                    var summary = Ui.Text("", 12);
+                    label.Children.Add(title);
+                    label.Children.Add(summary);
+                    var open = new Button { Content = label, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left };
+                    open.Click += (_, _) => { pipelines.Select(pipeline); Show(false); };
+                    row.Children.Add(open);
+                    var menu = new MenuFlyout();
+                    MenuFlyoutItem Action(string title, Action action)
+                    { var item = new MenuFlyoutItem { Text = title }; item.Click += (_, _) => action(); return item; }
+                    menu.Items.Add(Action("Duplicate", () => pipelines.Duplicate(pipeline)));
+                    if (!pipeline.IsBuiltIn)
+                    {
+                        menu.Items.Add(Action("Rename", () => { renaming = pipeline; name.Text = pipeline.Name; editor.Visibility = Visibility.Visible; }));
+                        menu.Items.Add(Action("Delete", () => pipelines.Delete(pipeline)));
+                    }
+                    var more = new Button { Content = "⋮", Flyout = menu, VerticalAlignment = VerticalAlignment.Center };
+                    SetColumn(more, 1); row.Children.Add(more);
+                    cached = (Card(row), title, summary, more);
+                    pipelineRows.Add(pipeline, cached);
                 }
-                var more = new Button { Content = "⋮", Flyout = menu, VerticalAlignment = VerticalAlignment.Center };
-                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(more, "Actions for " + pipeline.Name);
-                SetColumn(more, 1); row.Children.Add(more); rows.Children.Add(Card(row));
+                cached.Title.Text = (pipeline == pipelines.Selected ? "✓ " : "") + pipeline.Name;
+                cached.Summary.Text = pipelines.Summary(pipeline);
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(cached.More, "Actions for " + pipeline.Name);
+                // Parameter/selection changes retain the controls, keyboard focus and flyouts.
+                int previousIndex = rows.Children.IndexOf(cached.Card);
+                if (previousIndex == index) continue;
+                if (previousIndex >= 0) rows.Children.RemoveAt(previousIndex);
+                rows.Children.Insert(index, cached.Card);
             }
             refreshing = false;
         }
-        void Changed(object? sender, PropertyChangedEventArgs args) { if (args.PropertyName == nameof(PipelineModel.Items)) Refresh(); }
+        void Changed(object? sender, PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName is nameof(PipelineModel.Items) or nameof(PipelineModel.Selected)) Refresh();
+        }
         Loaded += (_, _) => { pipelines.PropertyChanged += Changed; Refresh(); };
         Unloaded += (_, _) => pipelines.PropertyChanged -= Changed;
         Refresh();

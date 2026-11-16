@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Platform-neutral state and portable document contract; storage/settings are injected.
+export class PipelineConflictError extends Error {}
+
 export class PipelineModel {
     constructor(catalog, adapter, storage, scheduler = null) {
         this.catalog = catalog;
@@ -14,6 +16,7 @@ export class PipelineModel {
         this.selected = null;
         this.applying = false;
         this.writable = true;
+        this.conflicted = false;
         this.items = catalog.presets.map(p => ({...p, id: `builtin:${p.id}`, values: this.complete(p.values)}));
         try {
             const contents = storage.read();
@@ -38,7 +41,7 @@ export class PipelineModel {
         return {items: [...this.items], selected: this.selected, settings: this.capture(),
             entries: this.items.map(item => ({item, name: item.name, values: {...item.values}}))};
     }
-    restore(checkpoint) {
+    restore(checkpoint, restoreSettings = true) {
         this.applying = true;
         try {
             for (const {item, name, values} of checkpoint.entries) {
@@ -47,15 +50,30 @@ export class PipelineModel {
             }
             this.items = checkpoint.items;
             this.selected = checkpoint.selected;
-            for (const p of this.catalog.parameters)
-                if (this.adapter.supports(p.key)) this.adapter.set(p.key, checkpoint.settings[p.key]);
+            if (restoreSettings) {
+                for (const parameter of this.catalog.parameters)
+                    if (this.adapter.supports(parameter.key))
+                        this.adapter.set(parameter.key, checkpoint.settings[parameter.key]);
+            }
         } finally { this.applying = false; }
     }
+    failed(error, checkpoint) {
+        // A stale panel does not own GSettings: undoing its snapshot would also
+        // undo the other panel's live values, which that panel could then save.
+        const conflict = error instanceof PipelineConflictError;
+        this.restore(checkpoint, !conflict);
+        if (conflict) {
+            this.conflicted = true;
+            this.selected = null;
+        }
+        this.error = error.message;
+    }
     run(action) {
+        if (this.conflicted) return;
         if (!this.flush()) return;
         const checkpoint = this.checkpoint();
         try { this.error = ''; action(); }
-        catch (e) { this.restore(checkpoint); this.error = e.message; }
+        catch (error) { this.failed(error, checkpoint); }
         this.notify();
     }
     capture(previous = {}) {
@@ -99,7 +117,7 @@ export class PipelineModel {
     }
     detach() { this.run(() => { this.selected = null; this.save(); }); }
     changed(key) {
-        if (this.applying || !this.catalog.parameters.some(p => p.key === key)) return;
+        if (this.conflicted || this.applying || !this.catalog.parameters.some(p => p.key === key)) return;
         if (!this.selected || (this.builtIn(this.selected) && this.matches(this.selected))) return;
         if (!this.pending) {
             this.pending = this.checkpoint();
@@ -117,11 +135,12 @@ export class PipelineModel {
     flush() {
         if (this.saveTimer !== null) this.scheduler.cancel(this.saveTimer);
         this.saveTimer = null;
+        if (this.conflicted) return false;
         if (!this.pending) return true;
         const checkpoint = this.pending;
         this.pending = null;
         try { this.save(); this.error = ''; }
-        catch (e) { this.restore(checkpoint); this.error = e.message; this.notify(); return false; }
+        catch (error) { this.failed(error, checkpoint); this.notify(); return false; }
         this.notify();
         return true;
     }

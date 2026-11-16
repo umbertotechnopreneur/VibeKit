@@ -10,6 +10,9 @@
     <Compile Include="../SettingsStore.cs" Link="SettingsStore.cs" />
     <Compile Include="../SettingsChecks.cs" Link="SettingsChecks.cs" />
     <Compile Include="../PipelineModel.cs" Link="PipelineModel.cs" />
+    <Compile Include="../NativeInterop.cs" Link="NativeInterop.cs" />
+    <Compile Include="../RenderParameters.cs" Link="RenderParameters.cs" />
+    <Compile Include="../CloseSequence.cs" Link="CloseSequence.cs" />
     <EmbeddedResource Include="../Shared/pipeline-catalog.json" LogicalName="WaterRipple.pipeline-catalog.json" />
   </ItemGroup>
 </Project>

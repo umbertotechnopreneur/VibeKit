@@ -1,7 +1,21 @@
 using System;
 using System.Runtime.InteropServices;
-using System.Numerics;
 namespace WaterRipple;
+
+// Keep numeric values aligned with RippleRenderer.h; the native ABI uses a 32-bit mask.
+[Flags]
+internal enum CaptureStatus : int
+{
+    None = 0,
+    Clipped = 1,
+    Waiting = 2,
+    AccessLost = 4,
+    PresentBusy = 8,
+    Occluded = 16,
+    ValidCapture = 32,
+    PresentedCapture = 64,
+    VisibleCapture = ValidCapture | PresentedCapture,
+}
 [StructLayout(LayoutKind.Sequential)] internal struct NativeWave
 {
     public float X, Y, Age, Active;
@@ -11,13 +25,22 @@ namespace WaterRipple;
 {
     public int CaptureWidth, CaptureHeight, CaptureCount, PresentCount;
     public float LastCaptureMs, LastRenderCpuMs;
-    public int Status, Reserved;
+    public CaptureStatus Status;
+    public int Reserved;
+    public readonly bool HasPresentedCapture => (Status & CaptureStatus.VisibleCapture) == CaptureStatus.VisibleCapture;
 }
 [StructLayout(LayoutKind.Sequential)] internal struct NativePoint { public int X, Y; }
 internal static partial class Native
 {
     [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)] internal static extern int RippleCreate(IntPtr panel, string shaderDirectory, out IntPtr renderer);
-    [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern int RippleRender(IntPtr renderer, int x, int y, int width, int height, float widthDip, float heightDip, float strength, float band, float speed, float duration, float chromaticSeparation, float chromaticBlend, float crest, float ripples, float liquid, [In] NativeWave[] waves, int count, int captureEnabled, int captureDue);
+    // Preserve the shipped C ABI; callers use named, unit-normalized parameters below.
+    [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] private static extern int RippleRender(IntPtr renderer, int x, int y, int width, int height, float widthDip, float heightDip, float strength, float band, float speed, float duration, float chromaticSeparation, float chromaticBlend, float crest, float ripples, float liquid, [In] NativeWave[] waves, int count, int captureEnabled, int captureDue);
+    internal static int Render(IntPtr renderer, in RenderParameters parameters, NativeWave[] waves, int count) =>
+        RippleRender(renderer, parameters.ScreenX, parameters.ScreenY, parameters.WidthPixels, parameters.HeightPixels,
+            parameters.WidthDips, parameters.HeightDips, parameters.StrengthDips, parameters.BandDips,
+            parameters.SpeedDipsPerSecond, parameters.LifetimeSeconds, parameters.ChromaticSeparationRatio,
+            parameters.ChromaticBlendRatio, parameters.CrestRatio, parameters.RipplesRatio, parameters.LiquidRatio,
+            waves, count, parameters.CaptureEnabled ? 1 : 0, parameters.CaptureDue ? 1 : 0);
     [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern int RippleGetStats(IntPtr renderer, out NativeStats stats);
     [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern void RippleDestroy(IntPtr renderer);
     [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint affinity);

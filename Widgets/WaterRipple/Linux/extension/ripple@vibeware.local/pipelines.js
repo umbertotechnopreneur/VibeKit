@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import {PipelineModel} from './shared/pipeline-model.js';
+import {PipelineConflictError, PipelineModel} from './shared/pipeline-model.js';
 
 export function loadPipelines(settings) {
     const directory = Gio.File.new_for_uri(import.meta.url).get_parent();
@@ -28,9 +28,15 @@ export function loadPipelines(settings) {
             withLibraryLock(path, () => {
                 const previous = snapshot(file);
                 if (previous.contents !== expected)
-                    throw Error('Pipeline library changed in another window. Reopen this panel before saving.');
+                    throw new PipelineConflictError('Pipeline library changed in another window. Reopen this panel before saving.');
                 GLib.mkdir_with_parents(file.get_parent().get_path(), 0o700);
-                file.replace_contents(contents, previous.etag, false, Gio.FileCreateFlags.PRIVATE, null);
+                try {
+                    file.replace_contents(contents, previous.etag, false, Gio.FileCreateFlags.PRIVATE, null);
+                } catch (error) {
+                    if (error.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.WRONG_ETAG))
+                        throw new PipelineConflictError('Pipeline library changed in another window. Reopen this panel before saving.');
+                    throw error;
+                }
             });
         },
     };
@@ -67,7 +73,8 @@ function withLibraryLock(path, action) {
         'org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus', method,
         new GLib.Variant(signature, args), new GLib.VariantType('(u)'), Gio.DBusCallFlags.NONE, 1000, null).deep_unpack()[0];
     const result = call('RequestName', '(su)', [name, 4]); // DO_NOT_QUEUE
-    if (result !== 1 && result !== 4) throw Error('Pipeline library is busy in another window. Try again.');
+    if (result !== 1 && result !== 4)
+        throw new PipelineConflictError('Pipeline library is busy in another window. Reopen this panel before saving.');
     try { return action(); }
     finally {
         if (result === 1) {

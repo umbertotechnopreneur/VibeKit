@@ -251,5 +251,5 @@ export function buildControls(window, settings, application = null, externalLeas
         enableExtension();
         window.connect('close-request', () => { cancellable.cancel(); return false; });
     }
-    return {page: content, active, preset, stop, status, pipelines, about, aboutRow, aboutPage, jokes};
+    return {page: content, active, preset, stop, status, pipelines, library, about, aboutRow, aboutPage, jokes};
 }

@@ -28,7 +28,7 @@ Common filter values transfer directly. The Windows adapter maps shared `wavelen
 
 `main` contains the control panel and click-driven water ripples. There are no window-event hooks, transitions, window texture caches, click pulses, border/flash effects or automatic drops. The complete experimental desktop/window effects version is preserved in `codex/window-effects`.
 
-User preferences are bound to `AppSettings`, transient UI state belongs to `AppState`, and settings save immediately by atomic replacement in `%LOCALAPPDATA%\VibeWare\WaterRipple\settings-ripple.json`. This separate file preserves the full version's original `settings.json` when switching branches.
+User preferences are bound to `AppSettings`, and transient UI state belongs to `AppState`. Preference edits take effect immediately and save after 250 ms of quiet through one background writer, using atomic replacement in `%LOCALAPPDATA%\VibeWare\WaterRipple\settings-ripple.json`. Only the latest pending snapshot is retained while a write is running. Closing stops the effect immediately and waits for the final save before closing the window; a failed save keeps the panel available for an explicit retry. Unreadable preference files are preserved rather than overwritten by fallback defaults. This separate file preserves the full version's original `settings.json` when switching branches.
 
 ## Performance
 
@@ -48,7 +48,7 @@ When reporting an invisible effect or an unexpected exit, include the approximat
 
 ## Build from source
 
-Requires .NET 10 SDK, Microsoft C++ x64 build tools and Windows SDK 10.0.26100.0 with C++/WinRT headers and `windowsapp.lib`. The native build script uses the installed Visual Studio 18 Insiders toolchain.
+Requires .NET 10 SDK, Microsoft C++ x64 build tools and Windows SDK 10.0.26100.0 or newer with C++/WinRT headers, `fxc` and `windowsapp.lib`. The native script honors `VCToolsInstallDir` or discovers the newest installed C++ toolchain with Visual Studio Installer's `vswhere`. It chooses the newest complete compatible SDK under `WindowsSdkDir` or the standard Windows Kits directory; no Visual Studio edition or machine-specific path is required.
 
 Before first use of a new external library or prebuilt binary, explicitly scan its archive and extracted dependencies with Microsoft Defender. Confirm the official source, version and clean scanner completion in that staging session; reuse the result for unchanged imports. Builds do not initiate scans. Retain no scan reports or build histories.
 
@@ -88,4 +88,6 @@ The MSIX execution alias is `waterripple.exe`, exposed at `%LOCALAPPDATA%\Micros
 
 `dotnet run --project tests/PipelineChecks.csproj` exercises the C# data model without WinUI. `node tests/pipeline-checks.mjs` checks the JavaScript model. Setting `RIPPLE_EXCHANGE` to the same temporary JSON path, running Node, then C#, then Node with `--read`, checks interchange in both directions. Build and overlay checks on Windows are still required for capture, startup and native presentation.
 
-Both models reject stale library writes and restore pipeline selection, values and live settings after a failed transaction. Parameter edits remain immediate; native UI schedulers group library writes after 250 ms of quiet, with a final flush before other library actions or disposal. The checks cover concurrent models, failed CRUD/import/selection, deferred failures, grouped edits and final saves.
+Both models reject stale library writes. A stale panel detaches its selection and requires reopening; it never restores an old snapshot over another panel's shared live settings. Ordinary local write failures still restore the failed transaction. Parameter edits remain immediate; native UI schedulers group library writes after 250 ms of quiet, with a final flush before other library actions or disposal. Native pipeline lists retain row identity during value, selection and name updates so edits do not rebuild their controls.
+
+The model checks cover two models sharing the same settings, failed transactions, coalesced/background preference writes, final close ordering and retries, native structure layout, capture-validity flags and render unit conversions. `StudioDiagnostics` owns process monitoring and its UI timer; `RenderParameters` keeps unit conversion separate from capture/session lifetime while preserving the native C ABI. The monorepo workflow also checks pacing, GTK/GIO views against temporary state, and Windows WinUI/native/HLSL compilation. Actual display capture and GPU performance still require testing on the target Windows hardware.

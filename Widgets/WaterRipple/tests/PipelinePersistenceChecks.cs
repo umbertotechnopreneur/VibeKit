@@ -62,6 +62,23 @@ internal static class PipelinePersistenceChecks
         using var document = JsonDocument.Parse(File.ReadAllText(path));
         Check(document.RootElement.GetProperty("pipelines")[0].GetProperty("values").GetProperty("strength").GetDouble() == 6 &&
             slots.All(slot => slot.Cancelled), "Disposal did not flush and cancel the pending save.");
+
+        string sharedPath = Path.Combine(directory, "shared-settings-pipelines.json");
+        var sharedSettings = new AppSettings { Strength = 7 };
+        using var owner = new PipelineModel(sharedSettings, sharedPath, Schedule);
+        owner.Create("Shared");
+        using var otherPanel = new PipelineModel(sharedSettings, sharedPath, Schedule);
+        sharedSettings.Strength = 8;
+        Check(owner.Flush() && !otherPanel.Flush(), "Shared models did not detect their stale revision.");
+        Check(sharedSettings.Strength == 8 && otherPanel.Selected is null,
+            "A stale model rolled back shared AppSettings values.");
+        sharedSettings.Strength = 9;
+        Check(owner.Flush(), "The current writer was damaged by a stale panel.");
+        otherPanel.Create("Blocked"); otherPanel.Dispose();
+        using var sharedDocument = JsonDocument.Parse(File.ReadAllText(sharedPath));
+        Check(sharedSettings.Strength == 9 && sharedDocument.RootElement.GetProperty("pipelines")[0]
+            .GetProperty("values").GetProperty("strength").GetDouble() == 9,
+            "Reusing or disposing a stale model changed live or saved values.");
         Console.WriteLine("PASS C# pipeline conflicts, rollback, coalesced changes, deferred errors and final flush");
     }
     private sealed class Slot(Action callback) : IDisposable

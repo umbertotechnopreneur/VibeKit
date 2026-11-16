@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync, writeFileSync} from 'node:fs';
-import {PipelineModel} from '../Shared/pipeline-model.js';
+import {PipelineConflictError, PipelineModel} from '../Shared/pipeline-model.js';
 
 const catalog = JSON.parse(readFileSync(new URL('../Shared/pipeline-catalog.json', import.meta.url)));
 let contents = null, id = 0;
@@ -50,7 +50,7 @@ function fixture() {
     const storage = {id: () => `fixture-${++id}`, read: () => durable,
         write(contents, expected) {
             if (failWrite) throw Error('Disk full');
-            if (durable !== expected) throw Error('Library changed');
+            if (durable !== expected) throw new PipelineConflictError('Library changed');
             durable = contents; writes++;
         }};
     return {model: new PipelineModel(catalog, adapter, storage, scheduler), state};
@@ -84,8 +84,51 @@ failWrite = false;
 const concurrent = fixture();
 first.state.strength = 8; first.model.changed('strength'); concurrent.model.rename(concurrent.model.items.at(-1), 'External');
 const external = durable;
-assert.equal(first.model.flush(), false); assert.equal(durable, external); assert.equal(first.state.strength, 2.19);
+assert.equal(first.model.flush(), false); assert.equal(durable, external); assert.equal(first.state.strength, 8);
+assert.equal(first.model.selected, null);
+assert.equal(first.model.conflicted, true);
 const closing = fixture(); closing.model.select(closing.model.items.at(-1));
 closing.state.strength = 6; closing.model.changed('strength'); closing.model.dispose();
 assert.equal(JSON.parse(durable).pipelines[0].values.strength, 6); assert.equal(callbacks.size, 0);
 console.log('PASS pipeline conflicts, transaction rollback, 120 changes / one write, deferred errors and final flush');
+
+// Unlike separate mock adapters, real GNOME panels observe the same GSettings.
+let sharedDocument = null;
+const panels = [];
+const sharedValues = Object.fromEntries(catalog.parameters.map(parameter => [parameter.key, parameter.default]));
+const sharedAdapter = {
+    supports: () => true, get: key => sharedValues[key], clamp: (_key, value) => value,
+    set(key, value) {
+        if (sharedValues[key] === value) return;
+        sharedValues[key] = value;
+        for (const panel of panels) panel.changed(key);
+    },
+};
+const sharedStorage = {
+    id: () => `shared-${++id}`, read: () => sharedDocument,
+    write(document, expected) {
+        if (sharedDocument !== expected) throw new PipelineConflictError('Library changed');
+        sharedDocument = document;
+    },
+};
+const owner = new PipelineModel(catalog, sharedAdapter, sharedStorage, scheduler);
+panels.push(owner);
+sharedAdapter.set('strength', 7);
+owner.create('Shared');
+const otherPanel = new PipelineModel(catalog, sharedAdapter, sharedStorage, scheduler);
+panels.push(otherPanel);
+sharedAdapter.set('strength', 8);
+assert.equal(owner.flush(), true);
+assert.equal(otherPanel.flush(), false);
+assert.equal(sharedValues.strength, 8, 'A stale writer must not roll back shared GSettings.');
+assert.equal(JSON.parse(sharedDocument).pipelines[0].values.strength, 8);
+assert.equal(otherPanel.selected, null);
+sharedAdapter.set('strength', 9);
+assert.equal(owner.flush(), true);
+otherPanel.create('Must stay blocked');
+otherPanel.dispose();
+assert.equal(sharedValues.strength, 9, 'Closing or reusing a stale panel changed live values.');
+assert.equal(JSON.parse(sharedDocument).pipelines[0].values.strength, 9);
+owner.dispose();
+assert.equal(callbacks.size, 0);
+console.log('PASS shared settings: stale writers preserve live values and cannot undo a successful save');

@@ -7,6 +7,9 @@ Directory.CreateDirectory(directory);
 try
 {
     Check(SettingsChecks.Run() == 0, "Legacy preference persistence failed.");
+    SettingsPersistenceChecks.Run(directory);
+    CloseSequenceChecks.Run(directory);
+    InteropChecks.Run();
     PipelinePersistenceChecks.Run(directory);
     string path = Path.Combine(directory, "pipelines.json");
     var settings = new AppSettings();

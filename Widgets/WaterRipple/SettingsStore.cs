@@ -18,6 +18,7 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
     private readonly Action? onSaved;
     private readonly Timer saveTimer;
     private readonly int saveDelayMilliseconds;
+    private readonly TaskScheduler writerScheduler;
     private AppSettings? observed;
     private SettingsDocument? pending, failed;
     private Task<bool> writerTask = Task.FromResult(true);
@@ -34,13 +35,14 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
     };
 
     public SettingsStore(string? path = null, Action<Exception>? onError = null,
-        Action? onSaved = null, TimeSpan? saveDelay = null)
+        Action? onSaved = null, TimeSpan? saveDelay = null, TaskScheduler? writerScheduler = null)
     {
         FilePath = Path.GetFullPath(path ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "VibeWare", "WaterRipple", "settings-ripple.json"));
         this.onError = onError;
         this.onSaved = onSaved;
+        this.writerScheduler = writerScheduler ?? TaskScheduler.Default;
         saveDelayMilliseconds = checked((int)(saveDelay ?? TimeSpan.FromMilliseconds(250)).TotalMilliseconds);
         if (saveDelayMilliseconds < 1) throw new ArgumentOutOfRangeException(nameof(saveDelay));
         saveTimer = new Timer(SaveWhenQuiet, null, Timeout.Infinite, Timeout.Infinite);
@@ -68,13 +70,7 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
             try
             {
                 if (!File.Exists(FilePath)) return new AppSettings();
-                using var stream = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                if (stream.Length < 1 || stream.Length > MaximumFileBytes)
-                    throw new InvalidDataException("The settings file exceeds the supported size or is empty.");
-                var document = JsonSerializer.Deserialize<SettingsDocument>(stream, JsonOptions);
-                if (document is null || document.Version != SchemaVersion || document.Settings is null)
-                    throw new InvalidDataException("The settings file has an unsupported schema version.");
-                return document.Settings.ToModel();
+                return ReadDocument().Settings!.ToModel();
             }
             catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or NotSupportedException)
             {
@@ -85,6 +81,17 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
                 return new AppSettings();
             }
         }
+    }
+
+    private SettingsDocument ReadDocument()
+    {
+        using var stream = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (stream.Length < 1 || stream.Length > MaximumFileBytes)
+            throw new InvalidDataException("The settings file exceeds the supported size or is empty.");
+        var document = JsonSerializer.Deserialize<SettingsDocument>(stream, JsonOptions);
+        if (document is null || document.Version != SchemaVersion || document.Settings is null)
+            throw new InvalidDataException("The settings file has an unsupported schema version.");
+        return document;
     }
 
     public void Attach(AppSettings settings)
@@ -104,11 +111,11 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
     {
         lock (sync)
         {
-            if (disposed || !writable || observed is null) return;
+            if (disposed || observed is null) return;
             // Snapshot bound properties on their owning thread. The worker never reads the UI model.
             pending = new SettingsDocument { Version = SchemaVersion, Settings = SettingsValues.FromModel(observed) };
             saveAfter = Environment.TickCount64 + saveDelayMilliseconds;
-            saveTimer.Change(saveDelayMilliseconds, Timeout.Infinite);
+            if (writable) saveTimer.Change(saveDelayMilliseconds, Timeout.Infinite);
         }
     }
 
@@ -117,7 +124,23 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
         lock (sync)
         {
             if (disposed) return writerTask;
-            if (!writable) return Task.FromResult(false);
+            if (!writable)
+            {
+                // Merely opening an unreadable file creates no unsaved edits and must not trap exit.
+                if (pending is null) return Task.FromResult(true);
+                try
+                {
+                    // Only an explicit retry can accept an owner-repaired or removed source.
+                    if (File.Exists(FilePath)) ReadDocument();
+                    writable = true;
+                }
+                catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or NotSupportedException)
+                {
+                    lastError = error;
+                    Report(error);
+                    return Task.FromResult(false);
+                }
+            }
             pending ??= failed; // Explicit flush retries a failed snapshot; the timer does not loop on errors.
             flushRequested = true;
             saveTimer.Change(Timeout.Infinite, Timeout.Infinite);
@@ -129,10 +152,11 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
     // Called with sync held. There is at most one active writer and one latest pending snapshot.
     private void StartWriter()
     {
-        if (writerRunning) return;
+        if (writerRunning || !writable) return;
         if (pending is null) { flushRequested = false; return; }
         writerRunning = true;
-        writerTask = Task.Run(WritePending);
+        writerTask = Task.Factory.StartNew(WritePending, CancellationToken.None,
+            TaskCreationOptions.DenyChildAttach, writerScheduler);
     }
 
     private bool WritePending()
@@ -142,7 +166,15 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
             SettingsDocument document;
             lock (sync)
             {
-                document = pending!;
+                // Discard may run after the task was queued but before it takes ownership.
+                // In that case there is no snapshot to serialize or replace on disk.
+                if (pending is null)
+                {
+                    writerRunning = false;
+                    flushRequested = false;
+                    return lastError is null;
+                }
+                document = pending;
                 pending = null;
             }
             Exception? failure = null;
@@ -205,7 +237,12 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
         catch (Exception) { }
     }
 
-    public ValueTask DisposeAsync()
+    public ValueTask DisposeAsync() => FinishAsync(savePending: true);
+
+    // Discard only work that has not started; an atomic commit already in flight is allowed to finish.
+    public ValueTask DiscardAsync() => FinishAsync(savePending: false);
+
+    private ValueTask FinishAsync(bool savePending)
     {
         lock (sync)
         {
@@ -214,15 +251,16 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
             if (observed is not null) observed.PropertyChanged -= SettingsChanged;
             observed = null;
             saveTimer.Dispose();
-            if (writable) pending ??= failed;
-            flushRequested = true;
+            if (savePending && writable) pending ??= failed;
+            else { pending = null; failed = null; }
+            flushRequested = savePending;
             StartWriter();
             disposalTask = writerTask;
             return new ValueTask(disposalTask);
         }
     }
 
-    // Non-UI callers retain deterministic disposal; the application awaits DisposeAsync on exit.
+    // Non-UI callers retain deterministic disposal; the app awaits FlushAsync before native close.
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     private sealed class SettingsDocument

@@ -5,7 +5,7 @@ namespace WaterRipple;
 
 // The final native window must remain open until saving succeeds. Keeping this
 // ordering independent of WinUI also lets tests exercise failures and explicit retries.
-internal sealed class CloseSequence(Action stop, Func<Task<bool>> flush, Action close, Action failed)
+internal sealed class CloseSequence(Action stop, Func<Task<bool>> flush, Action close, Action failed, Func<Task> discard)
 {
     internal bool IsPending { get; private set; }
 
@@ -21,6 +21,20 @@ internal sealed class CloseSequence(Action stop, Func<Task<bool>> flush, Action 
                 failed();
                 return false;
             }
+            close();
+            return true;
+        }
+        finally { IsPending = false; }
+    }
+
+    internal async Task<bool> DiscardAndCloseAsync()
+    {
+        if (IsPending) return false;
+        IsPending = true;
+        try
+        {
+            stop();
+            await discard();
             close();
             return true;
         }

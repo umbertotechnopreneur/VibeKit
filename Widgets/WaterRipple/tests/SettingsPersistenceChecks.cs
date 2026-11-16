@@ -69,6 +69,58 @@ internal static class SettingsPersistenceChecks
             Check(await store.FlushAsync() && store.LastError is null && Strength(store.FilePath) == 11,
                 "An explicit retry did not save the failed snapshot or clear the error.");
         }
-        Console.WriteLine("PASS async settings: coalesced edits, serialized writes, close flush, visible errors and explicit retry");
+
+        // Reserve the task without executing it: discard must also handle the startup gap.
+        var queuedWriter = new QueuedScheduler();
+        path = Path.Combine(directory, "discard-before-start.json");
+        await using (var store = new SettingsStore(path, saveDelay: TimeSpan.FromHours(1), writerScheduler: queuedWriter))
+        {
+            store.Attach(settings);
+            settings.Strength = 17;
+            Task<bool> saving = store.FlushAsync();
+            Task discarding = store.DiscardAsync().AsTask();
+            Check(!saving.IsCompleted && !discarding.IsCompleted, "The test did not hold the queued writer.");
+            queuedWriter.RunNext();
+            await discarding;
+            Check(await saving && !File.Exists(path), "Discard before worker startup serialized an empty snapshot.");
+        }
+
+        using var committed = new ManualResetEventSlim();
+        using var finishCommit = new ManualResetEventSlim();
+        writes = 0;
+        path = Path.Combine(directory, "discard-during-write.json");
+        await using (var store = new SettingsStore(path, onSaved: () =>
+        {
+            Interlocked.Increment(ref writes);
+            committed.Set();
+            finishCommit.Wait(TimeSpan.FromSeconds(5));
+        }, saveDelay: TimeSpan.FromHours(1)))
+        {
+            store.Attach(settings);
+            settings.Strength = 18;
+            Task<bool> saving = store.FlushAsync();
+            Check(committed.Wait(TimeSpan.FromSeconds(5)), "The first commit did not start.");
+            Task discarding;
+            try
+            {
+                settings.Strength = 19;
+                discarding = store.DiscardAsync().AsTask();
+                Check(!discarding.IsCompleted, "Discard failed to wait for the active writer.");
+            }
+            finally { finishCommit.Set(); }
+            await discarding;
+            Check(await saving && writes == 1 && Strength(path) == 18,
+                "Discard did not preserve the active commit and cancel the pending snapshot.");
+        }
+        Console.WriteLine("PASS async settings: coalescing, serialized writes, flush/retry, discard before startup and during writes");
+    }
+
+    private sealed class QueuedScheduler : TaskScheduler
+    {
+        private readonly Queue<Task> tasks = new();
+        protected override IEnumerable<Task> GetScheduledTasks() => tasks.ToArray();
+        protected override void QueueTask(Task task) => tasks.Enqueue(task);
+        protected override bool TryExecuteTaskInline(Task task, bool taskWasPreviouslyQueued) => false;
+        internal void RunNext() => TryExecuteTask(tasks.Dequeue());
     }
 }

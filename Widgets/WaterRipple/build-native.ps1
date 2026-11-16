@@ -35,7 +35,12 @@ $compiler = Join-Path $msvcPath 'bin\Hostx64\x64\cl.exe'
 $shaderCompiler = Join-Path $sdk "bin\$sdkVersion\x64\fxc.exe"
 foreach ($tool in @($compiler, $shaderCompiler)) { if (-not (Test-Path -LiteralPath $tool)) { throw "Missing official build tool: $tool" } }
 $outPath = [IO.Path]::GetFullPath($OutputDirectory)
-$objPath = [IO.Path]::GetFullPath((Join-Path $projectRoot $IntermediateDirectory))
+$intermediatePath = if ([IO.Path]::IsPathRooted($IntermediateDirectory)) {
+    $IntermediateDirectory
+} else {
+    Join-Path $projectRoot $IntermediateDirectory
+}
+$objPath = [IO.Path]::GetFullPath($intermediatePath)
 New-Item -ItemType Directory -Path $outPath,$objPath,(Join-Path $outPath 'Shaders') -Force | Out-Null
 $env:INCLUDE = @((Join-Path $msvcPath 'include'), (Join-Path $sdk "Include\$sdkVersion\ucrt"), (Join-Path $sdk "Include\$sdkVersion\shared"), (Join-Path $sdk "Include\$sdkVersion\um"), (Join-Path $sdk "Include\$sdkVersion\winrt"), (Join-Path $sdk "Include\$sdkVersion\cppwinrt")) -join ';'
 $env:LIB = @((Join-Path $msvcPath 'lib\x64'), (Join-Path $sdk "Lib\$sdkVersion\ucrt\x64"), (Join-Path $sdk "Lib\$sdkVersion\um\x64")) -join ';'

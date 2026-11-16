@@ -32,6 +32,7 @@ internal sealed partial class StudioController : IDisposable
     private readonly CaptureConsentService captureConsent;
     private readonly EmergencyShortcut emergencyShortcut;
     private readonly CloseSequence closeSequence;
+    private bool closeFailureOpen;
     private ScreenEffectSession? screen;
     private bool notifyWhenRestored;
     private long generation;
@@ -42,7 +43,8 @@ internal sealed partial class StudioController : IDisposable
     internal ICommand InspectScreenCommand { get; }
     internal bool IsInTray => model.State.IsInTray;
 
-    internal StudioController(StudioModel model, Window window, FrameworkElement surface, Func<Task<bool>> flushSettings)
+    internal StudioController(StudioModel model, Window window, FrameworkElement surface,
+        Func<Task<bool>> flushSettings, Func<Task> discardSettings)
     {
         this.model = model; this.window = window; this.surface = surface;
         closeSequence = new CloseSequence(
@@ -64,7 +66,7 @@ internal sealed partial class StudioController : IDisposable
                 if (model.State.IsInTray) ShowFromTray();
                 else window.Activate();
                 model.State.StatusMessage = "Settings could not be saved. The effect is stopped; close again to retry.";
-            });
+            }, discard: discardSettings);
         startup = new StartupService(model.State);
         captureConsent = new CaptureConsentService(model.State);
         hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
@@ -221,7 +223,7 @@ internal sealed partial class StudioController : IDisposable
     {
         if (model.State.IsExiting) return;
         args.Cancel = true;
-        if (closeSequence.IsPending || model.State.IsClosePromptOpen || model.State.IsSettingsOpen || model.State.IsCaptureConsentOpen) return;
+        if (closeFailureOpen || closeSequence.IsPending || model.State.IsClosePromptOpen || model.State.IsSettingsOpen || model.State.IsCaptureConsentOpen) return;
         model.State.IsClosePromptOpen = true;
         try
         {
@@ -280,7 +282,33 @@ internal sealed partial class StudioController : IDisposable
     }
     private async void ExitApp()
     {
-        try { await closeSequence.TryCloseAsync(); }
+        if (closeFailureOpen || closeSequence.IsPending) return;
+        try
+        {
+            while (!await closeSequence.TryCloseAsync())
+            {
+                closeFailureOpen = true;
+                ContentDialogResult result;
+                try
+                {
+                    result = await new ContentDialog
+                    {
+                        Title = "Settings could not be saved",
+                        Content = "The effect is stopped. You can retry, keep Ripple open, or discard unsaved preferences and close.\n\n" + model.State.PersistenceError,
+                        PrimaryButtonText = "Retry", SecondaryButtonText = "Close without saving", CloseButtonText = "Keep open",
+                        DefaultButton = ContentDialogButton.Close, RequestedTheme = ElementTheme.Dark,
+                        XamlRoot = ((FrameworkElement)window.Content).XamlRoot,
+                    }.ShowAsync();
+                }
+                finally { closeFailureOpen = false; }
+                if (result == ContentDialogResult.Secondary)
+                {
+                    await closeSequence.DiscardAndCloseAsync();
+                    return;
+                }
+                if (result != ContentDialogResult.Primary) return;
+            }
+        }
         catch (Exception error) { Fail("Could not close Ripple", error); }
     }
 

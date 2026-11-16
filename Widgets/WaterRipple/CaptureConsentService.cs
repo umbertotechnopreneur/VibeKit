@@ -13,6 +13,8 @@ internal sealed class CaptureConsentService(AppState state)
     private bool checkedThisSession;
     internal async Task EnsureAsync(XamlRoot root)
     {
+        // Older supported Windows builds retain the normal capture border without a consent prompt.
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 20348)) return;
         if (checkedThisSession || state.IsCaptureConsentOpen) return;
         checkedThisSession = true;
         state.IsCaptureConsentOpen = true;

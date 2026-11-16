@@ -135,7 +135,7 @@ public partial class App : Application
         model.State.PersistenceError = pendingError;
         store.Attach(model.Settings);
         Log.Information("Constructing Studio window");
-        var mainWindow = new MainWindow(model, startAtSignIn, store.FlushAsync);
+        var mainWindow = new MainWindow(model, startAtSignIn, store.FlushAsync, () => store.DiscardAsync().AsTask());
         window = mainWindow;
         var dispatcher = mainWindow.DispatcherQueue;
         persistenceDispatcher = dispatcher;
@@ -180,7 +180,8 @@ internal sealed class MainWindow : Window
     private readonly bool startupWasLayered;
     private bool startupTransparent;
 
-    internal MainWindow(StudioModel model, bool startHidden, Func<System.Threading.Tasks.Task<bool>> flushSettings)
+    internal MainWindow(StudioModel model, bool startHidden, Func<System.Threading.Tasks.Task<bool>> flushSettings,
+        Func<System.Threading.Tasks.Task> discardSettings)
     {
         if (startHidden)
         {
@@ -207,7 +208,7 @@ internal sealed class MainWindow : Window
         Content = root;
         Ui.AttachAppearance(this, root, model.Settings);
         root.Children.Add(Ui.BrandHeader("Water Ripple", "A ripple for every click. Changes apply immediately."));
-        Controller = new StudioController(model, this, root, flushSettings);
+        Controller = new StudioController(model, this, root, flushSettings, discardSettings);
         var controls = new RippleView(model, Controller, this);
         Grid.SetRow(controls, 1); root.Children.Add(controls);
         var footer = Ui.Footer(); Grid.SetRow((FrameworkElement)footer, 2); root.Children.Add(footer);

@@ -31,6 +31,7 @@ permissions:
 jobs:
   review:
     name: Review dependencies
+    if: ${{ !github.event.repository.private || vars.GITHUB_CODE_SECURITY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -44,3 +45,24 @@ jobs:
     defaults:
       run:
         working-directory: Apps/HelpMe
+
+  nuget-audit:
+    name: Audit NuGet dependencies
+    if: ${{ github.event.repository.private && vars.GITHUB_CODE_SECURITY_ENABLED != 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: Apps/HelpMe/global.json
+      - name: Restore and reject high or critical vulnerabilities
+        working-directory: Apps/HelpMe
+        run: dotnet restore HelpMe.slnx -p:NuGetAudit=true -p:NuGetAuditMode=all -p:NuGetAuditLevel=high -p:WarningsAsErrors="NU1900%3BNU1903%3BNU1904%3BNU1905"
+      - name: Explain security coverage
+        run: |
+          echo 'NuGet audit checked direct and transitive packages for high/critical vulnerabilities. GitHub Dependency Review is unavailable on this private repository; license and dependency-diff review were not performed.' >> "$GITHUB_STEP_SUMMARY"

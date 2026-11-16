@@ -43,6 +43,7 @@ concurrency:
 jobs:
   analyze:
     name: Analyze C#
+    if: ${{ !github.event.repository.private || vars.GITHUB_CODE_SECURITY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -74,3 +75,13 @@ jobs:
     defaults:
       run:
         working-directory: Apps/HelpMe
+
+  availability:
+    name: Report CodeQL availability
+    if: ${{ github.event.repository.private && vars.GITHUB_CODE_SECURITY_ENABLED != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report unavailable hosted analysis
+        run: |
+          echo '::warning::CodeQL was not run: enable GitHub Code Security for this private repository, then set GITHUB_CODE_SECURITY_ENABLED=true.'
+          echo 'CodeQL analysis is unavailable for this private repository. This job reports availability; it does not certify a security scan. Enable GitHub Code Security and set the repository variable GITHUB_CODE_SECURITY_ENABLED=true to run it.' >> "$GITHUB_STEP_SUMMARY"

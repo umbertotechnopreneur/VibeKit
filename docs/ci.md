@@ -24,7 +24,7 @@ For example, changing only `Apps/WorkTrail/` runs its two pipelines and the comm
 
 OpenAI Usage checks use synthetic account data and isolated temporary storage. They do not contact the owner's Codex account or claim native WinUI/GTK validation. Ripple also checks the portable C# model and the recovery policy; its C# checks run in Debug because the preference-check helper is deliberately Debug-only. Adding a project requires an explicit entry in `scripts/ci/select_projects.py`, a reusable workflow, and the corresponding dispatcher and result jobs.
 
-The stable check for branch protection is **VibeKit CI required**. It requires successful selection and every selected reusable workflow, and accepts skips only for unrelated applications. Do not require individually path-filtered workflows, which can leave checks pending. HelpMe CodeQL and dependency review retain separate scoped triggers; the existing CodeQL schedule is preserved. They require the corresponding GitHub repository features.
+The stable check for branch protection is **VibeKit CI required**. It requires successful selection and every selected reusable workflow, and accepts skips only for unrelated applications. Do not require individually path-filtered workflows, which can leave checks pending. HelpMe CodeQL and dependency review retain separate scoped triggers; the existing CodeQL schedule is preserved. They require the corresponding GitHub repository features. On private repositories, set `GITHUB_CODE_SECURITY_ENABLED=true` only after enabling GitHub Code Security. Otherwise, dependency checks use NuGet audit for direct and transitive high/critical vulnerabilities (including audit-source errors), and CodeQL reports that analysis is unavailable. NuGet audit does not replace dependency-diff or license review.
 
 Use **Actions → VibeKit CI → Run workflow** to select one project or all configured projects. Individual application workflows also retain manual entry points. Normal commits build CI artifacts; they do not publish releases or submit anything to the Microsoft Store.
 
@@ -40,13 +40,13 @@ Versions belong to applications. Tags use an application prefix:
 | --- | --- | --- |
 | HelpMe | `helpme/v1.2.3` | `helpme-release.yml` |
 | WorkTrail | `worktrail/v1.2.3` | `worktrail-release.yml` |
-| VoiceDucker | `voiceducker/v0.2.0-stable` | `ci-voiceducker.yml`, manual release option |
+| VoiceDucker | `voiceducker/v0.2.0-stable` | `voiceducker-release.yml`, manual |
 | UlanziDeck | `ulanzideck/v0.4.0-stable` | `ulanzideck-release.yml`, manual |
 | AgentInbox | `agentinbox/v2.0.0` | Reserved namespace; the existing manual workflow produces Debug MSIX artifacts only |
 | MarkVibe | `markvibe/v0.1.0.2` | Reserved namespace; `markvibe-package-windows.yml` produces manual artifacts |
 | Thermalright | `thermalright/v0.1.24` | Reserved namespace; CI produces artifacts without a release-publishing workflow |
 
-Only HelpMe and WorkTrail retain automatic tag-triggered release preparation, scoped to their prefixes. Existing draft defaults, version checks, target architectures and packaging policies remain in effect. UlanziDeck's Git tag prefix is removed from archive filenames, preserving the executable/package naming contract. Its previous stable release must be migrated before its next-minor-version check can run. Never use the repository-wide `/releases/latest` to determine an application's latest release.
+Only HelpMe and WorkTrail retain automatic tag-triggered release preparation, scoped to their prefixes. Existing draft defaults, version checks, target architectures and packaging policies remain in effect. VoiceDucker publication is isolated in a manual workflow so its write permission is never required by reusable CI. UlanziDeck's Git tag prefix is removed from archive filenames, preserving the executable/package naming contract. Its previous stable release must be migrated before its next-minor-version check can run. Never use the repository-wide `/releases/latest` to determine an application's latest release.
 
 HelpMe's Store workflow and AgentInbox's Debug MSIX workflow remain explicit manual actions. Migrating a workflow does not validate, sign, install or publish a package.
 

@@ -1,0 +1,57 @@
+name: voiceducker / Manual release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: New voiceducker/v<version> tag matching the source version
+        required: true
+        type: string
+      draft:
+        description: Create a draft for review
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/ci-voiceducker.yml
+
+  release:
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: VoiceDucker-win-*
+          path: Apps/VoiceDucker/artifacts/release
+          merge-multiple: true
+      - name: Create a new release without replacing existing assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ github.sha }}
+          IS_DRAFT: ${{ inputs.draft }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          [xml]$project = Get-Content VoiceDucker.csproj
+          $version = @($project.Project.PropertyGroup.Version | Where-Object { $_ })[0]
+          if ($env:RELEASE_TAG -cnotin @("voiceducker/v$version", "voiceducker/v$version-stable")) { throw 'Tag must match the project version.' }
+          $existing = git ls-remote --tags origin "refs/tags/$env:RELEASE_TAG"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not inspect remote tags.' }
+          if ($existing) { throw 'Tag already exists; existing releases are never overwritten.' }
+          $files = @(Get-ChildItem artifacts/release -Filter 'VoiceDucker-win-*.zip' -File)
+          if ($files.Count -ne 2) { throw 'Both architecture ZIPs are required.' }
+          Get-Content artifacts/release/*.zip.sha256 | Set-Content artifacts/release/SHA256SUMS.txt -Encoding ascii
+          gh release create $env:RELEASE_TAG $files.FullName artifacts/release/SHA256SUMS.txt --target $env:SOURCE_SHA --title "VoiceDucker $version" --notes-file docs/releases/0.2.0.md "--draft=$env:IS_DRAFT" --prerelease=false
+          if ($LASTEXITCODE -ne 0) { throw 'Release creation failed.' }
+    defaults:
+      run:
+        working-directory: Apps/VoiceDucker

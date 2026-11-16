@@ -7,6 +7,7 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {RippleEffect} from './effect.js';
+import {RecoveryPolicy, readResourceSample, retryDelay} from './recovery.js';
 
 const NUMBERS = ['strength', 'speed', 'wavelength', 'rings', 'lifetime',
     'damping', 'light', 'radius', 'aspect', 'chromatic-separation', 'chromatic-blend',
@@ -29,7 +30,12 @@ export default class RippleExtension extends Extension {
         this._lagCount = 0;
         this._diagnosticTimer = 0;
         this._diagnosticPrevious = null;
+        this._recoveryTimer = 0;
+        this._recovery = null;
+        this._recoveryFailures = 0;
+        this._lastAutoRestart = 0;
         // A new login/extension reload always starts with refraction off.
+        this._settings.set_boolean('recovery-pending', false);
         this._settings.set_boolean('active', false);
         this._settings.set_string('status', 'Ready');
         this._connect(this._settings, 'changed', (_settings, key) => {
@@ -41,10 +47,18 @@ export default class RippleExtension extends Extension {
                     this._clear();
                     this._stopPointerPolling();
                 } else {
+                    this._cancelRecovery();
                     this._startPointerPolling();
                 }
                 this._settings.set_string('status', this._settings.get_boolean('active') ? 'Active' : 'Stopped');
             }
+            else if (key === 'recovery-pending' && !this._settings.get_boolean('recovery-pending')) {
+                this._cancelRecovery();
+                if (!this._settings.get_boolean('active'))
+                    this._settings.set_string('status', 'Stopped');
+            }
+            else if (key === 'auto-restart' && !this._settings.get_boolean('auto-restart'))
+                this._cancelRecovery();
             else if (key === 'panic-enabled')
                 this._syncPanic();
             else if (['target', 'patch-size', 'fps'].includes(key))
@@ -294,13 +308,13 @@ export default class RippleExtension extends Extension {
         }
         if (delay > 0.25) {
             this._timer = 0;
-            this._stop('Effect stopped after a compositor delay', {delayMs: Math.round(delay * 1000)});
+            this._stop('Effect stopped after a compositor delay', {delayMs: Math.round(delay * 1000)}, true);
             return GLib.SOURCE_REMOVE;
         }
         this._lagCount = delay > 0.09 ? this._lagCount + 1 : Math.max(0, this._lagCount - 1);
         if (this._lagCount >= 3) {
             this._timer = 0;
-            this._stop('Effect stopped after repeated compositor delays', {delayMs: Math.round(delay * 1000)});
+            this._stop('Effect stopped after repeated compositor delays', {delayMs: Math.round(delay * 1000)}, true);
             return GLib.SOURCE_REMOVE;
         }
         const lifetime = this._settings.get_double('lifetime');
@@ -338,7 +352,57 @@ export default class RippleExtension extends Extension {
         this._lagCount = 0;
     }
 
-    _stop(message, details = {}) {
+    _cancelRecovery() {
+        if (this._recoveryTimer) {
+            GLib.source_remove(this._recoveryTimer);
+            this._recoveryTimer = 0;
+        }
+        this._recovery = null;
+        if (this._settings.get_boolean('recovery-pending')) {
+            this._settings.set_boolean('recovery-pending', false);
+            if (!this._settings.get_boolean('active'))
+                this._settings.set_string('status', 'Stopped');
+        }
+    }
+
+    _beginRecovery() {
+        const time = now();
+        this._recoveryFailures = this._lastAutoRestart && time - this._lastAutoRestart < 300
+            ? this._recoveryFailures + 1 : 1;
+        const delay = retryDelay(this._recoveryFailures);
+        this._recovery = new RecoveryPolicy(time, delay);
+        this._settings.set_boolean('recovery-pending', true);
+        this._settings.set_string('status', 'Paused for performance; waiting for the system to recover');
+        this._recoveryTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 5, () => {
+            if (!this._leaseValid()) {
+                this._recoveryTimer = 0;
+                this._stop('Controller heartbeat expired or invalid');
+                return GLib.SOURCE_REMOVE;
+            }
+            let sample = null;
+            try {
+                const decoder = new TextDecoder();
+                sample = readResourceSample(decoder.decode(GLib.file_get_contents('/proc/stat')[1]),
+                    decoder.decode(GLib.file_get_contents('/proc/meminfo')[1]));
+            } catch (error) {
+                // Unavailable metrics must never cause an unsafe restart.
+            }
+            const time = now();
+            if (this._recovery.sample(time, Main.sessionMode.isLocked ? null : sample)) {
+                this._recoveryTimer = 0;
+                this._lastAutoRestart = time;
+                this._cancelRecovery();
+                this._settings.set_boolean('active', true);
+                this._notify('Ripple resumed', 'The system is stable and the effect is active again.');
+                this._logDiagnostic('effect-auto-restarted');
+                return GLib.SOURCE_REMOVE;
+            }
+            return GLib.SOURCE_CONTINUE;
+        });
+    }
+
+    _stop(message, details = {}, performance = false) {
+        this._cancelRecovery();
         const context = {reason: message, waves: this._patches.length,
             lagCount: this._lagCount,
             leaseRemainingMs: Math.round((this._settings.get_double('lease-until') - now()) * 1000),
@@ -347,9 +411,21 @@ export default class RippleExtension extends Extension {
         this._settings.set_boolean('active', false);
         this._settings.set_string('status', message);
         this._logDiagnostic('effect-stopped', context);
+        if (performance && this._settings.get_boolean('auto-restart') && this._leaseValid()) {
+            this._beginRecovery();
+            this._notify('Ripple paused', 'The desktop slowed down. Ripple will resume when the system is stable.');
+        } else if (message !== 'Stopped by keyboard shortcut') {
+            this._notify('Ripple stopped', message);
+        }
+    }
+
+    _notify(title, message) {
+        try { Main.notify(title, message); }
+        catch (error) { console.warn('Ripple notification unavailable:', error.message); }
     }
 
     disable() {
+        this._cancelRecovery();
         this._stopPointerPolling();
         this._clear();
         if (this._panicRegistered)

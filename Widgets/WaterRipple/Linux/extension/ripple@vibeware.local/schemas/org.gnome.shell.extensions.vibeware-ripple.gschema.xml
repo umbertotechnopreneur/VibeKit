@@ -57,6 +57,13 @@
     <key name="active" type="b">
       <default>false</default>
     </key>
+    <key name="auto-restart" type="b">
+      <default>true</default>
+      <summary>Resume after performance improves</summary>
+    </key>
+    <key name="recovery-pending" type="b">
+      <default>false</default>
+    </key>
     <key name="target" type="s">
       <default>'desktop'</default>
       <choices><choice value="desktop"/><choice value="windows"/><choice value="both"/></choices>

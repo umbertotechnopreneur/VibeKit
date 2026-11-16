@@ -6,6 +6,10 @@ Open **Ripple** from the applications menu, choose where the effect should appea
 
 The compositor limits the effect to a local region around the click and at most two waves. The controller keeps the effect alive while running, including when hidden. If its heartbeat stops or the compositor detects sustained delays, the extension turns the effect off.
 
+**Auto restart** is enabled by default. After a compositor delay it pauses the effect for at least one minute, then resumes it once CPU and memory have been healthy and the desktop event loop responsive for 30 seconds. If the effect stops again within five minutes, the waiting time doubles up to five minutes. Missing resource information prevents automatic recovery. The status row shows when recovery is pending; **Stop**, the emergency shortcut, quitting the controller, or turning off Auto restart cancels it. Other failures, including an expired controller heartbeat, do not restart the effect automatically.
+
+Ripple shows desktop notifications when it pauses for performance, resumes automatically, or stops unexpectedly. Notification visibility depends on your desktop notification settings.
+
 Use the **Effect** tab to choose a pipeline and expand **Ripple**, **RGB refraction**, **Crest reflections**, **Multiple ripples**, or **Glass / liquid**. Filters retain their individual presets and controls. Changes apply immediately to active waves and save automatically, without a preview or Apply step.
 
 The **Pipelines** tab lists built-in and personal pipelines with effect summaries and actions. **New pipeline** saves the current combination. Duplicate a built-in to customize it, rename or delete your copies, and use **Import** / **Export** to transfer JSON libraries between Linux and Windows. Saved pipelines update automatically as parameters change. The library lives at `$XDG_CONFIG_HOME/VibeWare/Ripple/pipelines.json`, normally `~/.config/VibeWare/Ripple/pipelines.json`. Renderer limits are applied locally; rendering can differ across platforms. The library excludes the effect switch, target, performance limits and emergency shortcut.
@@ -34,7 +38,7 @@ Build the Debian package and extension archive with Python 3, `glib-compile-sche
 
 ```sh
 python3 build-package.py --output-dir /tmp/water-ripple
-sudo apt install /tmp/water-ripple/vibeware-ripple_0.1.3_all.deb
+sudo apt install /tmp/water-ripple/vibeware-ripple_0.1.4_all.deb
 ```
 
 If GNOME has yet to discover a new extension installation, sign out and back in so Ripple can enable it through GNOME's extension service.

@@ -36,6 +36,12 @@ export function buildControls(window, settings, application = null, externalLeas
     const active = new Adw.SwitchRow({title: 'Effect'});
     settings.bind('active', active, 'active', Gio.SettingsBindFlags.DEFAULT);
     group.add(active);
+    const autoRestart = new Adw.SwitchRow({
+        title: 'Auto restart',
+        subtitle: 'Resume after a performance pause when the system is stable',
+    });
+    settings.bind('auto-restart', autoRestart, 'active', Gio.SettingsBindFlags.DEFAULT);
+    group.add(autoRestart);
     const emergency = new Adw.SwitchRow({
         title: 'Emergency stop shortcut',
         subtitle: 'Super + Shift + Esc stops the effect',
@@ -155,6 +161,7 @@ export function buildControls(window, settings, application = null, externalLeas
     let enableWhenReady = application ? true : startEffect;
     stop.connect('clicked', () => {
         enableWhenReady = false;
+        settings.set_boolean('recovery-pending', false);
         settings.set_boolean('active', false);
     });
     foot.add(stop);
@@ -171,6 +178,7 @@ export function buildControls(window, settings, application = null, externalLeas
     const changed = settings.connect('changed::status', () => status.set_title(settings.get_string('status')));
     window.connect('close-request', () => {
         closed = true;
+        settings.set_boolean('recovery-pending', false);
         settings.set_boolean('active', false);
         settings.set_double('lease-until', 0);
         Gio.Settings.sync();

@@ -1,0 +1,366 @@
+// SPDX-License-Identifier: MIT
+#include "Renderer.h"
+#include <d3d11.h>
+#include <dxgi1_4.h>
+#include <dcomp.h>
+#include <d3dcompiler.h>
+#include <wrl/client.h>
+#include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Foundation.Metadata.h>
+#include <winrt/Windows.Graphics.Capture.h>
+#include <winrt/Windows.Graphics.DirectX.Direct3D11.h>
+#include <windows.graphics.capture.interop.h>
+#include <windows.graphics.directx.direct3d11.interop.h>
+#include <atomic>
+#include <chrono>
+#include <cstdint>
+#include <array>
+#include <cmath>
+
+using Microsoft::WRL::ComPtr;
+using namespace winrt::Windows::Graphics;
+using Clock = std::chrono::steady_clock;
+
+namespace
+{
+    void Check(HRESULT result) { winrt::check_hresult(result); }
+    [[noreturn]] void Fail(const wchar_t* text) { throw winrt::hresult_error(E_FAIL, text); }
+    constexpr uint64_t MiB = 1024 * 1024;
+    constexpr uint64_t MaxPixels = 3840 * 2160;
+    struct alignas(16) Constants { float Surface[4], Phosphor[4], Scan[4], Tone[4], Finish[4], Glitch[4]; };
+    static_assert(sizeof(Constants) == 96);
+
+    ComPtr<IDXGIAdapter1> FindAdapter(HMONITOR monitor, std::wstring& name)
+    {
+        ComPtr<IDXGIFactory1> factory;
+        Check(CreateDXGIFactory1(IID_PPV_ARGS(&factory)));
+        for (UINT index = 0;; ++index)
+        {
+            ComPtr<IDXGIAdapter1> adapter;
+            HRESULT hr = factory->EnumAdapters1(index, &adapter);
+            if (hr == DXGI_ERROR_NOT_FOUND) break;
+            Check(hr);
+            DXGI_ADAPTER_DESC1 description{};
+            Check(adapter->GetDesc1(&description));
+            if (description.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) continue;
+            for (UINT outputIndex = 0;; ++outputIndex)
+            {
+                ComPtr<IDXGIOutput> output;
+                hr = adapter->EnumOutputs(outputIndex, &output);
+                if (hr == DXGI_ERROR_NOT_FOUND) break;
+                Check(hr);
+                DXGI_OUTPUT_DESC info{};
+                Check(output->GetDesc(&info));
+                if (info.AttachedToDesktop && info.Monitor == monitor)
+                {
+                    if (info.Rotation != DXGI_MODE_ROTATION_IDENTITY && info.Rotation != DXGI_MODE_ROTATION_UNSPECIFIED)
+                        Fail(L"Rotated monitors are not supported by this prototype.");
+                    name = description.Description;
+                    return adapter;
+                }
+            }
+        }
+        Fail(L"No hardware graphics adapter owns the selected monitor.");
+    }
+
+    ComPtr<ID3DBlob> Compile(const std::wstring& path, const char* entry, const char* target)
+    {
+        ComPtr<ID3DBlob> code, errors;
+        HRESULT hr = D3DCompileFromFile(path.c_str(), nullptr, nullptr, entry, target,
+            D3DCOMPILE_OPTIMIZATION_LEVEL3 | D3DCOMPILE_WARNINGS_ARE_ERRORS, 0, &code, &errors);
+        if (FAILED(hr))
+        {
+            if (errors) OutputDebugStringA(static_cast<const char*>(errors->GetBufferPointer()));
+            throw winrt::hresult_error(hr, L"The CRT shader could not compile. Keep Shaders/Retro.hlsl next to the application.");
+        }
+        return code;
+    }
+}
+
+struct Renderer::State
+{
+    HWND overlay{};
+    UINT width{}, height{};
+    bool validFrame = false, presentPending = false;
+    unsigned busyPresents = 0;
+    std::wstring adapterName;
+    Clock::time_point started = Clock::now();
+    Clock::time_point lastBudgetCheck = started;
+    std::shared_ptr<std::atomic_bool> sourceClosed = std::make_shared<std::atomic_bool>(false);
+    winrt::event_token closedToken{};
+    bool subscribed = false;
+    Capture::GraphicsCaptureItem item{nullptr};
+    Capture::Direct3D11CaptureFramePool pool{nullptr};
+    Capture::GraphicsCaptureSession session{nullptr};
+    ComPtr<IDXGIAdapter1> adapter;
+    ComPtr<ID3D11Device> device;
+    ComPtr<ID3D11DeviceContext> context;
+    ComPtr<IDXGISwapChain1> swap;
+    ComPtr<ID3D11RenderTargetView> target;
+    ComPtr<ID3D11Texture2D> desktop;
+    ComPtr<ID3D11ShaderResourceView> desktopView;
+    std::array<ComPtr<ID3D11Texture2D>, 2> history;
+    std::array<ComPtr<ID3D11ShaderResourceView>, 2> historyViews;
+    std::array<ComPtr<ID3D11RenderTargetView>, 2> historyTargets;
+    unsigned historyRead = 0;
+    bool historyValid = false, wasTail = false;
+    Clock::time_point lastDraw = started, tailUntil = started;
+    ComPtr<ID3D11VertexShader> vertex;
+    ComPtr<ID3D11PixelShader> pixel;
+    ComPtr<ID3D11Buffer> constants;
+    ComPtr<ID3D11SamplerState> sampler;
+    ComPtr<ID3D11RasterizerState> rasterizer;
+    ComPtr<IDCompositionDevice> composition;
+    ComPtr<IDCompositionTarget> compositionTarget;
+    ComPtr<IDCompositionVisual> visual;
+
+    void CheckBudget()
+    {
+        ComPtr<IDXGIAdapter3> budgetAdapter;
+        Check(adapter.As(&budgetAdapter));
+        DXGI_QUERY_VIDEO_MEMORY_INFO info{};
+        Check(budgetAdapter->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &info));
+        const uint64_t reserve = uint64_t(width) * height * 4 * 7 + 128 * MiB;
+        if (info.CurrentUsage >= info.Budget || info.Budget - info.CurrentUsage < reserve)
+            Fail(L"Stopped: insufficient free GPU memory budget. Free resources and enable manually.");
+    }
+
+    void HistoryEnabled(bool enabled)
+    {
+        if (!enabled) {
+            context->OMSetRenderTargets(0, nullptr, nullptr);
+            ID3D11ShaderResourceView* empty[2]{};
+            context->PSSetShaderResources(0, 2, empty);
+            for (auto& view : historyViews) view.Reset();
+            for (auto& target : historyTargets) target.Reset();
+            for (auto& texture : history) texture.Reset();
+            historyValid = wasTail = false;
+            return;
+        }
+        if (history[0]) return;
+        CheckBudget();
+        D3D11_TEXTURE2D_DESC desc{};
+        desktop->GetDesc(&desc);
+        desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+        constexpr float clear[4]{};
+        for (unsigned i = 0; i < 2; ++i) {
+            Check(device->CreateTexture2D(&desc, nullptr, &history[i]));
+            Check(device->CreateShaderResourceView(history[i].Get(), nullptr, &historyViews[i]));
+            Check(device->CreateRenderTargetView(history[i].Get(), nullptr, &historyTargets[i]));
+            context->ClearRenderTargetView(historyTargets[i].Get(), clear);
+        }
+        historyRead = 0;
+        historyValid = false;
+    }
+
+    ~State()
+    {
+        if (overlay) ShowWindow(overlay, SW_HIDE);
+        // Revocation precedes releasing the frame pool; callback only owns its atomic flag.
+        try { if (subscribed && item) item.Closed(closedToken); } catch (...) {}
+        try { if (session) session.Close(); } catch (...) {}
+        try { if (pool) pool.Close(); } catch (...) {}
+        if (context) { context->ClearState(); context->Flush(); }
+    }
+};
+
+Renderer::Renderer() = default;
+Renderer::~Renderer() = default;
+void Renderer::Stop() noexcept { state.reset(); }
+
+void Renderer::Start(HWND overlay, HMONITOR monitor, const std::wstring& shaderPath)
+{
+    Stop();
+    if (!Capture::GraphicsCaptureSession::IsSupported()) Fail(L"Windows Graphics Capture is unavailable.");
+    auto next = std::make_unique<State>();
+    next->overlay = overlay;
+    MONITORINFO info{sizeof(info)};
+    if (!GetMonitorInfoW(monitor, &info)) winrt::throw_last_error();
+    next->width = info.rcMonitor.right - info.rcMonitor.left;
+    next->height = info.rcMonitor.bottom - info.rcMonitor.top;
+    if (next->width < 16 || next->height < 16 || uint64_t(next->width) * next->height > MaxPixels)
+        Fail(L"This prototype supports a single monitor up to 3840 x 2160 pixels (8.3 MP).");
+    next->adapter = FindAdapter(monitor, next->adapterName);
+    next->CheckBudget();
+    D3D_FEATURE_LEVEL level{};
+    constexpr D3D_FEATURE_LEVEL levels[]{D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
+    Check(D3D11CreateDevice(next->adapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, nullptr,
+        D3D11_CREATE_DEVICE_BGRA_SUPPORT, levels, ARRAYSIZE(levels), D3D11_SDK_VERSION,
+        &next->device, &level, &next->context));
+    ComPtr<IDXGIDevice> dxgi;
+    Check(next->device.As(&dxgi));
+    ComPtr<IDXGIFactory2> factory;
+    Check(next->adapter->GetParent(IID_PPV_ARGS(&factory)));
+    DXGI_SWAP_CHAIN_DESC1 swapDescription{};
+    swapDescription.Width = next->width;
+    swapDescription.Height = next->height;
+    swapDescription.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    swapDescription.SampleDesc.Count = 1;
+    swapDescription.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swapDescription.BufferCount = 2;
+    swapDescription.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+    swapDescription.Scaling = DXGI_SCALING_STRETCH;
+    swapDescription.AlphaMode = DXGI_ALPHA_MODE_PREMULTIPLIED;
+    Check(factory->CreateSwapChainForComposition(next->device.Get(), &swapDescription, nullptr, &next->swap));
+    ComPtr<IDXGIDevice1> latencyDevice;
+    Check(dxgi.As(&latencyDevice));
+    Check(latencyDevice->SetMaximumFrameLatency(1));
+    ComPtr<ID3D11Texture2D> backBuffer;
+    Check(next->swap->GetBuffer(0, IID_PPV_ARGS(&backBuffer)));
+    Check(next->device->CreateRenderTargetView(backBuffer.Get(), nullptr, &next->target));
+    Check(DCompositionCreateDevice(dxgi.Get(), IID_PPV_ARGS(&next->composition)));
+    Check(next->composition->CreateTargetForHwnd(overlay, TRUE, &next->compositionTarget));
+    Check(next->composition->CreateVisual(&next->visual));
+    Check(next->visual->SetContent(next->swap.Get()));
+    Check(next->compositionTarget->SetRoot(next->visual.Get()));
+    Check(next->composition->Commit());
+    auto vs = Compile(shaderPath, "VSMain", "vs_5_0");
+    auto ps = Compile(shaderPath, "PSMain", "ps_5_0");
+    Check(next->device->CreateVertexShader(vs->GetBufferPointer(), vs->GetBufferSize(), nullptr, &next->vertex));
+    Check(next->device->CreatePixelShader(ps->GetBufferPointer(), ps->GetBufferSize(), nullptr, &next->pixel));
+    D3D11_BUFFER_DESC buffer{};
+    buffer.ByteWidth = sizeof(Constants);
+    buffer.Usage = D3D11_USAGE_DEFAULT;
+    buffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    Check(next->device->CreateBuffer(&buffer, nullptr, &next->constants));
+    D3D11_SAMPLER_DESC sampler{};
+    sampler.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    sampler.AddressU = sampler.AddressV = sampler.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+    sampler.MaxLOD = D3D11_FLOAT32_MAX;
+    Check(next->device->CreateSamplerState(&sampler, &next->sampler));
+    D3D11_RASTERIZER_DESC raster{};
+    raster.FillMode = D3D11_FILL_SOLID;
+    raster.CullMode = D3D11_CULL_NONE;
+    raster.DepthClipEnable = TRUE;
+    Check(next->device->CreateRasterizerState(&raster, &next->rasterizer));
+    D3D11_TEXTURE2D_DESC texture{};
+    texture.Width = next->width;
+    texture.Height = next->height;
+    texture.MipLevels = texture.ArraySize = 1;
+    texture.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    texture.SampleDesc.Count = 1;
+    texture.Usage = D3D11_USAGE_DEFAULT;
+    texture.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    Check(next->device->CreateTexture2D(&texture, nullptr, &next->desktop));
+    Check(next->device->CreateShaderResourceView(next->desktop.Get(), nullptr, &next->desktopView));
+
+    auto interop = winrt::get_activation_factory<Capture::GraphicsCaptureItem, IGraphicsCaptureItemInterop>();
+    Check(interop->CreateForMonitor(monitor, winrt::guid_of<Capture::GraphicsCaptureItem>(), winrt::put_abi(next->item)));
+    auto captureSize = next->item.Size();
+    if (captureSize.Width != int(next->width) || captureSize.Height != int(next->height))
+        Fail(L"Capture dimensions do not match this monitor. Enable again after the display settles.");
+    auto flag = next->sourceClosed;
+    next->closedToken = next->item.Closed([flag](auto const&, auto const&) { flag->store(true); });
+    next->subscribed = true;
+    winrt::com_ptr<IInspectable> inspectable;
+    Check(CreateDirect3D11DeviceFromDXGIDevice(dxgi.Get(), inspectable.put()));
+    auto captureDevice = inspectable.as<DirectX::Direct3D11::IDirect3DDevice>();
+    next->pool = Capture::Direct3D11CaptureFramePool::CreateFreeThreaded(captureDevice,
+        DirectX::DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, captureSize);
+    next->session = next->pool.CreateCaptureSession(next->item);
+    next->session.IsCursorCaptureEnabled(false);
+    if (winrt::Windows::Foundation::Metadata::ApiInformation::IsPropertyPresent(
+        L"Windows.Graphics.Capture.GraphicsCaptureSession", L"MinUpdateInterval"))
+        next->session.MinUpdateInterval(std::chrono::milliseconds(34));
+    // Leave the Windows-owned capture border enabled. No capture permissions are bypassed.
+    next->session.StartCapture();
+    next->started = Clock::now();
+    state = std::move(next);
+}
+
+bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, bool settingsChanged, bool animationChanged)
+{
+    if (!state) return false;
+    auto& s = *state;
+    if (s.sourceClosed->load()) Fail(L"The captured monitor became unavailable. Enable manually to retry.");
+    Check(s.device->GetDeviceRemovedReason());
+    auto now = Clock::now();
+    if (now - s.lastBudgetCheck > std::chrono::seconds(2))
+    {
+        s.CheckBudget();
+        s.lastBudgetCheck = now;
+    }
+    auto frame = s.pool.TryGetNextFrame();
+    bool newFrame = bool(frame);
+    if (frame)
+    {
+        auto size = frame.ContentSize();
+        if (size.Width != int(s.width) || size.Height != int(s.height))
+            Fail(L"Display size changed. The effect stopped; enable manually to retry.");
+        auto access = frame.Surface().as<IDirect3DDxgiInterfaceAccess>();
+        ComPtr<ID3D11Texture2D> source;
+        Check(access->GetInterface(IID_PPV_ARGS(&source)));
+        D3D11_TEXTURE2D_DESC description{};
+        source->GetDesc(&description);
+        if (description.Width != s.width || description.Height != s.height || description.Format != DXGI_FORMAT_B8G8R8A8_UNORM)
+            Fail(L"Unexpected capture format. The effect stopped.");
+        s.context->CopyResource(s.desktop.Get(), source.Get());
+        s.validFrame = true;
+        frame.Close();
+    }
+    if (!s.validFrame)
+    {
+        if (now - s.started > std::chrono::seconds(3)) Fail(L"No screen frame arrived. The effect stopped.");
+        return false;
+    }
+    const bool persistence = settings.persistence && settings.persistenceStrength > 0 && settings.intensity > 0;
+    if (persistence != bool(s.history[0])) s.HistoryEnabled(persistence);
+    if (settingsChanged) s.historyValid = false;
+    if (newFrame || animationChanged || settingsChanged)
+        s.tailUntil = now + std::chrono::milliseconds(int(settings.persistenceMs * 8));
+    const bool tail = persistence && now < s.tailUntil;
+    const bool finishTail = s.wasTail && !tail;
+    s.wasTail = tail;
+    if (finishTail) s.historyValid = false;
+    if (!newFrame && !settingsChanged && !s.presentPending && !animationChanged && !tail && !finishTail) return false;
+    const float dtMs = std::chrono::duration<float, std::milli>(now - s.lastDraw).count();
+    const float decay = s.historyValid ? std::exp2(-std::max(0.f, dtMs) / settings.persistenceMs) : 0.f;
+    Constants values{
+        {float(s.width), float(s.height), settings.intensity, float(settings.palette)},
+        {settings.color[0], settings.color[1], settings.color[2], float(settings.mask)},
+        {settings.scanStrength, settings.scanSpacing, settings.scanThickness, settings.maskStrength},
+        {settings.glowRadius, settings.glow, settings.blackLevel, settings.contrast},
+        {settings.vignette, settings.grain, decay, persistence ? settings.persistenceStrength : 0.f},
+        {float(glitch.type), glitch.amount, glitch.position, glitch.phase}
+    };
+    s.context->UpdateSubresource(s.constants.Get(), 0, nullptr, &values, 0, 0);
+    const unsigned historyWrite = 1 - s.historyRead;
+    ID3D11RenderTargetView* targets[]{s.target.Get(), persistence ? s.historyTargets[historyWrite].Get() : nullptr};
+    s.context->OMSetRenderTargets(persistence ? 2 : 1, targets, nullptr);
+    D3D11_VIEWPORT viewport{0, 0, float(s.width), float(s.height), 0, 1};
+    s.context->RSSetViewports(1, &viewport);
+    s.context->RSSetState(s.rasterizer.Get());
+    s.context->IASetInputLayout(nullptr);
+    s.context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    s.context->VSSetShader(s.vertex.Get(), nullptr, 0);
+    s.context->PSSetShader(s.pixel.Get(), nullptr, 0);
+    ID3D11Buffer* constants = s.constants.Get();
+    s.context->PSSetConstantBuffers(0, 1, &constants);
+    ID3D11SamplerState* sampler = s.sampler.Get();
+    s.context->PSSetSamplers(0, 1, &sampler);
+    ID3D11ShaderResourceView* views[]{s.desktopView.Get(), persistence ? s.historyViews[s.historyRead].Get() : nullptr};
+    s.context->PSSetShaderResources(0, 2, views);
+    s.context->Draw(3, 0);
+    ID3D11ShaderResourceView* empty[2]{};
+    s.context->PSSetShaderResources(0, 2, empty);
+    s.context->OMSetRenderTargets(0, nullptr, nullptr);
+    if (persistence) { s.historyRead = historyWrite; s.historyValid = true; }
+    s.lastDraw = now;
+    HRESULT presented = s.swap->Present(0, DXGI_PRESENT_DO_NOT_WAIT);
+    if (presented == DXGI_ERROR_WAS_STILL_DRAWING)
+    {
+        s.presentPending = true;
+        if (++s.busyPresents >= 30) Fail(L"The GPU presentation queue stayed busy. Enable manually to retry.");
+        return false;
+    }
+    if (presented == DXGI_STATUS_OCCLUDED) Fail(L"Presentation became unavailable. The effect stopped.");
+    Check(presented);
+    s.presentPending = false;
+    s.busyPresents = 0;
+    return true;
+}
+
+std::wstring Renderer::Description() const
+{
+    return state ? state->adapterName + L" · " + std::to_wstring(state->width) + L" × " + std::to_wstring(state->height) : L"Stopped";
+}

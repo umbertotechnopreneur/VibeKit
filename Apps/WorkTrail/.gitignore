@@ -1,0 +1,64 @@
+# VBWR B
+#
+# Project: WorkTrail
+# Repository: https://github.com/umbertotechnopreneur/WorkTrail
+# Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+#
+# VibeWare: Human intent, AI execution, and plenty of tokens
+# Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+#
+# Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+# Human guidance: Umberto Giacobbi; requested VibeWare branding.
+#
+# Copyright (c) 2026 Umberto Giacobbi
+# License: MIT - see LICENSE
+# SPDX-License-Identifier: MIT
+#
+# VBWR E
+
+# Build and IDE folders
+bin/
+obj/
+artifacts/
+.vs/
+out/
+WorkTrail/AppPackages/
+
+# Local activity data, screenshots, and developer configuration
+data/
+!/WorkTrail.Core/Data/
+/WorkTrail.Core/Data/*
+!/WorkTrail.Core/Data/ui-automation-names.json
+!/WorkTrail.Core/Data/sky-catalog.json
+!/WorkTrail.Core/Data/sky-palette.json
+!/WorkTrail.Core/Data/important-dates.json
+!/WorkTrail.Core/Data/celestial-calendar.json
+!/WorkTrail.Core/Data/screenshot-capture-rules.json
+/screenshots/
+.env
+.env.*
+appsettings.local.json
+
+# Logs and generated files
+*.log
+*.user
+*.suo
+*.cache
+WorkTrail/BuildInfo.json
+
+# OS and editor noise
+Thumbs.db
+desktop.ini
+.DS_Store
+.codex-remote-attachments/
+__pycache__/
+
+# Local generation candidates and superseded derivatives; selected masters and runtime-v3 are tracked.
+/design/world-clocks/watercolor/staging-additional-cities-v1/
+/design/world-clocks/watercolor/runtime-v2/
+
+# Local JavaScript dependencies
+node_modules/
+
+# Store listing and account material stay in private product notes.
+/store/

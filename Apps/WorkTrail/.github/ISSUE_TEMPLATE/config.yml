@@ -1,0 +1,29 @@
+# VBWR B
+#
+# Project: WorkTrail
+# Repository: https://github.com/umbertotechnopreneur/WorkTrail
+# Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+#
+# VibeWare: Human intent, AI execution, and plenty of tokens
+# Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+#
+# Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+# Human guidance: Umberto Giacobbi; requested VibeWare branding.
+#
+# Copyright (c) 2026 Umberto Giacobbi
+# License: MIT - see LICENSE
+# SPDX-License-Identifier: MIT
+#
+# VBWR E
+
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/umbertotechnopreneur/TrackMeUp/security/advisories/new
+    about: Report security issues privately instead of opening a public issue.
+  - name: Questions and ideas
+    url: https://github.com/umbertotechnopreneur/TrackMeUp/discussions
+    about: Ask for help or discuss ideas with the community.
+  - name: Support guidance
+    url: https://github.com/umbertotechnopreneur/TrackMeUp/blob/main/SUPPORT.md
+    about: Check what to include in a support request.

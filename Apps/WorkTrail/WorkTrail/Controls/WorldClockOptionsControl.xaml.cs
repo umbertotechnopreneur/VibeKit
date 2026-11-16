@@ -1,0 +1,578 @@
+// SPDX-License-Identifier: MIT
+/* VBWR B
+ *
+ * Project: WorkTrail
+ * Repository: https://github.com/umbertotechnopreneur/WorkTrail
+ * Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+ *
+ * VibeWare: Human intent, AI execution, and plenty of tokens
+ * Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+ *
+ * Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+ * Human guidance: Umberto Giacobbi; requested VibeWare branding.
+ *
+ * Copyright (c) 2026 Umberto Giacobbi
+ * License: MIT - see LICENSE
+ *
+ * VBWR E */
+
+
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
+using WorkTrail.Application;
+using WorkTrail.Services;
+
+namespace WorkTrail.Controls;
+
+/// <summary>Collects world-clock presentation options and forwards mutations to the shared application facade.</summary>
+public sealed partial class WorldClockOptionsControl : UserControl
+{
+    #region Fields
+
+    private IWorkTrailApplication? _application;
+    private LocalizationService _strings = new("system");
+    private CancellationToken _lifetimeToken;
+    private bool _updatingControls;
+    private bool _busy;
+    private bool _canAddClock;
+    private bool _weatherKeyConfigured;
+    private int _worldClockOpacityPercent = 100;
+    private int _pendingWorldClockOpacityPercent = 100;
+    private bool _worldClockShowInTaskbar = true;
+    private bool _worldClockAlwaysOnTop;
+    private bool _autoGroupCities;
+    private string _homeCityId = string.Empty;
+    private readonly List<RadioButton> _homeButtons = [];
+
+    #endregion
+
+    #region Initialization
+
+    /// <summary>Creates the passive world-clock options surface.</summary>
+    public WorldClockOptionsControl() => InitializeComponent();
+
+    #endregion
+
+    #region Implementation
+
+    /// <summary>Occurs when the city picker should be shown.</summary>
+    public event EventHandler? AddRequested;
+
+    /// <summary>Occurs when a city should become the reference city.</summary>
+    public event EventHandler<WorldClockCityEventArgs>? ReferenceRequested;
+
+    /// <summary>Occurs when a city should be removed.</summary>
+    public event EventHandler<WorldClockCityEventArgs>? RemoveRequested;
+
+    /// <summary>Occurs when a city should move one position toward the start of the list.</summary>
+    public event EventHandler<WorldClockCityEventArgs>? MoveUpRequested;
+
+    /// <summary>Occurs when a city should move one position toward the end of the list.</summary>
+    public event EventHandler<WorldClockCityEventArgs>? MoveDownRequested;
+
+    /// <summary>Occurs after the application returns a fully persisted settings snapshot.</summary>
+    public event Action<AppSettings>? SettingsSaved;
+
+    /// <summary>Occurs when a non-field-specific failure should use the window's transient banner.</summary>
+    public event Action<string>? WarningRequested;
+
+    /// <summary>Occurs when the weather-provider setup link should be opened by the host.</summary>
+    public event EventHandler? ProviderLinkRequested;
+
+    /// <summary>Occurs when the guided weather credential sheet should be shown.</summary>
+    public event EventHandler? KeySetupRequested;
+
+    /// <summary>Attaches the shared application facade and applies the current localized presentation state.</summary>
+    public void Initialize(
+        IWorkTrailApplication application,
+        AppSettings settings,
+        WorldClockSnapshot? snapshot,
+        string? referenceCityId,
+        LocalizationService strings,
+        CancellationToken lifetimeToken)
+    {
+        _application = application ?? throw new ArgumentNullException(nameof(application));
+        ArgumentNullException.ThrowIfNull(settings);
+        _strings = strings ?? throw new ArgumentNullException(nameof(strings));
+        _lifetimeToken = lifetimeToken;
+        UiLocalization.Apply(this, _strings);
+        ApplyLocalizedPresentation();
+        ApplyState(settings, snapshot, referenceCityId);
+    }
+
+    /// <summary>Refreshes controls from the latest committed preferences and projection.</summary>
+    public void ApplyState(
+        AppSettings settings,
+        WorldClockSnapshot? snapshot,
+        string? referenceCityId)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        _updatingControls = true;
+        try
+        {
+            _worldClockOpacityPercent = settings.WorldClockWindowOpacityPercent;
+            _pendingWorldClockOpacityPercent = _worldClockOpacityPercent;
+            _worldClockShowInTaskbar = settings.WorldClockWindowShowInTaskbar;
+            _worldClockAlwaysOnTop = settings.WorldClockWindowAlwaysOnTop;
+            _autoGroupCities = settings.WorldClockAutoGroupCities;
+            _homeCityId = settings.HomeCityId;
+            WorldClockOpacitySlider.Value = _worldClockOpacityPercent;
+            WorldClockShowInTaskbarSwitch.IsOn = _worldClockShowInTaskbar;
+            AlwaysOnTopSwitch.IsOn = _worldClockAlwaysOnTop;
+            AutoGroupCitiesSwitch.IsOn = _autoGroupCities;
+        }
+        finally
+        {
+            _updatingControls = false;
+        }
+
+        ApplyWeatherStatus(snapshot?.WeatherStatus);
+        RenderCities(snapshot, referenceCityId);
+    }
+
+    /// <summary>Reapplies localized text without changing option values.</summary>
+    public void ApplyLanguage(LocalizationService strings)
+    {
+        _strings = strings ?? throw new ArgumentNullException(nameof(strings));
+        UiLocalization.Apply(this, _strings);
+        ApplyLocalizedPresentation();
+    }
+
+    /// <summary>Requests the weather-key setup surface.</summary>
+    private void SaveWeatherKeyButton_Click(object sender, RoutedEventArgs e) =>
+        KeySetupRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Persists the requested topmost preference for this clock window.</summary>
+    private async void AlwaysOnTopSwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (!_updatingControls && _application is not null && !_busy)
+        {
+            await SaveWindowPresentationAsync(_worldClockOpacityPercent, _worldClockShowInTaskbar, AlwaysOnTopSwitch.IsOn);
+        }
+    }
+
+    /// <summary>Tracks opacity changes and saves them when appropriate for the input state.</summary>
+    private void WorldClockOpacitySlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (_updatingControls)
+        {
+            return;
+        }
+
+        _pendingWorldClockOpacityPercent = (int)Math.Round(e.NewValue);
+    }
+
+    /// <summary>Commits the pending opacity when pointer interaction ends.</summary>
+    private async void WorldClockOpacitySlider_PointerCaptureLost(object sender, PointerRoutedEventArgs e) =>
+        await SavePendingWindowOpacityAsync();
+
+    /// <summary>Commits the pending opacity after keyboard interaction.</summary>
+    private async void WorldClockOpacitySlider_KeyUp(object sender, KeyRoutedEventArgs e) =>
+        await SavePendingWindowOpacityAsync();
+
+    /// <summary>Persists a changed opacity value once the interaction is ready to commit.</summary>
+    private async Task SavePendingWindowOpacityAsync()
+    {
+        if (_application is not null && !_busy && _pendingWorldClockOpacityPercent != _worldClockOpacityPercent)
+        {
+            await SaveWindowPresentationAsync(_pendingWorldClockOpacityPercent, _worldClockShowInTaskbar, _worldClockAlwaysOnTop);
+        }
+    }
+
+    /// <summary>Persists the clock window's taskbar visibility.</summary>
+    private async void WorldClockShowInTaskbarSwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (!_updatingControls && _application is not null && !_busy)
+        {
+            await SaveWindowPresentationAsync(_worldClockOpacityPercent, WorldClockShowInTaskbarSwitch.IsOn, _worldClockAlwaysOnTop);
+        }
+    }
+
+    /// <summary>Persists window presentation preferences and restores committed controls on failure.</summary>
+    private Task SaveWindowPresentationAsync(int opacityPercent, bool showInTaskbar, bool alwaysOnTop) =>
+        SaveWindowPresentationAsync(WindowAppearanceSettings.CreatePatch(
+            WindowStateKeys.WorldClocks, new WindowAppearance(opacityPercent, showInTaskbar, alwaysOnTop)));
+
+    /// <summary>Persists whether the selected cities share display columns at matching offsets.</summary>
+    private async void AutoGroupCitiesSwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (!_updatingControls && _application is not null && !_busy)
+        {
+            await SaveWindowPresentationAsync(new SettingsPatch(new Dictionary<string, string?>
+            {
+                ["world_clocks.auto_group_cities"] = AutoGroupCitiesSwitch.IsOn ? "true" : "false"
+            }));
+        }
+    }
+
+    /// <summary>Persists window presentation preferences and restores committed controls on failure.</summary>
+    private async Task SaveWindowPresentationAsync(SettingsPatch patch)
+    {
+        SetBusy(true);
+        try
+        {
+            var result = await _application!.PatchSettingsAsync(patch, _lifetimeToken);
+            if (result.Succeeded && result.Value is not null)
+            {
+                _homeCityId = result.Value.HomeCityId;
+                SettingsSaved?.Invoke(result.Value);
+                return;
+            }
+
+            RestoreWindowPresentation();
+            WarningRequested?.Invoke("Options.SaveError");
+        }
+        catch (OperationCanceledException) when (_lifetimeToken.IsCancellationRequested)
+        {
+            // Closing the detached surface cancels the optional settings mutation.
+        }
+        catch (Exception exception)
+        {
+            RestoreWindowPresentation();
+            ApplicationErrorService.Record(exception, "WorldClockWindowPresentation");
+            WarningRequested?.Invoke("Options.SaveError");
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    /// <summary>Restores presentation controls from the last committed values.</summary>
+    private void RestoreWindowPresentation()
+    {
+        _updatingControls = true;
+        _pendingWorldClockOpacityPercent = _worldClockOpacityPercent;
+        WorldClockOpacitySlider.Value = _worldClockOpacityPercent;
+        WorldClockShowInTaskbarSwitch.IsOn = _worldClockShowInTaskbar;
+        AlwaysOnTopSwitch.IsOn = _worldClockAlwaysOnTop;
+        AutoGroupCitiesSwitch.IsOn = _autoGroupCities;
+        _updatingControls = false;
+    }
+
+    /// <summary>Requests the city picker for a new clock.</summary>
+    private void AddClockButton_Click(object sender, RoutedEventArgs e) => AddRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Requests the weather provider's information page.</summary>
+    private void WeatherProviderLinkButton_Click(object sender, RoutedEventArgs e) =>
+        ProviderLinkRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Publishes the newly selected reference city.</summary>
+    private void ReferenceRadioButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_updatingControls || sender is not RadioButton { Tag: WorldClockItem clock })
+        {
+            return;
+        }
+
+        ReferenceRequested?.Invoke(this, new WorldClockCityEventArgs(clock.CityId, clock.CityName));
+    }
+
+    /// <summary>Requests removal of the city associated with the clicked control.</summary>
+    private void RemoveClockButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: WorldClockItem clock })
+        {
+            RemoveRequested?.Invoke(this, new WorldClockCityEventArgs(clock.CityId, clock.CityName));
+        }
+    }
+
+    /// <summary>Requests moving the selected city earlier in the clock list.</summary>
+    private void MoveUpClockButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: WorldClockItem clock })
+        {
+            MoveUpRequested?.Invoke(this, new WorldClockCityEventArgs(clock.CityId, clock.CityName));
+        }
+    }
+
+    /// <summary>Requests moving the selected city later in the clock list.</summary>
+    private void MoveDownClockButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: WorldClockItem clock })
+        {
+            MoveDownRequested?.Invoke(this, new WorldClockCityEventArgs(clock.CityId, clock.CityName));
+        }
+    }
+
+    // snapshot supplies the current clocks and their shared limit.
+    // referenceCityId identifies the reference clock, if selected.
+
+    /// <summary>Builds localized city rows and their reference, move, and remove actions.</summary>
+    private void RenderCities(WorldClockSnapshot? snapshot, string? referenceCityId)
+    {
+        var expandedOffsets = CitiesHost.Children.OfType<Expander>()
+            .Where(group => group.IsExpanded).Select(group => group.Tag).OfType<TimeSpan>().ToHashSet();
+        CitiesHost.Children.Clear();
+        _homeButtons.Clear();
+        if (snapshot is null)
+        {
+            _canAddClock = false;
+            AddClockButton.IsEnabled = false;
+            ClocksLimitText.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        _updatingControls = true;
+        try
+        {
+            var indexes = snapshot.Clocks.Select((clock, index) => (clock.CityId, index))
+                .ToDictionary(city => city.CityId, city => city.index, StringComparer.Ordinal);
+            foreach (var group in WorldClockGrouping.Create(snapshot.Clocks, _autoGroupCities, referenceCityId))
+            {
+                if (group.Cities.Count == 1)
+                {
+                    var city = group.Primary;
+                    AddCityRow(CitiesHost, city, referenceCityId, indexes[city.CityId], snapshot.Clocks.Count, showTime: true);
+                    continue;
+                }
+
+                var rows = new StackPanel();
+                foreach (var city in group.Cities)
+                {
+                    AddCityRow(rows, city, referenceCityId, indexes[city.CityId], snapshot.Clocks.Count, showTime: false);
+                }
+
+                var time = group.Primary.LocalTime.ToString("HH:mm · 'UTC'zzz", _strings.Culture);
+                var names = string.Join(" · ", group.Cities.Select(city => city.CityName));
+                var header = new StackPanel { Spacing = 2 };
+                header.Children.Add(new TextBlock
+                {
+                    Text = time,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+                });
+                header.Children.Add(new TextBlock
+                {
+                    Text = names,
+                    TextWrapping = TextWrapping.Wrap,
+                    Style = (Style)Resources["WorldClockCityTimeTextStyle"]
+                });
+                var expander = new Expander
+                {
+                    Header = header,
+                    Content = rows,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                    Margin = new Thickness(0, 0, 0, 8),
+                    Tag = group.Primary.LocalTime.Offset,
+                    IsExpanded = expandedOffsets.Contains(group.Primary.LocalTime.Offset)
+                };
+                AutomationProperties.SetName(expander, time + " · " + names);
+                CitiesHost.Children.Add(expander);
+            }
+        }
+        finally
+        {
+            _updatingControls = false;
+        }
+
+        _canAddClock = snapshot.Clocks.Count < snapshot.MaximumClocks;
+        AddClockButton.IsEnabled = !_busy && _canAddClock;
+        ClocksLimitText.Visibility = _canAddClock ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>Adds one city's reference, ordering and removal controls to its display group.</summary>
+    private void AddCityRow(StackPanel host, WorldClockItem clock, string? referenceCityId, int index, int cityCount, bool showTime)
+    {
+        if (host.Children.LastOrDefault() is Grid)
+        {
+            host.Children.Add(new Border { Style = (Style)Resources["WorldClockCitySeparatorStyle"] });
+        }
+
+        var row = new Grid
+        {
+            MinHeight = 52,
+            ColumnSpacing = 8,
+            Padding = new Thickness(0, 4, 0, 4)
+        };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var cityContent = new StackPanel { Spacing = 1 };
+        cityContent.Children.Add(new TextBlock
+        {
+            Text = clock.CityName,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        });
+        if (showTime)
+        {
+            cityContent.Children.Add(new TextBlock
+            {
+                Text = clock.LocalTime.ToString("HH:mm", _strings.Culture),
+                Style = (Style)Resources["WorldClockCityTimeTextStyle"]
+            });
+        }
+
+        var referenceButton = new RadioButton
+        {
+            Content = cityContent,
+            GroupName = "WorldClockReferenceCity",
+            MinHeight = 44,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            IsChecked = string.Equals(clock.CityId, referenceCityId, StringComparison.Ordinal),
+            Tag = clock
+        };
+        var referenceName = _strings.Format("WorldClock.SetReference", clock.CityName);
+        AutomationProperties.SetName(referenceButton, referenceName);
+        ToolTipService.SetToolTip(referenceButton, referenceName);
+        referenceButton.Checked += ReferenceRadioButton_Checked;
+        row.Children.Add(referenceButton);
+
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 0,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var moveUpButton = CreateCityActionButton(
+            clock,
+            "\uE70E",
+            "WorldClock.MoveUp",
+            index > 0,
+            MoveUpClockButton_Click);
+        var moveDownButton = CreateCityActionButton(
+            clock,
+            "\uE70D",
+            "WorldClock.MoveDown",
+            index < cityCount - 1,
+            MoveDownClockButton_Click);
+        var removeButton = CreateCityActionButton(
+            clock,
+            "\uE74D",
+            "WorldClock.Remove",
+            isEnabled: true,
+            RemoveClockButton_Click);
+        var homeButton = new RadioButton
+        {
+            GroupName = "WorldClockHomeCity",
+            Content = _strings.Translate("WorldClock.HomeCity"),
+            IsChecked = string.Equals(clock.CityId, _homeCityId, StringComparison.Ordinal),
+            VerticalAlignment = VerticalAlignment.Center,
+            Tag = clock
+        };
+        AutomationProperties.SetName(homeButton, _strings.Translate("WorldClock.HomeCity") + " · " + clock.CityName);
+        _homeButtons.Add(homeButton);
+        homeButton.Checked += async (_, _) =>
+        {
+            if (_updatingControls || _busy || _application is null || clock.CityId == _homeCityId) return;
+            await SaveWindowPresentationAsync(new SettingsPatch(new Dictionary<string, string?> { ["home.city_id"] = clock.CityId }));
+            if (_homeCityId != clock.CityId)
+            {
+                _updatingControls = true;
+                foreach (var button in _homeButtons) button.IsChecked = button.Tag is WorldClockItem item && item.CityId == _homeCityId;
+                _updatingControls = false;
+            }
+        };
+        actions.Children.Add(homeButton);
+        actions.Children.Add(moveUpButton);
+        actions.Children.Add(moveDownButton);
+        actions.Children.Add(removeButton);
+        Grid.SetColumn(actions, 1);
+        row.Children.Add(actions);
+        host.Children.Add(row);
+    }
+
+    /// <summary>Creates an accessible icon action for a specific city.</summary>
+    private Button CreateCityActionButton(
+        WorldClockItem clock,
+        string glyph,
+        string labelKey,
+        bool isEnabled,
+        RoutedEventHandler clickHandler)
+    {
+        var button = new Button
+        {
+            Width = 40,
+            Height = 40,
+            Padding = new Thickness(0),
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            BorderBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            Content = new FontIcon
+            {
+                FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe Fluent Icons"),
+                FontSize = 15,
+                Glyph = glyph
+            },
+            Tag = clock,
+            IsEnabled = isEnabled
+        };
+        var label = _strings.Format(labelKey, clock.CityName);
+        AutomationProperties.SetName(button, label);
+        ToolTipService.SetToolTip(button, label);
+        button.Click += clickHandler;
+        return button;
+    }
+
+    /// <summary>Updates the weather setup and availability presentation.</summary>
+    private void ApplyWeatherStatus(WorldClockWeatherStatus? status)
+    {
+        (string Key, string VisualState) presentation = status is null
+            ? ("WorldClock.Options.Weather.ApiKeyStatus.Unavailable", "WeatherStatusInformational")
+            : (status.State, status.ReasonCode) switch
+            {
+                ("available", _) => ("WorldClock.Options.Weather.ApiKeyStatus.Ready", "WeatherStatusReady"),
+                ("configuration-required", "missing-api-key") =>
+                    ("WorldClock.Options.Weather.ApiKeyStatus.Missing", "WeatherStatusNeedsAttention"),
+                ("configuration-required", "invalid-api-key") =>
+                    ("WorldClock.Options.Weather.ApiKeyStatus.Invalid", "WeatherStatusInvalid"),
+                ("not-requested", "no-clocks") when status.IsProviderConfigured =>
+                    ("WorldClock.Options.Weather.ApiKeyStatus.Ready", "WeatherStatusReady"),
+                ("not-requested", "no-clocks") =>
+                    ("WorldClock.Options.Weather.ApiKeyStatus.Missing", "WeatherStatusNeedsAttention"),
+                ("disabled", "user-disabled") => ("WorldClock.WeatherStatus.Disabled", "WeatherStatusInformational"),
+                ("partial", _) => ("WorldClock.WeatherStatus.Partial", "WeatherStatusNeedsAttention"),
+                ("unavailable", _) => ("WorldClock.WeatherStatus.Unavailable", "WeatherStatusInformational"),
+                ("not-requested", "explicit-instant") =>
+                    ("WorldClock.WeatherStatus.ReferenceInstant", "WeatherStatusInformational"),
+                _ => throw new InvalidDataException(
+                    $"Unsupported world-clock weather status '{status.State}/{status.ReasonCode}'.")
+            };
+        WeatherStatusText.Text = T(presentation.Key);
+        AutomationProperties.SetName(WeatherStatusText, WeatherStatusText.Text);
+        VisualStateManager.GoToState(this, presentation.VisualState, false);
+        _weatherKeyConfigured = status?.IsProviderConfigured == true;
+        WeatherConfigurationText.Text = T(status is null ? "WorldClock.Options.Weather.ApiKeyStatus.Unavailable"
+            : _weatherKeyConfigured ? "WeatherSetup.SharedConfigured" : "WorldClock.Options.Weather.ApiKeyStatus.Missing");
+        SetWeatherSettingsAction();
+    }
+
+    /// <summary>Enables or disables preference controls during an application operation.</summary>
+    private void SetBusy(bool busy)
+    {
+        _busy = busy;
+        BusyIndicator.IsActive = busy;
+        BusyIndicator.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+        WeatherProviderLinkButton.IsEnabled = !busy;
+        SaveWeatherKeyButton.IsEnabled = !busy;
+        AddClockButton.IsEnabled = !busy && _canAddClock;
+        AlwaysOnTopSwitch.IsEnabled = !busy;
+        AutoGroupCitiesSwitch.IsEnabled = !busy;
+        WorldClockOpacitySlider.IsEnabled = !busy;
+        WorldClockShowInTaskbarSwitch.IsEnabled = !busy;
+    }
+
+    /// <summary>Refreshes labels and accessible names using the active language.</summary>
+    private void ApplyLocalizedPresentation()
+    {
+        SetWeatherSettingsAction();
+        AutomationProperties.SetName(WeatherProviderLinkButton, WeatherProviderLinkText.Text);
+    }
+
+    /// <summary>Updates the localized weather-key action label.</summary>
+    private void SetWeatherSettingsAction()
+    {
+        var label = T("Planner.WeatherSetup");
+        SaveWeatherKeyButton.Content = label;
+        AutomationProperties.SetName(SaveWeatherKeyButton, label);
+    }
+
+    /// <summary>Translates a resource key using the current UI language.</summary>
+    private string T(string key) => _strings.Translate(key);
+
+    #endregion
+}

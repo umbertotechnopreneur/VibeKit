@@ -1,0 +1,145 @@
+// SPDX-License-Identifier: MIT
+/* VBWR B
+ *
+ * Project: WorkTrail
+ * Repository: https://github.com/umbertotechnopreneur/WorkTrail
+ * Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+ *
+ * VibeWare: Human intent, AI execution, and plenty of tokens
+ * Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+ *
+ * Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+ * Human guidance: Umberto Giacobbi; requested VibeWare branding.
+ *
+ * Copyright (c) 2026 Umberto Giacobbi
+ * License: MIT - see LICENSE
+ *
+ * VBWR E */
+
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
+using WorkTrail.Services;
+using Xunit;
+
+namespace WorkTrail.Core.Tests;
+
+/// <summary>Protects stable selectors and translated accessible names on converted UI surfaces.</summary>
+public sealed class UiAutomationContractTests
+{
+    #region Fields
+
+    private static readonly string[] ConvertedSurfaces = ["WorkTrail/MainWindow.xaml", "WorkTrail/Controls/WeatherKeySetupControl.xaml", "WorkTrail/Controls/CityPickerControl.xaml", "WorkTrail/Controls/AvailabilityTimelineGrid.xaml"];
+
+    private static readonly HashSet<string> InteractiveControls = new(StringComparer.Ordinal)
+    {
+        "Button", "HyperlinkButton", "ToggleButton", "ToggleSwitch", "CheckBox", "RadioButton",
+        "ComboBox", "LanguagePicker", "TextBox", "PasswordBox", "NumberBox", "Slider", "CalendarDatePicker",
+        "DatePicker", "NavigationViewItem", "ListView", "GridView", "MenuFlyoutItem",
+        "ToggleMenuFlyoutItem", "MenuFlyoutSubItem", "AutoSuggestBox", "Expander", "Thumb",
+        "AppBarButton", "AppBarToggleButton"
+    };
+
+    #endregion
+
+    #region Implementation
+
+    /// <summary>Every converted static interactive control has an explicit selector and a registered name key.</summary>
+    [Fact]
+    public void StaticInteractiveControls_HaveRegisteredUniqueSelectors()
+    {
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var surface in ConvertedSurfaces)
+        {
+            var document = XDocument.Load(RepositoryFile(surface));
+            foreach (var control in document.Descendants().Where(element =>
+                InteractiveControls.Contains(element.Name.LocalName)
+                && !element.Ancestors().Any(parent => parent.Name.LocalName is "DataTemplate" or "ControlTemplate")))
+            {
+                var identifier = control.Attribute("AutomationProperties.AutomationId")?.Value;
+
+                Assert.False(string.IsNullOrWhiteSpace(identifier), $"{surface}: {control.Name.LocalName} needs a stable automation ID.");
+                Assert.True(identifiers.Add(identifier!), $"Duplicate selector: {identifier}.");
+                Assert.True(LocalizationService.AutomationNameKeys.ContainsKey(identifier!), $"{identifier} needs a registered accessible name.");
+
+                if (control.Attribute("AutomationProperties.Name") is { } fallbackName)
+                {
+                    Assert.False(string.IsNullOrWhiteSpace(fallbackName.Value));
+                    Assert.Equal(fallbackName.Value, control.Attribute("ToolTipService.ToolTip")?.Value);
+                }
+            }
+        }
+
+        // The reusable planner builds its commands in code; include those stable declarations in the same contract.
+        var planner = File.ReadAllText(RepositoryFile("WorkTrail/Controls/AvailabilityPlannerControl.cs"));
+        foreach (Match match in Regex.Matches(planner, "Label\\([^,]+, \"([^\"]+)\", \"([^\"]+)\"\\)"))
+        {
+            Assert.True(identifiers.Add(match.Groups[1].Value));
+            Assert.Equal(match.Groups[2].Value, LocalizationService.AutomationNameKeys[match.Groups[1].Value]);
+        }
+        Assert.Equal(LocalizationService.AutomationNameKeys.Keys.OrderBy(key => key), identifiers.OrderBy(key => key));
+    }
+
+    /// <summary>Every registered control name resolves through each shipped language catalog.</summary>
+    [Fact]
+    public void RegisteredNames_ResolveInEverySupportedLanguage()
+    {
+        foreach (var language in LocalizationService.SupportedLanguages)
+        {
+            var strings = new LocalizationService(language);
+            foreach (var (identifier, key) in LocalizationService.AutomationNameKeys)
+            {
+                Assert.True(strings.TryTranslateAutomationName(identifier, out var name));
+                Assert.False(string.IsNullOrWhiteSpace(name));
+                Assert.Equal(strings.Translate(key), name);
+                Assert.DoesNotContain("{", name);
+            }
+        }
+    }
+
+    /// <summary>Accessible names follow the chosen language while selectors stay unchanged.</summary>
+    [Fact]
+    public void NameResolution_UsesTheSelectedLanguage()
+    {
+        var english = new LocalizationService("en-US");
+        var italian = new LocalizationService("it-IT");
+
+        Assert.True(english.TryTranslateAutomationName("Launcher.Settings", out var englishName));
+        Assert.True(italian.TryTranslateAutomationName("Launcher.Settings", out var italianName));
+        Assert.Equal(english.Translate("Launcher.Settings"), englishName);
+        Assert.Equal(italian.Translate("Launcher.Settings"), italianName);
+        Assert.NotEqual(englishName, italianName);
+    }
+
+    /// <summary>Unregistered external controls keep their own names rather than receiving guessed labels.</summary>
+    [Fact]
+    public void UnregisteredIdentifiers_DoNotProduceNames()
+    {
+        var strings = new LocalizationService("en-US");
+
+        Assert.False(strings.TryTranslateAutomationName("External.Control", out var name));
+        Assert.Equal(string.Empty, name);
+        Assert.Throws<ArgumentException>(() => strings.TryTranslateAutomationName(" ", out _));
+    }
+
+    /// <summary>Locates checked-in UI declarations without depending on the test runner working directory.</summary>
+    /// <param name="relativePath">The UI declaration relative to the repository root.</param>
+    private static string RepositoryFile(string relativePath)
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "WorkTrail.slnx")))
+            {
+                return Path.Combine(directory.FullName, relativePath);
+            }
+        }
+
+        throw new DirectoryNotFoundException("Could not locate the WorkTrail repository root.");
+    }
+
+    #endregion
+}

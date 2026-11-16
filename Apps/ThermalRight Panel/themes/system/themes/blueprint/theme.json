@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "id": "system.blueprint",
+  "category": "system",
+  "name": "Blueprint",
+  "description": "Up to seven pages for CPU, GPU, board and RAM, with related readings together.",
+  "entry": "render.py",
+  "version": "2.2.0",
+  "author": "Umberto Giacobbi",
+  "license": "MIT",
+  "canvas": {
+    "width": 1280,
+    "height": 480,
+    "compact": "480x480, centered without distortion for aspect ratios below 2:1"
+  },
+  "requires": [
+    "clock"
+  ],
+  "optional": [
+    "sensors"
+  ],
+  "appearance": [
+    "light",
+    "dark"
+  ],
+  "settings": {
+    "fontFamily": {
+      "type": "font",
+      "default": "Cascadia Mono"
+    },
+    "fontScale": {
+      "type": "number",
+      "default": 1,
+      "minimum": 0.65,
+      "maximum": 1.6
+    },
+    "ambientDrift": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "branding": {
+    "begin": "VBWR B",
+    "end": "VBWR E"
+  },
+  "pages": [
+    {
+      "id": "overview",
+      "title": "At a glance"
+    },
+    {
+      "id": "activity",
+      "title": "Live activity"
+    },
+    {
+      "id": "cores",
+      "title": "Core power & load"
+    },
+    {
+      "title": "Power & cooling",
+      "id": "cooling"
+    },
+    {
+      "title": "Hardware readings",
+      "id": "electrical"
+    },
+    {
+      "title": "Temperature channels",
+      "id": "temperatures"
+    },
+    {
+      "title": "Memory modules & timings",
+      "id": "memory"
+    }
+  ],
+  "pageSeconds": 8
+}

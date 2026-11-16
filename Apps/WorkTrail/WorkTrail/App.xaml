@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- VBWR B
+
+  Project: WorkTrail
+  Repository: https://github.com/umbertotechnopreneur/WorkTrail
+  Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+
+  VibeWare: Human intent, AI execution, and plenty of tokens
+  Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+
+  Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+  Human guidance: Umberto Giacobbi; requested VibeWare branding.
+
+  Copyright (c) 2026 Umberto Giacobbi
+  License: MIT - see LICENSE
+  SPDX-License-Identifier: MIT
+
+VBWR E -->
+
+<Application
+    x:Class="WorkTrail.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WorkTrail">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+                <ResourceDictionary Source="Controls/TitleBarOverflowButtonStyles.xaml"/>
+                <ResourceDictionary Source="Controls/SurfaceChipStyles.xaml"/>
+                <!-- Other merged dictionaries here -->
+            </ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="LauncherClocksBrush" Color="#1766BE" />
+                    <SolidColorBrush x:Key="LauncherMapBrush" Color="#B26A00" />
+                    <SolidColorBrush x:Key="LauncherCalendarBrush" Color="#C23E54" />
+                    <SolidColorBrush x:Key="LauncherSkyBrush" Color="#8251BF" />
+                    <SolidColorBrush x:Key="LauncherGlobeBrush" Color="#00856B" />
+                    <SolidColorBrush x:Key="LauncherMoonBrush" Color="#5B59B8" />
+                    <AcrylicBrush x:Key="WorkTrailDialogBackground" TintColor="#F5F3FA" TintOpacity="0.65" FallbackColor="#F5F3FA" />
+                    <SolidColorBrush x:Key="InfoBarInformationalSeverityBackgroundBrush" Color="#FFD9F0FF" />
+                    <SolidColorBrush x:Key="InfoBarSuccessSeverityBackgroundBrush" Color="#FFDCF6E4" />
+                    <SolidColorBrush x:Key="InfoBarWarningSeverityBackgroundBrush" Color="#FFFFE6B3" />
+                    <SolidColorBrush x:Key="InfoBarErrorSeverityBackgroundBrush" Color="#FFFFDCE0" />
+                    <SolidColorBrush x:Key="InfoBarInformationalSeverityIconBackground" Color="#FF0078D4" />
+                    <SolidColorBrush x:Key="InfoBarSuccessSeverityIconBackground" Color="#FF107C41" />
+                    <SolidColorBrush x:Key="InfoBarWarningSeverityIconBackground" Color="#FF9A6700" />
+                    <SolidColorBrush x:Key="InfoBarErrorSeverityIconBackground" Color="#FFC42B1C" />
+                    <StaticResource x:Key="InfoBarInformationalSeverityIconForeground" ResourceKey="TextFillColorPrimaryBrush" />
+                    <StaticResource x:Key="InfoBarSuccessSeverityIconForeground" ResourceKey="TextFillColorPrimaryBrush" />
+                    <StaticResource x:Key="InfoBarWarningSeverityIconForeground" ResourceKey="TextFillColorPrimaryBrush" />
+                    <StaticResource x:Key="InfoBarErrorSeverityIconForeground" ResourceKey="TextFillColorPrimaryBrush" />
+                    <SolidColorBrush x:Key="ToastBorderBrush" Color="#FF6A94B6" />
+                    <SolidColorBrush x:Key="ToastTextBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="ToastSecondaryTextBrush" Color="#FFD6E8F3" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="LauncherClocksBrush" Color="#74B7FF" />
+                    <SolidColorBrush x:Key="LauncherMapBrush" Color="#FFC65C" />
+                    <SolidColorBrush x:Key="LauncherCalendarBrush" Color="#FF91A1" />
+                    <SolidColorBrush x:Key="LauncherSkyBrush" Color="#C29BFF" />
+                    <SolidColorBrush x:Key="LauncherGlobeBrush" Color="#62DBBC" />
+                    <SolidColorBrush x:Key="LauncherMoonBrush" Color="#B0ADFF" />
+                    <AcrylicBrush x:Key="WorkTrailDialogBackground" TintColor="#25232D" TintOpacity="0.65" FallbackColor="#25232D" />
+                    <SolidColorBrush x:Key="InfoBarInformationalSeverityBackgroundBrush" Color="#FF103B5A" />
+                    <SolidColorBrush x:Key="InfoBarSuccessSeverityBackgroundBrush" Color="#FF173F31" />
+                    <SolidColorBrush x:Key="InfoBarWarningSeverityBackgroundBrush" Color="#FF513D12" />
+                    <SolidColorBrush x:Key="InfoBarErrorSeverityBackgroundBrush" Color="#FF57242A" />
+                    <SolidColorBrush x:Key="InfoBarInformationalSeverityIconBackground" Color="#FF5CC8FF" />
+                    <SolidColorBrush x:Key="InfoBarSuccessSeverityIconBackground" Color="#FF6FD99B" />
+                    <SolidColorBrush x:Key="InfoBarWarningSeverityIconBackground" Color="#FFFFC857" />
+                    <SolidColorBrush x:Key="InfoBarErrorSeverityIconBackground" Color="#FFFF8A91" />
+                    <StaticResource x:Key="InfoBarInformationalSeverityIconForeground" ResourceKey="TextFillColorPrimaryBrush" />
+                    <StaticResource x:Key="InfoBarSuccessSeverityIconForeground" ResourceKey="TextFillColorPrimaryBrush" />
+                    <StaticResource x:Key="InfoBarWarningSeverityIconForeground" ResourceKey="TextFillColorPrimaryBrush" />
+                    <StaticResource x:Key="InfoBarErrorSeverityIconForeground" ResourceKey="TextFillColorPrimaryBrush" />
+                    <SolidColorBrush x:Key="ToastBorderBrush" Color="#FF789BB8" />
+                    <SolidColorBrush x:Key="ToastTextBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="ToastSecondaryTextBrush" Color="#FFD6E8F3" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="LauncherClocksBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="LauncherMapBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="LauncherCalendarBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="LauncherSkyBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="LauncherGlobeBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="LauncherMoonBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="WorkTrailDialogBackground" Color="{ThemeResource SystemColorWindowColor}" />
+                    <StaticResource x:Key="InfoBarInformationalSeverityBackgroundBrush" ResourceKey="SystemColorWindowColorBrush" />
+                    <StaticResource x:Key="InfoBarSuccessSeverityBackgroundBrush" ResourceKey="SystemColorWindowColorBrush" />
+                    <StaticResource x:Key="InfoBarWarningSeverityBackgroundBrush" ResourceKey="SystemColorWindowColorBrush" />
+                    <StaticResource x:Key="InfoBarErrorSeverityBackgroundBrush" ResourceKey="SystemColorWindowColorBrush" />
+                    <StaticResource x:Key="InfoBarInformationalSeverityIconBackground" ResourceKey="SystemColorWindowColorBrush" />
+                    <StaticResource x:Key="InfoBarSuccessSeverityIconBackground" ResourceKey="SystemColorWindowColorBrush" />
+                    <StaticResource x:Key="InfoBarWarningSeverityIconBackground" ResourceKey="SystemColorWindowColorBrush" />
+                    <StaticResource x:Key="InfoBarErrorSeverityIconBackground" ResourceKey="SystemColorWindowColorBrush" />
+                    <StaticResource x:Key="InfoBarInformationalSeverityIconForeground" ResourceKey="SystemColorWindowTextColorBrush" />
+                    <StaticResource x:Key="InfoBarSuccessSeverityIconForeground" ResourceKey="SystemColorWindowTextColorBrush" />
+                    <StaticResource x:Key="InfoBarWarningSeverityIconForeground" ResourceKey="SystemColorWindowTextColorBrush" />
+                    <StaticResource x:Key="InfoBarErrorSeverityIconForeground" ResourceKey="SystemColorWindowTextColorBrush" />
+                    <StaticResource x:Key="ToastBorderBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+                    <StaticResource x:Key="ToastTextBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+                    <StaticResource x:Key="ToastSecondaryTextBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+            <Style x:Key="WorkTrailDialogStyle" TargetType="ContentDialog">
+                <Setter Property="Background" Value="{ThemeResource WorkTrailDialogBackground}" />
+            </Style>
+            <Style TargetType="ScrollViewer">
+                <Setter Property="local:ScrollBarRevealBehavior.IsEnabled" Value="True" />
+            </Style>
+            <Style TargetType="ScrollBar">
+                <Setter Property="Opacity" Value="0" />
+            </Style>
+
+            <Style TargetType="InfoBar">
+                <Setter Property="BorderBrush" Value="{ThemeResource ToastBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+                <Setter Property="Shadow">
+                    <Setter.Value>
+                        <ThemeShadow />
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="local:InfoBarElevationBehavior.IsEnabled" Value="True" />
+            </Style>
+            <!-- Other app resources here -->
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -1,0 +1,50 @@
+# VBWR B
+#
+# Project: PromptMeUp
+# Repository: https://github.com/umbertotechnopreneur/PromptMeUp
+# Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+#
+# VibeWare: Human intent, AI execution, and plenty of tokens
+# Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+#
+# Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+# Human guidance: Umberto Giacobbi; requested VibeWare branding.
+#
+# Copyright (c) 2026 Umberto Giacobbi
+# License: MIT - see LICENSE
+# SPDX-License-Identifier: MIT
+#
+# VBWR E
+
+# Build and IDE output
+bin/
+obj/
+artifacts/
+.vs/
+out/
+
+# Local configuration and secrets
+.env
+.env.*
+appsettings.local.json
+*.user
+*.suo
+
+# Logs and generated files
+*.log
+*.cache
+*.db
+*.db-shm
+*.db-wal
+TestResults/
+*.trx
+coverage/
+coverage.*
+
+# OS and editor noise
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Local JavaScript dependencies
+node_modules/

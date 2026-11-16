@@ -1,0 +1,57 @@
+<!-- VBWR B
+
+  Project: Thermalright VibeWare
+  Repository: https://github.com/umbertotechnopreneur/thermalright-vibeware
+  Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+
+  File: ThermalrightVibeWare.App.csproj
+  Purpose: Defines build inputs and dependencies for ThermalrightVibeWare.App.
+
+  VibeWare: Human intent, AI execution, and plenty of tokens
+  Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+
+  Modified with AI: OpenAI Codex; source documentation and organization; 2026-10-27.
+  Human guidance: Umberto Giacobbi; maintainability and standard file headers.
+
+  Copyright (c) 2026 Umberto Giacobbi
+  SPDX-License-Identifier: MIT
+
+VBWR E -->
+
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>ThermalrightVibeWare.UI</AssemblyName>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <DefineSilverlight>true</DefineSilverlight>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenSilver" Version="3.3.3" />
+    <PackageReference Include="OpenSilver.Themes.Modern" Version="3.3.0" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.13" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+    <ProjectReference Include="../ThermalrightVibeWare.Contracts/ThermalrightVibeWare.Contracts.csproj" />
+    <ProjectReference Include="../ThermalrightVibeWare.Studio/ThermalrightVibeWare.Studio.csproj" />
+    <Compile Include="MainPage.Palette.cs" />
+    <ApplicationDefinition Include="App.xaml" />
+    <Page Include="MainPage.xaml" />
+    <Compile Include="App.xaml.cs" />
+    <Compile Include="MainPage.xaml.cs" />
+    <Compile Include="MainPage.Layout.cs" />
+    <Compile Include="MainPage.Preview.cs" />
+    <Compile Include="MainPage.Appearance.cs" />
+    <Compile Include="MainPage.Library.cs" />
+    <Compile Include="MainPage.Display.cs" />
+    <Compile Include="MainPage.Integrations.cs" />
+    <Compile Include="MainPage.Window.cs" />
+    <Compile Include="MainPage.Typography.cs" />
+    <Compile Include="MainPage.CatalogRow.cs" />
+    <Compile Include="MainPage.Colors.cs" />
+    <Compile Include="MainPage.FilterControls.cs" />
+    <Compile Include="MainPage.Sensors.cs" />
+    <Compile Include="MainPage.SensorDebug.cs" />
+    <Compile Include="MainPage.Disclosure.cs" />
+    <Resource Include="Assets/vibeware-logo.png" />
+    <Resource Include="Assets/thermalright-vibeware-icon.png" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,39 @@
+# VBWR B
+#
+# Project: HelpMe
+# Repository: https://github.com/umbertotechnopreneur/PromptMeUp
+# Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+#
+# VibeWare: Human intent, AI execution, and plenty of tokens
+# Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+#
+# Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+# Human guidance: Umberto Giacobbi; requested VibeWare branding.
+#
+# Copyright (c) 2026 Umberto Giacobbi
+# License: MIT - see LICENSE
+# SPDX-License-Identifier: MIT
+#
+# VBWR E
+
+id: connection-test
+version: 1
+description: Bounded prompt used by setup and --test-ai to verify the configured OpenAI connection.
+tags:
+  - diagnostics
+  - connection
+metadata:
+  expected.en: HelpMe connection confirmed.
+  expected.it: Connessione HelpMe confermata.
+  expected.fr: Connexion HelpMe confirmée.
+  expected.de: HelpMe-Verbindung bestätigt.
+  expected.es: Conexión de HelpMe confirmada.
+  expected.vi: Kết nối HelpMe đã được xác nhận.
+  max-output-tokens: "96"
+texts:
+  en: "Reply with exactly: HelpMe connection confirmed."
+  it: "Rispondi esattamente: Connessione HelpMe confermata."
+  fr: "Répondez exactement : Connexion HelpMe confirmée."
+  de: "Antworte exakt: HelpMe-Verbindung bestätigt."
+  es: "Responde exactamente: Conexión de HelpMe confirmada."
+  vi: "Chỉ trả lời chính xác: Kết nối HelpMe đã được xác nhận."

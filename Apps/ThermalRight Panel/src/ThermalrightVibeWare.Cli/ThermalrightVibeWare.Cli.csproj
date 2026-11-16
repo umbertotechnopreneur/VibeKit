@@ -1,0 +1,39 @@
+<!-- VBWR B
+
+  Project: Thermalright VibeWare
+  Repository: https://github.com/umbertotechnopreneur/thermalright-vibeware
+  Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+
+  File: ThermalrightVibeWare.Cli.csproj
+  Purpose: Defines build inputs and dependencies for ThermalrightVibeWare.Cli.
+
+  VibeWare: Human intent, AI execution, and plenty of tokens
+  Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+
+  Modified with AI: OpenAI Codex; source documentation and organization; 2026-10-27.
+  Human guidance: Umberto Giacobbi; maintainability and standard file headers.
+
+  Copyright (c) 2026 Umberto Giacobbi
+  SPDX-License-Identifier: MIT
+
+VBWR E -->
+
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net10.0;net10.0-windows10.0.19041.0</TargetFrameworks>
+    <RootNamespace>ThermalrightVibeWare.Cli</RootNamespace>
+    <AssemblyName>trv</AssemblyName>
+    <Description>Command-line companion for ThermalrightVibeWare USB displays.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../ThermalrightVibeWare.Contracts/ThermalrightVibeWare.Contracts.csproj" />
+    <ProjectReference Include="../ThermalrightVibeWare.Core/ThermalrightVibeWare.Core.csproj" />
+    <PackageReference Include="Spectre.Console" Version="0.57.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="../../themes/**/*" Exclude="../../themes/**/__pycache__/**;../../themes/**/*.pyc" Link="themes/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../theme-runtime/**/*" Exclude="../../theme-runtime/**/__pycache__/**;../../theme-runtime/**/*.pyc" Link="theme-runtime/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../plugins/**/*" Exclude="../../plugins/**/__pycache__/**;../../plugins/**/*.pyc" Link="plugins/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

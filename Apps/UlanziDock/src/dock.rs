@@ -1,0 +1,1063 @@
+/* VBWR B
+ *
+ * Project: UlanziDeck
+ * Repository: https://github.com/umbertotechnopreneur/ulanzi-dock-vibeware
+ * Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+ *
+ * VibeWare: Human intent, AI execution, and plenty of tokens
+ * Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+ *
+ * Modified with AI: OpenAI Codex; comments and readability; 2026-10-27
+ * Human guidance: Umberto Giacobbi; AGENTS.md; readability/documentation request
+ * Evidence: docs/CODE-REVIEW.md and current working-tree changes
+ *
+ * Copyright (c) 2026 Umberto Giacobbi
+ * SPDX-License-Identifier: MIT
+ * License: MIT - see LICENSE
+ * Required by the MIT License: retain the copyright and permission notice in all copies or substantial portions of the Software.
+ *
+ * VBWR E */
+
+//! Encode D200H pictures and commands, own one HID connection, and decode button reports.
+//! Image preparation and ZIP framing are separate from transport writes so they can be
+//! reasoned about offline. The controller owns action policy and page navigation; a
+//! successful USB write here does not prove that the physical display changed.
+
+use crate::{
+    art,
+    model::{PageConfig, Theme, CLOCK_KEY, KEY_COUNT, NEXT_KEY, PAGE_INDEX_NAME},
+};
+use anyhow::{Context, Result};
+use hidapi::{HidApi, HidDevice};
+use serde_json::{json, Map, Value};
+use std::{
+    cell::RefCell,
+    collections::{BTreeMap, VecDeque},
+    io::{Cursor, Write},
+    sync::Arc,
+    time::{Duration, Instant},
+};
+use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
+
+const VENDOR_ID: u16 = 0x2207;
+const PRODUCT_ID: u16 = 0x0019;
+const PACKET: usize = 1024;
+const COMMAND_HEADER_BYTES: usize = 8;
+const FIRST_PACKET_PAYLOAD: usize = PACKET - COMMAND_HEADER_BYTES;
+const REVEAL_DURATION_MS: u64 = 100;
+const PREPARED_PAGE_LIMIT: usize = 12;
+const FADE_STEP_INTERVALS: u64 = 2;
+const FADE_STEPS: u64 = 3;
+const BOOT_HOLD_DURATION_MS: u64 = 2_000;
+const BOOT_FADE_DURATION_MS: u64 = 1_000;
+const BOOT_FADE_STEPS: u64 = 20;
+const SHUTDOWN_FADE_DURATION_MS: u64 = 1_000;
+const SHUTDOWN_FADE_STEPS: u64 = 20;
+
+mod boot {
+    include!(concat!(env!("OUT_DIR"), "/boot-pictures.rs"));
+}
+
+/// Owns the D200H HID handle for one connection session.
+pub struct Dock {
+    device: HidDevice,
+    // Keep the Linux device node locked until after the I/O handle closes.
+    #[cfg(target_os = "linux")]
+    _device_lock: std::fs::File,
+    prepared_pages: RefCell<VecDeque<Arc<PreparedPage>>>,
+}
+
+// Cache pictures, not ZIPs: every USB update must still use fresh firmware icon names.
+struct PreparedPage {
+    identity: Vec<u8>,
+    status_display: bool,
+    blanks: Vec<Vec<u8>>,
+    frames: Vec<(u64, Vec<(usize, Vec<u8>)>)>,
+    released: Vec<Vec<u8>>,
+    pressed: Vec<Vec<u8>>,
+    panel: Vec<u8>,
+}
+
+/// Serialize every input that can change prepared pixels, including derived availability.
+/// `page`, `theme` and `enabled` form a cache key, not a saved user configuration.
+fn picture_identity(page: &PageConfig, theme: Theme, enabled: bool) -> Result<Vec<u8>> {
+    // Availability is runtime-only and deliberately omitted by PageConfig's serializer.
+    Ok(serde_json::to_vec(&(
+        page,
+        &page.key_availability,
+        theme,
+        enabled,
+    ))?)
+}
+
+/// A press or release reported by the dock, never global keyboard input.
+pub struct ButtonEvent {
+    pub index: usize,
+    pub pressed: bool,
+}
+
+// Parse only the two observed button message types and explicit up/down states.
+// Malformed state bytes must never turn an accepted press into an action release.
+fn decode_button(bytes: &[u8]) -> Option<ButtonEvent> {
+    for offset in [0, 1] {
+        if bytes.len() < offset + 12 || bytes[offset..offset + 2] != [0x7c, 0x7c] {
+            continue;
+        }
+        let command = u16::from_be_bytes([bytes[offset + 2], bytes[offset + 3]]);
+        if command != 0x0101 && command != 0x0102 {
+            continue;
+        }
+        let index = bytes[offset + 9] as usize;
+        if index >= KEY_COUNT || !matches!(bytes[offset + 11], 0 | 1) {
+            return None;
+        }
+        return Some(ButtonEvent {
+            index,
+            pressed: bytes[offset + 11] == 1,
+        });
+    }
+    None
+}
+
+// Missing interfaces and incomplete reports are transport failures, unlike artwork errors.
+#[derive(Debug)]
+struct ConnectionError(String);
+
+impl std::fmt::Display for ConnectionError {
+    // formatter: destination for the transport error message.
+    // Errors: the formatter cannot write the message.
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for ConnectionError {}
+
+// error: operation failure, including any anyhow context wrappers.
+pub fn is_connection_error(error: &anyhow::Error) -> bool {
+    error.is::<hidapi::HidError>() || error.is::<ConnectionError>()
+}
+
+// Errors: USB enumeration failure or missing D200H consumer interface.
+pub fn discover() -> Result<(HidApi, bool)> {
+    let api = HidApi::new().context("enumerating HID devices")?;
+    let found = api.device_list().any(is_dock_interface);
+    Ok((api, found))
+}
+
+/// Match the supported VID/PID and consumer usage; other interfaces are never opened.
+fn is_dock_interface(device: &hidapi::DeviceInfo) -> bool {
+    device.vendor_id() == VENDOR_ID
+        && device.product_id() == PRODUCT_ID
+        && device.usage_page() == 0x000c
+        && device.usage() == 0x0001
+}
+
+impl Dock {
+    // Show the embedded splash before preparing the restored page. Fade through
+    // device brightness commands, avoiding repeated full-screen image transfers.
+    // Restore the user's brightness even on cancellation or an animation error.
+    pub fn show_boot(
+        &self,
+        brightness: u8,
+        running: impl Fn() -> bool,
+        prepare_page: impl FnOnce() -> Result<()>,
+    ) -> Result<()> {
+        if !running() {
+            return Ok(());
+        }
+        let keys = (0..KEY_COUNT).collect::<Vec<_>>();
+        let pictures = boot::PICTURES
+            .iter()
+            .map(|picture| picture.to_vec())
+            .collect::<Vec<_>>();
+        let archive = archive_from_pictures(&keys, &pictures, true)?;
+        let mut blanks = vec![black_picture(196, 196)?; KEY_COUNT];
+        blanks[CLOCK_KEY] = black_picture(400, 200)?;
+        let black = archive_from_pictures(&keys, &blanks, true)?;
+
+        self.set_brightness(brightness)?;
+        let result = (|| -> Result<()> {
+            self.background()?;
+            self.send_file(0x0001, &archive)?;
+            let visible_since = Instant::now();
+            self.background()?;
+            // The cold-page drawing cost is hidden behind the already visible logo.
+            prepare_page()?;
+            // Keep the complete logo on screen for at least two seconds. Page
+            // preparation counts toward the hold, but never shortens it.
+            while running()
+                && visible_since.elapsed() < Duration::from_millis(BOOT_HOLD_DURATION_MS)
+            {
+                let remaining = Duration::from_millis(BOOT_HOLD_DURATION_MS)
+                    .saturating_sub(visible_since.elapsed());
+                std::thread::sleep(remaining.min(Duration::from_millis(50)));
+            }
+            let started = Instant::now();
+            let mut previous_level = brightness;
+            for step in 1..=BOOT_FADE_STEPS {
+                if !running() {
+                    break;
+                }
+                let deadline =
+                    Duration::from_millis(step * BOOT_FADE_DURATION_MS / BOOT_FADE_STEPS);
+                if let Some(delay) = deadline.checked_sub(started.elapsed()) {
+                    std::thread::sleep(delay);
+                }
+                let level =
+                    (u64::from(brightness) * (BOOT_FADE_STEPS - step) / BOOT_FADE_STEPS) as u8;
+                if level != previous_level {
+                    self.set_brightness(level)?;
+                    previous_level = level;
+                }
+            }
+            // Clear the logo before restoring brightness, so it cannot flash back.
+            self.send_file(0x0001, &black)?;
+            self.discard_input()
+        })();
+        let restore = self.set_brightness(brightness);
+        result.and(restore)
+    }
+
+    /// Warm the render cache for `page`/`theme` without writing USB reports.
+    /// `enabled` controls inactive faces, `status_display` selects the wide panel,
+    /// and `running` permits cancellation between keys. Rendering errors propagate.
+    pub fn prepare_transition(
+        &self,
+        page: &PageConfig,
+        theme: Theme,
+        enabled: bool,
+        status_display: bool,
+        running: impl Fn() -> bool,
+    ) -> Result<()> {
+        self.prepare_page(
+            page,
+            theme,
+            enabled,
+            status_display || page.name == PAGE_INDEX_NAME,
+            &running,
+        )?;
+        Ok(())
+    }
+
+    // Fade whatever is currently visible without changing the saved setting.
+    // The next app run restores the user's configured brightness.
+    pub fn fade_out(&self, brightness: u8) -> Result<()> {
+        let started = Instant::now();
+        let mut previous_level = brightness;
+        for step in 1..=SHUTDOWN_FADE_STEPS {
+            let deadline =
+                Duration::from_millis(step * SHUTDOWN_FADE_DURATION_MS / SHUTDOWN_FADE_STEPS);
+            if let Some(delay) = deadline.checked_sub(started.elapsed()) {
+                std::thread::sleep(delay);
+            }
+            let level =
+                (u64::from(brightness) * (SHUTDOWN_FADE_STEPS - step) / SHUTDOWN_FADE_STEPS) as u8;
+            if level != previous_level {
+                self.set_brightness(level)?;
+                previous_level = level;
+            }
+        }
+        Ok(())
+    }
+
+    // api: enumerated HID context.
+    // Errors: missing consumer interface or failed exclusive/open access.
+    pub fn open(api: &HidApi) -> Result<Self> {
+        let info = api
+            .device_list()
+            .find(|device| is_dock_interface(device))
+            .ok_or_else(|| {
+                ConnectionError(
+                    "D200H consumer HID interface (usage page 0x0c, usage 1) not found".into(),
+                )
+            })?;
+        #[cfg(target_os = "linux")]
+        let (device, device_lock) = {
+            use std::{
+                ffi::{CString, OsStr},
+                fs::{File, TryLockError},
+                os::{fd::AsRawFd, unix::ffi::OsStrExt},
+            };
+
+            let node = OsStr::from_bytes(info.path().to_bytes());
+            let lock = File::open(node).with_context(|| ConnectionError(
+                "Cannot open the D200H interface. Check USB access; after installing UlanziDeck, reconnect the dock.".into()
+            ))?;
+            match lock.try_lock() {
+                Ok(()) => {}
+                Err(TryLockError::WouldBlock) => {
+                    return Err(ConnectionError("Another controller is already using this D200H. Close that controller to connect.".into()).into())
+                }
+                Err(TryLockError::Error(error)) => {
+                    return Err(error).context(ConnectionError("Could not lock the D200H interface".into()))
+                }
+            }
+            // hidapi owns a separate I/O handle. Reopen the locked node itself so
+            // a hotplug cannot redirect the second open to a reused /dev/hidrawN.
+            let path = CString::new(format!("/proc/self/fd/{}", lock.as_raw_fd()))?;
+            let device = api
+                .open_path(&path)
+                .context("opening the locked D200H interface")?;
+            (device, lock)
+        };
+        #[cfg(not(target_os = "linux"))]
+        let device = info
+            .open_device(api)
+            .context("opening D200H consumer HID interface")?;
+        Ok(Self {
+            device,
+            #[cfg(target_os = "linux")]
+            _device_lock: device_lock,
+            prepared_pages: RefCell::new(VecDeque::new()),
+        })
+    }
+
+    /// Reuse or render pixels for `page`, `theme`, availability and panel mode.
+    /// `running` cancels work between keys; cancellation returns `None` without caching
+    /// an incomplete page. Successful entries use a bounded least-recently-used cache.
+    fn prepare_page(
+        &self,
+        page: &PageConfig,
+        theme: Theme,
+        enabled: bool,
+        status_display: bool,
+        running: &impl Fn() -> bool,
+    ) -> Result<Option<Arc<PreparedPage>>> {
+        let identity = picture_identity(page, theme, enabled)?;
+        {
+            let mut cache = self.prepared_pages.borrow_mut();
+            if let Some(position) = cache.iter().position(|entry| {
+                entry.identity == identity && entry.status_display == status_display
+            }) {
+                let prepared = cache.remove(position).expect("located cached page");
+                cache.push_front(Arc::clone(&prepared));
+                return Ok(Some(prepared));
+            }
+        }
+
+        let mut released = Vec::with_capacity(CLOCK_KEY);
+        let mut pressed = Vec::with_capacity(CLOCK_KEY);
+        let mut frames = BTreeMap::<u64, Vec<(usize, Vec<u8>)>>::new();
+        let reveal_intervals = (CLOCK_KEY - 1) as u64 + FADE_STEPS * FADE_STEP_INTERVALS;
+        for index in 0..CLOCK_KEY {
+            if !running() {
+                return Ok(None);
+            }
+            let picture = art::render_available(theme, page, index, false, enabled)?;
+            let image = image::load_from_memory(&picture)?.to_rgba8();
+            for step in 1..=FADE_STEPS {
+                let faded = if step == FADE_STEPS {
+                    picture.clone()
+                } else {
+                    let mut faded = image.clone();
+                    for pixel in faded.pixels_mut() {
+                        for channel in &mut pixel.0[..3] {
+                            *channel = (*channel as u16 * step as u16 / FADE_STEPS as u16) as u8;
+                        }
+                    }
+                    encode_picture(faded)?
+                };
+                let interval = index as u64 + step * FADE_STEP_INTERVALS;
+                frames
+                    .entry(interval * REVEAL_DURATION_MS / reveal_intervals)
+                    .or_default()
+                    .push((index, faded));
+            }
+            // Prepare both faces before accepting input, instead of drawing on every press.
+            released.push(picture);
+            pressed.push(art::render_available(theme, page, index, true, enabled)?);
+        }
+
+        let mut blanks = vec![black_picture(196, 196)?; KEY_COUNT];
+        blanks[CLOCK_KEY] = black_picture(400, 200)?;
+        let panel = if status_display {
+            art::render_status(theme, page, enabled)?
+        } else {
+            black_picture(196, 196)?
+        };
+        let prepared = Arc::new(PreparedPage {
+            identity,
+            status_display,
+            blanks,
+            frames: frames.into_iter().collect(),
+            released,
+            pressed,
+            panel,
+        });
+        let mut cache = self.prepared_pages.borrow_mut();
+        if cache.len() == PREPARED_PAGE_LIMIT {
+            cache.pop_back();
+        }
+        cache.push_front(Arc::clone(&prepared));
+        Ok(Some(prepared))
+    }
+
+    // The reveal targets 100 ms. Reuse prepared pictures and merge overdue fade
+    // updates so slow USB writes do not build a queue of obsolete frames.
+    /// Send a complete page reveal for `page`/`theme`, respecting `enabled` artwork.
+    /// `status_display` selects the wide panel; `running` cancels between frames.
+    /// Returns rendering/transport errors and drains stale input after completion.
+    pub fn show_transition(
+        &self,
+        page: &PageConfig,
+        theme: Theme,
+        enabled: bool,
+        status_display: bool,
+        running: impl Fn() -> bool,
+    ) -> Result<()> {
+        let status_display = status_display || page.name == PAGE_INDEX_NAME;
+        let Some(prepared) = self.prepare_page(page, theme, enabled, status_display, &running)?
+        else {
+            return Ok(());
+        };
+        if !running() {
+            return Ok(());
+        }
+        let keys = (0..KEY_COUNT).collect::<Vec<_>>();
+        let blank_archive = archive_from_pictures(&keys, &prepared.blanks, true)?;
+        self.background()?;
+        self.send_file(0x0001, &blank_archive)?;
+        let started = Instant::now();
+        let mut next_frame = 0;
+        while next_frame < prepared.frames.len() {
+            if !running() {
+                return Ok(());
+            }
+            let time = prepared.frames[next_frame].0;
+            if let Some(delay) = Duration::from_millis(time).checked_sub(started.elapsed()) {
+                std::thread::sleep(delay);
+            }
+            let mut latest = BTreeMap::new();
+            loop {
+                for (index, picture) in &prepared.frames[next_frame].1 {
+                    latest.insert(*index, picture.clone());
+                }
+                next_frame += 1;
+                if next_frame == prepared.frames.len()
+                    || Duration::from_millis(prepared.frames[next_frame].0) > started.elapsed()
+                {
+                    break;
+                }
+            }
+            let (keys, pictures): (Vec<_>, Vec<_>) = latest.into_iter().unzip();
+            let archive = archive_from_pictures(&keys, &pictures, false)?;
+            self.send_file(0x000d, &archive)?;
+        }
+        let panel = archive_from_pictures(&[CLOCK_KEY], &[prepared.panel.clone()], status_display)?;
+        self.send_file(0x000d, &panel)?;
+        if status_display {
+            self.background()?;
+        }
+        // A press made during the transition must not act on the new page.
+        self.discard_input()
+    }
+
+    // Update only the pressed or released display key, without a page transition.
+    // Errors: invalid key, image/archive generation, or USB write failure.
+    /// `page`/`theme` identify pixels; `index` is the physical ordinary key.
+    /// `pressed` selects its state and `enabled` controls the inactive overlay.
+    pub fn show_key(
+        &self,
+        page: &PageConfig,
+        theme: Theme,
+        index: usize,
+        pressed: bool,
+        enabled: bool,
+    ) -> Result<()> {
+        let identity = picture_identity(page, theme, enabled)?;
+        let cached = self
+            .prepared_pages
+            .borrow()
+            .iter()
+            .find(|entry| entry.identity == identity)
+            .and_then(|entry| {
+                if pressed {
+                    entry.pressed.get(index)
+                } else {
+                    entry.released.get(index)
+                }
+            })
+            .cloned();
+        let archive = if let Some(picture) = cached {
+            archive_from_pictures(&[index], &[picture], false)?
+        } else {
+            make_key_archive(page, theme, index, pressed, enabled)?
+        };
+        self.send_file(0x000d, &archive)
+    }
+
+    // A focus change replaces only the twelve application keys, preserving
+    // NEXT PAGE and the clock. The controller calls this only when availability changes.
+    /// Redraw application keys using `enabled`, retaining the optional `held` state.
+    /// `page`/`theme` select artwork; `status_display` also redraws the wide panel.
+    /// The caller decides when availability changed; image and USB errors propagate.
+    pub fn refresh_availability(
+        &self,
+        page: &PageConfig,
+        theme: Theme,
+        held: Option<usize>,
+        enabled: bool,
+        status_display: bool,
+    ) -> Result<()> {
+        let status_display = status_display || page.name == PAGE_INDEX_NAME;
+        let mut keys = (0..CLOCK_KEY)
+            .filter(|&i| i != NEXT_KEY)
+            .collect::<Vec<_>>();
+        if status_display {
+            keys.push(CLOCK_KEY);
+        }
+        let archive = make_archive_for_keys(page, theme, held, &keys, enabled, status_display)?;
+        self.send_file(0x000d, &archive)?;
+        if status_display {
+            self.background()?;
+        }
+        Ok(())
+    }
+
+    // Redraw only the brightness keys when a bound is reached or left.
+    /// Find brightness actions on `page` and redraw only those positions.
+    /// `theme`, `held` and `enabled` preserve the current face/press/availability state.
+    pub fn refresh_brightness_keys(
+        &self,
+        page: &PageConfig,
+        theme: Theme,
+        held: Option<usize>,
+        enabled: bool,
+    ) -> Result<()> {
+        let keys: Vec<_> = page
+            .keys
+            .iter()
+            .enumerate()
+            .filter(|(_, key)| matches!(key.action.as_str(), "brightness:up" | "brightness:down"))
+            .map(|(index, _)| index)
+            .collect();
+        if keys.is_empty() {
+            return Ok(());
+        }
+        let archive = make_archive_for_keys(page, theme, held, &keys, enabled, false)?;
+        self.send_file(0x000d, &archive)
+    }
+
+    // Keep the wide panel in custom-background mode without clock overlays.
+    // Use the same ASCII field encoding as clock mode. A binary mode byte can
+    // leave native statistic overlays visible on the owner's firmware.
+    pub fn background(&self) -> Result<()> {
+        let payload = b"2|0|0|00:00:00|0";
+        self.send_packet(0x0006, payload, payload.len() as u32)
+    }
+
+    // D200 brightness is ASCII decimal, not a binary byte (independent protocol notes).
+    // USB write completion does not confirm visible backlight output.
+    pub fn set_brightness(&self, level: u8) -> Result<()> {
+        anyhow::ensure!(level <= 100, "brightness must be 0-100");
+        let payload = level.to_string();
+        self.send_packet(0x000a, payload.as_bytes(), payload.len() as u32)
+    }
+
+    // Errors: clock encoding or USB write failure.
+    pub fn clock(&self) -> Result<()> {
+        let now = chrono::Local::now().format("%H:%M:%S").to_string();
+        let payload = format!("1|0|0|{}|0", now);
+        self.send_packet(0x0006, payload.as_bytes(), payload.len() as u32)
+    }
+
+    // timeout: bounded wait so the clock and Ctrl+C remain responsive.
+    // Errors: USB input failure.
+    pub fn read_button(&self, timeout: Duration) -> Result<Option<ButtonEvent>> {
+        let mut buffer = [0u8; PACKET + 1];
+        let count = match self.device.read_timeout(&mut buffer, timeout.as_millis().min(i32::MAX as u128) as i32) {
+            Ok(count) => count,
+            // A stop signal can interrupt poll(). Let the controller observe it.
+            Err(hidapi::HidError::IoError { error }) if error.kind() == std::io::ErrorKind::Interrupted => return Ok(None),
+            Err(error) => return Err(error.into()),
+        };
+        Ok(decode_button(&buffer[..count]))
+    }
+
+    // Errors: USB input failure or a queue that does not drain within 256 reports.
+    pub fn discard_input(&self) -> Result<()> {
+        // Reconnection must never dispatch presses buffered before display initialization.
+        let mut buffer = [0u8; PACKET + 1];
+        for _ in 0..256 {
+            if self.device.read_timeout(&mut buffer, 0)? == 0 {
+                return Ok(());
+            }
+        }
+        Err(ConnectionError("D200H input queue did not drain".into()).into())
+    }
+
+    // command: full layout (0x0001) or one-key additive update (0x000d).
+    // archive: ZIP containing the intended manifest positions.
+    // Errors: oversized ZIP or USB write failure.
+    fn send_file(&self, command: u16, archive: &[u8]) -> Result<()> {
+        anyhow::ensure!(
+            archive.len() <= u32::MAX as usize,
+            "layout ZIP exceeds protocol length"
+        );
+        let first_payload_length = archive.len().min(FIRST_PACKET_PAYLOAD);
+        self.send_packet(
+            command,
+            &archive[..first_payload_length],
+            archive.len() as u32,
+        )?;
+
+        // Continuations have no command header, so each carries a full protocol packet.
+        for chunk in archive[first_payload_length..].chunks(PACKET) {
+            let mut report = [0u8; PACKET + 1];
+            report[1..1 + chunk.len()].copy_from_slice(chunk);
+            self.write(&report)?;
+        }
+        Ok(())
+    }
+
+    // command: D200H command number.
+    // payload: up to 1016 bytes of command data.
+    // length: declared total payload length.
+    // Errors: oversized payload or USB write failure.
+    fn send_packet(&self, command: u16, payload: &[u8], length: u32) -> Result<()> {
+        anyhow::ensure!(
+            payload.len() <= FIRST_PACKET_PAYLOAD,
+            "command payload exceeds one packet"
+        );
+        let mut report = [0u8; PACKET + 1];
+        report[1..3].copy_from_slice(&[0x7c, 0x7c]);
+        report[3..5].copy_from_slice(&command.to_be_bytes());
+        report[5..9].copy_from_slice(&length.to_le_bytes());
+        report[9..9 + payload.len()].copy_from_slice(payload);
+        self.write(&report)
+    }
+
+    // report: Report ID 0 followed by exactly 1024 protocol bytes.
+    // Errors: failed or short USB write.
+    fn write(&self, report: &[u8; PACKET + 1]) -> Result<()> {
+        let count = self
+            .device
+            .write(report)
+            .context("writing D200H HID report")?;
+        if count != report.len() {
+            return Err(ConnectionError(format!(
+                "short HID write: {count} of {} bytes",
+                report.len()
+            ))
+            .into());
+        }
+        Ok(())
+    }
+}
+
+// page: source labels for all physical positions.
+// theme: selected artwork family.
+// held: currently pressed key, if any.
+// Errors: PNG or ZIP generation failure; archive boundary retry exhaustion.
+#[cfg(test)]
+fn make_archive(
+    page: &PageConfig,
+    theme: Theme,
+    held: Option<usize>,
+    enabled: bool,
+    status_display: bool,
+) -> Result<Vec<u8>> {
+    make_archive_for_keys(
+        page,
+        theme,
+        held,
+        &(0..KEY_COUNT).collect::<Vec<_>>(),
+        enabled,
+        status_display,
+    )
+}
+
+// Build an additive archive containing exactly one ordinary display key.
+/// `page`/`theme` supply artwork; `index` must precede the wide clock position.
+/// `pressed` and `enabled` select the visual state. No device is accessed.
+pub fn make_key_archive(
+    page: &PageConfig,
+    theme: Theme,
+    index: usize,
+    pressed: bool,
+    enabled: bool,
+) -> Result<Vec<u8>> {
+    anyhow::ensure!(
+        index < CLOCK_KEY,
+        "key {index} is not an ordinary display key"
+    );
+    make_archive_for_keys(
+        page,
+        theme,
+        pressed.then_some(index),
+        &[index],
+        enabled,
+        false,
+    )
+}
+
+/// Render the ordered physical `keys` from `page` into an in-memory additive archive.
+/// `held` selects one pressed face; `enabled` and `status_display` select availability
+/// and panel behavior. Preserve key/picture order when constructing the manifest.
+fn make_archive_for_keys(
+    page: &PageConfig,
+    theme: Theme,
+    held: Option<usize>,
+    keys: &[usize],
+    enabled: bool,
+    status_display: bool,
+) -> Result<Vec<u8>> {
+    let pictures = keys
+        .iter()
+        .copied()
+        .map(|i| {
+            if i == CLOCK_KEY && status_display {
+                art::render_status(theme, page, enabled)
+            } else {
+                art::render_available(theme, page, i, held == Some(i), enabled)
+            }
+        })
+        .collect::<Result<Vec<_>>>()?;
+    archive_from_pictures(keys, &pictures, status_display)
+}
+
+/// Encode owned RGBA `picture` as PNG bytes; propagate encoder errors.
+fn encode_picture(picture: image::RgbaImage) -> Result<Vec<u8>> {
+    let mut output = Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgba8(picture).write_to(&mut output, image::ImageFormat::Png)?;
+    Ok(output.into_inner())
+}
+
+/// Produce an opaque black PNG of `width` by `height` for blank transition frames.
+fn black_picture(width: u32, height: u32) -> Result<Vec<u8>> {
+    encode_picture(image::RgbaImage::from_pixel(
+        width,
+        height,
+        image::Rgba([0, 0, 0, 255]),
+    ))
+}
+
+/// Pair physical `keys` with corresponding PNG `pictures` and build a firmware ZIP.
+/// Inputs must have matching order/length. `status_display` controls wide-key metadata.
+/// Fresh image names avoid firmware cache reuse; only app-generated bytes are archived.
+fn archive_from_pictures(
+    keys: &[usize],
+    pictures: &[Vec<u8>],
+    status_display: bool,
+) -> Result<Vec<u8>> {
+    let archive_id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_nanos();
+    let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+    let mut base = ZipWriter::new(Cursor::new(Vec::new()));
+    let mut manifest = Map::new();
+    for (&index, picture) in keys.iter().zip(pictures.iter()) {
+        // New names make the firmware load each replacement icon.
+        let name = if index == CLOCK_KEY && !status_display {
+            String::new()
+        } else {
+            let name = format!("Images/key-{index:02}-{archive_id:x}.png");
+            base.start_file(&name, options)?;
+            base.write_all(picture)?;
+            name
+        };
+        let position = format!("{}_{}", index % 5, index / 5);
+        let mut entry = json!({"State":0,"ViewParam":[{"Text":"","Icon":name}]});
+        if index == CLOCK_KEY && status_display {
+            entry["SmallViewMode"] = json!(2);
+        }
+        manifest.insert(position, entry);
+    }
+    base.start_file("manifest.json", options)?;
+    base.write_all(&serde_json::to_vec(&Value::Object(manifest))?)?;
+    base.start_file("sentinel.txt", options)?;
+    let base_bytes = base.finish()?.into_inner();
+    align_archive_for_transfer(base_bytes)
+}
+
+/// Shift continuation boundaries without changing any image or manifest entry.
+/// A continuation must not start with 0x00 or the protocol marker 0x7c.
+fn align_archive_for_transfer(base_bytes: Vec<u8>) -> Result<Vec<u8>> {
+    let mut source = zip::ZipArchive::new(Cursor::new(base_bytes))?;
+    let dummy_options = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+    for attempt in 0..1024u32 {
+        let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
+        // A stored dummy shifts every later ZIP byte by exactly one per attempt.
+        let filler = vec![b'A'; attempt as usize];
+        zip.start_file("dummy.txt", dummy_options)?;
+        zip.write_all(&filler)?;
+        for index in 0..source.len() {
+            zip.raw_copy_file(source.by_index(index)?)?;
+        }
+        let data = zip.finish()?.into_inner();
+        let safe_boundaries = (FIRST_PACKET_PAYLOAD..data.len())
+            .step_by(PACKET)
+            .all(|offset| !matches!(data[offset], 0x00 | 0x7c));
+        if safe_boundaries {
+            return Ok(data);
+        }
+    }
+    anyhow::bail!("could not satisfy D200H ZIP continuation boundary constraint")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::Config;
+    use std::io::Read;
+
+    #[test]
+    fn connection_recovery_preserves_transport_error_context() {
+        let unavailable = anyhow::Error::new(ConnectionError("missing consumer interface".into()))
+            .context("initializing D200H");
+        assert!(is_connection_error(&unavailable));
+        let denied = anyhow::Error::new(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+            .context(ConnectionError("check USB permissions".into()));
+        assert!(is_connection_error(&denied));
+        assert!(format!("{denied:#}").contains("permission denied"));
+        let disconnected = anyhow::Error::new(hidapi::HidError::IoError {
+            error: std::io::Error::from(std::io::ErrorKind::NotConnected),
+        }).context("reading D200H");
+        assert!(is_connection_error(&disconnected));
+    }
+
+    #[test]
+    fn connection_recovery_does_not_retry_settings_or_artwork_errors() {
+        assert!(!is_connection_error(&anyhow::anyhow!("invalid settings")));
+        // An unrelated disk failure must not turn into an endless USB retry.
+        let disk = anyhow::Error::new(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+            .context("reading the settings file");
+        assert!(!is_connection_error(&disk));
+    }
+
+    #[test]
+    fn malformed_button_reports_cannot_become_releases() {
+        for offset in [0, 1] {
+            let mut report = vec![0; offset + 12];
+            report[offset..offset + 4].copy_from_slice(&[0x7c, 0x7c, 0x01, 0x01]);
+            report[offset + 9] = 3;
+            for state in 0..=u8::MAX {
+                report[offset + 11] = state;
+                match decode_button(&report) {
+                    Some(event) => {
+                        assert!(state <= 1);
+                        assert_eq!(event.index, 3);
+                        assert_eq!(event.pressed, state == 1);
+                    }
+                    None => assert!(state > 1),
+                }
+            }
+            report[offset + 11] = 0;
+            report[offset + 9] = KEY_COUNT as u8;
+            assert!(decode_button(&report).is_none());
+            assert!(decode_button(&report[..offset + 11]).is_none());
+        }
+    }
+
+    #[test]
+    fn boot_pictures_use_every_native_display_size() -> Result<()> {
+        assert_eq!(boot::PICTURES.len(), KEY_COUNT);
+        for (index, picture) in boot::PICTURES.iter().enumerate() {
+            let image = image::load_from_memory(picture)?;
+            let expected = if index == CLOCK_KEY {
+                (400, 200)
+            } else {
+                (196, 196)
+            };
+            assert_eq!(
+                (image.width(), image.height()),
+                expected,
+                "boot key {index}"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn prepared_picture_identity_tracks_runtime_availability_and_shortcuts() -> Result<()> {
+        let mut page = Config::default().pages[0].clone();
+        let original = picture_identity(&page, Theme::DarkClassic, true)?;
+        // These flags are skipped when settings are serialized, but must invalidate pictures.
+        page.key_availability = vec![true; KEY_COUNT];
+        page.key_availability[0] = false;
+        assert_ne!(original, picture_identity(&page, Theme::DarkClassic, true)?);
+        page.key_availability[0] = true;
+        let before_edit = picture_identity(&page, Theme::DarkClassic, true)?;
+        page.keys[0].label = "MY SHORTCUT".into();
+        assert_ne!(
+            before_edit,
+            picture_identity(&page, Theme::DarkClassic, true)?
+        );
+        assert_ne!(
+            picture_identity(&page, Theme::DarkClassic, true)?,
+            picture_identity(&page, Theme::DarkClassic, false)?
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn full_layout_contains_thirteen_icons_and_safe_boundaries() -> Result<()> {
+        let page = &Config::default().pages[0];
+        let bytes = make_archive(page, Theme::DarkClassic, Some(4), true, false)?;
+        assert!((1016..bytes.len())
+            .step_by(PACKET)
+            .all(|n| bytes[n] != 0 && bytes[n] != 0x7c));
+        let mut zip = zip::ZipArchive::new(Cursor::new(bytes))?;
+        let mut manifest = String::new();
+        zip.by_name("manifest.json")?
+            .read_to_string(&mut manifest)?;
+        let positions: Value = serde_json::from_str(&manifest)?;
+        assert_eq!(positions.as_object().expect("object").len(), KEY_COUNT);
+        assert!(positions["4_0"]["ViewParam"][0]["Icon"]
+            .as_str()
+            .expect("icon name")
+            .starts_with("Images/key-04-"));
+        assert_eq!(positions["3_2"]["ViewParam"][0]["Icon"], "");
+        for index in 0..CLOCK_KEY {
+            let mut png = Vec::new();
+            let position = format!("{}_{}", index % 5, index / 5);
+            let name = positions[&position]["ViewParam"][0]["Icon"]
+                .as_str()
+                .expect("icon name");
+            zip.by_name(name)?.read_to_end(&mut png)?;
+            let image = image::load_from_memory(&png)?;
+            assert_eq!((image.width(), image.height()), (196, 196));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn replacement_layout_uses_fresh_icon_names() -> Result<()> {
+        let page = &Config::default().pages[0];
+        let mut names = Vec::new();
+        for _ in 0..2 {
+            let data = make_archive(page, Theme::LightAbstract, None, true, false)?;
+            let mut zip = zip::ZipArchive::new(Cursor::new(data))?;
+            let mut manifest = String::new();
+            zip.by_name("manifest.json")?
+                .read_to_string(&mut manifest)?;
+            let positions: Value = serde_json::from_str(&manifest)?;
+            names.push(positions["0_0"]["ViewParam"][0]["Icon"].clone());
+        }
+        assert_ne!(names[0], names[1]);
+        Ok(())
+    }
+
+    #[test]
+    fn additive_update_contains_only_the_selected_key_and_both_states() -> Result<()> {
+        let page = &Config::default().pages[0];
+        let mut images = Vec::new();
+        for pressed in [false, true] {
+            let bytes = make_key_archive(page, Theme::LightAbstract, 4, pressed, true)?;
+            assert!((1016..bytes.len())
+                .step_by(PACKET)
+                .all(|n| bytes[n] != 0 && bytes[n] != 0x7c));
+            let mut zip = zip::ZipArchive::new(Cursor::new(bytes))?;
+            let mut manifest = String::new();
+            zip.by_name("manifest.json")?
+                .read_to_string(&mut manifest)?;
+            let positions: Value = serde_json::from_str(&manifest)?;
+            let entries = positions.as_object().expect("manifest object");
+            assert_eq!(entries.len(), 1);
+            let name = positions["4_0"]["ViewParam"][0]["Icon"]
+                .as_str()
+                .expect("selected icon name");
+            let mut png = Vec::new();
+            zip.by_name(name)?.read_to_end(&mut png)?;
+            let image = image::load_from_memory(&png)?;
+            assert_eq!((image.width(), image.height()), (196, 196));
+            images.push(png);
+        }
+        assert_ne!(images[0], images[1]);
+        assert!(make_key_archive(page, Theme::LightAbstract, CLOCK_KEY, false, true).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn every_default_page_and_theme_can_be_packaged() -> Result<()> {
+        for page in &Config::default().pages {
+            for theme in Theme::ALL {
+                let data = make_archive(page, theme, None, true, false)?;
+                assert!(data.starts_with(b"PK"));
+                assert!((1016..data.len())
+                    .step_by(PACKET)
+                    .all(|offset| data[offset] != 0 && data[offset] != 0x7c));
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn inactive_focus_update_preserves_gray_base_overlay_navigation_and_clock() -> Result<()> {
+        let page = &Config::default().pages[2];
+        let keys = (0..CLOCK_KEY)
+            .filter(|&i| i != NEXT_KEY)
+            .collect::<Vec<_>>();
+        let bytes = make_archive_for_keys(page, Theme::CyberpunkNeon, None, &keys, false, false)?;
+        assert!((1016..bytes.len())
+            .step_by(PACKET)
+            .all(|n| bytes[n] != 0 && bytes[n] != 0x7c));
+        let mut zip = zip::ZipArchive::new(Cursor::new(bytes))?;
+        let mut manifest = String::new();
+        zip.by_name("manifest.json")?
+            .read_to_string(&mut manifest)?;
+        let positions: Value = serde_json::from_str(&manifest)?;
+        assert_eq!(positions.as_object().expect("manifest object").len(), 12);
+        assert!(positions.get("4_0").is_none());
+        assert!(positions.get("3_2").is_none());
+        let overlay =
+            image::load_from_memory(include_bytes!("../assets/overlay/not-available.png"))?
+                .resize_exact(196, 196, image::imageops::FilterType::Lanczos3)
+                .to_rgba8();
+        for entry in positions.as_object().expect("manifest object").values() {
+            let mut png = Vec::new();
+            zip.by_name(entry["ViewParam"][0]["Icon"].as_str().expect("icon"))?
+                .read_to_end(&mut png)?;
+            let image = image::load_from_memory(&png)?.to_rgba8();
+            assert_eq!(image.dimensions(), (196, 196));
+            assert!(image.pixels().all(|p| p[3] == 255));
+            let mut base_pixels = 0;
+            for (x, y, pixel) in image.enumerate_pixels() {
+                if overlay.get_pixel(x, y)[3] == 0 {
+                    assert_eq!(pixel[0], pixel[1]);
+                    assert_eq!(pixel[1], pixel[2]);
+                    base_pixels += 1;
+                }
+            }
+            assert!(base_pixels > 0);
+            // The existing UNAVAILABLE overlay deliberately uses the theme's color.
+            assert!(image.pixels().any(|p| p[0] != p[1] || p[1] != p[2]));
+        }
+        assert_eq!(
+            art::render_available(Theme::CyberpunkNeon, page, NEXT_KEY, false, false)?,
+            art::render_available(Theme::CyberpunkNeon, page, NEXT_KEY, false, true)?
+        );
+        assert_eq!(
+            art::render_available(Theme::CyberpunkNeon, page, 0, true, false)?,
+            art::render_available(Theme::CyberpunkNeon, page, 0, false, false)?
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn custom_status_panel_uses_wide_geometry_and_background_mode() -> Result<()> {
+        let page = &Config::default().pages[3];
+        let mut panels = Vec::new();
+        for enabled in [false, true] {
+            let bytes = make_archive(page, Theme::LightAbstract, None, enabled, true)?;
+            let mut zip = zip::ZipArchive::new(Cursor::new(bytes))?;
+            let mut manifest = String::new();
+            zip.by_name("manifest.json")?
+                .read_to_string(&mut manifest)?;
+            let positions: Value = serde_json::from_str(&manifest)?;
+            assert_eq!(positions["3_2"]["SmallViewMode"], 2);
+            let name = positions["3_2"]["ViewParam"][0]["Icon"]
+                .as_str()
+                .expect("wide panel icon");
+            let mut png = Vec::new();
+            zip.by_name(name)?.read_to_end(&mut png)?;
+            let image = image::load_from_memory(&png)?.to_rgba8();
+            assert_eq!(image.dimensions(), (400, 200));
+            assert!(image.pixels().all(|p| p[3] == 255));
+            panels.push(png);
+        }
+        assert_ne!(panels[0], panels[1]);
+        Ok(())
+    }
+}

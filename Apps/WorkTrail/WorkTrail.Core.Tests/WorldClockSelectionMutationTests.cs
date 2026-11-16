@@ -1,0 +1,289 @@
+// SPDX-License-Identifier: MIT
+/* VBWR B
+ *
+ * Project: WorkTrail
+ * Repository: https://github.com/umbertotechnopreneur/WorkTrail
+ * Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+ *
+ * VibeWare: Human intent, AI execution, and plenty of tokens
+ * Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+ *
+ * Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+ * Human guidance: Umberto Giacobbi; requested VibeWare branding.
+ *
+ * Copyright (c) 2026 Umberto Giacobbi
+ * License: MIT - see LICENSE
+ *
+ * VBWR E */
+
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using WorkTrail.Application;
+using WorkTrail.Services;
+using Xunit;
+
+namespace WorkTrail.Core.Tests;
+
+/// <summary>Checks persisted clock selection changes without accidental weather requests.</summary>
+public sealed class WorldClockSelectionMutationTests
+{
+    #region Implementation
+
+    /// <summary>Persists clock selection independently of weather, then requests weather only for enabled live projections.</summary>
+    [Fact]
+    public async Task AddAndRemove_PersistWithoutRequestingWeather_AndProjectionChoosesTheMode()
+    {
+        var dataDirectory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new LocalStore(dataDirectory);
+
+            Assert.True(store.LoadSettings().WorldClockWeatherEnabled);
+
+            store.SaveSettings(store.LoadSettings() with
+            {
+                WorldClockCityIds = ["ho-chi-minh-city"]
+            });
+            var provider = new FailingWeatherProvider();
+            var worldClocks = new WorldClockService(
+                RepositoryFile("WorkTrail", "Assets", "WorldClocks", "world-clocks.sqlite3"),
+                provider,
+                TimeProvider.System);
+            string? writtenKeyName = null;
+            string? writtenSecret = null;
+            var utilities = new UtilityService((keyName, secret) =>
+            {
+                writtenKeyName = keyName;
+                writtenSecret = secret;
+            });
+            await using var application = new WorkTrailApplication(store, utilities: utilities, worldClockService: worldClocks);
+
+            var invalidWeatherKey = await application.SetWorldClockWeatherKeyAsync("short", CancellationToken.None);
+
+            Assert.False(invalidWeatherKey.Succeeded);
+            Assert.Equal("world_clocks.weather.key.invalid", invalidWeatherKey.Code);
+            Assert.Contains(invalidWeatherKey.Issues, issue => issue.Field == "secret");
+            Assert.Null(writtenKeyName);
+            Assert.Null(writtenSecret);
+
+            const string weatherKey = "0123456789abcdef0123456789abcdef";
+            var storedWeatherKey = await application.SetWorldClockWeatherKeyAsync(weatherKey, CancellationToken.None);
+
+            Assert.True(storedWeatherKey.Succeeded);
+            Assert.Equal("WORKTRAIL_OPENWEATHER_API_KEY", storedWeatherKey.Value);
+            Assert.Equal("WORKTRAIL_OPENWEATHER_API_KEY", writtenKeyName);
+            Assert.Equal(weatherKey, writtenSecret);
+
+            var added = await application.AddWorldClockAsync("tokyo", CancellationToken.None);
+
+            Assert.True(added.Succeeded);
+            Assert.Equal(["ho-chi-minh-city", "tokyo"], added.Value?.CityIds);
+            Assert.Equal(0, provider.CallCount);
+            Assert.Equal(
+                ["ho-chi-minh-city", "tokyo"],
+                store.LoadSettings().WorldClockCityIds);
+
+            var moved = await application.MoveWorldClockAsync(
+                "tokyo",
+                WorldClockMoveDirection.Up,
+                CancellationToken.None);
+
+            Assert.True(moved.Succeeded);
+            Assert.Equal(["tokyo", "ho-chi-minh-city"], moved.Value?.CityIds);
+            Assert.Equal(0, provider.CallCount);
+            Assert.Equal(["tokyo", "ho-chi-minh-city"], store.LoadSettings().WorldClockCityIds);
+
+            var converted = await application.ConvertWorldClocksAsync(
+                new WorldClockConversionRequest(
+                    "ho-chi-minh-city",
+                    new DateTime(2026, 8, 30, 10, 18, 0, DateTimeKind.Unspecified)),
+                CancellationToken.None);
+
+            Assert.True(converted.Succeeded);
+            Assert.Equal("not-requested", converted.Value?.WeatherStatus.State);
+            Assert.All(converted.Value!.Clocks, static clock => Assert.Null(clock.Weather));
+            Assert.Equal(0, provider.CallCount);
+
+            var current = await application.GetWorldClocksAsync(CancellationToken.None);
+
+            Assert.True(current.Succeeded);
+            Assert.Equal("unavailable", current.Value?.WeatherStatus.State);
+            Assert.Equal(2, provider.CallCount);
+
+            var weatherDisabled = await application.PatchSettingsAsync(
+                new SettingsPatch(new Dictionary<string, string?>
+                {
+                    ["world_clocks.weather.enabled"] = "false"
+                }),
+                CancellationToken.None);
+            var disabledSnapshot = await application.GetWorldClocksAsync(CancellationToken.None);
+
+            Assert.True(weatherDisabled.Succeeded);
+            Assert.False(weatherDisabled.Value?.WorldClockWeatherEnabled);
+            Assert.False(store.LoadSettings().WorldClockWeatherEnabled);
+            Assert.True(disabledSnapshot.Succeeded);
+            Assert.Equal("disabled", disabledSnapshot.Value?.WeatherStatus.State);
+            Assert.Equal("user-disabled", disabledSnapshot.Value?.WeatherStatus.ReasonCode);
+            Assert.Equal(2, provider.CallCount);
+
+            var removed = await application.RemoveWorldClockAsync("tokyo", CancellationToken.None);
+
+            Assert.True(removed.Succeeded);
+            Assert.Equal(["ho-chi-minh-city"], removed.Value?.CityIds);
+            Assert.Equal(2, provider.CallCount);
+            Assert.Equal(["ho-chi-minh-city"], store.LoadSettings().WorldClockCityIds);
+        }
+        finally
+        {
+            await DeleteTemporaryDirectoryAsync(dataDirectory);
+        }
+    }
+
+    /// <summary>Lets every installation fill twelve slots and protects the last slot from concurrent additions.</summary>
+    [Fact]
+    public async Task Add_AllTwelveSlotsAreAvailableAndConcurrentAddsRespectCapacity()
+    {
+        var dataDirectory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new LocalStore(dataDirectory);
+            var provider = new FailingWeatherProvider();
+            var clocks = new WorldClockService(
+                RepositoryFile("WorkTrail", "Assets", "WorldClocks", "world-clocks.sqlite3"), provider, TimeProvider.System);
+            await using var application = new WorkTrailApplication(store, worldClockService: clocks);
+            var catalog = await application.GetWorldClockCityCatalogAsync(CancellationToken.None);
+            Assert.True(catalog.Succeeded);
+            Assert.Equal(12, catalog.Value!.MaximumClocks);
+            var candidates = catalog.Value.Cities.Take(13).Select(city => city.Id).ToArray();
+            Assert.Equal(13, candidates.Length);
+
+            var firstEleven = candidates.Take(11).ToArray();
+            foreach (var cityId in firstEleven)
+            {
+                var added = await application.AddWorldClockAsync(cityId, CancellationToken.None);
+                Assert.True(added.Succeeded);
+                Assert.Equal(12, added.Value!.MaximumClocks);
+            }
+
+            var lastSlot = await Task.WhenAll(candidates.Skip(11).Select(cityId =>
+                Task.Run(() => application.AddWorldClockAsync(cityId, CancellationToken.None))));
+            var accepted = Assert.Single(lastSlot, result => result.Succeeded);
+            var rejected = Assert.Single(lastSlot, result => !result.Succeeded);
+            Assert.Equal("world_clocks.maximum_reached", rejected.Code);
+            Assert.Equal("WorldClocksMaximumReached", rejected.MessageKey);
+            var saved = store.LoadSettings().WorldClockCityIds!;
+            Assert.Equal(12, saved.Count);
+            Assert.Equal(firstEleven, saved.Take(11));
+            Assert.Equal(accepted.Value!.CityIds, saved);
+
+            var retry = await application.AddWorldClockAsync($" {saved[^1].ToUpperInvariant()} ", CancellationToken.None);
+            Assert.False(retry.Succeeded);
+            Assert.Equal("world_clocks.duplicate", retry.Code);
+            Assert.Equal(saved, store.LoadSettings().WorldClockCityIds);
+            Assert.Equal(0, provider.CallCount);
+        }
+        finally
+        {
+            await DeleteTemporaryDirectoryAsync(dataDirectory);
+        }
+    }
+
+    #endregion
+
+    #region Test doubles
+
+    /// <summary>Counts weather requests and fails them to exercise optional-provider diagnostics.</summary>
+    private sealed class FailingWeatherProvider : IWorldClockWeatherProvider
+    {
+        #region Fields
+
+        private int _callCount;
+
+        #endregion
+
+        #region Properties
+
+        public string Name => "failing-test-provider";
+
+        public string ConfigurationState => "configured";
+
+        public bool IsConfigured => true;
+
+        public int CallCount => Volatile.Read(ref _callCount);
+
+        #endregion
+
+        #region Implementation
+
+        /// <summary>Accepts validation so the fixture can isolate subsequent observation failures.</summary>
+        public Task<WorldClockWeatherApiKeyValidation> ValidateApiKeyAsync(
+            string secret,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(WorldClockWeatherApiKeyValidation.Accepted);
+
+        /// <summary>Counts the attempted request and raises the synthetic optional-weather failure.</summary>
+        public Task<WorldClockWeatherObservation> GetCurrentAsync(
+            WorldClockWeatherLocation location,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Interlocked.Increment(ref _callCount);
+            throw new HttpRequestException("Synthetic optional-weather failure.");
+        }
+
+        #endregion
+    }
+
+    #endregion
+
+    #region Implementation
+
+    /// <summary>Finds a checked-in fixture by walking upward from the test output to the repository root.</summary>
+    private static string RepositoryFile(params string[] pathSegments)
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "WorkTrail.slnx")))
+            {
+                return Path.Combine(new[] { directory.FullName }.Concat(pathSegments).ToArray());
+            }
+        }
+
+        throw new DirectoryNotFoundException("Could not locate the WorkTrail repository root.");
+    }
+
+    /// <summary>Creates an isolated directory for persistence fixtures owned by the current test.</summary>
+    private static string CreateTemporaryDirectory()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "WorkTrail.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(path);
+
+        return path;
+    }
+
+    /// <summary>Removes the test fixture directory, retrying transient file locks before reporting failure.</summary>
+    private static async Task DeleteTemporaryDirectoryAsync(string path)
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            try
+            {
+                Directory.Delete(path, recursive: true);
+
+                return;
+            }
+            catch (IOException) when (attempt < 4)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50));
+            }
+        }
+    }
+
+    #endregion
+}

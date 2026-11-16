@@ -1,0 +1,762 @@
+/* VBWR B
+ *
+ * Project: UlanziDeck
+ * Repository: https://github.com/umbertotechnopreneur/ulanzi-dock-vibeware
+ * Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+ *
+ * VibeWare: Human intent, AI execution, and plenty of tokens
+ * Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+ *
+ * Modified with AI: OpenAI Codex; shared entitlement checks and readable controller contracts and readability; 2026-10-27
+ * Human guidance: Umberto Giacobbi; AGENTS.md and owner-directed implementation/documentation
+ * Evidence: docs/CODE-REVIEW.md; current working-tree changes
+ *
+ * Copyright (c) 2026 Umberto Giacobbi
+ * SPDX-License-Identifier: MIT
+ * License: MIT - see LICENSE
+ * Required by the MIT License: retain the copyright and permission notice in all copies or substantial portions of the Software.
+ *
+ * VBWR E */
+
+//! Own the dock event loop: connection recovery, page navigation, input release
+//! pairing, redraws, and settings polling. All HID writes stay on this worker.
+//! UI and Store calls are queued elsewhere; this module never displays purchase UI
+//! synchronously or reads global keyboard input/window titles.
+
+use crate::{
+    actions::{self, ForegroundProcess},
+    dock::{self, ButtonEvent, Dock},
+    model::{
+        Config, PageConfig, RuntimeSettings, RuntimeToggle, Theme, CLOCK_KEY, NEXT_KEY, PAGE_INDEX_NAME,
+    },
+    settings::{self, SettingsChange, SettingsStore},
+    tray::{ConnectionState, Control},
+};
+use anyhow::{Context, Result};
+use std::{
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
+/// Named options keep command-line switches out of the device event loop.
+pub struct RunOptions {
+    pub config_path: PathBuf,
+    pub theme: Option<Theme>,
+    pub seconds: Option<u64>,
+    pub no_actions: bool,
+    pub clock: bool,
+    pub status_display: bool,
+    pub focus_poll_seconds: Option<u64>,
+    pub no_auto_page: bool,
+    pub no_app_detection: bool,
+}
+
+impl RunOptions {
+    fn runtime(&self, saved: RuntimeSettings) -> RuntimeSettings {
+        let detect_applications = cfg!(target_os = "windows")
+            && saved.detect_applications
+            && !self.no_app_detection;
+        RuntimeSettings {
+            detect_applications,
+            auto_switch: detect_applications && saved.auto_switch && !self.no_auto_page,
+            focus_poll_seconds: self.focus_poll_seconds.unwrap_or(saved.focus_poll_seconds),
+        }
+    }
+}
+
+/// State that survives USB disconnections. A held key never survives reconnection.
+struct Controller {
+    config: Config,
+    options: RunOptions,
+    control: Arc<Control>,
+    actions: actions::ActionExecutor,
+    theme: Theme,
+    observed_settings: Option<Vec<u8>>,
+    settings_error: Option<String>,
+    current_page: usize,
+    held_key: Option<usize>,
+    page_is_active: bool,
+    last_known_process: Option<ForegroundProcess>,
+    started: Instant,
+    boot_shown: bool,
+    last_saved_page: Option<String>,
+    pending_page: Option<String>,
+    page_changed_at: Instant,
+}
+
+/// Run validated `config` using resolved CLI `options` until `control` requests exit.
+/// Restores the last enabled page, applies licensing, and propagates fatal I/O errors.
+pub fn run(config: Config, options: RunOptions, control: Arc<Control>) -> Result<()> {
+    let foreground = foreground_process(options.runtime(config.runtime).detect_applications);
+    let last_saved_page = settings::load_last_page(&options.config_path)?;
+    let current_page = restored_page(&config, last_saved_page.as_deref());
+
+    let page_is_active = actions::page_available(&config.pages[current_page], &foreground);
+    let last_known_process =
+        matches!(foreground, ForegroundProcess::Known(_)).then(|| foreground.clone());
+
+    Controller {
+        theme: crate::licensing::effective(options.theme.unwrap_or(config.theme)),
+        actions: actions::ActionExecutor::start(Arc::clone(&control))?,
+        config,
+        options,
+        control,
+        observed_settings: None,
+        settings_error: None,
+        current_page,
+        held_key: None,
+        page_is_active,
+        last_known_process,
+        started: Instant::now(),
+        boot_shown: false,
+        last_saved_page,
+        pending_page: None,
+        page_changed_at: Instant::now(),
+    }
+    .run()
+}
+
+// The page index is temporary. A disabled or removed saved page cannot be opened.
+/// Resolve saved `name` within `config`; missing/disabled/index pages use home.
+fn restored_page(config: &Config, name: Option<&str>) -> usize {
+    config
+        .pages
+        .iter()
+        .position(|page| {
+            page.enabled && page.name != PAGE_INDEX_NAME && Some(page.name.as_str()) == name
+        })
+        .unwrap_or_else(|| config.home_page())
+}
+
+impl Drop for Controller {
+    fn drop(&mut self) {
+        self.actions.cancel_pending();
+        self.save_pending_page(true);
+    }
+}
+
+/// Query the foreground executable only when `detect_applications` is enabled.
+fn foreground_process(detect_applications: bool) -> ForegroundProcess {
+    if detect_applications {
+        actions::foreground_process()
+    } else {
+        ForegroundProcess::Unsupported
+    }
+}
+
+mod routing;
+pub(crate) use routing::{route_button, ButtonRoute};
+
+impl Controller {
+    /// Borrow the current page from the controller's validated page collection.
+    fn page(&self) -> &PageConfig {
+        &self.config.pages[self.current_page]
+    }
+
+    /// Combine the user exit request with the optional command-line duration limit.
+    fn is_running(&self) -> bool {
+        let within_deadline = self
+            .options
+            .seconds
+            .is_none_or(|limit| self.started.elapsed() < Duration::from_secs(limit));
+
+        self.control.is_running() && within_deadline
+    }
+
+    /// The page index always replaces the wide-key clock with navigation context.
+    fn uses_status_display(&self) -> bool {
+        self.options.status_display || self.page().name == PAGE_INDEX_NAME
+    }
+
+    /// Read focus using the resolved detection setting, without changing page state.
+    fn foreground(&self) -> ForegroundProcess {
+        foreground_process(self.options.runtime(self.config.runtime).detect_applications)
+    }
+
+    fn refresh_runtime_controls(&mut self) {
+        self.config.refresh_runtime_controls(
+            self.options.runtime(self.config.runtime),
+            !self.options.no_app_detection,
+            !self.options.no_auto_page,
+        );
+    }
+
+    /// Own connection sessions until shutdown. Recover only recognized connection
+    /// failures on every platform; configuration/artwork errors are returned to the caller.
+    fn run(mut self) -> Result<()> {
+        self.config.refresh_theme_selector(self.theme)?;
+        let stop = Arc::clone(&self.control);
+        ctrlc::set_handler(move || stop.stop())?;
+
+        #[cfg(target_os = "linux")]
+        let _desktop = crate::tray::linux::DesktopStatus::start(
+            self.options.config_path.clone(), Arc::clone(&self.control),
+        );
+        while self.is_running() {
+            let Some(dock) = self.connect()? else {
+                break;
+            };
+            let session = self.session(&dock);
+
+            // Release the failed handle before discovery opens the next USB session.
+            self.actions.cancel_pending();
+            drop(dock);
+            if let Err(error) = session {
+                if !dock::is_connection_error(&error) {
+                    return Err(error);
+                }
+                if !self.is_running() {
+                    break;
+                }
+                self.held_key = None;
+                self.control.set_connection(ConnectionState::Disconnected);
+                eprintln!("D200H disconnected UTC={} page={}: {error:#}",
+                    chrono::Utc::now().to_rfc3339(), self.page().name);
+                self.wait_for_connection_retry(Duration::from_millis(250));
+            }
+        }
+
+        println!("Stopped. The dock may clear its display when the program exits.");
+        Ok(())
+    }
+
+    /// Retry a missing, busy or inaccessible dock while the app remains running. `None` means
+    /// shutdown was requested before a connection, not that initialization succeeded.
+    fn connect(&mut self) -> Result<Option<Dock>> {
+        let mut last_error = String::new();
+        let mut retry = Duration::from_millis(250);
+
+        while self.is_running() {
+            if self.control.take_reconnect_request() {
+                self.control.set_connection(ConnectionState::Waiting);
+                retry = Duration::from_millis(250);
+            }
+            match self.connect_once() {
+                Ok(dock) => {
+                    self.control.set_connection(ConnectionState::Connected);
+                    return Ok(Some(dock));
+                }
+                Err(error) => {
+                    if !dock::is_connection_error(&error) {
+                        return Err(error);
+                    }
+                    self.control.set_connection(ConnectionState::Disconnected);
+                    let message = format!("{error:#}");
+                    if message != last_error {
+                        eprintln!("Waiting for D200H UTC={}: {message}", chrono::Utc::now().to_rfc3339());
+                        last_error = message;
+                    }
+                    self.wait_for_connection_retry(retry);
+                    retry = (retry * 2).min(Duration::from_secs(2));
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Apply saved preferences, open the validated consumer interface and draw
+    /// the current page. Discard reports buffered before the display was ready.
+    fn connect_once(&mut self) -> Result<Dock> {
+        self.refresh_preferences();
+        self.config.refresh_theme_selector(self.theme)?;
+        self.refresh_runtime_controls();
+        let (api, _) = dock::discover()?;
+        let dock = Dock::open(&api)?;
+
+        let foreground = self.foreground();
+        if matches!(foreground, ForegroundProcess::Known(_)) {
+            // The first connection restores the previous page. App following
+            // resumes on subsequent foreground changes, not over the restored view.
+            if self.boot_shown {
+                self.follow_foreground(&foreground);
+            }
+            self.last_known_process = Some(foreground.clone());
+        }
+        self.page_is_active = actions::page_available(self.page(), &foreground);
+
+        if !self.boot_shown {
+            dock.show_boot(
+                self.config.brightness,
+                || self.is_running(),
+                || {
+                    dock.prepare_transition(
+                        self.page(),
+                        self.theme,
+                        self.page_is_active,
+                        self.options.status_display,
+                        || self.is_running(),
+                    )
+                },
+            )?;
+            self.boot_shown = true;
+        } else {
+            dock.set_brightness(self.config.brightness)?;
+        }
+        if self.is_running() {
+            self.show_page(&dock)?;
+        }
+        // Never replay input buffered before the page was ready.
+        dock.discard_input()?;
+        Ok(dock)
+    }
+
+    /// Retry with bounded backoff, checking shutdown every 50 ms.
+    fn wait_for_connection_retry(&self, delay: Duration) {
+        let deadline = Instant::now() + delay;
+        while Instant::now() < deadline {
+            if !self.is_running() || self.control.reconnect_requested() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+
+    /// Draw current state through `dock` and queue the regular page for persistence.
+    /// A generated page index is transient and must never become the startup page.
+    fn show_page(&mut self, dock: &Dock) -> Result<()> {
+        self.actions.cancel_pending();
+        self.refresh_runtime_controls();
+        dock.show_transition(
+            self.page(),
+            self.theme,
+            self.page_is_active,
+            self.options.status_display,
+            || self.is_running(),
+        )?;
+        if self.is_running() && self.options.clock && !self.uses_status_display() {
+            dock.clock()?;
+        }
+        if self.is_running() && self.page().name != PAGE_INDEX_NAME {
+            let name = self.page().name.clone();
+            self.pending_page =
+                (self.last_saved_page.as_deref() != Some(name.as_str())).then_some(name);
+            self.page_changed_at = Instant::now();
+        }
+        Ok(())
+    }
+
+    /// Debounce navigation writes; `force` flushes at shutdown. Saving errors are
+    /// reported without turning a functioning HID connection into a device failure.
+    fn save_pending_page(&mut self, force: bool) {
+        if !force && self.page_changed_at.elapsed() < Duration::from_millis(500) {
+            return;
+        }
+        let Some(page) = self.pending_page.take() else {
+            return;
+        };
+        let result = self
+            .control
+            .lock_settings()
+            .and_then(|_lock| settings::save_last_page(&self.options.config_path, &page));
+        match result {
+            Ok(()) => self.last_saved_page = Some(page),
+            Err(error) => eprintln!("Could not remember the current page: {error:#}"),
+        }
+    }
+
+    /// Apply live fields from one settings document, retaining the running app mappings.
+    fn read_preferences(&mut self) -> Result<bool> {
+        let bytes = ulanzi_dock_vibeware::persistence::read_optional(&self.options.config_path)?;
+        let Some(bytes) = bytes else {
+            self.observed_settings = None;
+            return Ok(false);
+        };
+        if self.observed_settings.as_deref() == Some(bytes.as_slice()) {
+            return Ok(false);
+        }
+        let saved: Config = serde_json::from_slice(&bytes).context("reading saved preferences")?;
+        saved.validate()?;
+        self.observed_settings = Some(bytes);
+        let theme_changed = saved.theme != self.config.theme;
+        let runtime_changed =
+            self.options.runtime(saved.runtime) != self.options.runtime(self.config.runtime);
+        let mut pages_changed = false;
+        for page in &mut self.config.pages {
+            if let Some(updated) = saved.pages.iter().find(|p| p.name == page.name) {
+                if page.enabled != updated.enabled {
+                    page.enabled = updated.enabled;
+                    pages_changed = true;
+                }
+            }
+        }
+        if theme_changed {
+            self.theme = crate::licensing::effective(saved.theme);
+            self.config.theme = saved.theme;
+        }
+        self.config.brightness = saved.brightness;
+        self.config.runtime = saved.runtime;
+        if runtime_changed {
+            self.last_known_process = None;
+        }
+        Ok(theme_changed || runtime_changed || pages_changed)
+    }
+
+    /// Keep the last valid settings when a file is temporarily unreadable or invalid.
+    fn refresh_preferences(&mut self) -> bool {
+        match self.read_preferences() {
+            Ok(redraw) => {
+                self.settings_error = None;
+                if redraw {
+                    self.actions.cancel_pending();
+                    if !self.page().enabled {
+                        self.current_page = self.config.home_page();
+                    }
+                }
+                redraw
+            }
+            Err(error) => {
+                let message = format!("{error:#}");
+                if self.settings_error.as_deref() != Some(message.as_str()) {
+                    eprintln!("Keeping current preferences: {message}");
+                    self.settings_error = Some(message);
+                }
+                false
+            }
+        }
+    }
+
+    /// Process input on connected `dock` before lower-priority polling/redraw work.
+    /// Connection errors bubble up to recovery. Only a normal exit attempts the shutdown fade.
+    fn session(&mut self, dock: &Dock) -> Result<()> {
+        let mut last_clock = Instant::now();
+        let mut last_focus = Instant::now();
+        let mut last_page_save = Instant::now();
+        let mut last_preferences = Instant::now();
+
+        println!(
+            "D200H active | page: {} | theme: {} | Ctrl+C to stop",
+            self.page().name,
+            self.theme.slug()
+        );
+        let runtime = self.options.runtime(self.config.runtime);
+        if runtime.detect_applications {
+            println!(
+                "Foreground polling: {}s | automatic pages: {}",
+                runtime.focus_poll_seconds,
+                if runtime.auto_switch { "on" } else { "off" }
+            );
+        }
+
+        while self.is_running() {
+            // Handle queued presses/releases before disk polling, clock writes or
+            // focus redraws. read_timeout returns immediately when input is ready.
+            if let Some(event) = dock.read_button(Duration::ZERO)? {
+                if self.handle_button(dock, event)? {
+                    last_focus = Instant::now();
+                }
+                continue;
+            }
+            if last_preferences.elapsed() >= Duration::from_millis(100) {
+                let previous_brightness = self.config.brightness;
+                let redraw = self.refresh_preferences();
+                let brightness = self.config.brightness;
+                let brightness_changed = brightness != previous_brightness;
+                if brightness_changed {
+                    dock.set_brightness(brightness)?;
+                }
+                if redraw {
+                    self.held_key = None;
+                    self.config.refresh_theme_selector(self.theme)?;
+                    self.page_is_active = actions::page_available(self.page(), &self.foreground());
+                    self.show_page(dock)?;
+                } else if brightness_changed {
+                    self.apply_brightness(dock, brightness)?;
+                }
+                last_preferences = Instant::now();
+            }
+            if last_page_save.elapsed() >= Duration::from_millis(500) {
+                // Keep disk writes away from a burst of navigation button events.
+                self.save_pending_page(false);
+                last_page_save = Instant::now();
+            }
+
+            let runtime = self.options.runtime(self.config.runtime);
+            let focus_check_due =
+                last_focus.elapsed() >= Duration::from_secs(runtime.focus_poll_seconds);
+            if runtime.detect_applications && focus_check_due {
+                self.refresh_focus(dock)?;
+                last_focus = Instant::now();
+            }
+
+            if (self.options.clock || self.uses_status_display())
+                && last_clock.elapsed() >= Duration::from_secs(1)
+            {
+                if self.uses_status_display() {
+                    dock.background()?;
+                } else {
+                    dock.clock()?;
+                }
+                last_clock = Instant::now();
+            }
+
+            if let Some(event) = dock.read_button(Duration::from_millis(100))? {
+                let page_changed = self.handle_button(dock, event)?;
+                if page_changed {
+                    last_focus = Instant::now();
+                }
+            }
+        }
+
+        // Only a normal exit reaches this point. Connection and controller
+        // errors return earlier, so they do not pretend to be graceful stops.
+        self.actions.cancel_pending();
+        if let Err(error) = dock.fade_out(self.config.brightness) {
+            eprintln!("Could not fade the dock during shutdown: {error:#}");
+        }
+
+        Ok(())
+    }
+
+    /// Select a page for `foreground` when automatic switching is enabled.
+    /// Returns whether navigation changed; leaves the page index undisturbed and
+    /// clears held input so a release cannot execute an action on a different page.
+    fn follow_foreground(&mut self, foreground: &ForegroundProcess) -> bool {
+        if !self.options.runtime(self.config.runtime).auto_switch
+            || self.page().name == PAGE_INDEX_NAME
+        {
+            return false;
+        }
+        let next_page = actions::matching_page(&self.config, foreground)
+            .unwrap_or_else(|| self.config.home_page());
+        if next_page == self.current_page {
+            return false;
+        }
+
+        // A release from the old page must not execute an action from the new page.
+        self.held_key = None;
+        self.current_page = next_page;
+        self.page_is_active = actions::page_available(self.page(), foreground);
+        true
+    }
+
+    /// Detect executable changes and redraw `dock` only when page/availability changes.
+    fn refresh_focus(&mut self, dock: &Dock) -> Result<()> {
+        let foreground = self.foreground();
+        let known_process_changed = matches!(foreground, ForegroundProcess::Known(_))
+            && self.last_known_process.as_ref() != Some(&foreground);
+
+        if known_process_changed {
+            if self.follow_foreground(&foreground) {
+                self.show_page(dock)?;
+                println!("Automatic page: {}", self.page().name);
+            }
+            // Unknown focus never resets a manual page choice.
+            self.last_known_process = Some(foreground.clone());
+        }
+        self.refresh_availability(dock, &foreground)
+    }
+
+    /// Reconcile current page availability against `foreground` on `dock`.
+    /// A transition to inactive cancels held actions but preserves navigation input.
+    fn refresh_availability(&mut self, dock: &Dock, foreground: &ForegroundProcess) -> Result<()> {
+        let active = actions::page_available(self.page(), foreground);
+        if active == self.page_is_active {
+            return Ok(());
+        }
+
+        let navigation_is_held = matches!(self.held_key, Some(NEXT_KEY) | Some(CLOCK_KEY));
+        if !active && !navigation_is_held {
+            self.held_key = None;
+        }
+        dock.refresh_availability(
+            self.page(),
+            self.theme,
+            self.held_key,
+            active,
+            self.options.status_display,
+        )?;
+        self.page_is_active = active;
+        println!(
+            "Page availability: {} | {}",
+            self.page().name,
+            if active { "active" } else { "inactive" }
+        );
+        Ok(())
+    }
+
+    /// Update the model and redraw boundary keys after `level` was sent to `dock`.
+    /// Cancel a held +/- key if the new 0/100 bound makes that action unavailable.
+    fn apply_brightness(&mut self, dock: &Dock, level: u8) -> Result<()> {
+        self.config.brightness = level;
+        self.config.refresh_key_availability();
+        self.refresh_runtime_controls();
+        if self
+            .held_key
+            .is_some_and(|index| !self.page().key_available(index))
+        {
+            self.held_key = None;
+        }
+        dock.refresh_brightness_keys(self.page(), self.theme, self.held_key, self.page_is_active)?;
+        println!("Brightness USB write completed: {level}%");
+        Ok(())
+    }
+
+    /// Read the latest saved level, move ten points in the `increase` direction,
+    /// persist it, and write to `dock`. Propagate USB failures; report save conflicts.
+    fn adjust_brightness(&mut self, dock: &Dock, increase: bool) -> Result<()> {
+        let saved = (|| -> Result<u8> {
+            let _lock = self.control.lock_settings()?;
+            let mut settings = SettingsStore::load(&self.options.config_path)?;
+            let current = settings.config.brightness;
+            let level = if increase {
+                current.saturating_add(10).min(100)
+            } else {
+                current.saturating_sub(10)
+            };
+            if level != current {
+                settings.save_brightness(level)?;
+            }
+            Ok(level)
+        })();
+
+        match saved {
+            Ok(level) => {
+                self.observed_settings = None;
+                dock.set_brightness(level)?;
+                self.apply_brightness(dock, level)
+            }
+            Err(error) => {
+                eprintln!("Could not change brightness: {error:#}");
+                Ok(())
+            }
+        }
+    }
+
+    /// Persist an index toggle against the latest settings, then update the running model.
+    fn toggle_runtime(&mut self, toggle: RuntimeToggle) -> bool {
+        self.actions.cancel_pending();
+        let saved = (|| -> Result<RuntimeSettings> {
+            let _lock = self.control.lock_settings()?;
+            let mut settings = SettingsStore::load(&self.options.config_path)?;
+            let change = match toggle {
+                RuntimeToggle::ApplicationDetection => {
+                    SettingsChange::DetectApplications(!settings.config.runtime.detect_applications)
+                }
+                RuntimeToggle::AutoSwitch => {
+                    SettingsChange::AutoSwitch(!settings.config.runtime.auto_switch)
+                }
+            };
+            settings.apply_change(change)?;
+            Ok(settings.config.runtime)
+        })();
+        match saved {
+            Ok(runtime) => {
+                self.config.runtime = runtime;
+                self.observed_settings = None;
+                self.last_known_process = None;
+                true
+            }
+            Err(error) => {
+                eprintln!("Could not change the dock setting: {error:#}");
+                false
+            }
+        }
+    }
+
+    /// Execute only a release matching an accepted press on the current page.
+    /// `event` is a validated consumer-interface report; `dock` receives visual
+    /// feedback. Return true for a page transition.
+    fn handle_button(&mut self, dock: &Dock, event: ButtonEvent) -> Result<bool> {
+        println!("Dock button UTC={} index={} pressed={} page={} theme={}",
+            chrono::Utc::now().to_rfc3339(), event.index, event.pressed, self.page().name, self.theme.slug());
+        let index = event.index;
+        if index != CLOCK_KEY {
+            self.refresh_availability(dock, &self.foreground())?;
+        }
+        let route = route_button(
+            &self.config,
+            self.current_page,
+            self.page_is_active,
+            !self.options.no_actions,
+            &mut self.held_key,
+            event,
+        )?;
+        let page_changed = match route {
+            ButtonRoute::Ignore => return Ok(false),
+            ButtonRoute::Pressed => {
+                dock.show_key(self.page(), self.theme, index, true, self.page_is_active)?;
+                return Ok(false);
+            }
+            ButtonRoute::Released => false,
+            ButtonRoute::Page(destination) => {
+                self.actions.cancel_pending();
+                self.current_page = destination;
+                true
+            }
+            ButtonRoute::Theme(selected) => {
+                self.actions.cancel_pending();
+                let saved = self.control.lock_settings().and_then(|_lock| {
+                    SettingsStore::load(&self.options.config_path)?.save_theme(selected)
+                });
+                if let Err(error) = saved {
+                    eprintln!("Could not save theme selection: {error:#}");
+                    false
+                } else {
+                    self.observed_settings = None;
+                    self.theme = crate::licensing::effective(selected);
+                    self.config.theme = selected;
+                    self.config.refresh_theme_selector(self.theme)?;
+                    self.current_page = self.config.home_page();
+                    println!("Theme: {}", self.theme.slug());
+                    true
+                }
+            }
+            ButtonRoute::Brightness(increase) => {
+                self.adjust_brightness(dock, increase)?;
+                false
+            }
+            ButtonRoute::RuntimeToggle(toggle) => self.toggle_runtime(toggle),
+            ButtonRoute::Desktop(action) => {
+                if actions::page_available(self.page(), &self.foreground()) {
+                    self.actions.execute(action, &self.page().keys[index].label);
+                }
+                false
+            }
+        };
+
+        if page_changed {
+            self.page_is_active =
+                index == CLOCK_KEY || actions::page_available(self.page(), &self.foreground());
+            self.show_page(dock)?;
+            println!("Page: {}", self.page().name);
+        } else {
+            dock.show_key(
+                self.page(),
+                self.theme,
+                index,
+                false,
+                self.page_is_active,
+            )?;
+        }
+        Ok(page_changed)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn startup_restores_only_an_enabled_regular_page() {
+        let mut config = Config::default();
+        let spotify = config
+            .pages
+            .iter()
+            .position(|page| page.name == "Spotify")
+            .unwrap();
+        assert_eq!(restored_page(&config, Some("Spotify")), spotify);
+        config.pages[spotify].enabled = false;
+        assert_eq!(restored_page(&config, Some("Spotify")), config.home_page());
+        assert_eq!(
+            restored_page(&config, Some(PAGE_INDEX_NAME)),
+            config.home_page()
+        );
+        assert_eq!(
+            restored_page(&config, Some("Removed custom page")),
+            config.home_page()
+        );
+        assert_eq!(restored_page(&config, None), config.home_page());
+    }
+}

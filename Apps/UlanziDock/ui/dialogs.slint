@@ -1,0 +1,624 @@
+/* VBWR B
+ *
+ * Project: UlanziDeck
+ * Repository: https://github.com/umbertotechnopreneur/ulanzi-dock-vibeware
+ * Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+ *
+ * VibeWare: Human intent, AI execution, and plenty of tokens
+ * Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+ *
+ * Modified with AI: OpenAI Codex; Linux application choices and platform-aware configuration; 2026-11-02
+ * Human guidance: Umberto Giacobbi; AGENTS.md and owner-directed implementation/documentation
+ * Evidence: docs/CODE-REVIEW.md; current working-tree changes
+ *
+ * Copyright (c) 2026 Umberto Giacobbi
+ * SPDX-License-Identifier: MIT
+ * License: MIT - see LICENSE
+ * Required by the MIT License: retain the copyright and permission notice in all copies or substantial portions of the Software.
+ *
+ * VBWR E */
+
+// Visual structure of About and Configuration windows. Callbacks request
+// Rust operations; this file does not access settings, HID or Store services itself.
+// Scrollable bodies provide preferred sizes while footers remain reachable.
+// Store properties are display-only snapshots for future premium functionality.
+
+import { AboutSlint, CheckBox, ComboBox, ScrollView, SpinBox, Spinner } from "std-widgets.slint";
+import { Palette as WidgetPalette } from "std-widgets.slint";
+
+global Palette {
+    out property <color> paper: #fff4dc;
+    out property <color> ink: #232a2f;
+    out property <color> blue: #3a6a96;
+    out property <color> muted: #526573;
+}
+
+// Text-sized, keyboard-accessible button shared by all dialogs. `enabled` gates
+// pointer/focus input; `primary` only changes emphasis, never the callback behavior.
+component PixelButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    in property <bool> primary: false;
+    callback clicked();
+    min-width: max(90px, caption.preferred-width + 24px);
+    height: 36px;
+    border-width: focus.has-focus ? 3px : 2px;
+    border-color: Palette.ink;
+    background: !root.enabled ? #dfddcf : touch.pressed ? Palette.ink : root.primary ? Palette.blue : Palette.paper;
+    accessible-role: button;
+    accessible-label: root.text;
+    forward-focus: focus;
+    caption := Text {
+        text: root.text;
+        font-weight: 600;
+        color: !root.enabled ? Palette.muted : root.primary || touch.pressed ? Palette.paper : Palette.ink;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    focus := FocusScope {
+        enabled: root.enabled;
+        touch := TouchArea {
+            enabled: root.enabled;
+            clicked => { focus.focus(); root.clicked(); }
+        }
+        key-pressed(event) => {
+            if event.text == " " || event.text == "\n" {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+// Plain, keyboard-accessible navigation link.
+component TextLink inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    callback clicked();
+    min-width: content.preferred-width;
+    height: 32px;
+    background: transparent;
+    border-width: focus.has-focus ? 1px : 0px;
+    border-color: Palette.blue;
+    accessible-role: button;
+    accessible-label: root.text;
+    forward-focus: focus;
+    content := HorizontalLayout {
+        alignment: center;
+        padding-left: 5px;
+        padding-right: 5px;
+        spacing: 6px;
+        Rectangle {
+            width: 16px;
+            Image {
+                width: 16px;
+                height: 16px;
+                y: (parent.height - self.height) / 2;
+                source: root.icon;
+                image-fit: contain;
+                colorize: Palette.blue;
+            }
+        }
+        Text { text: root.text; color: Palette.blue; vertical-alignment: center; }
+    }
+    focus := FocusScope {
+        touch := TouchArea {
+            mouse-cursor: pointer;
+            clicked => { focus.focus(); root.clicked(); }
+        }
+        key-pressed(event) => {
+            if event.text == " " || event.text == "\n" {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+// Fixed-size initiative badge. Its caller chooses the VibeWare link.
+component VibeWareLink inherits Rectangle {
+    callback clicked();
+    width: 64px;
+    height: 64px;
+    clip: true;
+    background: transparent;
+    border-width: focus.has-focus ? 2px : 0px;
+    border-color: Palette.blue;
+    accessible-role: button;
+    accessible-label: "VibeWare";
+    forward-focus: focus;
+    Image {
+        width: parent.width;
+        height: parent.height;
+        source: @image-url("../assets/brand/vibeware-logo.png");
+        image-fit: contain;
+    }
+    focus := FocusScope {
+        touch := TouchArea {
+            mouse-cursor: pointer;
+            clicked => { focus.focus(); root.clicked(); }
+        }
+        key-pressed(event) => {
+            if event.text == " " || event.text == "\n" {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+// Bound the image to its allocated box instead of exposing its native pixel
+// dimensions as layout constraints inside the scrollable dialogs.
+component ProductWordmark inherits Rectangle {
+    min-width: 0px;
+    preferred-width: 0px;
+    horizontal-stretch: 1;
+    min-height: 88px;
+    max-height: 88px;
+    clip: true;
+    background: transparent;
+    Image {
+        width: parent.width;
+        height: parent.height;
+        source: @image-url("../assets/brand/ulanzi-deck-logo.png");
+        image-fit: contain;
+    }
+}
+
+// Centered product information with a fixed footer for external links.
+export component AboutDialog inherits Window {
+    init => { WidgetPalette.color-scheme = ColorScheme.light; }
+    title: "About UlanziDeck";
+    preferred-width: 640px;
+    preferred-height: body.preferred-height + footer.preferred-height;
+    min-width: max(500px, link-row.preferred-width + 36px);
+    min-height: 360px;
+    background: Palette.paper;
+    default-font-family: "Consolas";
+    default-font-size: 14px;
+    in property <string> version;
+    icon: @image-url("../assets/brand/ulanzi-dock-icon.png");
+    in property <string> message;
+    callback open-link(string);
+    VerticalLayout {
+     spacing: 0px;
+     ScrollView {
+      horizontal-scrollbar-policy: always-off;
+      viewport-width: self.visible-width;
+      body := VerticalLayout {
+        padding: 22px;
+        spacing: 12px;
+        ProductWordmark { }
+        Text { text: "Controller for Ulanzi D200H · v" + root.version; color: Palette.muted; horizontal-alignment: center; }
+        Text { text: "I built UlanziDeck for my D200H: shortcuts, media controls and app pages, right on my desk."; color: Palette.ink; horizontal-alignment: center; wrap: word-wrap; }
+        Text {
+            text: "I provide this software independently and as-is, without warranty. Use it at your own risk.";
+            color: Palette.muted;
+            font-size: 12px;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+        Text { text: "I'm Umberto Giacobbi · MIT"; color: Palette.ink; horizontal-alignment: center; }
+        Rectangle {
+            min-height: 130px;
+            max-height: 130px;
+            background: Palette.paper;
+            clip: true;
+            AboutSlint { width: parent.width; height: parent.height; }
+        }
+      }
+     }
+     footer := VerticalLayout {
+        padding-left: 18px;
+        padding-right: 18px;
+        padding-bottom: 18px;
+        spacing: 8px;
+        HorizontalLayout {
+            alignment: center;
+            VibeWareLink { clicked => { root.open-link("vibeware"); } }
+        }
+        if root.message != "": Text {
+            text: root.message;
+            color: Palette.muted;
+            wrap: word-wrap;
+            horizontal-alignment: center;
+        }
+        link-row := HorizontalLayout {
+            alignment: center;
+            spacing: 12px;
+            TextLink { text: "UmbertoGiacobbi.biz"; icon: @image-url("icons/website.svg"); clicked => { root.open-link("website"); } }
+            TextLink { text: "Source on GitHub"; icon: @image-url("icons/source.svg"); clicked => { root.open-link("project"); } }
+            TextLink { text: "Terms"; icon: @image-url("icons/terms.svg"); clicked => { root.open-link("terms"); } }
+            TextLink { text: "Privacy"; icon: @image-url("icons/privacy.svg"); clicked => { root.open-link("privacy"); } }
+        }
+     }
+    }
+}
+
+export component ShutdownDialog inherits Window {
+    title: "UlanziDeck";
+    preferred-width: 380px;
+    preferred-height: 150px;
+    min-width: 320px;
+    background: Palette.paper;
+    icon: @image-url("../assets/brand/ulanzi-dock-icon.png");
+    in-out property <bool> busy;
+    in-out property <string> message: "Shutting down UlanziDeck…";
+    callback dismiss();
+    VerticalLayout {
+        padding: 24px;
+        spacing: 16px;
+        HorizontalLayout {
+            alignment: center;
+            spacing: 16px;
+            if root.busy: Spinner { indeterminate: true; }
+            Text { text: root.message; color: Palette.ink; wrap: word-wrap; vertical-alignment: center; }
+        }
+        if !root.busy: PixelButton { text: "Close"; clicked => { root.dismiss(); } }
+    }
+}
+
+// One application-page checkbox. Names identify pages; enabled flags preserve keys.
+export struct AppPage {
+    name: string,
+    enabled: bool,
+}
+
+// Installed choices and the saved selection for one existing Linux application page.
+export struct LinuxAppPage {
+    page: string,
+    choices: [string],
+    selected: int,
+    available: bool,
+    status: string,
+}
+
+// Keep the displayed value confirmed until the Rust model accepts the request.
+component SavedCheckBox inherits CheckBox {
+    in property <bool> saved-checked;
+    callback change-requested(bool);
+    init => { root.checked = root.saved-checked; }
+    changed saved-checked => { root.checked = root.saved-checked; }
+    toggled => {
+        let requested = root.checked;
+        root.checked = root.saved-checked;
+        if requested != root.saved-checked {
+            root.change-requested(requested);
+        }
+    }
+}
+
+component SavedSpinBox inherits SpinBox {
+    in property <int> saved-value;
+    callback change-requested(int);
+    init => { root.value = root.saved-value; }
+    changed saved-value => { root.value = root.saved-value; }
+    edited(requested) => {
+        root.value = root.saved-value;
+        if requested != root.saved-value {
+            root.change-requested(requested);
+        }
+    }
+}
+
+// Slint 1.13 resets the index when the option model changes. Restore the
+// confirmed index after those notifications.
+component SavedComboBox inherits Rectangle {
+    in property <[string]> model;
+    in property <bool> enabled: true;
+    in property <int> saved-index: 0;
+    callback selection-requested(int);
+    min-width: combo.min-width;
+    preferred-width: combo.preferred-width;
+    min-height: combo.min-height;
+    preferred-height: combo.preferred-height;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    forward-focus: combo;
+    init => { selection-sync.start(); }
+    changed model => { selection-sync.restart(); }
+    changed saved-index => { selection-sync.restart(); }
+    combo := ComboBox {
+        width: parent.width;
+        height: parent.height;
+        model: root.model;
+        enabled: root.enabled;
+        selected => {
+            let requested = self.current-index;
+            self.current-index = root.saved-index;
+            if requested != root.saved-index {
+                root.selection-requested(requested);
+            }
+        }
+    }
+    selection-sync := Timer {
+        interval: 1ms;
+        running: false;
+        triggered => {
+            self.stop();
+            combo.current-index = root.saved-index;
+        }
+    }
+}
+
+export enum DockStatus { Unavailable, ControllerStopped, ControllerStarting, Waiting, Connected, Disconnected }
+
+// Display confirmed settings and send individual user requests to Rust.
+export component MainWindow inherits Window {
+    init => { WidgetPalette.color-scheme = ColorScheme.light; }
+    title: "UlanziDeck — Configuration";
+    preferred-width: 820px;
+    preferred-height: 900px;
+    min-width: 500px;
+    min-height: 360px;
+    background: Palette.paper;
+    default-font-family: "Consolas";
+    default-font-size: 14px;
+    icon: @image-url("../assets/brand/ulanzi-dock-icon.png");
+    in property <[string]> themes;
+    in property <[AppPage]> app-pages;
+    in property <bool> linux-app-selection: false;
+    in property <[LinuxAppPage]> linux-app-pages;
+    in property <bool> startup-visible;
+    in property <bool> startup-ready;
+    in property <string> startup-message;
+    in property <bool> startup-enabled;
+    in property <bool> foreground-supported: true;
+    in property <DockStatus> dock-status: DockStatus.Unavailable;
+    in property <string> dock-message;
+    in property <bool> can-reconnect;
+    private property <bool> wide-layout: root.width >= 760px;
+    in property <string> save-hint: "Changes are saved automatically and applied while the controller is running.";
+    in property <int> theme-index;
+    in property <bool> auto-switch;
+    in property <bool> detect-applications;
+    in property <int> poll-seconds: 1;
+    in property <string> message;
+    in property <string> settings-message;
+    in property <bool> ready: false;
+    in property <bool> resident;
+    in property <bool> store-edition;
+    in property <bool> store-busy;
+    in property <bool> store-owned;
+    in property <bool> store-can-purchase;
+    in property <string> store-price;
+    in property <string> store-message;
+    callback buy-themes();
+    callback restore-purchases();
+    callback detect-applications-requested(bool);
+    callback auto-switch-requested(bool);
+    callback poll-seconds-requested(int);
+    callback theme-changed(int);
+    callback page-toggled(string, bool);
+    callback linux-app-selected(int, int);
+    callback linux-shortcuts-requested(int);
+    callback refresh-linux-apps();
+    callback startup-toggled(bool);
+    callback open-file(bool);
+    callback learn-vibeware();
+    callback reconnect();
+    callback dismiss();
+    VerticalLayout {
+     spacing: 0px;
+     ScrollView {
+      horizontal-scrollbar-policy: always-off;
+      viewport-width: self.visible-width;
+      body := VerticalLayout {
+        padding: 22px;
+        spacing: 14px;
+        HorizontalLayout {
+            spacing: 12px;
+            ProductWordmark { }
+            VibeWareLink { clicked => { root.learn-vibeware(); } }
+        }
+        Text { text: "MAKE IT YOURS"; color: Palette.blue; font-size: 24px; font-weight: 700; }
+        if root.startup-visible: VerticalLayout {
+            spacing: 4px;
+            SavedCheckBox {
+                text: "Start at sign-in";
+                enabled: root.startup-ready;
+                saved-checked: root.startup-enabled;
+                change-requested(enabled) => { root.startup-toggled(enabled); }
+            }
+            if root.startup-message != "": Text {
+                text: root.startup-message;
+                color: Palette.muted;
+                wrap: word-wrap;
+            }
+        }
+        Rectangle {
+            // Reflow the same controls instead of recreating bindings on resize.
+            min-height: self.preferred-height;
+            preferred-height: root.wide-layout
+                ? max(theme-panel.preferred-height, pages-panel.preferred-height)
+                : theme-panel.preferred-height + 18px + pages-panel.preferred-height;
+            theme-panel := VerticalLayout {
+                x: 0px;
+                y: 0px;
+                width: root.wide-layout ? (parent.width - 24px) / 2 : parent.width;
+                height: self.preferred-height;
+                spacing: 10px;
+                Text { text: "Dock theme"; color: Palette.ink; font-weight: 700; }
+                SavedComboBox {
+                    enabled: root.ready;
+                    model: root.themes;
+                    saved-index: root.theme-index;
+                    selection-requested(index) => { root.theme-changed(index); }
+                }
+                if root.foreground-supported: VerticalLayout {
+                    spacing: 10px;
+                    SavedCheckBox {
+                        enabled: root.ready;
+                        text: "Detect the active app";
+                        saved-checked: root.detect-applications;
+                        change-requested(enabled) => { root.detect-applications-requested(enabled); }
+                    }
+                    if root.detect-applications: SavedCheckBox {
+                        enabled: root.ready;
+                        text: "Switch pages automatically";
+                        saved-checked: root.auto-switch;
+                        change-requested(enabled) => { root.auto-switch-requested(enabled); }
+                    }
+                    if !root.detect-applications: Text { text: "Choose pages manually."; color: Palette.muted; wrap: word-wrap; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: "Check interval (seconds)"; color: Palette.ink; vertical-alignment: center; wrap: word-wrap; }
+                        SavedSpinBox {
+                            enabled: root.ready && root.detect-applications;
+                            minimum: 1;
+                            maximum: 60;
+                            saved-value: root.poll-seconds;
+                            change-requested(seconds) => { root.poll-seconds-requested(seconds); }
+                        }
+                    }
+                }
+                if !root.foreground-supported: Text {
+                    text: "Choose pages manually. Active application detection is unavailable on this system.";
+                    color: Palette.muted;
+                    wrap: word-wrap;
+                }
+            }
+            pages-panel := VerticalLayout {
+                x: root.wide-layout ? theme-panel.width + 24px : 0px;
+                y: root.wide-layout ? 0px : theme-panel.height + 18px;
+                width: theme-panel.width;
+                height: self.preferred-height;
+                spacing: 10px;
+                Text { text: "Application pages"; color: Palette.ink; font-weight: 700; }
+                for row in Math.ceil(root.app-pages.length / 2): HorizontalLayout {
+                    spacing: 12px;
+                    SavedCheckBox {
+                        min-width: 0px;
+                        preferred-width: 0px;
+                        horizontal-stretch: 1;
+                        enabled: root.ready;
+                        text: root.app-pages[row * 2].name;
+                        saved-checked: root.app-pages[row * 2].enabled;
+                        change-requested(enabled) => { root.page-toggled(root.app-pages[row * 2].name, enabled); }
+                    }
+                    if row * 2 + 1 < root.app-pages.length: SavedCheckBox {
+                        min-width: 0px;
+                        preferred-width: 0px;
+                        horizontal-stretch: 1;
+                        enabled: root.ready;
+                        text: root.app-pages[row * 2 + 1].name;
+                        saved-checked: root.app-pages[row * 2 + 1].enabled;
+                        change-requested(enabled) => { root.page-toggled(root.app-pages[row * 2 + 1].name, enabled); }
+                    }
+                }
+                Text { text: "Disabled pages are skipped. Your shortcuts stay saved."; color: Palette.muted; wrap: word-wrap; }
+            }
+        }
+        if root.linux-app-selection: VerticalLayout {
+            spacing: 14px;
+            Rectangle { height: 2px; background: Palette.ink; }
+            HorizontalLayout {
+                spacing: 12px;
+                Text { text: "Installed Linux applications"; color: Palette.ink; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
+                PixelButton { text: "Refresh"; enabled: root.ready; clicked => { root.refresh-linux-apps(); } }
+            }
+            Text {
+                text: "Choosing an app keeps your shortcuts. Use shared app mapping to restore the shared shortcuts.";
+                color: Palette.muted;
+                wrap: word-wrap;
+            }
+            for row in root.linux-app-pages.length: VerticalLayout {
+                spacing: 6px;
+                Text { text: root.linux-app-pages[row].page; color: Palette.ink; font-weight: 600; }
+                HorizontalLayout {
+                    spacing: 12px;
+                    SavedComboBox {
+                        min-width: 0px;
+                        horizontal-stretch: 1;
+                        enabled: root.ready;
+                        model: root.linux-app-pages[row].choices;
+                        saved-index: root.linux-app-pages[row].selected;
+                        selection-requested(index) => { root.linux-app-selected(row, index); }
+                    }
+                    PixelButton {
+                        text: "Replace with suggested shortcuts";
+                        enabled: root.ready && root.linux-app-pages[row].available;
+                        clicked => { root.linux-shortcuts-requested(row); }
+                    }
+                }
+                Text { text: root.linux-app-pages[row].status; color: Palette.muted; wrap: word-wrap; }
+            }
+        }
+        Rectangle { height: 2px; background: Palette.ink; }
+        Text { text: "Shortcuts and application mappings"; color: Palette.ink; }
+        HorizontalLayout {
+            spacing: 8px;
+            PixelButton { text: "settings.json"; clicked => { root.open-file(false); } }
+            PixelButton { text: "applications.yaml"; clicked => { root.open-file(true); } }
+        }
+      }
+     }
+     footer := VerticalLayout {
+        padding: 22px;
+        spacing: 8px;
+        if root.message != "": Text { text: root.message; color: Palette.blue; wrap: word-wrap; }
+        if root.dock-message != "": Text { text: root.dock-message; color: Palette.blue; wrap: word-wrap; }
+        Text { text: root.settings-message == "" ? root.save-hint : root.settings-message; color: Palette.blue; wrap: word-wrap; }
+        HorizontalLayout {
+            spacing: 12px;
+            Rectangle {
+                height: 36px;
+                min-width: status-content.preferred-width;
+                horizontal-stretch: 0;
+                border-radius: 18px;
+                border-width: 1px;
+                border-color: #c9bfa9;
+                background: #fff8e8;
+                status-content := HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    spacing: 8px;
+                    Rectangle {
+                        width: 16px;
+                        Rectangle {
+                            width: 16px;
+                            height: 16px;
+                            y: (parent.height - self.height) / 2;
+                            border-radius: 8px;
+                            border-width: 1px;
+                            border-color: #232a2f66;
+                            background: root.dock-status == DockStatus.Connected ? #218244
+                                : root.dock-status == DockStatus.Disconnected ? #c32f3d
+                                : root.dock-status == DockStatus.Waiting || root.dock-status == DockStatus.ControllerStarting ? #ad681a : Palette.muted;
+                            Rectangle {
+                                x: 4px;
+                                y: 3px;
+                                width: 6px;
+                                height: 4px;
+                                border-radius: 2px;
+                                background: #ffffff88;
+                            }
+                        }
+                    }
+                    Text {
+                        text: root.dock-status == DockStatus.Connected ? "Dock connected"
+                            : root.dock-status == DockStatus.Disconnected ? "Dock disconnected"
+                            : root.dock-status == DockStatus.Waiting ? "Waiting for dock"
+                            : root.dock-status == DockStatus.ControllerStarting ? "Starting controller"
+                            : root.dock-status == DockStatus.ControllerStopped ? "Controller stopped"
+                            : "Dock status unavailable";
+                        color: Palette.ink;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+            if root.can-reconnect: PixelButton {
+                text: root.dock-status == DockStatus.ControllerStopped ? "Start controller" : "Reconnect";
+                horizontal-stretch: 0;
+                clicked => { root.reconnect(); }
+            }
+            Rectangle { horizontal-stretch: 1; }
+            PixelButton { text: "Close"; horizontal-stretch: 0; clicked => { root.dismiss(); } }
+        }
+     }
+    }
+}

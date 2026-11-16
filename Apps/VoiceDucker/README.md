@@ -1,0 +1,251 @@
+# VoiceDucker
+
+[![Windows build status](https://github.com/umbertotechnopreneur/VoiceDucker/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VoiceDucker/actions/workflows/build.yml)
+![Platform: Windows 11](https://img.shields.io/badge/platform-Windows_11-0078D4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](LICENSE)
+
+**You talk. Music turns down. You stop. It comes back.**
+
+I built VoiceDucker to talk to AI while Spotify keeps playing.
+It can lower browser videos and other Windows apps too.
+
+Useful for AI chats, Zoom or Teams calls, and demos or streams with
+OBS Studio, Microsoft Clipchamp, or similar tools.
+
+## A small personal note
+
+No sales pitch here: now that I use VoiceDucker every day, I appreciate it more
+than I expected. Chrome and Edge tabs apparently have a lot to say, and some
+prefer to shout. I hadn't realised how much those interruptions broke my
+concentration, especially with headphones on.
+
+Having music, a video or a film turn down while I speak makes everyday PC use
+feel much calmer. I still get the audio I want, with less of a fight for my
+attention. It's a small convenience until you get used to it — then you miss it.
+I'm glad I shared the app. If it makes other people's days a little less noisy
+too, that's a good enough reason for me.
+
+> [!IMPORTANT]
+> **Windows on ARM testers wanted — volunteer guinea pigs welcome! 🐹**
+>
+> This is my hobby project. If you can try the
+> Windows ARM64 build, I'd love your help checking microphone detection,
+> audio ducking, and volume restoration. I'll give you all the support I can.
+>
+> **VoiceDucker currently runs on Windows only.** macOS and Linux would need
+> ports. If you'd like to help with that work and
+> eventually be a guinea pig there too, you're very welcome!
+>
+> [Open an issue](https://github.com/umbertotechnopreneur/VoiceDucker/issues)
+> and tell me which platform you have and what worked or failed.
+
+## What changed in 0.2.0
+
+Since 0.1.1, I improved the audio engine and reviewed its resource handling:
+
+- I now receive Windows volume and mute events, including while monitoring is off.
+  My own mixer writes are identified separately from external changes.
+- I improved fades and interrupted fades. Each session returns to the volume
+  captured when the app opened; repeated cycles no longer lower that baseline.
+- I release expired audio sessions during monitoring and unregister callbacks,
+  stop timers and release audio resources when the app closes.
+- I integrated the Store trial/license interface and fading footer links.
+  Portable builds remain unrestricted and MIT-licensed.
+- I corrected the WinGet packaging instructions and reviewed dependency scan
+  evidence, microphone privacy, diagnostics and memory/resource lifetime.
+
+See the [release notes](docs/releases/0.2.0.md) for details.
+
+## Start here
+
+1. On **Windows 11**, download a ZIP from [GitHub Releases](https://github.com/umbertotechnopreneur/VoiceDucker/releases).
+   Choose **x64** for most PCs, or **ARM64** for Windows on ARM.
+2. Extract the whole ZIP. Open `VoiceDucker.exe`. Keep the files together.
+3. Play some music. Press **Enable**.
+4. Speak. The music gets quieter. Pause, and it slowly comes back.
+
+Press **Disable** to stop. The microphone starts **off** unless you explicitly
+turn on **Enable microphone on startup**.
+The ZIP needs no installer; it is unsigned, so Windows may show a security prompt.
+
+## Choose which apps get quieter
+
+Spotify and other playing apps are included by default for new settings.
+Existing saved choices and personal profiles are preserved.
+
+- Open **Settings > Apps & startup** and use **Also lower other apps** to include or exclude browsers and other players.
+- To leave an app alone, hover over its name and click the **X** (**Hide**).
+- To bring it back, open **Hidden apps** and click its **X** (**Show**).
+
+Hide your meeting app if you do not want its playback lowered.
+
+## Need to change something?
+
+Open **Settings**. Start with the defaults.
+
+- Wrong mic? Choose it under **Microphone**.
+- Not detecting your voice? Raise **Sensitivity**.
+- Triggered by room noise? Raise **Detection threshold**.
+- Music still too loud? Raise **Reduce volume by**.
+- Music returns too soon? Raise **Wait before fade back**.
+
+Leave the other settings alone until you need them.
+
+Settings save automatically. The app reopens the last selected Settings section
+and remembers the window size and position too.
+MSIX updates keep these preferences. Uninstalling the MSIX removes its private
+settings, so install a newer package over the existing one to keep them.
+
+### Manual listening profiles
+
+Five presets are always available. New settings start with **Talking to AI**;
+existing listening choices and personal profiles are preserved.
+
+| Preset | Reduction | Fade down | Wait | Fade back |
+| --- | --- | --- | --- | --- |
+| Talking to AI (default) | 90% | 300 ms | 650 ms | 2,000 ms |
+| Client calls | 95% | 150 ms | 1,500 ms | 3,000 ms |
+| Meetings | 80% | 400 ms | 1,200 ms | 2,500 ms |
+| Recording a demo | 95% | 150 ms | 1,800 ms | 3,000 ms |
+| Relaxed conversation | 50% | 700 ms | 2,000 ms | 4,000 ms |
+
+All presets use softer transitions, the default microphone detection parameters,
+and automatic lowering for Spotify and other playing apps. Hide a browser or meeting
+app if you want its playback left alone. Adjust the threshold
+for your microphone and room. Presets are starting points, not tested acoustic
+calibrations or changes to your call's microphone signal.
+
+Presets remain available unchanged. Use **Save as new** to keep a personal variation;
+Update saved, Rename and Delete apply to personal profiles only.
+
+Choose a saved **Listening profile** in the main window. In **Settings > Manual
+profiles**, enter a name and choose **Save as new** to capture the current reduction,
+fade times and curve, detection settings and other-app playback.
+Hidden apps are global: changing profiles never clears or replaces your exclusions.
+**Update saved** explicitly replaces the selected profile with the current choices;
+editing a setting does not overwrite the saved profile. You can rename or delete
+profiles. Deleting one keeps the current listening settings.
+
+Profiles do not enable monitoring, change the selected microphone or startup
+options, or store playback-session volumes. Your current settings remain active
+on the next launch; profiles are applied only when you select them manually.
+
+### Take a temporary break
+
+While monitoring is enabled, choose **Pause monitoring…** for 5, 15 or 30 minutes.
+The microphone stops and VoiceDucker requests restoration of the startup safety
+levels. The main window shows the remaining time and **Resume now**. **Disable
+(cancel pause)** cancels automatic resumption. Closing the app also discards the
+pause; next-launch monitoring still follows your saved startup opt-in.
+
+At the end of the pause, monitoring resumes only after license, audio readiness
+and restoration checks succeed. If they fail, monitoring stays off and the app
+reports the problem. Pending restoration is never described as successful.
+
+Under **Volume & timing**, enable **Softer transitions** to ease into and out of
+automatic volume changes using the configured fade times. Turn it off for the
+existing linear fades. This choice is included in manual profiles.
+
+Under **Apps & startup**, **Start with Windows** controls automatic launch.
+The independent **Enable microphone on startup** checkbox starts monitoring
+whenever VoiceDucker opens, including manual launches. It is off by default and
+does not require **Start with Windows**. Changing it applies to the next launch;
+it does not start the microphone immediately. Monitoring starts only after the
+playback volume snapshot and normal license checks.
+
+## Good to know
+
+VoiceDucker reacts to microphone sound, not words. Opening a browser alone does
+not lower audio. There are no recordings, transcription, or audio uploads.
+
+For OBS or Clipchamp, make a short test recording first. VoiceDucker lowers
+Windows playback; your recording's sound depends on its audio sources.
+
+Opening VoiceDucker again shows the existing window, not a second copy.
+
+VoiceDucker checks its private process memory every five seconds on a separate
+thread. Above 1 GiB (1,073,741,824 bytes), it shows a Windows warning, stops the
+microphone, attempts to restore startup playback volumes and restarts automatically.
+The warning also works when the main window is unresponsive. Saved settings stay
+in place; microphone startup follows your saved opt-in. If restoration cannot be
+confirmed, a separate warning asks you to check playback volumes.
+
+To prevent a restart loop, another memory-limit event within ten minutes closes
+the app without relaunching it. If automatic restart fails, reopen the app manually.
+Recovery writes a small local `memory-recovery.log` and a restart timestamp beside
+the settings, even when optional audio diagnostics are off. These files contain no
+recordings and are never uploaded.
+
+Each slider shows the app's **current playback volume** and moves with automatic
+lowering and restoration. **Normal** shows the level to return to when sound
+detection ends. With normal volume at 36% and reduction at 50%, the slider falls
+to 18% during voice and returns to 36% in silence.
+Moving the slider changes the current volume and adjusts the normal level to
+keep the selected reduction: setting 20% during a 50% reduction sets Normal to
+40%. While lowering by 50%, current volume is limited to 50%; with a 100%
+reduction it is held at zero and the slider is temporarily unavailable.
+
+At launch, VoiceDucker also remembers a separate safety restoration level for
+each session. Disable and exit restore sessions changed by the app to that level.
+Sessions created later are remembered when first detected. These safety levels
+never change during the app's lifetime. New automatic reductions ignore muted
+and silent playback; pending restoration of muted or unavailable sessions is
+reported and retried when the session becomes accessible.
+Windows volume and mute notifications are monitored even while the microphone
+is off. VoiceDucker recognizes its own mixer writes separately from external
+changes; manual and external changes do not replace the startup baseline.
+The orange signal meter sits directly below the volume slider with matching track
+width. It applies the actual session volume to Windows' pre-volume signal reading,
+so automatic lowering is reflected in the displayed level. System master volume
+and speaker processing are not included. Its scale is in decibels, so its filled
+length is not a volume percentage.
+Every listed session has this meter, including browsers. An active session can
+still be silent: **No signal** means its measured input is below the playback
+threshold. Its meter remains empty and its slider is unavailable until playback
+resumes; it does not receive a new automatic reduction while silent.
+Detection threshold controls when lowering starts; **Reduce volume by** controls
+how far the volume is lowered. Moving the threshold farther below an already
+detected microphone level does not increase the amount of lowering.
+The app reports lowering only after observing an actual
+automatic volume reduction. An unchanged volume is never written again just
+because another monitoring tick occurred.
+
+<img src="docs/screenshots/main-window.png" alt="VoiceDucker with the microphone off" width="480">
+
+## For developers
+
+[Build and debug](docs/DEVELOPMENT.md) · [Package and release](docs/RELEASING.md)
+
+The Microsoft Store edition uses the Store-managed 30-day trial and a one-time
+purchase at the price shown for your market (base US price: $1.99). The trial
+does not automatically charge you. Store license status and expiration govern
+access; the app stops monitoring and restores audio it still owns if access ends.
+Local development packages and the MIT portable distribution do not use Store
+licensing. This does not change the source license.
+
+## A note on security
+
+I care about what goes into this project. Before I add a third-party library or prebuilt binary, including files supplied without source code, I scan the downloaded package, its extracted files and any dependencies with Microsoft Windows Defender. I keep new imports aside until the scan finishes without detections.
+
+If a scan cannot finish or flags something, I leave the import out. Scan results are checked during import and are not retained as reports or histories.
+
+---
+
+### This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
+
+I created VoiceDucker with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security. VibeWare is my initiative for building useful software openly with AI; I ask you to judge the result and the evidence behind it.
+
+To learn what VibeWare means and why I created it, read the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
+
+[VoiceDucker on GitHub](https://github.com/umbertotechnopreneur/VoiceDucker) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
+
+*You are welcome to explore, adapt and reuse the open-source VibeWare materials under the project license — my contribution to the developer community.*
+
+[Terms](https://umbertogiacobbi.biz/terms/) · [Privacy](https://umbertogiacobbi.biz/privacy/)
+
+<p align="right">
+  <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
+    <img src="https://raw.githubusercontent.com/umbertotechnopreneur/VibeWare/main/Branding/vibeware-logo.png" alt="VibeWare floppy logo" width="160">
+  </a><br>
+  <em>Human Intent, AI Execution, Plenty of Token</em>
+</p>

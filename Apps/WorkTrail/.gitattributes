@@ -1,0 +1,35 @@
+# VBWR B
+#
+# Project: WorkTrail
+# Repository: https://github.com/umbertotechnopreneur/WorkTrail
+# Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+#
+# VibeWare: Human intent, AI execution, and plenty of tokens
+# Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+#
+# Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+# Human guidance: Umberto Giacobbi; requested VibeWare branding.
+#
+# Copyright (c) 2026 Umberto Giacobbi
+# License: MIT - see LICENSE
+# SPDX-License-Identifier: MIT
+#
+# VBWR E
+
+# Keep C# formatting identical in working files and staged blobs on every platform.
+*.cs text eol=lf
+
+# Git executes hooks as shell scripts; preserve their shebang on Windows.
+.githooks/* text eol=lf
+
+# Preserve the official third-party attribution mark byte-for-byte across checkout configurations.
+WorkTrail/Assets/WorldClocks/ThirdParty/OpenWeather/ow_logo.svg binary
+
+# These generated records bind SHA-256 of their exact bytes; never normalize their line endings.
+design/world-clocks/watercolor/generation-manifest-v1.json -text
+design/world-clocks/watercolor/runtime-v3/runtime-asset-manifest.json -text
+design/world-clocks/watercolor/runtime-v4/runtime-asset-manifest.json -text
+WorkTrail/Assets/WorldClocks/SOURCE-MANIFEST.json -text
+WorkTrail/Assets/WorldClocks/RUNTIME-ASSET-MANIFEST.json -text
+WorkTrail/Assets/WorldClocks/PACKAGED-ASSET-MANIFEST.json -text
+WorkTrail/Assets/WorldClocks/ATTRIBUTION.json -text

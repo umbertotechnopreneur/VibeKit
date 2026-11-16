@@ -1,0 +1,154 @@
+/* VBWR B
+ * Project: VoiceDucker
+ * Repository: https://github.com/umbertotechnopreneur/VoiceDucker
+ * Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+ * VibeWare initiative: Human intent, AI execution, and plenty of tokens
+ * Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+ * Created with AI: OpenAI Codex assisted the initial implementation; Git history
+ * Human guidance: Umberto Giacobbi defined the purpose and audio behavior
+ * Evidence: Git history
+ * Copyright (c) 2026 Umberto Giacobbi
+ * License: MIT
+ * VBWR E */
+
+using Microsoft.UI.Xaml;
+using System.Runtime.InteropServices;
+
+namespace VoiceDucker;
+
+/// <summary>
+/// Owns the application lifetime and enforces a single desktop instance.
+/// </summary>
+public partial class App : Application
+{
+    #region Private fields
+
+    private SingleInstanceService? _singleInstance;
+    private MainWindow? _window;
+    private MemoryGuard? _memoryGuard;
+
+    #endregion
+
+    #region Initialization
+
+    /// <summary>
+    /// Initializes the XAML application.
+    /// </summary>
+    public App()
+    {
+        InitializeComponent();
+    }
+
+    #endregion
+
+    #region Implementation
+
+    /// <summary>
+    /// Starts the main window, or restores the existing tray window after a second launch.
+    /// </summary>
+    /// <param name="args">Details about the launch request and process.</param>
+    protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    {
+        _singleInstance = new SingleInstanceService();
+        if (!_singleInstance.IsPrimary)
+        {
+            // Transfer foreground permission when the existing window is ready.
+            // The named event, rather than the window title, delivers activation.
+            var existingWindow = FindWindow(null, "VoiceDucker");
+            if (existingWindow == IntPtr.Zero)
+            {
+                existingWindow = FindWindow(null, "VoiceDucker - Trial Expired");
+            }
+
+            for (var days = 1; existingWindow == IntPtr.Zero && days <= 30; days++)
+            {
+                existingWindow = FindWindow(null, $"VoiceDucker - Free Trial, {days} {(days == 1 ? "day" : "days")} remaining");
+            }
+
+            if (existingWindow == IntPtr.Zero)
+            {
+                // Trial editions change the window title; still reactivate the existing instance.
+                using var existingProcess = System.Diagnostics.Process.GetProcessesByName("VoiceDucker")
+                    .FirstOrDefault(process => process.Id != Environment.ProcessId && process.MainWindowHandle != IntPtr.Zero);
+                existingWindow = existingProcess?.MainWindowHandle ?? IntPtr.Zero;
+            }
+
+            if (existingWindow != IntPtr.Zero)
+            {
+                GetWindowThreadProcessId(existingWindow, out var processId);
+                _ = AllowSetForegroundWindow(processId);
+            }
+
+            _singleInstance.RequestActivation();
+            _singleInstance.Dispose();
+            _singleInstance = null;
+            Exit();
+            return;
+        }
+
+        _window = new MainWindow();
+        _window.Closed += (_, _) =>
+        {
+            _memoryGuard?.Dispose();
+            _memoryGuard = null;
+            _window = null;
+            try
+            {
+                _singleInstance?.Dispose();
+            }
+            finally
+            {
+                _singleInstance = null;
+                Exit();
+            }
+        };
+
+        var dispatcher = _window.DispatcherQueue;
+        _singleInstance.Listen(() =>
+            dispatcher.TryEnqueue(() => _window?.ShowForRepeatedLaunch()));
+        var primaryWindow = _window;
+        _memoryGuard = new MemoryGuard(primaryWindow.StopAudioForMemoryRecovery);
+        // MainWindow's earlier handler decides between tray mode and an actual exit.
+        // Cancel the guard before the close handlers begin potentially slow audio cleanup.
+        _window.AppWindow.Closing += (_, closing) =>
+        {
+            if (!closing.Cancel) _memoryGuard?.Dispose();
+        };
+        _window.Activate();
+    }
+
+    /// <summary>Reads the package version, or the assembly version for portable builds.</summary>
+    internal static string ReadDisplayVersion()
+    {
+        try
+        {
+            var version = Windows.ApplicationModel.Package.Current.Id.Version;
+            return $"{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
+        }
+        catch (InvalidOperationException)
+        {
+            return typeof(App).Assembly.GetName().Version?.ToString(3) ?? "unknown";
+        }
+    }
+
+    /// <summary>
+    /// Finds a top-level window by class and title for the existing-instance lookup.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr FindWindow(string? className, string windowName);
+
+    /// <summary>
+    /// Retrieves the process that owns a native window handle.
+    /// </summary>
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+
+    /// <summary>
+    /// Lets the existing application process bring its window to the foreground.
+    /// </summary>
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool AllowSetForegroundWindow(uint processId);
+
+    #endregion
+}

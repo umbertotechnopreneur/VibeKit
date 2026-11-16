@@ -1,0 +1,90 @@
+<!-- VBWR B
+
+Project: UlanziDeck
+Repository: https://github.com/umbertotechnopreneur/ulanzi-dock-vibeware
+Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+
+VibeWare: Human intent, AI execution, and plenty of tokens
+Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+
+
+Copyright (c) 2026 Umberto Giacobbi
+SPDX-License-Identifier: MIT
+License: MIT - see LICENSE
+
+VBWR E -->
+
+# Install and set up UlanziDeck
+
+## Use the Windows installer
+
+Download an MSIX from [my releases](https://github.com/umbertotechnopreneur/ulanzi-dock-vibeware/releases), when available. MSIX is Windows' app package format.
+
+1. Open the MSIX and choose **Install**.
+2. Open **UlanziDeck** from Start.
+3. Follow the first-run setup. Right-click the tray icon, then choose **Settings** to change your choices later.
+
+The tray icon is the small app icon near the Windows clock. Starting the controller can update a connected dock. If startup fails, an error window explains why.
+
+After the first launch, Windows lists the app in **Startup apps**. Turn it off there if you do not want it to start at sign-in. Terminal users can use `ulanzi-dock-vibeware.exe` without finding the WindowsApps folder.
+
+A locally signed installer needs a trusted certificate from its maker. Check who made it before trusting that certificate.
+
+## Run without installing
+
+Extract the whole Windows ZIP into a writable folder. Open `ulanzi-dock-vibeware.exe`. Keep `ulanzi-dock-launcher.exe` beside it for startup at sign-in.
+
+On Windows, `run`, `configure`, `brightness` and portable sign-in startup use the default profile beside the app. Use `--config` with `run`, `configure` and `brightness` to work with another profile.
+
+The Debian package adds UlanziDeck to the Linux application menu. Portable Linux and macOS archives use a terminal. See the [platform guide](PLATFORMS.md).
+
+## Change and back up settings
+
+On Windows, choose **Settings** from the tray menu. On Linux, open UlanziDeck from the application menu or choose **Settings** from its tray icon where supported. Theme and enabled pages update while the controller runs. On Windows, foreground preferences also update live. Restart the controller after changing app mappings or shortcuts.
+
+The settings buttons open two text files:
+
+- `settings.json`: pages, button shortcuts, brightness and automatic switching preferences.
+- `applications.yaml`: application names, executable names and optional app commands.
+
+The controller also keeps the last regular page in `settings.session.json`, beside `settings.json`. The selected theme stays in `settings.json`. On the next run, the boot picture fades out and that page and theme return. A removed or disabled page falls back to the normal home page, and the temporary page index is not saved. With a custom settings path such as `my-dock.json`, the session file is `my-dock.session.json`.
+
+Office shortcuts start with US English defaults. Adjust them for your keyboard and application language.
+
+The MSIX saves these files under `%LOCALAPPDATA%\Packages\<package-family>\LocalState\`. The portable app uses its executable folder. Local builds in `artifacts/` use the repository's settings. Files inside WindowsApps are not your editable settings.
+
+Updates keep existing preferences. Back up the two settings files, the application catalogue and the session file before uninstalling or resetting. If a file uses an unsupported format, keep it as a reference and create a separate current file with `init --config new-settings.json`. Copy the shortcuts you want into that file; use the current application catalogue too.
+
+### Add OBS Creator to existing settings
+
+Fresh settings already contain OBS Creator. An update does not insert it into a settings file you already use. Close the app and follow [Add the page](../presets/obs-creator/README.md#add-the-page), using your actual settings path. The preset installer makes a backup.
+
+With automatic switching on, OBS must be the app in front to select its page. Having it open in the background is not enough.
+
+## Build your own installer
+
+First follow [development setup](DEVELOPMENT.md). You also need Python 3.10 or newer and the Windows SDK tools `makeappx.exe` and `signtool.exe`.
+
+The script uses your existing signing certificate. Its private key must be in `Cert:\CurrentUser\My`, its public certificate trusted in `Cert:\CurrentUser\Root`, and its expiry at least 30 days away. The script does not create or trust certificates.
+
+```powershell
+pwsh -NoProfile -File scripts/ulanzi.ps1 -Command msix -Configuration Debug -PublisherSubject 'CN=Your Local Publisher'
+```
+
+It builds both programs from current source, creates fresh package settings, includes licenses and signs an x64 MSIX in `artifacts/msix/`. The version comes from `Cargo.toml`. `-Configuration Release` makes an optimized build; the original `build-msix.ps1` command still defaults to Release when given parameters.
+
+Add `-Architecture arm64` for a native ARM64 package. The matching Rust target,
+Visual C++ ARM64 build tools and SDK libraries must already be installed. An x64
+PC can compile the ARM64 package; this does not check its behavior on ARM64 hardware.
+
+Add `-Install` to install the package on this PC. This can close a running copy. Local signing does not publish the app to Microsoft Store.
+
+See [platform coverage](PLATFORMS.md) for what has been checked on real hardware.
+
+## Controller logs
+
+When started through the Windows launcher, each run writes a local log in the
+`logs/` folder beside settings.json. It includes errors, page/theme changes and
+dock button events. Share only the relevant excerpt when reporting a problem;
+the header includes your local settings path. USB write completion alone does
+not prove that the device screen changed.

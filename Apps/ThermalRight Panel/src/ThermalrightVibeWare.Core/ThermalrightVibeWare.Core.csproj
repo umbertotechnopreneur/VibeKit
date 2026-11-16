@@ -1,0 +1,41 @@
+<!-- VBWR B
+
+  Project: Thermalright VibeWare
+  Repository: https://github.com/umbertotechnopreneur/thermalright-vibeware
+  Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+
+  File: ThermalrightVibeWare.Core.csproj
+  Purpose: Defines build inputs and dependencies for ThermalrightVibeWare.Core.
+
+  VibeWare: Human intent, AI execution, and plenty of tokens
+  Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+
+  Modified with AI: OpenAI Codex; source documentation and organization; 2026-10-27.
+  Human guidance: Umberto Giacobbi; maintainability and standard file headers.
+
+  Copyright (c) 2026 Umberto Giacobbi
+  SPDX-License-Identifier: MIT
+
+VBWR E -->
+
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net10.0-windows10.0.19041.0</TargetFrameworks>
+    <RootNamespace>ThermalrightVibeWare.Core</RootNamespace>
+    <AssemblyName>ThermalrightVibeWare.Core</AssemblyName>
+    <Platforms>x64;ARM64</Platforms>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../ThermalrightVibeWare.Data/ThermalrightVibeWare.Data.csproj" />
+    <ProjectReference Include="../ThermalrightVibeWare.Contracts/ThermalrightVibeWare.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
+    <ProjectReference Include="../ThermalrightVibeWare.Backends.Windows/ThermalrightVibeWare.Backends.Windows.csproj" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.10" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <ProjectReference Include="../ThermalrightVibeWare.Backends.Linux/ThermalrightVibeWare.Backends.Linux.csproj" />
+    <!-- Windows drawing and artist integration stay out of the Linux sensor engine. -->
+    <Compile Remove="PanelFrameRenderer.cs;RasterImage.cs;OnlineArtistProvider.cs;WindowsDashboardProviders.cs" />
+  </ItemGroup>
+</Project>

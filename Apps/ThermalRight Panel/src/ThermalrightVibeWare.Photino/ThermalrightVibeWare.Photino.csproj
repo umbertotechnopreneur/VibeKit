@@ -1,0 +1,60 @@
+<!-- VBWR B
+
+  Project: Thermalright VibeWare
+  Repository: https://github.com/umbertotechnopreneur/thermalright-vibeware
+  Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+
+  File: ThermalrightVibeWare.Photino.csproj
+  Purpose: Defines build inputs and dependencies for ThermalrightVibeWare.Photino.
+
+  VibeWare: Human intent, AI execution, and plenty of tokens
+  Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+
+  Modified with AI: OpenAI Codex; source documentation and organization; 2026-10-27.
+  Human guidance: Umberto Giacobbi; maintainability and standard file headers.
+
+  Copyright (c) 2026 Umberto Giacobbi
+  SPDX-License-Identifier: MIT
+
+VBWR E -->
+
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>ThermalrightVibeWare</AssemblyName>
+    <PublishSingleFile>false</PublishSingleFile>
+    <DebugType>embedded</DebugType>
+    <ApplicationIcon>../ThermalrightVibeWare.App/Assets/thermalright-vibeware.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenSilver.Photino" Version="3.3.3" />
+    <ProjectReference Include="../ThermalrightVibeWare.App/ThermalrightVibeWare.App.csproj" />
+    <Content Include="wwwroot/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../ThermalrightVibeWare.App/Assets/thermalright-vibeware.ico" Link="Assets/thermalright-vibeware.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../ThermalrightVibeWare.App/Assets/thermalright-vibeware-icon.png" Link="Assets/thermalright-vibeware-icon.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Share only bounded local logging, never engine or USB implementation. -->
+    <Compile Include="../ThermalrightVibeWare.Core/DiagnosticLog.cs" Link="Diagnostics/DiagnosticLog.cs" />
+    <Compile Include="../ThermalrightVibeWare.Core/LinuxDiagnosticFiles.cs" Link="Diagnostics/LinuxDiagnosticFiles.cs" />
+  </ItemGroup>
+  <PropertyGroup>
+    <PatchedPhotinoArchitecture Condition="'$(Platform)' == 'ARM64'">ARM64</PatchedPhotinoArchitecture>
+    <PatchedPhotinoArchitecture Condition="'$(PatchedPhotinoArchitecture)' == ''">x64</PatchedPhotinoArchitecture>
+    <PatchedPhotinoRoot>$(MSBuildProjectDirectory)/../../artifacts/native/photino-memory/$(PatchedPhotinoArchitecture)</PatchedPhotinoRoot>
+    <PatchedPhotinoLibrary>$(PatchedPhotinoRoot)/Photino.Native.dll</PatchedPhotinoLibrary>
+    <PatchedPhotinoRuntime>win-$([System.String]::Copy('$(PatchedPhotinoArchitecture)').ToLowerInvariant())</PatchedPhotinoRuntime>
+  </PropertyGroup>
+  <Target Name="VerifyPatchedWindowsPhotino" BeforeTargets="PrepareForBuild" Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(DesignTimeBuild)' != 'true'">
+    <Error Condition="!Exists('$(PatchedPhotinoLibrary)')" Text="Build the patched Photino.Native library from the prepared imports in the same PowerShell session before building the Windows studio." />
+  </Target>
+  <Target Name="CopyPatchedWindowsPhotino" AfterTargets="CopyFilesToOutputDirectory" DependsOnTargets="VerifyPatchedWindowsPhotino" Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(DesignTimeBuild)' != 'true'">
+    <Copy SourceFiles="$(PatchedPhotinoLibrary)" DestinationFolder="$(TargetDir)" />
+    <Copy SourceFiles="$(PatchedPhotinoLibrary)" DestinationFolder="$(TargetDir)runtimes/$(PatchedPhotinoRuntime)/native/" Condition="Exists('$(TargetDir)runtimes/$(PatchedPhotinoRuntime)/native')" />
+  </Target>
+  <Target Name="PublishPatchedWindowsPhotino" AfterTargets="Publish" DependsOnTargets="VerifyPatchedWindowsPhotino" Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(DesignTimeBuild)' != 'true' and '$(PublishDir)' != ''">
+    <Copy SourceFiles="$(PatchedPhotinoLibrary)" DestinationFolder="$(PublishDir)" />
+    <Copy SourceFiles="$(PatchedPhotinoLibrary)" DestinationFolder="$(PublishDir)runtimes/$(PatchedPhotinoRuntime)/native/" Condition="Exists('$(PublishDir)runtimes/$(PatchedPhotinoRuntime)/native')" />
+  </Target>
+</Project>

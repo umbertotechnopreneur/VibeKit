@@ -1,0 +1,22 @@
+{
+  "version": 4,
+  "id": "amber",
+  "name": "Amber",
+  "author": "HelpMe contributors",
+  "website": "https://github.com/umbertotechnopreneur/PromptMeUp",
+  "description": "Warm amber accents and cream text on a dark brown background.",
+  "colors": {
+    "background": "#211708",
+    "primary": "#FFF8E8",
+    "muted": "#DED0B3",
+    "accent": "#FFC247",
+    "accentSecondary": "#F49EC4",
+    "info": "#70D9EC",
+    "divider": "#BDA779",
+    "success": "#BAE69C",
+    "warning": "#FFE49A",
+    "error": "#FFAC9C",
+    "selectionBackground": "#FFC247",
+    "selectionForeground": "#211708"
+  }
+}

@@ -1,10 +1,10 @@
 # ramtaskman
 
-[Italiano](../../README.md) · [English](README.en.md) · [中文（简体）](README.zh.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Tiếng Việt](README.vi.md) · [Español](README.es.md) · [Português](README.pt.md) · [Deutsch](README.de.md) · [日本語](README.ja.md)
+[Italiano](README.it.md) · [English](README.en.md) · [中文（简体）](README.zh.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Tiếng Việt](README.vi.md) · [Español](README.es.md) · [Português](README.pt.md) · [Deutsch](README.de.md) · [日本語](README.ja.md)
 
 ### 在终端中看清内存都用到了哪里。
 
-ramtaskman 是一款适用于 Linux、Windows 和 macOS 的实验性内存监视器。它源于好奇心和研究，希望让人在不同系统上理解内存使用情况时，无须依赖复杂工具。这是一个 Vibeware 项目。
+ramtaskman 是一款适用于 Linux 和 Windows 的实验性内存监视器。它源于好奇心和研究，希望让人在不同系统上理解内存使用情况时，无须依赖复杂工具。这是一个 Vibeware 项目。
 
 ![ramtaskman](../images/overview.png)
 
@@ -13,7 +13,7 @@ ramtaskman 是一款适用于 Linux、Windows 和 macOS 的实验性内存监视
 
 ![Multilingual dashboard](../images/multilingual.png)
 
-*六种语言的部分本地化主界面；在 Linux 上使用合成数据截图。*
+*截图展示较早的翻译阶段。应用现已支持十种语言。*
 
 ## 主要功能
 
@@ -50,13 +50,17 @@ cd VibeKit/Apps/RamTaskman
 
 常用按键：m 切换模式，g 切换应用/进程，/ 搜索，f 筛选，d 查看详情，r 打开区域，? 解释指标，q 退出。完整技术指南目前为意大利语。
 
-使用 `./run.sh --language zh` 启动中文主界面（Windows：`.\run.cmd --language zh`）。本地化尚不完整：详细说明、区域、错误及部分控件仍为意大利语或英语。
+`./run.sh --language zh` · Windows: `.\run.cmd --language zh`
+
+界面、页脚、帮助、核心 CLI 消息和应用诊断提供十种语言。新的 RAM 估值选项及部分“关于”文字仍为英语。
+
+[RAM valuation and current validation status (English)](../../README.md)
 
 ## 实验性项目：请谨慎解读数据
 
 采样是顺序进行的，权限可能限制可见性，应用分组采用启发式方法。不可用数据标为 n/a，而不是零。RSS 可能重复计算共享页；进程 PSS 不等于系统总内存。缓存与可用内存重叠；不会把 commit 推算为进程交换空间。
 
-Linux 在可读取时提供 PSS 和每进程交换空间；本项目在 Windows 和 macOS 上不提供这些指标。Linux 区域使用 smaps；Windows 仅提供实验性虚拟区间；macOS 尚无区域地图。已在 Linux 实机验证，Windows 和 macOS 仍需原生验证。
+Linux 在可读取时提供 PSS 和每进程交换空间；Windows 在此不提供这些指标。Linux 区域使用 smaps；Windows 仅提供实验性虚拟区间。已在 Linux 实机验证，Windows 仍需验证。我没有 Mac 用于开发和测试，因此不支持 macOS。欢迎有意维护 macOS 支持的贡献者。
 
 ## 灵感与致谢
 

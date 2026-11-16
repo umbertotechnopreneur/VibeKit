@@ -8,6 +8,8 @@ import psutil
 from ..models import LinuxSystemMemory, ProcessMemory, SystemMemory
 from ..memory_segments import partition_meminfo
 from ..grouping import CGROUP_LIMIT, application_cgroup
+from ..messages import message
+from ..process_identity import process_executable, process_name
 
 
 def parse_kib(text: str) -> dict[str, int]:
@@ -97,15 +99,12 @@ class LinuxBackend:
     def read_identity(self, process: psutil.Process) -> ProcessMemory | None:
         pid = process.pid
         started = process.create_time()
-        name = process.name()
+        name = process_name(process)
         try:
             uid = process.uids().real
         except psutil.AccessDenied:
             uid = None
-        try:
-            executable = process.exe() or None
-        except psutil.AccessDenied:
-            executable = None
+        executable = process_executable(process)
         row = ProcessMemory(pid, started, name, uid, executable)
         app = read_app_cgroup(self.proc / str(pid) / 'cgroup', uid)
         if app is not None:
@@ -122,13 +121,13 @@ class LinuxBackend:
             for key, value in fields.items():
                 setattr(row, key, value)
             if any(fields[k] is None for k in ('pss', 'uss', 'swap')):
-                row.reason = 'campi smaps_rollup incompleti'
+                row.reason = message('tech_rollup_incomplete')
         except PermissionError:
-            row.reason = 'smaps_rollup: accesso negato'
+            row.reason = message('tech_rollup_denied')
         except (FileNotFoundError, ProcessLookupError):
-            row.reason = 'smaps_rollup assente: processo terminato, kernel thread o kernel non supportato'
+            row.reason = message('tech_rollup_absent')
         except OSError:
-            row.reason = 'smaps_rollup non leggibile'
+            row.reason = message('tech_rollup_unreadable')
         if row.rss is None:
             try:
                 row.rss = process.memory_info().rss

@@ -7,9 +7,8 @@ pubblicazione o inviare contenuti senza richiesta dell'utente.
 ## Obiettivo e confini
 
 UI terminale Python/Textual con la stessa struttura visiva di gputaskman di Scott Hanselman,
-dedicata a RAM, PSS, USS e swap su Linux, Windows e macOS. Conserva LICENSE e docs/upstream.md. Non reintrodurre
-backend GPU, dipendenze NVIDIA o pubblicazione PyPI ereditati. I backend RAM Windows/macOS
-sono invece parte dell’obiettivo richiesto.
+dedicata a RAM, PSS, USS e swap su Linux e Windows. macOS non è supportato; contributi per la sua manutenzione sono benvenuti. Conserva LICENSE e docs/upstream.md. Non reintrodurre
+backend GPU, dipendenze NVIDIA o pubblicazione PyPI ereditati. Il backend RAM Windows fa parte dell’obiettivo richiesto.
 Non riscrivere la UI in un altro framework. Scomponi le estensioni in cambiamenti piccoli.
 
 ## Regole dei dati
@@ -40,7 +39,7 @@ UV_CACHE_DIR="$PWD/.uv-cache" uv build
 Per modifiche UI usa Textual run_test, `await pilot.pause()` prima delle asserzioni,
 verifica 160x48 e 80x24. Esegui solo controlli pertinenti; non aggiungere test per semplici note.
 Non salvare nomi e percorsi dei processi reali nelle fixture o nelle schermate pubblicate.
-CI configurata su Linux/Windows/macOS; qui è stata eseguita solo la suite locale Linux.
+CI configurata su Linux/Windows; qui è stata eseguita solo la suite locale Linux.
 I test mock non sostituiscono le verifiche hardware: documenta cosa è stato davvero eseguito.
 
 ## Ambiente portatile

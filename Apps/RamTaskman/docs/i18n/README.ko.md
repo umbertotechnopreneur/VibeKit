@@ -1,10 +1,10 @@
 # ramtaskman
 
-[Italiano](../../README.md) · [English](README.en.md) · [中文（简体）](README.zh.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Tiếng Việt](README.vi.md) · [Español](README.es.md) · [Português](README.pt.md) · [Deutsch](README.de.md) · [日本語](README.ja.md)
+[Italiano](README.it.md) · [English](README.en.md) · [中文（简体）](README.zh.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Tiếng Việt](README.vi.md) · [Español](README.es.md) · [Português](README.pt.md) · [Deutsch](README.de.md) · [日本語](README.ja.md)
 
 ### RAM이 어디에 쓰이는지 터미널에서 확인하세요.
 
-ramtaskman은 Linux, Windows, macOS용 실험적인 메모리 모니터입니다. 여러 시스템의 메모리 사용을 복잡한 도구 없이 이해하고 싶다는 호기심과 연구에서 출발했습니다. Vibeware 프로젝트입니다.
+ramtaskman은 Linux와 Windows용 실험적인 메모리 모니터입니다. 여러 시스템의 메모리 사용을 복잡한 도구 없이 이해하고 싶다는 호기심과 연구에서 출발했습니다. Vibeware 프로젝트입니다.
 
 ![ramtaskman](../images/overview.png)
 
@@ -13,7 +13,7 @@ ramtaskman은 Linux, Windows, macOS용 실험적인 메모리 모니터입니다
 
 ![Multilingual dashboard](../images/multilingual.png)
 
-*6개 언어로 부분 번역한 대시보드; Linux에서 합성 데이터로 캡처했습니다.*
+*이미지는 이전 번역 단계의 화면입니다. 현재 앱은 10개 언어를 지원합니다.*
 
 ## 주요 기능
 
@@ -50,13 +50,17 @@ Windows Terminal에서 프로젝트 폴더로 이동한 후 실행하세요:
 
 주요 키: m 모드 전환, g 앱/프로세스 전환, / 검색, f 필터, d 상세, r 영역, ? 지표 설명, q 종료. 전체 기술 가이드는 현재 이탈리아어입니다.
 
-`./run.sh --language ko`로 한국어 대시보드를 실행합니다(Windows: `.\run.cmd --language ko`). 번역은 부분적이며 상세 설명, 영역, 오류와 일부 제어는 이탈리아어 또는 영어로 남아 있습니다.
+`./run.sh --language ko` · Windows: `.\run.cmd --language ko`
+
+인터페이스, 하단 단축키, 도움말, 주요 CLI 메시지와 앱 진단은 10개 언어로 제공됩니다. 새로운 RAM 가치 옵션과 일부 About 문구는 아직 영어입니다.
+
+[RAM valuation and current validation status (English)](../../README.md)
 
 ## 실험적 프로젝트: 수치를 신중히 해석하세요
 
 측정은 순차적으로 이루어지고 권한에 따라 보이는 범위가 제한되며 앱 그룹화는 휴리스틱입니다. 누락 데이터는 0이 아닌 n/a입니다. RSS는 공유 페이지를 중복 계산할 수 있고 프로세스 PSS는 전체 RAM이 아닙니다. 캐시와 사용 가능 메모리는 겹칩니다. 프로세스 스왑은 commit에서 추정하지 않습니다.
 
-Linux는 읽을 수 있을 때 PSS와 프로세스별 스왑을 제공합니다. 여기서는 Windows와 macOS에서 제공하지 않습니다. Linux 영역은 smaps를 사용하며 Windows는 실험적인 가상 범위만 표시하고 macOS 영역 지도는 아직 없습니다. 실제 하드웨어 검증은 Linux에서 수행했으며 Windows와 macOS는 검증이 필요합니다.
+Linux는 읽을 수 있을 때 PSS와 프로세스별 스왑을 제공하며, 여기서 Windows는 제공하지 않습니다. Linux 영역은 smaps를 사용하고 Windows는 실험적인 가상 범위를 표시합니다. Linux에서 실기기 검증을 했으며 Windows는 추가 검증이 필요합니다. 개발과 테스트에 사용할 Mac이 없어 macOS는 지원하지 않습니다. macOS 지원을 맡을 기여자를 환영합니다.
 
 ## 영감과 감사
 

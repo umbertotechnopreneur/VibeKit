@@ -1,5 +1,7 @@
 # Architettura
 
+> Stato attuale: macOS non è supportato né verificato. Non dispongo di un Mac per sviluppo e test; chi desidera occuparsi del supporto è benvenuto. I riferimenti seguenti descrivono materiale storico o ricerca non mantenuta.
+
 ## Flusso
 
 ```text

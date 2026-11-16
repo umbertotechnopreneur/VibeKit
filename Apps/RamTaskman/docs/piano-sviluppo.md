@@ -1,5 +1,7 @@
 # Piano di sviluppo di ramtaskman — confronto, acquisizioni, piattaforme, prestazioni e distribuzione
 
+> Stato attuale: macOS non è supportato né verificato. Non dispongo di un Mac per sviluppo e test; chi desidera occuparsi del supporto è benvenuto. I riferimenti seguenti descrivono materiale storico o ricerca non mantenuta.
+
 Preparato il 16 novembre 2026. **Stato: piano da eseguire, non funzionalità già implementate.**
 
 Questo documento è il riferimento operativo per proseguire **nella stessa chat**, anche

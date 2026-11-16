@@ -1,10 +1,10 @@
 # ramtaskman
 
-[Italiano](../../README.md) · [English](README.en.md) · [中文（简体）](README.zh.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Tiếng Việt](README.vi.md) · [Español](README.es.md) · [Português](README.pt.md) · [Deutsch](README.de.md) · [日本語](README.ja.md)
+[Italiano](README.it.md) · [English](README.en.md) · [中文（简体）](README.zh.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Tiếng Việt](README.vi.md) · [Español](README.es.md) · [Português](README.pt.md) · [Deutsch](README.de.md) · [日本語](README.ja.md)
 
 ### Hiểu RAM đang được dùng vào đâu, ngay trong terminal.
 
-ramtaskman là trình theo dõi bộ nhớ thử nghiệm cho Linux, Windows và macOS. Dự án xuất phát từ sự tò mò và nghiên cứu: hiểu bộ nhớ trên nhiều hệ thống mà không cần những công cụ quá phức tạp. Đây là một dự án Vibeware.
+ramtaskman là trình theo dõi bộ nhớ thử nghiệm cho Linux và Windows. Dự án xuất phát từ sự tò mò và nghiên cứu: hiểu bộ nhớ trên nhiều hệ thống mà không cần những công cụ quá phức tạp. Đây là một dự án Vibeware.
 
 ![ramtaskman](../images/overview.png)
 
@@ -13,7 +13,7 @@ ramtaskman là trình theo dõi bộ nhớ thử nghiệm cho Linux, Windows và
 
 ![Multilingual dashboard](../images/multilingual.png)
 
-*Bảng điều khiển được dịch một phần sang sáu ngôn ngữ; chụp trên Linux bằng dữ liệu tổng hợp.*
+*Ảnh chụp thể hiện giai đoạn dịch trước đây. Ứng dụng hiện có mười ngôn ngữ.*
 
 ## Các chức năng chính
 
@@ -50,13 +50,17 @@ Dùng --once để lấy một mẫu hoặc --json để xuất JSON. Không dù
 
 Phím hữu ích: m đổi chế độ, g đổi ứng dụng/tiến trình, / tìm kiếm, f lọc, d xem chi tiết, r mở vùng nhớ, ? giải thích chỉ số và q thoát. Hướng dẫn kỹ thuật đầy đủ hiện bằng tiếng Ý.
 
-Chạy bảng điều khiển bằng `./run.sh --language vi` (Windows: `.\run.cmd --language vi`). Bản địa hóa chưa hoàn chỉnh: phần giải thích chi tiết, vùng nhớ, lỗi và một số điều khiển vẫn bằng tiếng Ý hoặc tiếng Anh.
+`./run.sh --language vi` · Windows: `.\run.cmd --language vi`
+
+Giao diện, chân trang, trợ giúp, thông báo CLI chính và chẩn đoán của ứng dụng có bằng mười ngôn ngữ. Các tùy chọn giá trị RAM mới và một số nội dung Giới thiệu vẫn bằng tiếng Anh.
+
+[RAM valuation and current validation status (English)](../../README.md)
 
 ## Dự án thử nghiệm: hãy đọc số liệu cẩn thận
 
 Các phép đọc diễn ra tuần tự, quyền truy cập có thể hạn chế khả năng quan sát và việc nhóm ứng dụng chỉ là phương pháp phỏng đoán. Dữ liệu thiếu là n/a, không phải số không. RSS có thể đếm trùng trang chia sẻ; PSS của tiến trình không phải tổng RAM. Bộ nhớ đệm chồng lấp với bộ nhớ khả dụng. Swap của tiến trình không được suy ra từ commit.
 
-Linux cung cấp PSS và swap theo tiến trình khi có thể đọc. Ở đây Windows và macOS không cung cấp các chỉ số này. Vùng nhớ Linux dùng smaps; Windows chỉ có khoảng địa chỉ ảo thử nghiệm; macOS chưa có bản đồ. Đã kiểm tra phần cứng thực trên Linux; Windows và macOS vẫn cần xác thực gốc.
+Linux cung cấp PSS và swap theo tiến trình khi có thể đọc; Windows không cung cấp các chỉ số này ở đây. Linux dùng smaps; Windows chỉ có khoảng địa chỉ ảo thử nghiệm. Đã kiểm tra thực tế trên Linux; Windows cần xác thực. macOS không được hỗ trợ vì tôi không có máy Mac để phát triển và kiểm thử. Chào đón người đóng góp đảm nhận hỗ trợ macOS.
 
 ## Cảm hứng và lời cảm ơn
 

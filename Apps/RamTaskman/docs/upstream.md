@@ -18,7 +18,7 @@ pubblica; il push è disabilitato.
 - `src/ramtaskman/app.py`: composizione degli stessi pannelli Textual, tabella a righe
   alternate, inspector, footer e schermata di aiuto; grafici adattati dalla griglia originale.
 - Struttura `src/`, `tests/`, `tools/`, `docs/`, `pyproject.toml`, `uv.lock`, CI conservata
-  come organizzazione, con backend RAM Linux/Windows/macOS e CI multipiattaforma.
+  come organizzazione, con backend RAM per Linux e Windows e CI multipiattaforma.
 
 I collector GPU, scanner di runtime/modelli, release automatiche e packaging GPU/Nix
 sono stati rimossi dalla versione RAM. Non restano dipendenze NVIDIA. Il collector RAM,

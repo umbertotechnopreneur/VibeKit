@@ -1,5 +1,7 @@
 # Verifica delle regioni su macOS
 
+> Stato attuale: macOS non è supportato né verificato. Non dispongo di un Mac per sviluppo e test; chi desidera occuparsi del supporto è benvenuto. I riferimenti seguenti descrivono materiale storico o ricerca non mantenuta.
+
 **Stato:** procedura e diagnostica preparate su Linux; non sono state compilate o
 eseguite con un SDK macOS. La mappa delle regioni macOS di ramtaskman resta da
 implementare e validare. I test simulati non dimostrano l'ABI del Mac.

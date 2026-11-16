@@ -1,20 +1,27 @@
-# Modifiche
+# Changes
 
-## In sviluppo — 0.1.0
+## In development — 0.1.0
 
-- Derivazione terminale RAM da gputaskman, con contatori di sistema e processi e
-  raggruppamento applicativo; attribuzione e licenza upstream nel README.
-- Linux: barra per categorie OS, dettaglio PSS/RSS e mappa delle regioni con filtri,
-  ricerca, zoom e confronto A/B. Windows: intervalli virtuali sperimentali; macOS:
-  contatori generali, senza provider delle regioni.
-- Salvataggio e replay offline delle acquisizioni, con dati mancanti espliciti.
-- Budget opzionale di campionamento, paginazione delle tabelle e benchmark locali.
-- Procedure riproducibili di verifica Windows e macOS, ancora da eseguire sui sistemi nativi.
-- Verifica locale della distribuzione isolata e configurazione CI multipiattaforma;
-  nessun rilascio PyPI.
-- README in dieci lingue e localizzazione iniziale della dashboard selezionabile con
-  `--language`. La traduzione della UI è parziale: dettagli, regioni e messaggi
-  richiedono ulteriori traduzioni e verifiche.
+- Terminal RAM monitor derived from GPU Taskman, with system and process counters,
+  Linux application grouping and persistent MIT attribution.
+- Linux PSS/USS/RSS and process swap accounting; Windows RSS/USS with unsupported
+  counters left unavailable. Live macOS collection is disabled and unsupported.
+- On-demand Linux memory regions and experimental Windows virtual address ranges.
+- Before/after comparison, saved captures and offline replay with explicit missing data.
+- Optional sampling budgets, table pagination and reproducible local benchmarks.
+- Native name/executable metadata reads without psutil command-line fallback or
+  probes of executable files. Missing identities remain explicit.
+- Ten-language dashboard, detail and region views, help, footer shortcuts, core CLI,
+  backend diagnostics and capture dialogs. Technical identifiers and source OS
+  messages remain unchanged; native-speaker review is welcome.
+- Optional RAM hardware valuation from measured Linux PSS or Windows USS, with
+  OS-visible capacity by default, optional nominal capacity and monthly allocation.
+  No RSS fallback, live price feed, invented missing data or billing claim.
+- F1 About with VibeWare branding, the project website and Scott Hanselman credits.
+- Wheel/sdist verification with an isolated installation and offline replay.
+- VibeKit path-scoped CI for Python 3.11, 3.13 and 3.14 on Linux and Windows;
+  bounded native CLI smoke checks. No PyPI release.
 
-Stato e limiti delle misure, della compatibilità e delle prove si trovano nel README
-e nel piano di sviluppo. La versione 0.1.0 è sperimentale.
+See the [README](README.md) for current setup, platform limits and measurement
+semantics. Historical validation notes in `docs/` are checkpoints, not claims that
+all later integrations have been verified on the same hardware.

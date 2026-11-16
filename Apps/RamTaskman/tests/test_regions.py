@@ -111,11 +111,15 @@ class ReadRegionsTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         (self.root / '100').mkdir()
         self.path = self.root / '100' / 'smaps'
-        self.path.write_bytes((FIRST + SECOND).encode())
+        # Byte budgets describe procfs bytes, including its LF line endings.
+        # Binary writes keep the fixture identical on Windows and Unix hosts.
+        self.path.write_bytes((FIRST + SECOND).encode('utf-8'))
         self.proc = Mock()
         self.proc.create_time.return_value = 123.0
         self.proc.is_running.return_value = True
-        self.proc.exe.return_value = '/demo/my app'
+        self.proc._proc.exe.return_value = '/demo/my app'
+        for public in (self.proc.name, self.proc.exe, self.proc.cmdline):
+            public.side_effect = AssertionError('public process metadata fallback is forbidden')
         self.psutil = patch('ramtaskman.regions.psutil.Process', return_value=self.proc).start()
         self.addCleanup(patch.stopall)
 
@@ -130,11 +134,11 @@ class ReadRegionsTests(unittest.TestCase):
         self.assertEqual(self.psutil.call_count, 2)
 
     def test_exec_change_or_unreadable_image_does_not_claim_same_identity(self):
-        self.proc.exe.side_effect = ['/demo/my app', '/demo/other']
+        self.proc._proc.exe.side_effect = ['/demo/my app', '/demo/other']
         snap = LinuxRegionReader(self.root).read(identity())
         self.assertFalse(snap.complete)
         self.assertEqual(snap.regions, [])
-        self.proc.exe.side_effect = psutil.AccessDenied(100)
+        self.proc._proc.exe.side_effect = psutil.AccessDenied(100)
         snap = LinuxRegionReader(self.root).read(identity())
         self.assertTrue(snap.complete)
         self.assertIsNone(snap.executable_identity)
@@ -210,14 +214,14 @@ class ReadRegionsTests(unittest.TestCase):
         self.assertFalse(snap.complete)
         self.assertIn('Limite di tempo', snap.reason)
         self.assertEqual(snap.regions, [])
-        self.path.write_text(FIRST + SECOND.replace('Rss: 0 kB', 'Rss: bad kB'))
+        self.path.write_bytes((FIRST + SECOND.replace('Rss: 0 kB', 'Rss: bad kB')).encode('utf-8'))
         snap = LinuxRegionReader(self.root).read(identity())
         self.assertFalse(snap.complete)
         self.assertEqual(snap.regions, [])
         self.assertIn('contatore smaps non valido', snap.reason)
 
     def test_empty_maps_and_missing_procfs_are_distinct(self):
-        self.path.write_text('')
+        self.path.write_bytes(b'')
         snap = LinuxRegionReader(self.root).read(identity())
         self.assertTrue(snap.complete)
         self.assertEqual(snap.regions, [])

@@ -7,10 +7,12 @@ import unittest
 from textual.widgets import DataTable, Input, Select, Static
 
 from ramtaskman.app import RamTaskManager
+from ramtaskman.i18n import translate
 from ramtaskman.region_map import RegionMap, region_cells
 from ramtaskman.region_screen import RegionScreen, filter_regions
 from ramtaskman.regions import MemoryRegion, RegionSnapshot
 from test_memory import fixture
+from ui_helpers import open_selected_process_regions
 
 
 def region_fixture(process=None):
@@ -68,13 +70,23 @@ class RegionMapTests(unittest.TestCase):
         self.assertEqual(filter_regions(rows, '', 'all', 'shared'), [rows[0], rows[2]])
         rows[2].breakdown['shared_dirty'] = None
         self.assertEqual(filter_regions(rows, '', 'file', 'shared'), [])
+        self.assertEqual(filter_regions(rows, '识别出的堆', 'all', 'all', language='zh'), [rows[1]])
 
 
 class RegionUITests(unittest.IsolatedAsyncioTestCase):
+    async def test_cjk_map_labels_fit_terminal_cells(self):
+        app = RamTaskManager(live=False, region_reader=FakeReader(), language='zh')
+        async with app.run_test(size=(160, 48)) as pilot:
+            screen = await self.open_regions(app, pilot)
+            widget = screen.query_one('#region-map', RegionMap)
+            self.assertIn('识别出的堆', widget.render().plain)
+            self.assertEqual(widget.render().cell_len, widget.content_size.width)
+            await pilot.resize_terminal(80, 24)
+            await pilot.pause()
+            self.assertEqual(widget.render().cell_len, widget.content_size.width)
+
     async def open_regions(self, app, pilot):
-        app.apply(fixture())
-        await pilot.pause()
-        await pilot.press('enter', 'enter')
+        await open_selected_process_regions(app, pilot, fixture())
         await app.workers.wait_for_complete()
         await pilot.pause()
         self.assertIsInstance(app.screen, RegionScreen)
@@ -172,7 +184,8 @@ class RegionUITests(unittest.IsolatedAsyncioTestCase):
             screen.accept_snapshot(old_request, replace(region_fixture(), complete=False, reason='Limite'))
             await pilot.pause()
             self.assertEqual(len(screen.rows), 4)
-            self.assertIn('incompleta', str(screen.query_one('#region-count', Static).content))
+            self.assertIn(translate('it', 'partial_sample'),
+                          str(screen.query_one('#region-count', Static).content))
 
     async def test_closing_cancels_only_region_worker_and_keeps_app_worker(self):
         started, stopped = threading.Event(), threading.Event()
@@ -186,9 +199,7 @@ class RegionUITests(unittest.IsolatedAsyncioTestCase):
         app = RamTaskManager(live=False, region_reader=SlowReader())
         async with app.run_test(size=(80, 24)) as pilot:
             keep_running = app.run_worker(asyncio.sleep(30), group='main-test')
-            app.apply(fixture())
-            await pilot.press('enter', 'enter')
-            await pilot.pause()
+            await open_selected_process_regions(app, pilot, fixture())
             self.assertTrue(started.is_set())
             await pilot.press('escape')
             await pilot.pause()
@@ -204,7 +215,10 @@ class RegionUITests(unittest.IsolatedAsyncioTestCase):
             snap = fixture()
             snap.platform = 'macos'
             app.apply(snap)
-            await pilot.press('enter', 'r')
+            await pilot.pause()
+            await pilot.press('enter')
+            await pilot.pause()
+            await pilot.press('r')
             await app.workers.wait_for_complete()
             await pilot.pause()
             self.assertIsInstance(app.screen, RegionScreen)

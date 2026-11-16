@@ -4,12 +4,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 from textual.app import App
-from textual.widgets import Input, Static
+from textual.widgets import Button, Input, Static
 
 from ramtaskman.capture_dialog import CaptureOpenScreen, CaptureSaveScreen
 from ramtaskman.capture_io import load_capture
 from ramtaskman.replay import ReplayApp
 from test_capture_io import fixture
+from ui_helpers import open_selected_process_regions
 
 
 class DialogApp(App):
@@ -26,6 +27,17 @@ class DialogApp(App):
 
 
 class CaptureDialogTests(unittest.IsolatedAsyncioTestCase):
+    async def test_replay_and_save_dialog_use_selected_language(self):
+        app = ReplayApp(fixture(), language='ko')
+        async with app.run_test(size=(80, 24)) as pilot:
+            await pilot.pause()
+            self.assertEqual(app.screen.query_one('#region-search', Input).placeholder,
+                             '파일, 유형, 권한 또는 0x 주소… · Enter: 표')
+            await pilot.press('ctrl+s')
+            await pilot.pause()
+            self.assertIsInstance(app.screen, CaptureSaveScreen)
+            self.assertEqual(str(app.screen.query_one('#capture-save', Button).label), '저장')
+
     async def test_save_then_confirm_overwrite_and_open(self):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / 'esempio.rtm.json'
@@ -40,6 +52,9 @@ class CaptureDialogTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(path.read_text(), 'original')
                 self.assertTrue(app.screen.query_one('#capture-overwrite').display)
                 app.screen.query_one('#capture-overwrite').press()
+                # Dispatch Button.Pressed so its handler registers the worker
+                # before waiting for that worker and the dismissal callback.
+                await pilot.pause()
                 await app.workers.wait_for_complete()
                 await pilot.pause()
                 self.assertTrue(app.result)
@@ -92,8 +107,7 @@ class CaptureDialogTests(unittest.IsolatedAsyncioTestCase):
             path = Path(td) / 'misura.rtm.json'
             app = RamTaskManager(live=False, region_reader=FakeReader())
             async with app.run_test(size=(160, 48)) as pilot:
-                app.apply(main_fixture())
-                await pilot.press('enter', 'enter')
+                await open_selected_process_regions(app, pilot, main_fixture())
                 await app.workers.wait_for_complete()
                 await pilot.pause()
                 self.assertIsInstance(app.screen, RegionScreen)

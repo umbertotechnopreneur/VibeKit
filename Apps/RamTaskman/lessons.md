@@ -42,3 +42,21 @@ interromperebbe anche il monitoraggio principale. Il test di chiusura in
 test_region_ui.py verifica che il worker dell'app resti attivo mentre quello delle
 regioni riceve l'annullamento. Per dettagli scorrevoli da tastiera usare un
 VerticalScroll: rendere focusabile un semplice Static non lo rende scorrevole.
+
+
+## Localize presentation while preserving source data
+
+Application messages retain their key and parameters until rendering. Tests cover
+nested messages, `dataclasses.asdict` deep copies and canonical JSON. Names, paths,
+OS details and text loaded from captures remain literal. Ten-language Textual
+checks inspect the actual footer and ensure one app does not mutate another app's
+binding metadata. Assertions follow the selected catalog while continuing to check
+stale-result rejection and measurement coverage.
+
+## Inspect dependency fallbacks too
+
+Avoiding direct calls to `cmdline()` is insufficient: psutil 7 public name and
+executable getters may use it internally. The native identity adapter isolates
+that dependency and exposes missing values when native metadata is unavailable.
+Tests forbid public getters and executable-file probes; cached public values are
+not accepted as fresh process-identity evidence.

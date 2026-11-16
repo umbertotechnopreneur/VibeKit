@@ -1,10 +1,10 @@
 # ramtaskman
 
-[Italiano](../../README.md) · [English](README.en.md) · [中文（简体）](README.zh.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Tiếng Việt](README.vi.md) · [Español](README.es.md) · [Português](README.pt.md) · [Deutsch](README.de.md) · [日本語](README.ja.md)
+[Italiano](README.it.md) · [English](README.en.md) · [中文（简体）](README.zh.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Tiếng Việt](README.vi.md) · [Español](README.es.md) · [Português](README.pt.md) · [Deutsch](README.de.md) · [日本語](README.ja.md)
 
 ### Descubre adónde va la RAM, directamente desde la terminal.
 
-ramtaskman es un monitor experimental de memoria para Linux, Windows y macOS. Nació de la curiosidad y la investigación para entender la memoria en distintos sistemas sin recurrir a herramientas complicadas. Es un proyecto Vibeware.
+ramtaskman es un monitor experimental de memoria para Linux y Windows. Nació de la curiosidad y la investigación para entender la memoria en distintos sistemas sin recurrir a herramientas complicadas. Es un proyecto Vibeware.
 
 ![ramtaskman](../images/overview.png)
 
@@ -13,7 +13,7 @@ ramtaskman es un monitor experimental de memoria para Linux, Windows y macOS. Na
 
 ![Multilingual dashboard](../images/multilingual.png)
 
-*Traducción parcial de la pantalla principal en seis idiomas; capturas en Linux con datos sintéticos.*
+*Las capturas muestran una etapa anterior de traducción. La aplicación ahora ofrece diez idiomas.*
 
 ## Funciones principales
 
@@ -50,13 +50,17 @@ Usa --once o --json para una muestra única o salida JSON. No compartas .venv en
 
 Teclas útiles: m cambia de modo, g alterna aplicaciones/procesos, / busca, f filtra, d muestra detalles, r abre regiones, ? explica las métricas y q sale. La guía técnica completa está actualmente en italiano.
 
-La pantalla principal se inicia con `./run.sh --language es` (Windows: `.\run.cmd --language es`). La traducción es parcial: explicaciones detalladas, regiones, errores y algunos controles siguen en italiano o inglés.
+`./run.sh --language es` · Windows: `.\run.cmd --language es`
+
+La interfaz, el pie, la ayuda, los mensajes principales de la CLI y los diagnósticos de la aplicación están disponibles en diez idiomas. Las nuevas opciones de valor de RAM y algunos textos de Acerca de siguen en inglés.
+
+[RAM valuation and current validation status (English)](../../README.md)
 
 ## Experimental: interpreta los datos con cuidado
 
 Las lecturas son secuenciales, los permisos pueden limitar la visibilidad y la agrupación de aplicaciones es heurística. Los datos ausentes son n/a, no cero. RSS puede contar páginas compartidas varias veces; la PSS de procesos no es toda la RAM. La caché se solapa con la memoria disponible. La swap por proceso no se deduce del commit.
 
-Linux ofrece PSS y swap por proceso cuando son legibles. Aquí no se exponen en Windows ni macOS. Las regiones Linux usan smaps; Windows muestra intervalos virtuales experimentales y macOS aún no tiene mapa. La verificación local en hardware se realizó en Linux; Windows y macOS necesitan validación nativa.
+Linux ofrece PSS y swap por proceso cuando son legibles; aquí Windows no los expone. Linux usa smaps y Windows muestra intervalos virtuales experimentales. La verificación local se realizó en Linux; Windows necesita validación. macOS no está soportado porque no tengo un Mac para desarrollarlo y probarlo. Son bienvenidas las contribuciones para mantenerlo.
 
 ## Inspiración y agradecimientos
 

@@ -1,5 +1,7 @@
 # Audit dei contatori e del raggruppamento
 
+> Stato attuale: macOS non è supportato né verificato. Non dispongo di un Mac per sviluppo e test; chi desidera occuparsi del supporto è benvenuto. I riferimenti seguenti descrivono materiale storico o ricerca non mantenuta.
+
 Stato al 16 novembre 2026: analisi del sorgente psutil 7.2.2 bloccato in `uv.lock`,
 eseguita su Linux; **non è una prova di funzionamento su Windows o macOS**.
 

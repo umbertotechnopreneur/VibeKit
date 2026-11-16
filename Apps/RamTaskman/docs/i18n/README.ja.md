@@ -1,10 +1,10 @@
 # ramtaskman
 
-[Italiano](../../README.md) · [English](README.en.md) · [中文（简体）](README.zh.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Tiếng Việt](README.vi.md) · [Español](README.es.md) · [Português](README.pt.md) · [Deutsch](README.de.md) · [日本語](README.ja.md)
+[Italiano](README.it.md) · [English](README.en.md) · [中文（简体）](README.zh.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Tiếng Việt](README.vi.md) · [Español](README.es.md) · [Português](README.pt.md) · [Deutsch](README.de.md) · [日本語](README.ja.md)
 
 ### RAMの使い道を、ターミナルから見渡す。
 
-ramtaskmanはLinux、Windows、macOS向けの実験的なメモリモニターです。さまざまなシステムのメモリを、複雑なツールに頼らず理解したいという好奇心と研究から生まれたVibewareプロジェクトです。
+ramtaskmanはLinuxとWindows向けの実験的なメモリモニターです。さまざまなシステムのメモリを、複雑なツールに頼らず理解したいという好奇心と研究から生まれたVibewareプロジェクトです。
 
 ![ramtaskman](../images/overview.png)
 
@@ -13,7 +13,7 @@ ramtaskmanはLinux、Windows、macOS向けの実験的なメモリモニター�
 
 ![Multilingual dashboard](../images/multilingual.png)
 
-*6言語に部分翻訳したダッシュボード。Linux上で合成データを使って撮影しました。*
+*画像は以前の翻訳段階のものです。現在は10言語に対応しています。*
 
 ## 主な機能
 
@@ -50,13 +50,17 @@ WindowsではプロジェクトフォルダーのWindows Terminalから実行し
 
 主なキー: m モード切替、g アプリ/プロセス切替、/ 検索、f フィルター、d 詳細、r 領域、? 指標の説明、q 終了。完全な技術ガイドは現在イタリア語です。
 
-`./run.sh --language ja`で日本語のダッシュボードを起動します（Windows: `.\run.cmd --language ja`）。翻訳は一部のみで、詳細説明、領域、エラー、一部の操作はイタリア語または英語のままです。
+`./run.sh --language ja` · Windows: `.\run.cmd --language ja`
+
+画面、フッター、ヘルプ、主要なCLIメッセージ、アプリの診断は10言語に対応しています。新しいRAM評価額オプションと「About」の一部は英語です。
+
+[RAM valuation and current validation status (English)](../../README.md)
 
 ## 実験的プロジェクト: 数値は慎重に解釈してください
 
 測定は順次行われ、権限によって表示範囲が制限されることがあります。アプリのグループ化はヒューリスティックです。欠損値はゼロではなくn/aです。RSSは共有ページを重複計上する場合があり、プロセスのPSSはシステム全体のRAMではありません。キャッシュは利用可能メモリと重複します。commitからプロセスのスワップを推定しません。
 
-Linuxでは読み取り可能な場合にPSSとプロセス別スワップを提供します。WindowsとmacOSではここに表示されません。Linuxの領域はsmapsを使用し、Windowsは実験的な仮想範囲のみ、macOSは未実装です。実機検証はLinuxで実施済みで、WindowsとmacOSは別途必要です。
+Linuxでは読み取り可能な場合にPSSとプロセス別スワップを提供し、Windowsでは表示しません。Linuxはsmapsを使用し、Windowsは実験的な仮想範囲を表示します。Linuxでは実機検証済みですが、Windowsは追加検証が必要です。開発とテストに使えるMacがないためmacOSはサポートしていません。macOS対応を担当する方の貢献を歓迎します。
 
 ## インスピレーションと感謝
 

@@ -74,9 +74,11 @@ class RegionMap(Static):
         self.refresh()
 
     def render(self) -> Text:
+        if self.content_size.width <= 0:
+            return Text('')
         if not self.regions:
             return Text(translate(self.language, 'no_regions'), style='grey70')
-        if self.mode == 'resident' and any(r.rss is None for r in self.regions):
+        if self.mode == 'resident' and any(r.rss is None or r.rss < 0 for r in self.regions):
             return Text(translate(self.language, 'rss_unavailable'), style='yellow')
         cells = region_cells(self.regions, self.mode, self.content_size.width)
         if not cells:

@@ -1,5 +1,21 @@
 # Passaggio al prossimo agente
 
+> Stato attuale: macOS non è supportato né verificato. Non dispongo di un Mac per sviluppo e test; chi desidera occuparsi del supporto è benvenuto. I riferimenti seguenti descrivono materiale storico o ricerca non mantenuta.
+
+
+## VibeKit integration — 2026-11-17
+
+The maintained copy is now `Apps/RamTaskman` in VibeKit. Source, tests and distribution
+verification include the standalone update through `22e45d5`, plus RAM valuation
+and About. This includes ten-language CLI, footer and modal views, native process
+identity reads without command-line fallback, and bounded native CLI smoke checks.
+The VibeKit dispatcher intentionally rejects live macOS collection; historical
+macOS backend research below is not a support claim. The root app README is now
+English; the previous Italian overview remains in `docs/i18n/README.it.md`.
+
+The authoritative CI is the monorepo root `.github/workflows/ci-ramtaskman.yml`.
+Historical standalone branch instructions below are retained for provenance only.
+
 ## Piano di prosecuzione
 
 Il riferimento per il lavoro successivo è il [piano di sviluppo dettagliato](piano-sviluppo.md),

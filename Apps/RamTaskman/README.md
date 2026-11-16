@@ -1,62 +1,82 @@
-# ramtaskman
+# Ram Taskman
 
-[Italiano](README.md) · [English](docs/i18n/README.en.md) · [中文（简体）](docs/i18n/README.zh.md) · [한국어](docs/i18n/README.ko.md) · [Français](docs/i18n/README.fr.md) · [Tiếng Việt](docs/i18n/README.vi.md) · [Español](docs/i18n/README.es.md) · [Português](docs/i18n/README.pt.md) · [Deutsch](docs/i18n/README.de.md) · [日本語](docs/i18n/README.ja.md)
+### Your RAM has a job. Find out who hired it.
 
-### Capire dove va la RAM, direttamente dal terminale.
+Ram Taskman puts system memory, applications, individual processes and memory history
+in one terminal. Start with a compact overview, follow the biggest users, then open
+the details that explain what a number actually means.
 
-**ramtaskman** è un monitor sperimentale della memoria per Linux, Windows e macOS.
-Nasce dalla voglia di capire meglio cosa succede alla RAM passando da un sistema
-all’altro, senza dover aprire strumenti complicati. È un progetto **Vibeware**:
-un’idea personale nata per curiosità e ricerca, diventata uno strumento utile
-nel lavoro di tutti i giorni.
+An experimental **VibeWare** tool for **Linux and Windows**, built with Python and Textual.
 
-![Vista principale di ramtaskman con RAM, grafici e applicazioni](docs/images/overview.png)
+![Ram Taskman terminal dashboard](docs/images/overview.png)
 
-*Schermata dell’interfaccia reale catturata su Linux con dati dimostrativi sintetici.*
+[Italiano](docs/i18n/README.it.md) · [中文](docs/i18n/README.zh.md) · [한국어](docs/i18n/README.ko.md) · [Français](docs/i18n/README.fr.md) · [Tiếng Việt](docs/i18n/README.vi.md) · [Español](docs/i18n/README.es.md) · [Português](docs/i18n/README.pt.md) · [Deutsch](docs/i18n/README.de.md) · [日本語](docs/i18n/README.ja.md)
 
-## Cosa puoi fare
+## From “where did my memory go?” to a useful answer
 
-1. **Vedere la RAM a colpo d’occhio.** Barra del sistema, memoria disponibile,
-   cache e grafici storici in una UI da terminale, con modalità Slim e Full diagnostics.
-2. **Esplorare app e processi.** Passa dai gruppi ai singoli PID e ordina le righe
-   per le metriche disponibili, con indicazione della copertura delle letture.
-3. **Capire le metriche.** Consulta RSS e USS; su Linux anche PSS, swap e SwapPSS,
-   con dettaglio delle componenti e spiegazione dei valori mancanti.
-4. **Trovare ciò che cerchi.** Ricerca per nome, eseguibile o PID e filtra per
-   utente, swap e dati parziali.
-5. **Navigare le regioni di memoria.** Su Linux esplora le mappature di un processo,
-   i loro indirizzi virtuali e la residenza; su Windows la vista virtuale è sperimentale.
-6. **Confrontare e salvare acquisizioni.** Fissa un campione A, raccogli B e confronta
-   le variazioni; salva e riapri acquisizioni locali anche offline.
+- **See the whole machine.** System RAM, available memory, cache and history,
+  with compact and full diagnostic views.
+- **Follow an application.** Group related processes, inspect individual PIDs,
+  search by name, executable or PID, and filter the available readings.
+- **Understand shared memory.** Inspect RSS and private resident memory (USS),
+  plus proportional shared-memory accounting (PSS) and process swap on Linux.
+- **Look closer without reading memory contents.** Explore Linux memory mappings;
+  Windows offers an experimental view of virtual address ranges.
+- **Keep a before and after.** Compare two captures, save them locally and reopen
+  them offline. Missing values stay `n/a`, never a reassuring but invented zero.
 
-## Una dashboard, più lingue
+## Your apps called. They want more RAM. 🧾
 
-![Sei schermate della dashboard in italiano, inglese, cinese, coreano, francese e vietnamita](docs/images/multilingual.png)
+Put a price next to the memory an app occupies. Enter the price of your machine's
+RAM and Ram Taskman calculates the hardware value represented by each measurable
+application or process, using the current reading:
 
-*Schermate catturate su Linux con dati sintetici. La localizzazione dell’app è in corso:
-la dashboard è parzialmente tradotta; dettagli, regioni, errori e alcuni controlli
-restano in italiano o inglese.*
+```bash
+./run.sh --ram-price 320 --ram-currency EUR
+./run.sh --ram-price 320 --ram-currency EUR --ram-months 36
+./run.sh --json --ram-price 320 --ram-currency EUR --ram-months 36
+```
 
-## Uno sguardo dentro
+The default denominator is **RAM visible to the operating system**, which may be
+smaller than the capacity printed on the box. If your price covers a nominal
+32 GiB kit, add `--ram-capacity-gib 32`.
 
-**Full diagnostics** aggiunge la ripartizione della RAM, la barra USS delle app con
-letture complete e i contatori disponibili per il sistema operativo.
+`hardware value = RAM price × attributable bytes / RAM capacity`
 
-![Diagnostica completa con ripartizione della RAM e USS delle applicazioni](docs/images/full-diagnostics.png)
+`--ram-months` divides that value over your chosen number of months. It is a way
+to think about a hardware purchase, not a bill, an electricity estimate or a
+promised saving. A current snapshot is not a monthly average. Prices are entered
+by you: there is no automatic price feed or network request.
 
-**Mappa delle regioni**: scegli un processo per esplorarne le mappature e i relativi
-contatori, senza leggere il contenuto della sua memoria.
+**Shared pages are not charged twice.** Linux uses PSS to apportion shared memory;
+Windows uses USS and therefore values only private resident memory. There is no
+fallback to RSS. Incomplete groups and unavailable readings remain `n/a` (`null`
+in JSON). App groups and their constituent processes are alternative views: do
+not add them together. Kernel, cache and inaccessible processes are not arbitrarily
+charged to an app or to the operating system. Sampling is sequential, not atomic.
 
-![Mappa delle regioni di un processo con dati dimostrativi](docs/images/regions-resident.png)
+## Ten languages, one familiar interface
 
-Le immagini sono catturate su Linux dall’applicazione Textual con processi, percorsi e
-numeri sintetici: sono esempi illustrativi, non misure del computer di sviluppo.
+English, Italian, Simplified Chinese, Korean, French, Vietnamese, Spanish,
+Portuguese, German and Japanese are available with `--language`:
 
-## Provalo
+```bash
+./run.sh --language en
+./run.sh --language it --ram-price 320 --ram-currency EUR
+```
 
-Servono **Python 3.11 o superiore** e [uv](https://docs.astral.sh/uv/). Su Linux
-servono `/proc` e `smaps_rollup`. I launcher creano ambiente e cache nella cartella
-del progetto; al primo avvio l’installazione delle dipendenze richiede rete.
+The dashboard, detail and region views, filters, capture dialogs, metric help,
+footer shortcuts and core CLI messages are localized. New RAM-price option help
+and some About text still use English. Technical identifiers and operating-system
+messages remain as supplied by their source.
+
+![Ram Taskman in multiple languages](docs/images/multilingual.png)
+
+## Run it
+
+You need **Python 3.11+** and [uv](https://docs.astral.sh/uv/). Linux also needs
+`/proc` and `smaps_rollup`. The first run downloads locked dependencies; launchers
+keep the environment and cache inside this project folder.
 
 ```bash
 git clone https://github.com/umbertotechnopreneur/VibeKit.git
@@ -64,54 +84,69 @@ cd VibeKit/Apps/RamTaskman
 ./run.sh
 ```
 
-Su Windows, dalla cartella del progetto, usa **Windows Terminal** e avvia:
+On Windows, open the project folder in **Windows Terminal** and run:
 
 ```powershell
 .\run.cmd
 ```
 
-Per un singolo campione o per l’output JSON: `./run.sh --once` e `./run.sh --json`
-su Linux/macOS, oppure `.\run.cmd --once` e `.\run.cmd --json` su Windows.
-Il progetto non è pubblicato su PyPI. Non condividere la stessa `.venv` tra sistemi:
-ricreala localmente dopo aver copiato il progetto.
+Use `--once` for a single terminal report or `--json` for structured output. The
+package is not published on PyPI. Recreate `.venv` locally when moving the project
+between operating systems.
 
-La dashboard supporta una traduzione parziale selezionabile con `--language`, per
-esempio `./run.sh --language zh`. Codici disponibili: `it`, `en`, `zh` (cinese
-semplificato), `ko`, `fr`, `vi`, `es`, `pt`, `de`, `ja`. Su Windows usa ad esempio
-`.\run.cmd --language ko`. Le viste di dettaglio e altri messaggi non sono ancora
-interamente tradotti.
+**Useful keys:** `m` changes view, `g` toggles apps/processes, `/` searches, `f`
+filters, `d` opens details, `r` opens regions, `?` explains metrics and `q` quits.
+**F1** opens About, including VibeWare, the project website and acknowledgements.
+Esc returns to the running monitor.
 
-**Scorciatoie utili:** `m` cambia modalità, `g` alterna app e processi, `/` cerca,
-`f` filtra, `d` mostra i dettagli, `r` apre le regioni, `?` spiega le metriche e
-`q` chiude il programma. La [guida completa](docs/guida.md) descrive tutti i controlli.
+## Know what the numbers can tell you
 
-## Sperimentale, con i numeri in chiaro
+| Capability | Linux | Windows |
+|---|---|---|
+| System RAM, RSS and USS | Available where readable | Available where readable |
+| PSS and per-process swap | Available where readable | `n/a` |
+| Memory regions | On-demand `smaps` mappings | Experimental virtual ranges |
+| Native validation | Local Linux checks | Requires Windows validation for this integration |
 
-Questo progetto è nato per ricerca e curiosità: usalo con spirito critico. Le misure
-sono raccolte in momenti diversi, i permessi possono limitare la visibilità e il
-raggruppamento delle applicazioni non è infallibile. Un valore non disponibile è
-mostrato come **n/a**, non come zero.
+Permissions can limit visibility and app grouping is heuristic. RSS may count
+shared pages more than once. Summed process PSS is not total system RAM; cache and
+available memory overlap. Per-process swap is not inferred from commit. Bars show
+shares of usage, not physical memory addresses. Process identities use native
+name/executable reads without command-line fallback.
 
-| | Linux | Windows | macOS |
-|---|---|---|---|
-| RAM globale, RSS e USS | Disponibili | Disponibili | Disponibili |
-| PSS e swap per processo | Disponibili se leggibili | n/a | n/a |
-| Mappa regioni | `smaps`, su richiesta | Intervalli virtuali, sperimentale | Non ancora disponibile |
-| Verifica su hardware | Eseguita localmente | Da verificare | Da verificare |
+**macOS is not supported.** We do not have a Mac for development and validation;
+contributors willing to own that work are welcome. Live collection is intentionally
+disabled on macOS and the CI matrix contains Linux and Windows only.
 
-PSS non equivale alla RAM totale usata; RSS può contare più volte pagine condivise.
-Cache e memoria disponibile si sovrappongono. La swap per processo non viene dedotta
-dal commit. Le barre descrivono quote di consumo, non indirizzi fisici. I dettagli e
-le altre limitazioni sono nella [guida](docs/guida.md) e nell’[audit dei contatori](docs/audit-contatori-piattaforma.md).
+The [technical guide](docs/guida.md), [counter audit](docs/audit-contatori-piattaforma.md)
+and [architecture](docs/architecture.md) give more detail; these documents are
+currently in Italian. Images in this repository show the actual Textual interface
+with synthetic process data, so no private machine details are published.
 
-## Ispirazione e ringraziamenti
+## Develop and check
 
-**Grazie a [Scott Hanselman](https://github.com/shanselman) e a [GPU Taskman](https://github.com/shanselman/gputaskman)**:
-la sua interfaccia terminale e il suo progetto sono stati un’ispirazione concreta.
-ramtaskman ne riutilizza parti e ne adatta l’impostazione alla memoria RAM; è un
-progetto indipendente, non una release ufficiale di GPU Taskman. Provenienza e dettagli
-del riutilizzo sono documentati in [docs/upstream.md](docs/upstream.md).
+From this folder:
 
-Distribuito sotto [licenza MIT](LICENSE), con il copyright originale conservato.
+```bash
+uv sync --locked
+uv run --locked python -m unittest discover -s tests -v
+uv build
+uv run --locked python tools/verify_distribution.py
+```
 
-Traduzioni preparate con assistenza AI: sono gradite correzioni da traduttori e madrelingua.
+In VibeKit, the root dispatcher invokes `.github/workflows/ci-ramtaskman.yml` when
+this app changes. It checks Python 3.11, 3.13 and 3.14 on Linux and Windows,
+including an isolated wheel installation and offline replay.
+
+## Thank you, Scott Hanselman
+
+[Scott Hanselman](https://github.com/shanselman)'s
+[GPU Taskman](https://github.com/shanselman/gputaskman) inspired this project.
+Ram Taskman reuses parts of its terminal interface and adapts them to RAM
+monitoring. It is an independent project. The original MIT copyright and
+[reuse notes](docs/upstream.md) are preserved.
+
+Created by [Umberto Giacobbi](https://umbertogiacobbi.biz/), as part of
+[VibeWare](https://umbertogiacobbi.biz/vibeware/). [MIT license](LICENSE).
+Translations were prepared with AI assistance; corrections from native speakers
+are welcome.

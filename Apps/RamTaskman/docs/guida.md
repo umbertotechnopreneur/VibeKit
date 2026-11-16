@@ -1,6 +1,15 @@
 # Guida a ramtaskman
 
-Task manager **multipiattaforma per la RAM: Linux, Windows e macOS**, scritto in Python e Textual. Riprende layout,
+> **Current VibeKit integration (2026-11-17):** the interface and core CLI now support
+> ten languages, including detail/region views, capture dialogs, help and footer
+> shortcuts. RAM-price options and some About copy still use English. See the
+> [current English README](../README.md) for RAM valuation (`--ram-price`,
+> `--ram-currency`, `--ram-months`, `--ram-capacity-gib`) and F1 About. Valuation
+> uses Linux PSS or Windows USS, never summed RSS. Live macOS collection is disabled.
+> Test counts later in this document describe historical checkpoints.
+
+
+Task manager **multipiattaforma per la RAM: Linux e Windows**, scritto in Python e Textual. Riprende layout,
 widget, colori e scorciatoie di [gputaskman di Scott Hanselman](https://github.com/shanselman/gputaskman),
 con un collector dedicato a memoria per applicazione, **PSS, USS, RSS, swap e SwapPSS**.
 
@@ -11,11 +20,11 @@ Le metriche e le etichette sono adattate alla RAM; non è una copia pixel per pi
 ## Avvio
 
 Servono Python >=3.11 e `uv`. Linux richiede `/proc` e `smaps_rollup`.
-Su Windows usa Windows Terminal. Su macOS usa Terminal o un terminale compatibile.
+Su Windows usa Windows Terminal. macOS non è supportato: non dispongo di un Mac per sviluppo e test; chi vuole occuparsene è benvenuto.
 La versione minima è dichiarata in pyproject.toml; non viene imposto Python 3.14
-su Windows o macOS. La macchina di sviluppo usa Python 3.14.4.
+su Windows. La macchina di sviluppo usa Python 3.14.4.
 
-Linux/macOS:
+Linux:
 
 ```bash
 ./run.sh
@@ -53,24 +62,24 @@ Non è necessaria l'elevazione dei privilegi; i processi protetti restano parzia
 
 ## Supporto per piattaforma
 
-| Funzione | Linux | Windows | macOS |
-|---|---|---|---|
-| UI Textual, app/processi, grafici, JSON | Implementata | Implementata | Implementata |
-| RAM globale e RSS | procfs / psutil | psutil / working set | psutil |
-| USS | Private_Clean + Private_Dirty | psutil, memoria residente privata | psutil, memoria privata |
-| PSS | smaps_rollup | n/a | n/a |
-| Swap e SwapPSS per processo | smaps_rollup | n/a | n/a |
-| Swap globale | meminfo | pagefile tramite psutil | psutil |
-| Cache, slab, PSI Linux | Disponibili | n/a | n/a |
-| Regioni del processo e mappa navigabile | smaps su richiesta | Solo intervalli virtuali, sperimentale | Non implementate |
-| Validazione effettuata | Test e prova locale | Test simulati, da provare su PC Windows | Test simulati, da provare su Mac |
+| Funzione | Linux | Windows  |
+|---|---|--- |
+| UI Textual, app/processi, grafici, JSON | Implementata | Implementata  |
+| RAM globale e RSS | procfs / psutil | psutil / working set  |
+| USS | Private_Clean + Private_Dirty | psutil, memoria residente privata  |
+| PSS | smaps_rollup | n/a  |
+| Swap e SwapPSS per processo | smaps_rollup | n/a  |
+| Swap globale | meminfo | pagefile tramite psutil  |
+| Cache, slab, PSI Linux | Disponibili | n/a  |
+| Regioni del processo e mappa navigabile | smaps su richiesta | Solo intervalli virtuali, sperimentale  |
+| Validazione effettuata | Test e prova locale | Test simulati, da provare su PC Windows  |
 
-Su Windows/macOS l'ordinamento iniziale è USS, su Linux PSS. La stessa UI mantiene
+Su Windows l'ordinamento iniziale è USS, su Linux PSS. La stessa UI mantiene
 le colonne non disponibili a n/a e spiega il limite. La CI è configurata per tutti e
-tre i sistemi con Python 3.11, 3.13 e 3.14; consulta GitHub Actions per i risultati aggiornati.
+due sistemi con Python 3.11, 3.13 e 3.14; consulta GitHub Actions per i risultati aggiornati.
 
 Le API native sono gestite da `psutil`: per questa base non occorrono pywin32 o WMI.
-PSS non è esposta da psutil su Windows/macOS; il private commit/PagefileUsage Windows
+PSS non è esposta da psutil su Windows; il private commit/PagefileUsage Windows
 non rappresenta la RAM privata residente né la swap effettiva di un processo.
 Fonti: [psutil 7.2](https://psutil.io/7.2/#psutil.Process.memory_full_info),
 [Microsoft PROCESS_MEMORY_COUNTERS_EX](https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-process_memory_counters_ex).
@@ -128,7 +137,7 @@ si sovrappongono alle categorie già rappresentate.
 parte della cache. **Uso netto** è `totale − disponibile`, lo stesso indicatore del grafico
 RAM; non è la somma di tutte le categorie non libere. Le misure sono sequenziali.
 Se mancano campi o il campione è incoerente, il motivo è mostrato e si usa la barra più
-semplice in uso/disponibile. Questo è anche il fallback Windows/macOS attuale; non vengono
+semplice in uso/disponibile. Questo è anche il fallback Windows attuale; non vengono
 inventate categorie. Non si normalizzano valori incoerenti per farli rientrare nel totale.
 
 È una **mappa dei consumi per categoria OS**, non una disposizione per indirizzo fisico.
@@ -171,8 +180,7 @@ possono essere gruppi distinti; numeri e legenda identificano i segmenti.
 - **Swap**: campo `Swap` di `smaps_rollup`; non include la swap shmem e può duplicare
   pagine condivise. **SwapPSS** ripartisce proporzionalmente la swap condivisa contabilizzata.
 - **RAM used**: `total - available`; su Linux `MemTotal - MemAvailable`. Non è la somma
-  di PSS/RSS. Su macOS available segue psutil (free + inactive), non la Memory Pressure
-  di Activity Monitor. Su Windows free e available da psutil coincidono.
+  di PSS/RSS. Su Windows free e available da psutil coincidono.
 - **Cache**: `Cached + Buffers + SReclaimable - Shmem`, minimo zero, nel grafico storico.
   Si sovrappone alla memoria disponibile. Nella barra RAM file cache, buffer e slab
   recuperabile sono rappresentati separatamente, senza aggiungere questo totale una seconda volta.
@@ -191,7 +199,7 @@ diversi restano separati. Non vengono aggregati intere sessioni o servizi generi
 Il nome visualizzato deriva dall'identità systemd, con eventuale escaping decodificato.
 Il percorso completo dell'istanza resta consultabile nell'inspector e nel JSON.
 
-Senza identità esplicita, anche su Windows/macOS, si usa `(utente, eseguibile)` o
+Senza identità esplicita, anche su Windows, si usa `(utente, eseguibile)` o
 `(utente, nome)` se il percorso manca: è un fallback dichiarato. Utente = UID su Unix,
 dominio/nome su Windows. Con proprietario sconosciuto il processo resta separato.
 Nel fallback, più programmi Python con lo stesso eseguibile possono ancora essere uniti.
@@ -210,7 +218,7 @@ Con `f` apri i selettori:
 - **Utente:** tutti oppure un UID/account tra quelli raccolti.
 - **Con swap:** almeno un processo con swap misurata maggiore di zero; n/a non corrisponde.
 - **Dati parziali:** manca una lettura fra le metriche supportate dal sistema. PSS e swap
-  non supportate da Windows/macOS non rendono da sole tutte le righe parziali.
+  non supportate da Windows non rendono da sole tutte le righe parziali.
 
 Ricerca, utente e stato memoria si combinano. Il filtro agisce **prima** del limite Top 30.
 In vista app seleziona gruppi interi: tutti i processi rimangono nei totali, anche se solo
@@ -235,7 +243,7 @@ Seleziona un'app o un processo e premi **d**. La finestra scorrevole mostra:
 Questi dettagli provengono dalla stessa lettura Linux `smaps_rollup`; non aggiungono una
 scansione delle singole mappature. Sono **viste sovrapposte**, non componenti da sommare tutte.
 Un campo mancante resta n/a con la copertura delle letture: un totale parziale non viene
-mostrato come completo. Su Windows/macOS il dettaglio riporta i contatori generali disponibili
+mostrato come completo. Su Windows il dettaglio riporta i contatori generali disponibili
 e indica n/a per la ripartizione Linux. La finestra fissa il campione all'apertura; chiudila
 e riaprila per aggiornarla. `Esc` o `d` chiude. Il campionamento principale continua.
 Fonte: [documentazione procfs del kernel Linux](https://docs.kernel.org/filesystems/proc.html).
@@ -263,7 +271,7 @@ Seleziona un'app, premi `Invio` per scegliere uno dei suoi processi, poi premi *
 **Invio** sul processo. Ogni PID ha uno spazio virtuale distinto: non vengono unite le
 mappe dei processi di un gruppo. La vista conserva pannelli, bordi, colori e tabella
 dell'interfaccia terminale. Su Windows il provider sperimentale mostra intervalli virtuali,
-senza contatori residenti per regione; su macOS la funzione non è ancora disponibile.
+senza contatori residenti per regione.
 Il provider Windows è coperto da simulazioni ma non è stato verificato su Windows reale.
 
 La mappa ha due modalità, selezionabili con **v**:
@@ -366,7 +374,7 @@ gruppo non privilegia alcun PID. Entrambe le opzioni sono disattivate per defaul
 src/ramtaskman/
   cli.py        → Collector.sample()
   collector.py  → selezione backend, campionamento e copertura
-  backends/     → Linux procfs; Windows/macOS psutil
+  backends/     → Linux procfs; Windows psutil
   models.py     → ProcessMemory, ApplicationMemory, SystemMemory, Snapshot
   grouping.py   → identità applicative systemd da cgroup
   filters.py    → ricerca e filtri senza modificare gli aggregati
@@ -404,7 +412,7 @@ di condividerlo. Non vengono salvate rilevazioni automaticamente.
 Verificati localmente **171 test** con Python 3.14.4: 170 passati e un test nativo
 Windows saltato su Linux. Build wheel/sdist, verifica della distribuzione installata
 e rilevazione Linux sono riuscite.
-Su Windows/macOS sono stati verificati contratti con API simulate, non misure hardware.
+Su Windows sono stati verificati contratti con API simulate, non misure hardware.
 La UI è stata catturata e controllata con fixture sintetiche, inclusi filtri, dettaglio RAM e regioni.
 La suite include contabilità delle barre, parser e limiti smaps, identità PID, filtri,
 selezione/zoom, aggiornamento ed errori della mappa, con UI 160×48 e 80×24 e campionamento
@@ -414,7 +422,6 @@ escludendo cache e catture locali.
 ## Provenienza e prosecuzione
 
 - [Verifiche da eseguire su Windows](verifica-windows.md)
-- [Verifiche da eseguire su macOS](verifica-macos.md)
 - [Audit dei contatori delle piattaforme](audit-contatori-piattaforma.md)
 - [Benchmark locale e limiti delle misure](benchmark.md)
 - [Piano dettagliato: confronto, acquisizioni, piattaforme, prestazioni e distribuzione](piano-sviluppo.md)

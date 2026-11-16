@@ -1,6 +1,6 @@
-# VibeKit
+# VibeKit by Umberto Giacobbi
 
-Private collection of desktop utilities for Windows and Linux.
+VibeKit is Umberto Giacobbi's collection of desktop utilities for Windows and Linux.
 
 - [Gauge (OpenAI Usage)](Widgets/OpenAI/README.md): AI usage widget. Support for other providers is a future goal.
 - [Desktop Ripple](Widgets/WaterRipple/README.md): desktop ripple effects. See the [Linux edition](Widgets/WaterRipple/Linux/README.md).

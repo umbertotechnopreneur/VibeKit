@@ -15,6 +15,8 @@ VBWR E -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <!-- Keep self-contained builds on the runtime verified in dependency-imports.json. -->
+    <RuntimeFrameworkVersion>10.0.14</RuntimeFrameworkVersion>
     <TargetPlatformMinVersion>10.0.22000.0</TargetPlatformMinVersion>
     <RootNamespace>VoiceDucker</RootNamespace>
     <Version>0.2.0</Version>

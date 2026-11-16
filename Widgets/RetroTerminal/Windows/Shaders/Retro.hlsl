@@ -54,7 +54,7 @@ Pixel PSMain(Vertex v)
     float row = fmod(floor(v.Position.y), Scan.y);
     color *= 1.0 - Scan.x * (1.0 - smoothstep(Scan.z - .25, Scan.z + .25, row));
     if (Phosphor.w > .5) {
-        int column = (int)v.Position.x % 3;
+        uint column = (uint)v.Position.x % 3u;
         float3 mask = column == 0 ? float3(1, 0, 0) : column == 1 ? float3(0, 1, 0) : float3(0, 0, 1);
         if (Phosphor.w > 1.5) {
             float2 dotUV = frac(v.Position.xy / float2(3, 3)) - .5;

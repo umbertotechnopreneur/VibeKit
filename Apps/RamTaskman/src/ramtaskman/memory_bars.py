@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from rich.cells import cell_len
 from rich.console import Console, ConsoleOptions, RenderResult
 from rich.measure import Measurement
 from rich.text import Text
@@ -57,7 +58,12 @@ class MemoryBreakdownBar:
             return result
         counts = cell_widths([p.value for p in self.parts], self.total, remaining)
         for part, count in zip(self.parts, counts):
-            caption = part.short.center(count) if count >= len(part.short) + 2 else ' ' * count
+            label_cells = cell_len(part.short)
+            if count >= label_cells + 2:
+                padding = count - label_cells
+                caption = ' ' * (padding // 2) + part.short + ' ' * (padding - padding // 2)
+            else:
+                caption = ' ' * count
             result.append(caption, style=f'{part.foreground} on {part.color}')
         return result
 

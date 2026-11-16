@@ -35,8 +35,8 @@ ramtaskman ist ein experimenteller Speichermonitor für Linux, Windows und macOS
 Benötigt werden Python 3.11+ und uv. Linux benötigt /proc und smaps_rollup. Beim ersten Start werden die festgelegten Abhängigkeiten über das Netzwerk installiert. Umgebung und Cache bleiben im Projektordner.
 
 ```bash
-git clone https://github.com/umbertotechnopreneur/ramtaskman.git
-cd ramtaskman
+git clone https://github.com/umbertotechnopreneur/VibeKit.git
+cd VibeKit/Apps/RamTaskman
 ./run.sh
 ```
 

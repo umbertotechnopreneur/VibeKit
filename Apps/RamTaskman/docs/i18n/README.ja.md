@@ -35,8 +35,8 @@ ramtaskmanはLinux、Windows、macOS向けの実験的なメモリモニター�
 Python 3.11以上とuvが必要です。Linuxでは/procとsmaps_rollupが必要です。初回は固定された依存関係のインストールにネットワークが必要です。環境とキャッシュはプロジェクト内に置かれます。
 
 ```bash
-git clone https://github.com/umbertotechnopreneur/ramtaskman.git
-cd ramtaskman
+git clone https://github.com/umbertotechnopreneur/VibeKit.git
+cd VibeKit/Apps/RamTaskman
 ./run.sh
 ```
 

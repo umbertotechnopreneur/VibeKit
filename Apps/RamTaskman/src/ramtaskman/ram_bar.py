@@ -66,7 +66,12 @@ class SystemRamBar:
             return result
         for (spec, _), count in zip(parts, cells):
             _, _, short, color, foreground = spec
-            caption = short.center(count) if count >= cell_len(short) + 2 else ' ' * count
+            label_cells = cell_len(short)
+            if count >= label_cells + 2:
+                padding = count - label_cells
+                caption = ' ' * (padding // 2) + short + ' ' * (padding - padding // 2)
+            else:
+                caption = ' ' * count
             result.append(caption, style=f'{foreground} on {color}')
         return result
 

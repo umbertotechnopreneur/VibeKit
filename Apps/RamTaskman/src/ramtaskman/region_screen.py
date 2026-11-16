@@ -18,9 +18,10 @@ from textual.worker import get_current_worker
 from .models import ProcessMemory
 from .application_bar import process_uss_bar
 from .ram_bar import SystemRamBar
+from .i18n import translate
 from .region_map import CATEGORIES, RegionMap
 from .delta_bar import DeltaBar
-from .regions import LinuxRegionReader, MemoryRegion, RegionSnapshot
+from .regions import MemoryRegion, RegionSnapshot
 from .report import size
 from .capture_models import CaptureSnapshot, freeze_snapshot
 from .comparison import ComparisonCancelled, compare_captures
@@ -129,22 +130,26 @@ class RegionScreen(ModalScreen):
         self._restore_zoom: str | None = None
         self._restore_page = 0
 
+    def tr(self, key: str, **values: object) -> str:
+        return translate(getattr(self.app, 'language', 'it'), key, **values)
+
     def compose(self) -> ComposeResult:
         with VerticalScroll(id='region-dashboard'):
             yield Static(id='region-summary')
             yield Static(id='region-memory')
             with Vertical(id='region-map-panel'):
                 yield Static(id='region-map-title')
-                yield RegionMap(id='region-map')
+                yield RegionMap(language=getattr(self.app, 'language', 'it'), id='region-map')
                 yield DeltaBar(id='delta-bar')
                 yield Static(id='region-legend')
                 yield Static(id='region-map-note')
         with Vertical(id='region-filters'):
-            yield Input(placeholder='File, tipo, permessi o indirizzo 0x… · Invio: tabella', id='region-search')
+            yield Input(placeholder=self.tr('region_search'), id='region-search')
             with Horizontal(id='region-selectors'):
-                yield Select([('Tutti i tipi', 'all'), *((v[0], k) for k, v in CATEGORIES.items())],
+                yield Select([(self.tr('region_all_types'), 'all'),
+                              *((self.tr('category_' + k), k) for k in CATEGORIES)],
                              allow_blank=False, value='all', compact=True, id='region-kind')
-                yield Select([('Tutti gli stati', 'all'), ('Residenti', 'resident'), ('Con swap', 'swap'),
+                yield Select([(self.tr('region_all_states'), 'all'), (self.tr('region_resident'), 'resident'), (self.tr('region_with_swap'), 'swap'),
                               ('RSS condivisa > 0', 'shared')], allow_blank=False, value='all', compact=True, id='region-state')
                 yield Select([('Tutte le variazioni', 'all'), ('Intervalli uguali', 'same_interval'),
                               ('Metadati cambiati', 'metadata_changed'), ('Origine cambiata', 'backing_changed'),
@@ -266,11 +271,11 @@ class RegionScreen(ModalScreen):
             return
         self.render_memory_context()
         panel = self.query_one('#region-summary', Static)
-        panel.border_title = Text(f'Regioni · {self.process.name} · PID {self.process.pid}')
+        panel.border_title = Text(self.tr('region_title', name=self.process.name, pid=self.process.pid))
         if self.loading:
             baseline_note = (' · A storico fissato ' + datetime.fromtimestamp(self.baseline.taken).strftime('%H:%M:%S')
                              if self.baseline else '')
-            panel.update('Lettura regioni in corso…' + baseline_note + ' · Esc: torna ai processi')
+            panel.update(self.tr('region_loading') + baseline_note + ' · Esc')
         elif self.snapshot:
             snap = self.snapshot
             date = datetime.fromtimestamp(snap.taken).strftime('%H:%M:%S')
@@ -284,7 +289,7 @@ class RegionScreen(ModalScreen):
                                     f'{self.platform} · lettura su richiesta, sequenziale · r: aggiorna'),
                                     style='yellow' if snap.reason else 'grey70')))
         else:
-            panel.update('Nessun campione disponibile.')
+            panel.update(self.tr('region_none'))
 
     def render_memory_context(self) -> None:
         panel = self.query_one('#region-memory', Static)
@@ -296,7 +301,7 @@ class RegionScreen(ModalScreen):
         if snap is None:
             panel.update(Text('Campione RAM non disponibile.', style='yellow'))
             return
-        bar = SystemRamBar(snap.system)
+        bar = SystemRamBar(snap.system, getattr(self.app, 'language', 'it'))
         process_bar = process_uss_bar(snap, self.process)
         current = next((p for p in snap.processes if p.key == self.process.key), None)
         panel.update(Group(bar, bar.legend(), process_bar, process_bar.legend(),
@@ -331,7 +336,8 @@ class RegionScreen(ModalScreen):
         table.clear()
         self.generation += 1
         for r in page_rows:
-            table.add_row(f'{r.start:x}–{r.end:x}', Text(CATEGORIES.get(r.category, (r.category,))[0]),
+            category = self.tr('category_' + r.category) if r.category in CATEGORIES else r.category
+            table.add_row(f'{r.start:x}–{r.end:x}', Text(category),
                           size(r.size), size(r.rss), size(r.pss), size(r.uss), size(r.swap), Text(r.permissions),
                           Text(r.path or '[anonima]'), key=f'{self.generation}|{r.key}')
         if self.selected:
@@ -377,7 +383,7 @@ class RegionScreen(ModalScreen):
         details = self.query_one('#region-details', Static)
         row = self.rows.get(self.selected)
         if row is None:
-            panel.border_title = 'Dettaglio regione'
+            panel.border_title = self.tr('region_detail')
             details.update('Nessuna regione corrispondente. /: cerca · f: filtri · Esc: reset o indietro.')
             return
         panel.border_title = Text(row.path or '[anonima]')

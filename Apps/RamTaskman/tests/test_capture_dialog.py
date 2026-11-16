@@ -7,7 +7,7 @@ from textual.app import App
 from textual.widgets import Input, Static
 
 from ramtaskman.capture_dialog import CaptureOpenScreen, CaptureSaveScreen
-from ramtaskman.capture_io import load_capture, save_capture
+from ramtaskman.capture_io import load_capture
 from ramtaskman.replay import ReplayApp
 from test_capture_io import fixture
 

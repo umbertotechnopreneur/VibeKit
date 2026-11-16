@@ -35,8 +35,8 @@ ramtaskman은 Linux, Windows, macOS용 실험적인 메모리 모니터입니다
 Python 3.11 이상과 uv가 필요합니다. Linux에는 /proc와 smaps_rollup이 필요합니다. 첫 실행 시 고정된 의존성 설치에 네트워크가 필요하며 환경과 캐시는 프로젝트 폴더에 유지됩니다.
 
 ```bash
-git clone https://github.com/umbertotechnopreneur/ramtaskman.git
-cd ramtaskman
+git clone https://github.com/umbertotechnopreneur/VibeKit.git
+cd VibeKit/Apps/RamTaskman
 ./run.sh
 ```
 

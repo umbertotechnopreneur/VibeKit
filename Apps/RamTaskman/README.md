@@ -59,8 +59,8 @@ servono `/proc` e `smaps_rollup`. I launcher creano ambiente e cache nella carte
 del progetto; al primo avvio l’installazione delle dipendenze richiede rete.
 
 ```bash
-git clone https://github.com/umbertotechnopreneur/ramtaskman.git
-cd ramtaskman
+git clone https://github.com/umbertotechnopreneur/VibeKit.git
+cd VibeKit/Apps/RamTaskman
 ./run.sh
 ```
 

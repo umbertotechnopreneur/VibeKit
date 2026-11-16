@@ -35,8 +35,8 @@ ramtaskman là trình theo dõi bộ nhớ thử nghiệm cho Linux, Windows và
 Cần Python 3.11 trở lên và uv. Linux cần /proc và smaps_rollup. Lần chạy đầu cần mạng để cài các phụ thuộc đã khóa. Môi trường và bộ nhớ đệm nằm trong thư mục dự án.
 
 ```bash
-git clone https://github.com/umbertotechnopreneur/ramtaskman.git
-cd ramtaskman
+git clone https://github.com/umbertotechnopreneur/VibeKit.git
+cd VibeKit/Apps/RamTaskman
 ./run.sh
 ```
 

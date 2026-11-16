@@ -35,8 +35,8 @@ ramtaskman 是一款适用于 Linux、Windows 和 macOS 的实验性内存监视
 需要 Python 3.11 或更高版本以及 uv。Linux 需要 /proc 和 smaps_rollup。首次运行需要网络安装锁定的依赖；环境和缓存保存在项目目录中。
 
 ```bash
-git clone https://github.com/umbertotechnopreneur/ramtaskman.git
-cd ramtaskman
+git clone https://github.com/umbertotechnopreneur/VibeKit.git
+cd VibeKit/Apps/RamTaskman
 ./run.sh
 ```
 

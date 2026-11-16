@@ -18,7 +18,8 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = ('app.tcss', 'capture_io.py', 'capture_models.py', 'comparison.py',
             'delta_bar.py', 'region_provider.py', 'region_screen.py', 'replay.py',
-            'backends/windows_regions.py')
+            'backends/windows_regions.py', *(f'locales/{language}.json' for language in
+                ('it', 'en', 'zh', 'ko', 'fr', 'vi', 'es', 'pt', 'de', 'ja')))
 FORBIDDEN = {'.uv-cache', '.venv', 'captures', 'recordings', '__pycache__'}
 
 
@@ -56,7 +57,9 @@ def verify() -> None:
         _check_names(archive.getnames(), wheel=False)
     env = os.environ.copy()
     env.pop('PYTHONPATH', None)
-    env['UV_CACHE_DIR'] = str(ROOT / '.uv-cache')
+    # Reuse the caller's cache: CI primes its own cache during ``uv sync``.
+    # The local launcher already sets this to the project directory.
+    env.setdefault('UV_CACHE_DIR', str(ROOT / '.uv-cache'))
     env['UV_PYTHON_DOWNLOADS'] = 'never'
     env['PYTHONUTF8'] = '1'
     with tempfile.TemporaryDirectory(prefix='.venv-dist-check-', dir=ROOT) as folder:

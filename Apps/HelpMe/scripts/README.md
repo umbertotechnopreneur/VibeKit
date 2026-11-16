@@ -34,7 +34,7 @@ Builds use `artifacts/build`; test results use `artifacts/test-results`. `clean`
 
 ## Linux Debian packages
 
-Packaging targets glibc-based Debian/Ubuntu systems on x64 (`amd64`) and ARM64 (`arm64`). It is not an Alpine/musl package and does not establish compatibility with every Debian derivative. macOS builds and packages are outside the current scope.
+Packaging targets glibc-based Debian/Ubuntu systems on x64 (`amd64`) and ARM64 (`arm64`). It is not an Alpine/musl package and does not establish compatibility with every Debian derivative. macOS is unsupported because I do not have a Mac for development or testing; contributors willing to maintain it are welcome.
 
 Run the builder on Linux with `dpkg-deb`, `chmod`, and the development tools above:
 

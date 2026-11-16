@@ -37,7 +37,7 @@ The app rejects notes that contain secrets it recognizes. It checks saved notes 
 - It won't accept keys as command arguments or save them in settings, SQLite, or logs.
 - On Windows, entered keys are stored in Windows Credential Manager for your account on this computer. They are available immediately and in future sessions, without restarting the terminal. Existing environment variables are not deleted or rewritten.
 - During the welcome, your key appears only as dots. A candidate key is held temporarily in memory for verification and saved only after OpenAI accepts the test request. Keys are never sent to the app's author.
-- On Linux and macOS, a key entered in setup lasts only for the open app. Setup explains how to use your shell or secret manager for later sessions.
+- On Linux, a key entered in setup lasts only for the open app. Setup explains how to use your shell or secret manager for later sessions.
 - Keys used to connect to OpenAI go in the request's authorization header, separately from the text sent to the model.
 - Before saving history, the app removes recognizable secrets such as OpenAI keys, bearer tokens, and values assigned to common credential names.
 

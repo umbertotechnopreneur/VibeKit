@@ -24,6 +24,6 @@ The [printable manual](PromptMeUp-CLI-Manual.pdf) is an older edition under the 
 
 ## Platforms
 
-I target Windows and Linux on x64 and ARM64. Windows distribution uses MSIX; Linux packaging uses Debian packages. macOS builds and packages are outside the current scope. Linux compatibility depends on the distribution and its native libraries; I do not provide commercial Linux support.
+I target Windows and Linux on x64 and ARM64. Windows distribution uses MSIX; Linux packaging uses Debian packages. macOS is not supported because I do not have a Mac to develop and test it. Contributors willing to maintain macOS support are welcome. Linux compatibility depends on the distribution and its native libraries; I do not provide commercial Linux support.
 
 Use [`document.template.md`](../document.template.md) for public technical documentation. Keep future product proposals in the owner's private MeUp notes.

@@ -78,7 +78,6 @@ public sealed class ApplicationErrorTests
         });
         var commands = new ApplicationCommandRouter(null!, null!,
             new InformationCommandHandler(
-                lenna: null!,
                 about: null!,
                 help: null!,
                 statusView: null!,

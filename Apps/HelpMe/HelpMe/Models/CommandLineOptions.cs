@@ -51,7 +51,6 @@ public enum AppCommand
     InstallFont,
     Path,
     Reset,
-    Lenna,
     About
 }
 

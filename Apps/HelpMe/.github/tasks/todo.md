@@ -1,5 +1,7 @@
 # Open tasks
 
+- [x] Remove the optional terminal portrait, rendering command, embedded asset, localized help and artwork-specific notices before public repository publication.
+
 - [ ] Validate Windows ARM64 separately. When authorized, verify paste, resize, and navigation in real Windows and Linux terminal emulators, including ARM64; automated tests and CLI smoke checks do not establish compatibility with every terminal or desktop.
 
 - [ ] Harden AppPaths for missing or unwritable Linux data locations and report directory-creation failures through the startup error flow. Review private file permissions for settings, SQLite, and logs; keep storage global and preserve HELPME_DATA_DIR.

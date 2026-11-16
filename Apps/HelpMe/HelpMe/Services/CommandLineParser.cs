@@ -223,12 +223,6 @@ public sealed class CommandLineParser : ICommandLineParser
                         return FailureMessage(statusError);
                     }
                     break;
-                case "--lenna":
-                    if (!TrySelect(AppCommand.Lenna, ref command, ref commandWasSelected, out var lennaError))
-                    {
-                        return FailureMessage(lennaError);
-                    }
-                    break;
                 case "--chat":
                     if (!TrySelect(AppCommand.Chat, ref command, ref commandWasSelected, out var chatError))
                     {
@@ -410,12 +404,9 @@ public sealed class CommandLineParser : ICommandLineParser
         }
 
         if (!commandWasSelected && queryParts.Count == 1
-            && (queryParts[0].Equals("lenna", StringComparison.OrdinalIgnoreCase)
-                || queryParts[0].Equals("about", StringComparison.OrdinalIgnoreCase)))
+            && queryParts[0].Equals("about", StringComparison.OrdinalIgnoreCase))
         {
-            command = queryParts[0].Equals("lenna", StringComparison.OrdinalIgnoreCase)
-                ? AppCommand.Lenna
-                : AppCommand.About;
+            command = AppCommand.About;
             commandWasSelected = true;
             queryParts.Clear();
         }

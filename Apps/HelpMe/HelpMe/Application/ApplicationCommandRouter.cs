@@ -65,7 +65,7 @@ internal sealed class ApplicationCommandRouter(
             AppCommand.Skills or AppCommand.Learning or AppCommand.Dream or AppCommand.Heartbeat or
                 AppCommand.Remember or AppCommand.Forget or AppCommand.Memories or AppCommand.Proposals =>
                 memory.RunAsync(options, settings, cancellationToken),
-            AppCommand.Lenna or AppCommand.About or AppCommand.Help or AppCommand.Version or
+            AppCommand.About or AppCommand.Help or AppCommand.Version or
                 AppCommand.Status or AppCommand.Costs or AppCommand.ThirdParty =>
                 information.RunAsync(options, settings, promptCount, cancellationToken),
             AppCommand.Setup or AppCommand.AiSettings or AppCommand.Theme or AppCommand.Where or

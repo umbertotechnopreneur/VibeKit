@@ -31,10 +31,6 @@ The resolved application also includes Microsoft.Data.Sqlite.Core; Microsoft.Ext
 | [xunit](https://www.nuget.org/packages/xunit/2.9.3) | 2.9.3 | [Apache-2.0](https://licenses.nuget.org/Apache-2.0) |
 | [xunit.runner.visualstudio](https://www.nuget.org/packages/xunit.runner.visualstudio/4.0.0) | 4.0.0 | [Apache-2.0](https://licenses.nuget.org/Apache-2.0) |
 
-## Lenna terminal artwork
-
-The optional `hm lenna` command displays an embedded portrait adapted from the author's legacy YAi! ANSI resource. It has separate [attribution](LICENSES/lenna-NOTICE.txt) and [legacy license terms](LICENSES/lenna-legacy-LICENSE.txt); the project's MIT license does not relicense this artwork. Release notice exports include both files.
-
 ## Optional external tools and services
 
 PromptMeUp does not bundle these components:

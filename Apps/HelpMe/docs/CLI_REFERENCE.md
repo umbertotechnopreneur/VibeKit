@@ -1,6 +1,6 @@
 # HelpMe command guide
 
-Ask `hm` a terminal question, check its answer, and choose whether to run a suggested command. `hm` means **help me** and works on Windows, Linux, and macOS.
+Ask `hm` a terminal question, check its answer, and choose whether to run a suggested command. `hm` means **help me** and works on Windows and Linux.
 
 ## Microsoft Store trial
 
@@ -68,7 +68,6 @@ to a file, this follow-up menu doesn't open.
 | `--prepare-logs` | — | Creates a redacted support ZIP on the desktop with limited machine diagnostics and up to 14 available daily log files. It excludes the database, chats, memories, keys, environment values, user and computer names, and network addresses. Nothing is sent automatically. |
 | `--status` | — | Shows your settings and whether local storage is ready. |
 | `--about` | `about` | Shows the HELP ME banner, project information, author, and license. |
-| `--lenna` | `lenna` | Shows the bundled calibration portrait centered in the terminal, without an AI request. |
 | `--third-party` | — | Shows direct runtime packages, versions, and licenses. |
 | `--where` | `-where` | Prints the exact running executable and directory, then offers the native file manager or a change-directory command. |
 | `--path [install\|remove\|status]` | `--path=<action>` | Manages only the current executable directory in the persistent user PATH. |
@@ -110,7 +109,7 @@ to pick colors or edit a theme file.
 
 ## Choose your command shell
 
-Open `hm --setup`, choose **Commands**, and set **Command shell** to Auto, PowerShell, or Bash. This choice is saved globally and is independent of the language used to generate scripts. Bash execution is available on Linux and macOS; Windows offers Auto and PowerShell.
+Open `hm --setup`, choose **Commands**, and set **Command shell** to Auto, PowerShell, or Bash. This choice is saved globally and is independent of the language used to generate scripts. Bash execution is available on Linux; Windows offers Auto and PowerShell.
 
 ```bash
 hm --shell bash "Show the current Git status"
@@ -118,7 +117,7 @@ hm --shell pwsh "Show the current Git status"
 hm --shell auto --chat
 ```
 
-An explicit `--shell` value wins for that invocation without overwriting Setup. Auto detects Bash or PowerShell from the Linux calling processes; it does not use the terminal emulator name or assume that `$SHELL` is your current shell. If detection is ambiguous, select Bash or PowerShell explicitly. Auto defaults to PowerShell on Windows and macOS. The exact interpreter appears in each command preview and is retained in saved plans. Recreate older plans that lack shell metadata.
+An explicit `--shell` value wins for that invocation without overwriting Setup. Auto detects Bash or PowerShell from the Linux calling processes; it does not use the terminal emulator name or assume that `$SHELL` is your current shell. If detection is ambiguous, select Bash or PowerShell explicitly. Auto defaults to PowerShell on Windows. The exact interpreter appears in each command preview and is retained in saved plans. Recreate older plans that lack shell metadata.
 
 Only a small set of literal Bash inspection commands can use the direct countdown. Expansion, redirection, compound commands, and unrecognized programs receive a high local score and need manual confirmation with direct mode disabled. Generated wrappers for script execution, syntax validation, file previews, and skill actions still require PowerShell 7, even when conversational commands use Bash.
 
@@ -183,22 +182,6 @@ The command works offline without setup or an API key.
 
 `hm about` also works with different capitalization, such as `hm About`.
 Use `hm --query about` if you want to ask the AI about that word instead.
-
-## Check terminal image rendering
-
-```powershell
-hm lenna
-hm --lenna
-```
-
-This local command shows the bundled Lenna calibration portrait centered in the
-terminal. It works offline and needs neither first-run setup nor an API key.
-The picture fits the current window while preserving its proportions and the
-terminal's scrollback. Use a terminal with ANSI color support; a window that is
-too small produces a short explanation instead of a cropped picture.
-
-`hm lenna` also works with different capitalization. Use `hm --query lenna` or a
-longer question to ask the AI about Lenna. As elsewhere, use one command at a time.
 
 ## Complete the first-run welcome
 

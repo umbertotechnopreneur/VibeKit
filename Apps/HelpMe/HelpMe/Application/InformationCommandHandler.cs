@@ -25,7 +25,6 @@ namespace HelpMe.Application;
 
 /// <summary>Renders local help, version, status, and cost information.</summary>
 internal sealed class InformationCommandHandler(
-    LennaWorkflow lenna,
     AboutWorkflow about,
     HelpWorkflow help,
     IStatusView statusView,
@@ -46,8 +45,6 @@ internal sealed class InformationCommandHandler(
     {
         switch (options.Command)
         {
-            case AppCommand.Lenna:
-                return lenna.Run(options, cancellationToken);
             case AppCommand.About:
                 return about.Run(options, cancellationToken);
             case AppCommand.Help:

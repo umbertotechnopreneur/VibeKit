@@ -60,7 +60,6 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<IAppLicenseService, AppLicenseService>();
         services.AddSingleton<AppLicenseGuard>();
         services.AddTransient<LicenseGuardHandler>();
-        services.AddSingleton<ILennaImageService, LennaImageService>();
         services.AddSingleton<ILocalizationService, LocalizationService>();
         services.AddSingleton(provider => ArtifactLimitConfiguration.Load(
             Environment.GetEnvironmentVariable, provider.GetRequiredService<ILocalizationService>()));
@@ -125,7 +124,6 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<ICommandSuggestionView, CommandSuggestionView>();
         services.AddSingleton<IHelpView, HelpView>();
         services.AddSingleton<IAboutView, AboutView>();
-        services.AddSingleton<ILennaView, LennaView>();
         services.AddSingleton<ICommandAuthorizationView, CommandAuthorizationView>();
         services.AddSingleton<IThirdPartyView, ThirdPartyView>();
         services.AddSingleton<IFirstRunView, FirstRunView>();
@@ -158,7 +156,6 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<MemoryManagerWorkflow>();
         services.AddSingleton<MemoryCommandWorkflow>();
         services.AddSingleton<InstallationWorkflow>();
-        services.AddSingleton<LennaWorkflow>();
         services.AddSingleton<HelpWorkflow>();
         services.AddSingleton<AboutWorkflow>();
         services.AddSingleton<AiCommandHandler>();

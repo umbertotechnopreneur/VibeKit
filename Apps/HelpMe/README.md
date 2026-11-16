@@ -25,13 +25,13 @@ dotnet run --project HelpMe/HelpMe.csproj -- "How do I list the largest files he
 
 Setup covers language, model, answer style, and command checks. The interface supports English, Italian, French, German, Spanish, and Vietnamese. No special font is required; use `--no-emoji` or `--no-animation` for simpler output.
 
-Enter your API key in setup or use your secret manager. Never put it in a command. On Windows, setup can save it for your user account. It works in the current session; fully close and reopen your terminal app and any IDE hosting it before the next session. On Linux and macOS, a key entered in setup lasts for that session only.
+Enter your API key in setup or use your secret manager. Never put it in a command. On Windows, setup can save it for your user account. It works in the current session; fully close and reopen your terminal app and any IDE hosting it before the next session. On Linux, a key entered in setup lasts for that session only.
 
 The examples below use `hm`. From source, replace it with `dotnet run --project HelpMe/HelpMe.csproj --`.
 
 ## Platforms and downloads
 
-HelpMe targets Windows and Linux on x64 and ARM64. Linux packaging uses `.deb` files with the .NET runtime included; native libraries are declared as dependencies. See [build, installation, and release instructions](scripts/README.md). A configured workflow does not mean a package has already been published. macOS builds and packages are outside the current scope. I do not provide commercial Linux support or promise compatibility with every distribution.
+HelpMe targets Windows and Linux on x64 and ARM64. Linux packaging uses `.deb` files with the .NET runtime included; native libraries are declared as dependencies. See [build, installation, and release instructions](scripts/README.md). A configured workflow does not mean a package has already been published. macOS is not supported because I do not have a Mac to develop and test it. Contributors willing to maintain macOS support are welcome. I do not provide commercial Linux support or promise compatibility with every distribution.
 
 The commercial edition targets Windows 11 on x64 and ARM64 and uses MSIX. The existing [Microsoft Store listing](https://apps.microsoft.com/detail/9P2WJBVQMW4J) is for the previous PromptMeUp release; the HelpMe rebrand has not been submitted.
 
@@ -62,7 +62,7 @@ Direct execution is enabled by default for questions and chat. HelpMe shows the 
 
 For manual confirmation, turn off **Direct execution (5-second countdown)** in the **AI** section of `hm --setup`. `--direct` enables it for the current session. See the [direct-mode reference](docs/CLI_REFERENCE.md#use-direct-execution).
 
-Choose **Command shell** in `hm --setup` under **Commands**: Auto, PowerShell, or Bash. Auto detects the calling shell on Linux; Windows and macOS default to PowerShell. Override the saved choice for one invocation with `hm --shell bash "your question"` or `hm --shell pwsh "your question"`; explicit `--shell auto` requests detection for that invocation. Ambiguous Linux detection requires an explicit choice. Each command preview names the interpreter.
+Choose **Command shell** in `hm --setup` under **Commands**: Auto, PowerShell, or Bash. Auto detects the calling shell on Linux; Windows defaults to PowerShell. Override the saved choice for one invocation with `hm --shell bash "your question"` or `hm --shell pwsh "your question"`; explicit `--shell auto` requests detection for that invocation. Ambiguous Linux detection requires an explicit choice. Each command preview names the interpreter.
 
 Bash commands start without shell profiles or imported shell functions. Only a small set of literal inspection commands is eligible for direct execution; other Bash commands require manual confirmation. Script execution, syntax validation, file previews, and skill actions still use explicit PowerShell wrappers, so those workflows require PowerShell 7. Saved plans retain their original shell; older plans without shell metadata must be recreated.
 

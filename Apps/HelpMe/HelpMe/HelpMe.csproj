@@ -54,7 +54,6 @@ VBWR E -->
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\assets\lenna.rgb.gz" LogicalName="HelpMe.Assets.lenna.rgb.gz" />
     <EmbeddedResource Include="..\assets\vibeware-symbol.rgb" LogicalName="HelpMe.Assets.vibeware-symbol.rgb" />
     <Content Include="..\output\pdf\helpme-quick-reference.pdf" Link="docs\helpme-quick-reference.pdf" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\assets\HelpMe.ico" Link="HelpMe.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

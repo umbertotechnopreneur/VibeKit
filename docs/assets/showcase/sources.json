@@ -1,0 +1,146 @@
+{
+  "date": "2026-11-17",
+  "method": "Owner-requested ImageGen studio compositions from supplied product captures and designs. WebP encoding and thumbnails preserve the generated composition.",
+  "images": [
+    {
+      "filename": "01-cody.webp",
+      "title": "Cody \u2014 Muse",
+      "source": "website/public/assets/cody-gallery/01-muse.webp",
+      "prompt": "Create a premium Apple-style product showcase composition for Cody \u2014 Muse, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Center the round aluminum Cody hardware resting upright on a thin clear-glass plinth, slightly turned left, display fully visible. Retain actual hardware and screen; remove hands and all old backdrop. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "87656b4f5bb7905fe3a86cc43cab57375b84af24a1ae1e1f8b28eba0b9bf35b3"
+    },
+    {
+      "filename": "02-cody-pairing.webp",
+      "title": "Cody \u2014 pairing",
+      "source": "website/public/assets/cody-gallery/03-qr-pairing.webp",
+      "prompt": "Create a premium Apple-style product showcase composition for Cody \u2014 pairing, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Place the Cody device and pairing phone from the reference together on white glass at a slight diagonal. Preserve displayed QR and UI exactly, no new device or readable codes. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "027101d4127ec99b84a754dcf3cc78ccda1eb1570846b23e0ffa462c4a8694f7"
+    },
+    {
+      "filename": "03-voiceducker.webp",
+      "title": "VoiceDucker",
+      "source": "website/public/assets/open-source/voiceducker-window.png",
+      "prompt": "Create a premium Apple-style product showcase composition for VoiceDucker, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Single portrait application window floating just above a satin-white surface, angled 5 degrees left, large enough to read. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "67995bec7d56e22c4773bfa87fa54c664c7bcd423078002e6cb9aa6b4f643f32"
+    },
+    {
+      "filename": "04-voice-controls.webp",
+      "title": "VoiceDucker \u2014 controls",
+      "source": "website/public/assets/open-source/voiceducker-guide/volume-timing.png",
+      "prompt": "Create a premium Apple-style product showcase composition for VoiceDucker \u2014 controls, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Landscape settings window floating at 6 degrees right with a beautiful soft shadow and a small transparent glass ledge beneath. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "e4118fb039e78a16e661d15a92fbd4579cd0735a5f148e11cf7c0fc7ded1212f"
+    },
+    {
+      "filename": "05-ulanzi-code.webp",
+      "title": "UlanziDeck \u2014 shortcuts",
+      "source": "website/public/assets/open-source/ulanzideck-vscode-closeup.webp",
+      "prompt": "Create a premium Apple-style product showcase composition for UlanziDeck \u2014 shortcuts, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Isolate Ulanzi hardware, preserve button images exactly, resting on a white studio table in natural three-quarter perspective. Remove old desk/background. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "bedc2a7ee3fe05095b222c82597ab9e77be344808bfcd9597f23e0323498dc8a"
+    },
+    {
+      "filename": "06-ulanzi-music.webp",
+      "title": "UlanziDeck \u2014 music",
+      "source": "website/public/assets/open-source/ulanzideck-spotify-desk.webp",
+      "prompt": "Create a premium Apple-style product showcase composition for UlanziDeck \u2014 music, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Isolate the real Ulanzi hardware from source onto a bright-white studio surface, preserve music button artwork, subtle clear glass pedestal. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "1048e8d5d3ae18bf66ba9dde7a67afb9f596081cee467e28187ede743daa605e"
+    },
+    {
+      "filename": "07-thermal-system.webp",
+      "title": "Thermalright \u2014 system",
+      "source": "website/public/assets/open-source/thermalright-vibeware/studio-system.png",
+      "prompt": "Create a premium Apple-style product showcase composition for Thermalright \u2014 system, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "96cf928d44f91b8b8dbb3156b72ed9d891492476d0bcf69d0ce955df51412321"
+    },
+    {
+      "filename": "08-thermal-music.webp",
+      "title": "Thermalright \u2014 music",
+      "source": "website/public/assets/open-source/thermalright-vibeware/studio-music.png",
+      "prompt": "Create a premium Apple-style product showcase composition for Thermalright \u2014 music, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "ae1f6a1e59d9c8f9bed38b439c7156ef6006df9728f55ac0e0ac9df840a3a4da"
+    },
+    {
+      "filename": "09-ram-diagnostics.webp",
+      "title": "Ram Taskman \u2014 diagnostics",
+      "source": "website/public/assets/ramtaskman-gallery/diagnostics.webp",
+      "prompt": "Create a premium Apple-style product showcase composition for Ram Taskman \u2014 diagnostics, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "303d30c155e96b012a391bceb4cf32fcb670e9a2c65690d1facbbe790694f596"
+    },
+    {
+      "filename": "10-ram-regions.webp",
+      "title": "Ram Taskman \u2014 memory regions",
+      "source": "website/public/assets/ramtaskman-gallery/regions.webp",
+      "prompt": "Create a premium Apple-style product showcase composition for Ram Taskman \u2014 memory regions, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "d1b91ed1f2869de199101b7a88def6e8be846a2a8d6ce4dfbd1e1708d18a602a"
+    },
+    {
+      "filename": "11-inbox-accounts.webp",
+      "title": "AgentInbox \u2014 accounts",
+      "source": "VibeKit/Apps/AgentInbox/docs/assets/screenshots/agentinbox-accounts-v1.png",
+      "prompt": "Create a premium Apple-style product showcase composition for AgentInbox \u2014 accounts, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "9add27002944a55e5cd4f3c31089f5f7c597abe35965c57e07e40a23619c3628"
+    },
+    {
+      "filename": "12-inbox-connect.webp",
+      "title": "AgentInbox \u2014 connection",
+      "source": "VibeKit/Apps/AgentInbox/docs/assets/screenshots/agentinbox-connect-codex-v1.png",
+      "prompt": "Create a premium Apple-style product showcase composition for AgentInbox \u2014 connection, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "cd5fae14d4ab352321668e88f223572ef30becc2f5453bc7f054f13bb96a08d6"
+    },
+    {
+      "filename": "13-helpme-command.webp",
+      "title": "HelpMe \u2014 commands",
+      "source": "VibeKit/Apps/HelpMe/docs/assets/promptmeup-command-it-framed-v1.png",
+      "prompt": "Create a premium Apple-style product showcase composition for HelpMe \u2014 commands, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "89aba5ea10b578ae6ece4ad20c7d7516b35d4f343e0726e9e8cc82d3aeb581b3"
+    },
+    {
+      "filename": "14-helpme-guide.webp",
+      "title": "HelpMe \u2014 help",
+      "source": "VibeKit/Apps/HelpMe/docs/assets/promptmeup-help-it-framed-v1.png",
+      "prompt": "Create a premium Apple-style product showcase composition for HelpMe \u2014 help, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "600d5ba8d3645fbadc9f0fa4ebeee5fece2c9da115fb9bac1b2d4ecabbea11e3"
+    },
+    {
+      "filename": "15-worktrail-map.webp",
+      "title": "WorkTrail \u2014 day and night",
+      "source": "VibeKit/Apps/WorkTrail/docs/images/readme/trackmeup-day-night-map-it.png",
+      "prompt": "Create a premium Apple-style product showcase composition for WorkTrail \u2014 day and night, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. Isolate ONLY the foreground map application rectangle approximately x60,y86 to1487,y795. Remove ALL other desktop/background content.",
+      "sha256": "6a3b2aac0b66046294dd88ae41c763d383e3eb83d91f2161438405973adfe839"
+    },
+    {
+      "filename": "16-worktrail-globe.webp",
+      "title": "WorkTrail \u2014 world",
+      "source": "VibeKit/Apps/WorkTrail/docs/images/readme/trackmeup-earth-globe-it.png",
+      "prompt": "Create a premium Apple-style product showcase composition for WorkTrail \u2014 world, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. Isolate ONLY the foreground globe app, remove thin outer desktop strips.",
+      "sha256": "9dc3ac93226a9cd7550e78f80680416c599cf8b7720487efef5a2c62c840325f"
+    },
+    {
+      "filename": "17-markvibe.webp",
+      "title": "MarkVibe \u2014 design",
+      "source": "VibeKit/Apps/MarkVibe/docs/design/sidebar/01-fluent-tabs.png",
+      "prompt": "Create a premium Apple-style product showcase composition for MarkVibe \u2014 design, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. The reference is a narrow tall sidebar design; preserve this narrow panel, do not fabricate the rest of an app.",
+      "sha256": "5cfd693d655ca065645a248c29aeb04762de4ba6c903abc52c740f5623676a70"
+    },
+    {
+      "filename": "18-gauge.webp",
+      "title": "Gauge \u2014 usage widget",
+      "source": "website/public/assets/mini-utilities/openai-usage-design.webp",
+      "prompt": "Create a premium Apple-style product showcase composition for Gauge \u2014 usage widget, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. Use the primary window only, remove the external design heading and secondary duplicate strip.",
+      "sha256": "b354f0fe38a7bb97632c9ff1359c8a93e54beabe140d74fdf572d23d3f982a92"
+    },
+    {
+      "filename": "19-ripple-alpine.webp",
+      "title": "Ripple \u2014 alpine",
+      "source": "website/public/assets/mini-utilities/ripple-alpine.webp",
+      "prompt": "Create a premium Apple-style product showcase composition for Ripple \u2014 alpine, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "3ef4a079e88a35f6598b226079896b77b26729728338a247700f2ce2b52deaaf"
+    },
+    {
+      "filename": "20-ripple-violet.webp",
+      "title": "Ripple \u2014 violet",
+      "source": "website/public/assets/mini-utilities/ripple-violet.webp",
+      "prompt": "Create a premium Apple-style product showcase composition for Ripple \u2014 violet, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
+      "sha256": "72285c6cf6f6a5e098e690fa44f21b4ecb3357da5ac0fe352ad7126d6e1f7ff3"
+    }
+  ]
+}

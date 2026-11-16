@@ -1,0 +1,34 @@
+name: OpenAI Usage checks
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: Shared calculations and synthetic watchdog checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    defaults:
+      run:
+        working-directory: Widgets/OpenAI
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: Widgets/OpenAI/global.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Check shared calculations and isolated persistence
+        # These dependency-free checks do not package platform runtime imports.
+        run: dotnet run --project Tests/OpenAIUsage.Tests.csproj --configuration Release --artifacts-path "${{ runner.temp }}/openai-usage-checks" -p:RuntimeIdentifiers= -p:NuGetAudit=false
+      - name: Check watchdog process ownership with synthetic data
+        run: python -B -m unittest discover -s Tests -p 'test_*.py' -v

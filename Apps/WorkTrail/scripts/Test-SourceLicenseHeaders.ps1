@@ -24,11 +24,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $expectedHeader = '// SPDX-License-Identifier: MIT'
-$repositoryRoot = (& git rev-parse --show-toplevel).Trim()
-
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($repositoryRoot)) {
-    throw 'Unable to resolve the Git repository root.'
-}
+# The application is a subdirectory of VibeKit; inspect only its own sources.
+$repositoryRoot = Split-Path -Parent $PSScriptRoot
 
 $trackedPaths = @(& git -C $repositoryRoot ls-files -- '*.cs')
 if ($LASTEXITCODE -ne 0) {

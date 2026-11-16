@@ -177,8 +177,10 @@ $scratchParent = Join-Path $RepositoryRoot 'artifacts/format'
 Push-Location -LiteralPath $RepositoryRoot
 try {
     $gitRoot = $utf8.GetString((Invoke-Git -Arguments @('rev-parse', '--show-toplevel')).Bytes).Trim()
-    if (-not [string]::Equals([IO.Path]::GetFullPath($gitRoot), $RepositoryRoot, [StringComparison]::OrdinalIgnoreCase)) {
-        throw 'RepositoryRoot must be the Git repository root.'
+    # Folder verification also runs inside the monorepo application directory.
+    # Staged blob updates still require root-relative index paths.
+    if ($Staged -and -not [string]::Equals([IO.Path]::GetFullPath($gitRoot), $RepositoryRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Staged formatting requires the Git repository root; use folder mode for a nested application.'
     }
 
     if (-not $Staged) {

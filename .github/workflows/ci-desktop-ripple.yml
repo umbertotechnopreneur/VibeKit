@@ -1,16 +1,7 @@
 name: Desktop Ripple Linux
 
 on:
-  push:
-    paths:
-      - 'Widgets/WaterRipple/**'
-      - '!Widgets/WaterRipple/**/*.md'
-      - '.github/workflows/desktop-ripple-linux.yml'
-  pull_request:
-    paths:
-      - 'Widgets/WaterRipple/**'
-      - '!Widgets/WaterRipple/**/*.md'
-      - '.github/workflows/desktop-ripple-linux.yml'
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -24,10 +15,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Check the portable C# pipeline model
+        run: dotnet run --project Widgets/WaterRipple/tests/PipelineChecks.csproj --configuration Debug --artifacts-path "${{ runner.temp }}/ripple-checks" -p:NuGetAudit=false
       - name: Check JavaScript models
         run: |
           node Widgets/WaterRipple/tests/pipeline-checks.mjs
           node Widgets/WaterRipple/tests/diagnostics-checks.mjs
+          node Widgets/WaterRipple/tests/recovery-checks.mjs
       - name: Build Debian package and GNOME extension archive
         run: python3 Widgets/WaterRipple/Linux/build-package.py --output-dir artifacts/desktop-ripple
       - name: Inspect Debian package

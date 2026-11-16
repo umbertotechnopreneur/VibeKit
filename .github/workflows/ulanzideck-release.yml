@@ -1,0 +1,199 @@
+# VBWR B
+#
+# Project: UlanziDock VibeWare version
+# Repository: https://github.com/umbertotechnopreneur/ulanzi-dock-vibeware
+# Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+#
+# VibeWare: Human intent, AI execution, and plenty of tokens
+# Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+#
+# Modified with AI: OpenAI Codex; hardware-free unit test release gate and readability; 2026-10-27
+# Human guidance: Umberto Giacobbi; AGENTS.md and owner-directed implementation/documentation
+# Evidence: docs/CODE-REVIEW.md; current working-tree changes
+#
+# Copyright (c) 2026 Umberto Giacobbi
+# SPDX-License-Identifier: MIT
+# License: MIT - see LICENSE
+# Required by the MIT License: retain the copyright and permission notice in all copies or substantial portions of the Software.
+#
+# VBWR E
+
+name: ulanzideck / Release
+run-name: Release ${{ inputs.tag || 'next version' }} (draft=${{ inputs.draft }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Optional ulanzideck/v<version>-stable tag
+        required: false
+        type: string
+      draft:
+        description: Create a draft for review
+        type: boolean
+        default: true
+      prerelease:
+        description: Mark as prerelease
+        type: boolean
+        default: false
+      run_tests:
+        description: Run hardware-free unit tests when explicitly authorized
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ulanzideck-release-manual-release
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ inputs.tag }}
+
+jobs:
+  prepare:
+    runs-on: windows-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require the next minor release and a new matching tag
+        id: version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $versionLine = Select-String -LiteralPath Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
+          if (-not $versionLine) { throw 'Package version was not found in Cargo.toml.' }
+          $version = $versionLine.Matches[0].Groups[1].Value
+          $latestTag = @(gh release list --limit 1000 --json tagName,isDraft,isPrerelease | ConvertFrom-Json | Where-Object { -not $_.isDraft -and -not $_.isPrerelease -and $_.tagName.StartsWith('ulanzideck/v') } | Select-Object -First 1 -ExpandProperty tagName)[0]
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read the latest published release.' }
+          if ($latestTag -cnotmatch '^ulanzideck/v(?<major>[0-9]+)\.(?<minor>[0-9]+)\.[0-9]+(?:-stable)?$') {
+            throw 'The latest published release must use v<major>.<minor>.<patch>, optionally ending in -stable.'
+          }
+          $nextVersion = '{0}.{1}.0' -f [int]$Matches.major, ([int]$Matches.minor + 1)
+          if ($version -cne $nextVersion) { throw "The next public release must be $nextVersion. Update Cargo.toml and Cargo.lock first." }
+          if ([string]::IsNullOrWhiteSpace($env:RELEASE_TAG)) { $env:RELEASE_TAG = "ulanzideck/v$version-stable" }
+          if ($env:RELEASE_TAG -cnotin @("ulanzideck/v$version", "ulanzideck/v$version-stable")) { throw 'Tag must match Cargo.toml, optionally ending in -stable.' }
+          $existing = git ls-remote --tags origin "refs/tags/$env:RELEASE_TAG"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not check existing tags.' }
+          if ($existing) { throw 'This tag already exists. Existing releases are never overwritten.' }
+          "tag=$env:RELEASE_TAG" | Add-Content -LiteralPath $env:GITHUB_OUTPUT
+          "version=$version" | Add-Content -LiteralPath $env:GITHUB_OUTPUT
+
+    defaults:
+      run:
+        working-directory: Apps/UlanziDeck
+  package:
+    needs: prepare
+    env:
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            label: windows-x64
+          - runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            label: windows-arm64
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            label: linux-x64
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            label: macos-arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install Linux development libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y dpkg-dev libudev-dev libxdo-dev libxkbcommon-dev libfontconfig1-dev libwayland-dev
+          libx11-xcb-dev libxcursor-dev libxkbcommon-x11-dev
+      - name: Add Rust target
+        shell: pwsh
+        run: |
+          rustup target add ${{ matrix.target }}
+          if ($LASTEXITCODE -ne 0) { throw 'Rust target installation failed.' }
+      - name: Run unit tests without hardware
+        if: inputs.run_tests
+        shell: pwsh
+        run: |
+          cargo test --locked --lib --bins --target ${{ matrix.target }}
+          if ($LASTEXITCODE -ne 0) { throw 'Unit tests failed.' }
+      - name: Build release executables
+        shell: pwsh
+        run: |
+          cargo build --locked --release --target ${{ matrix.target }}
+          if ($LASTEXITCODE -ne 0) { throw 'Release build failed.' }
+      - name: Package executable, documentation and notices
+        shell: pwsh
+        run: ./scripts/package-release.ps1 -Target '${{ matrix.target }}' -Label '${{ matrix.label }}' -Tag ($env:RELEASE_TAG -replace
+          '^ulanzideck/', '')
+      - name: Package native Linux Debian installer
+        if: runner.os == 'Linux'
+        run: CARGO_HOME="$HOME/.cargo" python3 scripts/ulanzi.py deb --binary target/${{ matrix.target }}/release/ulanzi-dock-vibeware
+          --output dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.label }}
+          path: |
+            Apps/UlanziDeck/dist/ulanzi-dock-vibeware-*.zip
+            Apps/UlanziDeck/dist/ulanzi-dock-vibeware-*.tar.gz
+            Apps/UlanziDeck/dist/ulanzi-dock-vibeware-*.sha256
+            Apps/UlanziDeck/dist/ulanzi-dock-vibeware_*.deb
+            Apps/UlanziDeck/dist/ulanzi-dock-vibeware_*.deb.sha256
+          if-no-files-found: error
+
+    defaults:
+      run:
+        working-directory: Apps/UlanziDeck
+  release:
+    needs: [prepare, package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist
+      - name: Create the requested release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
+          IS_DRAFT: ${{ inputs.draft }}
+          IS_PRERELEASE: ${{ inputs.prerelease }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archives = @(Get-ChildItem -LiteralPath dist -File | Where-Object { $_.Name -match '\.(zip|tar\.gz)$' })
+          $debs = @(Get-ChildItem -LiteralPath dist -Filter '*.deb')
+          $checksums = @(Get-ChildItem -LiteralPath dist -Filter '*.sha256')
+          if ($archives.Count -ne 4 -or $debs.Count -ne 1 -or $checksums.Count -ne 5) { throw 'Four platform archives, the Linux Debian package and all five checksums are required.' }
+          Push-Location dist
+          try {
+            Get-Content -LiteralPath $checksums.FullName | Set-Content -LiteralPath SHA256SUMS.txt -Encoding ascii
+            & sha256sum --check SHA256SUMS.txt
+            if ($LASTEXITCODE -ne 0) { throw 'Archive checksum validation failed.' }
+          } finally { Pop-Location }
+          $cliArgs = @('release', 'create', $env:RELEASE_TAG, '--target', $env:SOURCE_SHA,
+            '--title', "UlanziDock VibeWare $env:RELEASE_VERSION", '--generate-notes',
+            "--draft=$env:IS_DRAFT", "--prerelease=$env:IS_PRERELEASE")
+          $cliArgs += $archives.FullName
+          $cliArgs += $debs.FullName
+          $cliArgs += 'dist/SHA256SUMS.txt'
+          gh @cliArgs
+          if ($LASTEXITCODE -ne 0) { throw 'Release creation failed.' }

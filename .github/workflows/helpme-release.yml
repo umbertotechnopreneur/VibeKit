@@ -1,0 +1,190 @@
+# VBWR B
+#
+# Project: HelpMe
+# Repository: https://github.com/umbertotechnopreneur/PromptMeUp
+# Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+#
+# VibeWare: Human intent, AI execution, and plenty of tokens
+# Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+#
+# Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+# Human guidance: Umberto Giacobbi; requested VibeWare branding.
+#
+# Copyright (c) 2026 Umberto Giacobbi
+# License: MIT - see LICENSE
+# SPDX-License-Identifier: MIT
+#
+# VBWR E
+
+name: helpme / Release
+
+on:
+  push:
+    tags:
+      - helpme/v*
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Create a release draft, or only build a rehearsal bundle
+        type: choice
+        default: draft
+        options:
+          - draft
+          - rehearsal
+
+permissions:
+  contents: read
+
+concurrency:
+  group: helpme-release-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify release source
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      source_sha: ${{ steps.version.outputs.source_sha }}
+      create_draft: ${{ steps.version.outputs.create_draft }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Match the version and require a main commit
+        id: version
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          RELEASE_MODE: ${{ inputs.mode || 'draft' }}
+        run: |
+          git merge-base --is-ancestor HEAD origin/main
+          if ($LASTEXITCODE -ne 0) { throw 'Releases must come from a commit on main.' }
+          [xml]$project = Get-Content HelpMe/HelpMe.csproj -Raw
+          $version = [string]$project.Project.PropertyGroup.Version
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid project version.' }
+          if ($env:EVENT_NAME -eq 'push' -and ($env:REF_TYPE -ne 'tag' -or $env:REF_NAME -cne "helpme/v$version")) {
+            throw 'The tag must exactly match the project version, such as v1.2.3.'
+          }
+          if ($env:EVENT_NAME -eq 'workflow_dispatch') {
+            if ($env:REF_TYPE -ne 'branch' -or $env:REF_NAME -cne 'main') {
+              throw 'Run the manual release workflow from the main branch.'
+            }
+            if ($env:RELEASE_MODE -cnotin @('draft', 'rehearsal')) { throw 'Unsupported release mode.' }
+            if ($env:RELEASE_MODE -eq 'draft') {
+              git show-ref --verify --quiet "refs/tags/helpme/v$version"
+              if ($LASTEXITCODE -ne 0) { throw 'Create the owner-approved annotated version tag on main before requesting a draft.' }
+            }
+          }
+          elseif ($env:EVENT_NAME -ne 'push') {
+            throw 'Unsupported release event.'
+          }
+          $sourceSha = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $sourceSha -notmatch '^[0-9a-f]{40}$') { throw 'Cannot identify the release source commit.' }
+          $createDraft = $env:EVENT_NAME -eq 'push' -or $env:RELEASE_MODE -eq 'draft'
+          if ($createDraft) {
+            $tagType = git cat-file -t "refs/tags/helpme/v$version"
+            if ($LASTEXITCODE -ne 0 -or $tagType -cne 'tag') { throw 'Release tags must be annotated.' }
+            $tagCommit = git rev-parse "refs/tags/helpme/v$version^{}"
+            if ($LASTEXITCODE -ne 0 -or $tagCommit -cne $sourceSha) { throw 'Release tag must identify the verified source commit.' }
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=helpme/v$version" >> $env:GITHUB_OUTPUT
+          "source_sha=$sourceSha" >> $env:GITHUB_OUTPUT
+          "create_draft=$($createDraft.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
+    defaults:
+      run:
+        working-directory: Apps/HelpMe
+  quality:
+    name: Release quality
+    needs: verify
+    uses: ./.github/workflows/ci-helpme.yml
+
+  deliver:
+    name: Prepare release bundle and optional draft
+    needs: [verify, quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: deb-*
+          merge-multiple: true
+          path: artifacts/release
+      - name: Check the release files and write SHA-256 checksums
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          $expected = @("helpme_$($env:RELEASE_VERSION)_amd64.deb", "helpme_$($env:RELEASE_VERSION)_arm64.deb")
+          $files = @(Get-ChildItem artifacts/release -File)
+          if ($files.Count -ne $expected.Count) { throw 'Expected exactly two Linux Debian packages.' }
+          foreach ($suffix in $expected) {
+            if (-not (Test-Path -LiteralPath "artifacts/release/$suffix" -PathType Leaf)) { throw "Missing release file: $suffix" }
+          }
+          $files | Sort-Object Name | ForEach-Object {
+            $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)"
+          } | Set-Content artifacts/release/SHA256SUMS.txt -Encoding utf8NoBOM
+      - name: Attest release files
+        if: needs.verify.outputs.create_draft == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: artifacts/release/*
+      - name: Keep the complete delivery bundle
+        id: bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-bundle
+          path: artifacts/release/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Create a draft for the maintainer to publish
+        if: needs.verify.outputs.create_draft == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+          SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
+        run: |
+          $releaseTags = @(gh api "repos/$env:GH_REPO/releases" --paginate --jq '.[].tag_name')
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot check existing releases. No release will be created.' }
+          if ($releaseTags -ccontains $env:RELEASE_TAG) { throw 'A release or draft already exists for this version. Existing releases are never overwritten.' }
+          $createArguments = @('--draft', '--title', "HelpMe $env:RELEASE_TAG", '--generate-notes', '--notes-file', 'artifacts/release-notes/notes.md')
+          $tagSha = gh api "repos/$env:GH_REPO/commits/$( [Uri]::EscapeDataString($env:RELEASE_TAG) )" --jq '.sha'
+          if ($LASTEXITCODE -ne 0 -or $tagSha -cne $env:SOURCE_SHA) { throw 'The release tag no longer points to the verified source commit.' }
+          $createArguments += '--verify-tag'
+          New-Item -ItemType Directory -Path artifacts/release-notes -Force | Out-Null
+          @'
+          Choose the Linux Debian package matching your machine: amd64 (x64) or arm64. Install with sudo apt install ./helpme_<version>_<architecture>.deb. The .NET runtime is included; native Debian dependencies are declared in the package. PowerShell 7 is optional for Bash conversation commands and required for generated script, file, and skill wrappers. Windows distribution remains Microsoft Store MSIX; macOS builds and packages are outside the current scope.
+          '@ | Set-Content artifacts/release-notes/notes.md -Encoding utf8NoBOM
+          $files = @(Get-ChildItem artifacts/release -File | ForEach-Object FullName)
+          gh release create $env:RELEASE_TAG @files @createArguments
+          if ($LASTEXITCODE -ne 0) { throw 'Draft creation failed. Existing releases are never overwritten.' }
+      - name: Remove uploaded delivery copies
+        if: always() && steps.bundle.outcome == 'success'
+        shell: pwsh
+        run: |
+          $artifactRoot = [IO.Path]::GetFullPath((Join-Path $env:GITHUB_WORKSPACE 'artifacts'))
+          foreach ($name in @('release', 'release-notes')) {
+            $path = Join-Path $artifactRoot $name
+            if (Test-Path -LiteralPath $path) {
+              $item = Get-Item -LiteralPath $path
+              if ($item.LinkType -or @(Get-ChildItem -LiteralPath $path -Recurse -Force | Where-Object { $_.LinkType }).Count) {
+                throw 'Inspect unexpected links before cleaning delivery files.'
+              }
+              Remove-Item -LiteralPath $path -Recurse -Force
+            }
+          }

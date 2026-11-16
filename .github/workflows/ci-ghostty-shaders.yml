@@ -1,0 +1,20 @@
+name: Ghostty Shaders
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: Apps/Ghostty Shaders
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify the manager with isolated configuration directories
+        run: python3 tests/check-manager.py

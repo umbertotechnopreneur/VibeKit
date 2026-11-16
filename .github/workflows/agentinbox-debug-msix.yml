@@ -1,0 +1,187 @@
+# VBWR B
+#
+# Project: AgentInbox
+# Repository: https://github.com/umbertotechnopreneur/AgentInbox
+# Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+#
+# VibeWare: Human intent, AI execution, and plenty of tokens
+# Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+#
+# Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+# Human guidance: Umberto Giacobbi; requested VibeWare branding.
+#
+# Copyright (c) 2026 Umberto Giacobbi
+# License: MIT - see LICENSE
+# SPDX-License-Identifier: MIT
+#
+# VBWR E
+
+
+name: agentinbox / Manual Debug MSIX artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      architecture:
+        description: 'Windows package architecture'
+        type: choice
+        options: [x64, arm64]
+        required: true
+      package_version:
+        description: 'MSIX version, four numeric components'
+        type: string
+        required: true
+      python_version:
+        description: 'Official Python embeddable version, for example 3.14.0'
+        type: string
+        required: true
+      python_sha256:
+        description: 'Expected SHA-256 of the official Python embeddable ZIP'
+        type: string
+        required: true
+      nuget_packages:
+        description: 'Complete pinned closure: {"packages":[{"source":"https://api.nuget.org/v3-flatcontainer/...nupkg","sha256":"..."}]}'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agentinbox-debug-msix-msix-${{ github.ref }}-Debug-${{ inputs.architecture }}
+  cancel-in-progress: false
+
+# This workflow stages owner-selected inputs and creates an unsigned
+# Debug MSIX artifact. Store submission packages are built locally, following
+# the PromptMeUp workflow. This workflow does not tag or publish anything.
+# Missing runtimes, an incomplete offline dependency closure or missing SDKs
+# fail the run instead of falling back to a network restore.
+# Initial scans for new dependency versions or contents are a separate import
+# prerequisite. Packaging does not run scans or certify that prerequisite.
+jobs:
+  source-tests:
+    uses: ./.github/workflows/ci-agentinbox.yml
+  package:
+    name: Package Debug MSIX artifact (${{ inputs.architecture }})
+    needs: source-tests
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      PACKAGE_CHANNEL: Debug
+      PACKAGE_ARCHITECTURE: ${{ inputs.architecture }}
+      PACKAGE_VERSION: ${{ inputs.package_version }}
+      PYTHON_VERSION: ${{ inputs.python_version }}
+      PYTHON_SHA256: ${{ inputs.python_sha256 }}
+      NUGET_PACKAGES: ${{ inputs.nuget_packages }}
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      DOTNET_CLI_UI_LANGUAGE: en
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Stage pinned inputs and locate the build tools
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_REF -ne 'refs/heads/main') { throw 'MSIX packaging must run from main.' }
+          if ($env:PACKAGE_VERSION -notmatch '^(0|[1-9][0-9]{0,4})(\.(0|[1-9][0-9]{0,4})){3}$' -or
+              @($env:PACKAGE_VERSION.Split('.') | Where-Object { [int]$_ -gt 65535 }).Count) { throw 'Invalid MSIX version.' }
+          if ($env:PYTHON_VERSION -notmatch '^3\.(1[1-9]|[2-9][0-9])\.[0-9]+$') { throw 'Supply an official Python version of at least 3.11.' }
+          if ($env:PYTHON_SHA256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'A Python archive SHA-256 is required.' }
+          $stage = Join-Path (Join-Path $env:GITHUB_WORKSPACE 'Apps/AgentInbox') 'artifacts/ci-msix-inputs'
+          if (Test-Path -LiteralPath $stage) { throw 'Expected a fresh task-owned input directory.' }
+          New-Item -ItemType Directory -Path $stage | Out-Null
+          $env:TMP = $env:TEMP = Join-Path $stage 'temporary'
+          New-Item -ItemType Directory -Path $env:TEMP | Out-Null
+          "TMP=$env:TMP" >> $env:GITHUB_ENV
+          "TEMP=$env:TEMP" >> $env:GITHUB_ENV
+          $dotnetRoot = Join-Path $env:ProgramFiles 'dotnet'
+          $windowsSdk = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10'
+          if (-not (Test-Path -LiteralPath (Join-Path $dotnetRoot 'dotnet.exe')) -or -not (Test-Path -LiteralPath $windowsSdk)) { throw 'The required preinstalled .NET and Windows SDK tools are unavailable.' }
+          $pythonArchitecture = if ($env:PACKAGE_ARCHITECTURE -eq 'x64') { 'amd64' } else { 'arm64' }
+          $pythonSource = "https://www.python.org/ftp/python/$env:PYTHON_VERSION/python-$env:PYTHON_VERSION-embed-$pythonArchitecture.zip"
+          $pythonArchive = Join-Path $stage 'python-runtime.zip'
+          Invoke-WebRequest -Uri $pythonSource -OutFile $pythonArchive -MaximumRedirection 0
+          if ((Get-FileHash -LiteralPath $pythonArchive -Algorithm SHA256).Hash -ne $env:PYTHON_SHA256) { throw 'Python archive hash differs from the owner-supplied value.' }
+          $pythonDirectory = Join-Path $stage 'python-runtime'
+          Expand-Archive -LiteralPath $pythonArchive -DestinationPath $pythonDirectory
+          $manifest = $env:NUGET_PACKAGES | ConvertFrom-Json -AsHashtable
+          if ($manifest -isnot [System.Collections.IDictionary] -or $manifest.Count -ne 1 -or -not $manifest.ContainsKey('packages') -or
+              $manifest.packages -isnot [array] -or $manifest.packages.Count -lt 1 -or $manifest.packages.Count -gt 300) { throw 'Supply a bounded packages manifest with the full pinned NuGet closure.' }
+          $packagesDirectory = Join-Path $stage 'nuget'
+          New-Item -ItemType Directory -Path $packagesDirectory | Out-Null
+          $packages = @()
+          foreach ($package in $manifest.packages) {
+            if ($package -isnot [System.Collections.IDictionary] -or $package.Count -ne 2 -or -not $package.ContainsKey('source') -or -not $package.ContainsKey('sha256') -or
+                $package.source -isnot [string] -or $package.sha256 -isnot [string] -or $package.sha256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'Each package requires only an official source URL and SHA-256.' }
+            $sourceUri = [uri]$package.source
+            if (-not $sourceUri.IsAbsoluteUri -or $sourceUri.Scheme -ne 'https' -or $sourceUri.Host -ne 'api.nuget.org' -or
+                $sourceUri.Port -ne 443 -or $sourceUri.UserInfo -or $sourceUri.Query -or $sourceUri.Fragment -or
+                $sourceUri.AbsolutePath -notmatch '^/v3-flatcontainer/[a-z0-9._-]+/[a-z0-9.+_-]+/[a-z0-9.+_-]+\.nupkg$') { throw 'Package sources must be direct official NuGet flat-container HTTPS URLs.' }
+            $archive = Join-Path $packagesDirectory ([IO.Path]::GetFileName($sourceUri.AbsolutePath))
+            if (Test-Path -LiteralPath $archive) { throw 'Duplicate package archive in the manifest.' }
+            Invoke-WebRequest -Uri $sourceUri -OutFile $archive -MaximumRedirection 0
+            if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $package.sha256) { throw 'A NuGet archive hash differs from the owner-supplied value.' }
+            $packages += [ordered]@{archive=$archive; source=$package.source; sha256=$package.sha256}
+          }
+          @{packages=$packages} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $stage 'dependencies.json') -Encoding utf8
+          [ordered]@{
+            source='https://github.com/actions/runner-images'
+            runnerImage=$env:ImageVersion
+            dotnetSha256=(Get-FileHash -LiteralPath (Join-Path $dotnetRoot 'dotnet.exe') -Algorithm SHA256).Hash
+            pythonSource=$pythonSource
+            pythonVersion=$env:PYTHON_VERSION
+            pythonSha256=$env:PYTHON_SHA256
+          } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $stage 'workflow-inputs.json') -Encoding utf8
+          "PACKAGE_PYTHON_SOURCE=$pythonSource" >> $env:GITHUB_ENV
+      - name: Create the unsigned Windows MSIX from offline inputs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = Join-Path (Join-Path $env:GITHUB_WORKSPACE 'Apps/AgentInbox') 'artifacts/ci-msix-inputs'
+          # The packaging script uses the pinned inputs through its offline feed.
+          pwsh -NoProfile -File scripts/AgentInbox.ps1 -Command package-msix `
+            -Channel Debug -Architecture $env:PACKAGE_ARCHITECTURE -Version $env:PACKAGE_VERSION `
+            -PythonArchive (Join-Path $stage 'python-runtime.zip') -PythonDirectory (Join-Path $stage 'python-runtime') `
+            -PythonSource $env:PACKAGE_PYTHON_SOURCE -PythonVersion $env:PYTHON_VERSION -PythonSha256 $env:PYTHON_SHA256 `
+            -DependencyManifest (Join-Path $stage 'dependencies.json') -Unsigned
+          if ($LASTEXITCODE -ne 0) { throw 'MSIX packaging failed.' }
+      - name: Retain the MSIX, checksum and minimal packaging record
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: agentinbox-Debug-${{ inputs.architecture }}-${{ inputs.package_version }}
+          path: |
+            Apps/AgentInbox/artifacts/msix/**/*.msix
+            Apps/AgentInbox/artifacts/msix/**/*.sha256
+            Apps/AgentInbox/artifacts/msix/**/package-record.json
+            Apps/AgentInbox/artifacts/ci-msix-inputs/workflow-inputs.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Keep minimal failure evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: msix-failure-${{ inputs.architecture }}
+          path: |
+            Apps/AgentInbox/artifacts/ci-msix-inputs/workflow-inputs.json
+            Apps/AgentInbox/artifacts/msix/**/package-record.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Remove staged downloads and extracted inputs
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $artifactRoot = [IO.Path]::GetFullPath((Join-Path (Join-Path $env:GITHUB_WORKSPACE 'Apps/AgentInbox') 'artifacts'))
+          $stage = [IO.Path]::GetFullPath((Join-Path $artifactRoot 'ci-msix-inputs'))
+          if (-not $stage.StartsWith($artifactRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Cleanup target is outside artifacts.' }
+          if (Test-Path -LiteralPath $stage) {
+            $entries = @((Get-Item -LiteralPath $stage)) + @(Get-ChildItem -LiteralPath $stage -Force -Recurse)
+            if ($entries | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }) { throw 'Cleanup found a link; inspect the remaining staged inputs.' }
+            Remove-Item -LiteralPath $stage -Recurse -Force
+            if (Test-Path -LiteralPath $stage) { throw 'Staged input cleanup was incomplete.' }
+          }
+    defaults:
+      run:
+        working-directory: Apps/AgentInbox

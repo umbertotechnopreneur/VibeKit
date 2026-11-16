@@ -1,0 +1,130 @@
+name: VibeKit CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      project:
+        description: Project to check
+        type: choice
+        default: all
+        options:
+          - all
+          - agentinbox
+          - helpme
+          - markvibe
+          - ramtaskman
+          - thermalright
+          - ulanzideck
+          - voiceducker
+          - worktrail
+          - ghostty-shaders
+          - openai-usage
+          - desktop-ripple
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vibekit-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Select changed projects
+    runs-on: ubuntu-24.04
+    outputs:
+      projects: ${{ steps.select.outputs.projects }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify change selection
+        run: python3 -B -m unittest discover -s scripts/ci -p 'test_*.py'
+      - name: Compare the complete push or pull request
+        id: select
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          SELECTED_PROJECT: ${{ inputs.project || 'all' }}
+        run: python3 scripts/ci/select_projects.py
+
+  agentinbox:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'agentinbox')
+    uses: ./.github/workflows/ci-agentinbox.yml
+  helpme:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'helpme')
+    uses: ./.github/workflows/ci-helpme.yml
+  markvibe:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'markvibe')
+    uses: ./.github/workflows/ci-markvibe.yml
+  ramtaskman:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'ramtaskman')
+    uses: ./.github/workflows/ci-ramtaskman.yml
+  thermalright:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'thermalright')
+    uses: ./.github/workflows/ci-thermalright.yml
+  ulanzideck:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'ulanzideck')
+    uses: ./.github/workflows/ci-ulanzideck.yml
+  voiceducker:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'voiceducker')
+    uses: ./.github/workflows/ci-voiceducker.yml
+  worktrail:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'worktrail')
+    uses: ./.github/workflows/ci-worktrail.yml
+  worktrail-scripts:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'worktrail')
+    uses: ./.github/workflows/ci-worktrail-scripts.yml
+  ghostty-shaders:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'ghostty-shaders')
+    uses: ./.github/workflows/ci-ghostty-shaders.yml
+  desktop-ripple:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'desktop-ripple')
+    uses: ./.github/workflows/ci-desktop-ripple.yml
+  openai-usage:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'openai-usage')
+    uses: ./.github/workflows/ci-openai-usage.yml
+
+  required:
+    name: VibeKit CI required
+    if: always()
+    needs: [changes, agentinbox, helpme, markvibe, ramtaskman, thermalright, ulanzideck, voiceducker, worktrail, worktrail-scripts, ghostty-shaders, desktop-ripple, openai-usage]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every selected pipeline to succeed
+        env:
+          JOB_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          results = json.loads(os.environ['JOB_RESULTS'])
+          if results['changes']['result'] != 'success':
+              raise SystemExit('Project selection failed or was cancelled.')
+          selected = json.loads(results['changes']['outputs']['projects'])
+          required = set(selected)
+          if 'worktrail' in required:
+              required.add('worktrail-scripts')
+          failed = [name for name in required if results[name]['result'] != 'success']
+          if failed:
+              raise SystemExit('Required pipelines failed or were cancelled: ' + ', '.join(sorted(failed)))
+          print('Every selected pipeline succeeded; unrelated projects were skipped.')
+          PY

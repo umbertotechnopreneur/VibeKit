@@ -1,0 +1,142 @@
+# VBWR B
+#
+# Project: WorkTrail
+# Repository: https://github.com/umbertotechnopreneur/WorkTrail
+# Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+#
+# VibeWare: Human intent, AI execution, and plenty of tokens
+# Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+#
+# Modified with AI: OpenAI Codex; added this header on 2026-10-10.
+# Human guidance: Umberto Giacobbi; requested VibeWare branding.
+#
+# Copyright (c) 2026 Umberto Giacobbi
+# License: MIT - see LICENSE
+# SPDX-License-Identifier: MIT
+#
+# VBWR E
+
+name: worktrail / build
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-worktrail-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NUGET_PACKAGES: ${{ github.workspace }}/Apps/WorkTrail\artifacts\ci\nuget
+  UseArtifactsOutput: 'true'
+  ArtifactsPath: ${{ github.workspace }}/Apps/WorkTrail\artifacts\ci\build
+
+jobs:
+  lint:
+    name: lint
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Verify source license headers
+        shell: pwsh
+        run: .\scripts\Test-SourceLicenseHeaders.ps1
+
+      - name: Stage and scan official .NET SDK archive
+        shell: pwsh -NoProfile -File {0}
+        run: ./scripts/Initialize-CiDotNet.ps1
+
+      - name: Scan .NET toolchain
+        shell: pwsh -NoProfile -File {0}
+        run: ./scripts/Test-DependencySecurity.ps1 -Stage DotNet -OutputDirectory artifacts/ci/security
+
+      - name: Verify code formatting
+        shell: pwsh -NoProfile -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./scripts/Format-Code.ps1 -Verify
+
+      - name: Verify automatic formatting hook
+        shell: pwsh -NoProfile -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./scripts/Test-FormattingHooks.ps1
+
+      - name: Restore and audit NuGet dependencies
+        shell: pwsh
+        run: |
+          dotnet restore ./WorkTrail.slnx -p:Platform=x64 -p:NuGetAudit=true -p:NuGetAuditMode=all -p:NuGetAuditLevel=low -p:WarningsAsErrors=NU1901%3BNU1902%3BNU1903%3BNU1904
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+      - name: Scan restored packages and extracted dependencies
+        shell: pwsh -NoProfile -File {0}
+        run: ./scripts/Test-DependencySecurity.ps1 -Stage NuGet -OutputDirectory artifacts/ci/security
+
+      - name: Test with code analyzers
+        shell: pwsh
+        run: |
+          git ls-files -- '*.Tests.csproj' | ForEach-Object {
+            dotnet test $_ -p:Platform=x64 --no-restore -p:EnableNETAnalyzers=true -p:EnforceCodeStyleInBuild=true -p:TreatWarningsAsErrors=true --blame-hang-timeout 5m --blame-hang-dump-type none --results-directory "artifacts/ci/test-results/analyzers/$([IO.Path]::GetFileNameWithoutExtension($_))"
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
+          }
+
+      - name: Clean CI output
+        if: always()
+        shell: pwsh -NoProfile -File {0}
+        run: ./scripts/Clear-CiOutput.ps1 -Configuration Debug -Platform x64
+
+    defaults:
+      run:
+        working-directory: Apps/WorkTrail
+  build:
+    name: release build (${{ matrix.platform }})
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [x64, ARM64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Stage and scan official .NET SDK archive
+        shell: pwsh -NoProfile -File {0}
+        run: ./scripts/Initialize-CiDotNet.ps1
+
+      - name: Scan .NET toolchain
+        shell: pwsh -NoProfile -File {0}
+        run: ./scripts/Test-DependencySecurity.ps1 -Stage DotNet -OutputDirectory artifacts/ci/security
+
+      - name: Restore Release solution
+        run: dotnet restore .\WorkTrail.slnx -p:Configuration=Release-Unpackaged -p:Platform=${{ matrix.platform }}
+
+      - name: Scan restored packages and extracted dependencies
+        shell: pwsh -NoProfile -File {0}
+        run: ./scripts/Test-DependencySecurity.ps1 -Stage NuGet -OutputDirectory artifacts/ci/security
+
+      - name: Build Release solution
+        run: dotnet build .\WorkTrail.slnx --configuration Release-Unpackaged -p:Platform=${{ matrix.platform }} --no-restore -p:ContinuousIntegrationBuild=true
+          -p:EnableNETAnalyzers=true -p:EnforceCodeStyleInBuild=true -p:TreatWarningsAsErrors=true
+
+      - name: Test Release solution
+        if: matrix.platform == 'x64'
+        run: dotnet test .\WorkTrail.slnx --configuration Release-Unpackaged -p:Platform=x64 --no-build --no-restore -m:1 --blame-hang-timeout
+          5m --blame-hang-dump-type none --results-directory artifacts/ci/test-results/release
+
+      - name: Clean CI output
+        if: always()
+        shell: pwsh -NoProfile -File {0}
+        run: ./scripts/Clear-CiOutput.ps1 -Configuration Release-Unpackaged -Platform ${{ matrix.platform }}
+    defaults:
+      run:
+        working-directory: Apps/WorkTrail

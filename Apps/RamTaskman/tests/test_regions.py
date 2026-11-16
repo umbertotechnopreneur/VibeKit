@@ -111,7 +111,7 @@ class ReadRegionsTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         (self.root / '100').mkdir()
         self.path = self.root / '100' / 'smaps'
-        self.path.write_text(FIRST + SECOND)
+        self.path.write_bytes((FIRST + SECOND).encode())
         self.proc = Mock()
         self.proc.create_time.return_value = 123.0
         self.proc.is_running.return_value = True

@@ -42,7 +42,9 @@ def _run(command, *, cwd: Path, env: dict[str, str]) -> subprocess.CompletedProc
                             encoding='utf-8', errors='replace', timeout=180)
     if result.returncode:
         # The monitor may have printed real process names: do not echo output.
-        raise RuntimeError(f'Comando di verifica terminato con codice {result.returncode}: {Path(command[0]).name}')
+        detail = result.stderr.strip() if Path(command[0]).name == 'uv' else ''
+        raise RuntimeError(f'Comando di verifica terminato con codice {result.returncode}: {Path(command[0]).name}'
+                           + (f'\n{detail}' if detail else ''))
     return result
 
 
@@ -68,7 +70,13 @@ def verify() -> None:
         _run(['uv', 'venv', '--python', sys.executable, str(venv)], cwd=base, env=env)
         python = venv / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
         executable = venv / ('Scripts/ramtaskman.exe' if os.name == 'nt' else 'bin/ramtaskman')
-        _run(['uv', 'pip', 'install', '--offline', '--python', str(python), str(wheels[0])], cwd=base, env=env)
+        # uv sync caches locked artifacts, not the registry index needed by a fresh resolver.
+        install_env = {**env, 'VIRTUAL_ENV': str(venv)}
+        _run(['uv', 'sync', '--locked', '--offline', '--active', '--no-install-project'],
+             cwd=ROOT, env=install_env)
+        _run(['uv', 'pip', 'install', '--offline', '--no-deps', '--python', str(python), str(wheels[0])],
+             cwd=base, env=env)
+        _run(['uv', 'pip', 'check', '--python', str(python)], cwd=base, env=env)
         output = _run([str(executable), '--json', '--max-measurements', '2'], cwd=base, env=env)
         document = json.loads(output.stdout)
         if document.get('measurement_attempted', 0) > 2:

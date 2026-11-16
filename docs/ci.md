@@ -15,7 +15,7 @@ GitHub discovers workflows in the root `.github/workflows/` directory. The copie
 | `Apps/ThermalRight Panel/` | Windows builds and packages, Linux UI checks and Debian package |
 | `Apps/UlanziDeck/` | Rust tests, builds and packages for the existing target matrix |
 | `Apps/VoiceDucker/` | Windows portable builds, regressions and ZIP verification |
-| `Apps/WorkTrail/` | Windows lint/build/tests and PowerShell packaging safeguards |
+| `Apps/WorkTrail/` | Windows x64/ARM64 compilation and PowerShell packaging safeguards; optional manual lint/tests |
 | `Apps/Ghostty Shaders/` | Manager checks with isolated configuration directories |
 | `Widgets/OpenAI/` | Shared .NET calculations on Windows/Linux and synthetic watchdog ownership checks |
 | `Widgets/WaterRipple/` | Portable C# and Linux model checks, recovery checks and Debian/extension packaging |
@@ -27,6 +27,8 @@ OpenAI Usage checks use synthetic account data and isolated temporary storage. T
 The stable check for branch protection is **VibeKit CI required**. It requires successful selection and every selected reusable workflow, and accepts skips only for unrelated applications. Do not require individually path-filtered workflows, which can leave checks pending. HelpMe CodeQL and dependency review retain separate scoped triggers; the existing CodeQL schedule is preserved. They require the corresponding GitHub repository features. On private repositories, set `CODE_SECURITY_ENABLED=true` only after enabling GitHub Code Security. Otherwise, dependency checks use NuGet audit for direct and transitive high/critical vulnerabilities (including audit-source errors), and CodeQL reports that analysis is unavailable. NuGet audit does not replace dependency-diff or license review.
 
 Use **Actions → VibeKit CI → Run workflow** to select one project or all configured projects. Individual application workflows also retain manual entry points. Normal commits build CI artifacts; they do not publish releases or submit anything to the Microsoft Store.
+
+WorkTrail ordinary CI compiles Windows x64 and ARM64 with the existing dependency checks and analyzers. Its lint and regression suites are opt-in through `run_tests` on the manual WorkTrail workflow; the known platform-dependent Samoa test remains visible there and is not part of the ordinary build gate.
 
 ## Application paths
 

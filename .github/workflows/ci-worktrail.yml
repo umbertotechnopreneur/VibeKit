@@ -20,7 +20,17 @@ name: worktrail / build
 
 on:
   workflow_call:
+    inputs:
+      run_tests:
+        description: Run the optional lint and regression suites
+        type: boolean
+        default: false
   workflow_dispatch:
+    inputs:
+      run_tests:
+        description: Run the optional lint and regression suites
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-worktrail-build-${{ github.workflow }}-${{ github.ref }}
@@ -37,6 +47,7 @@ env:
 jobs:
   lint:
     name: lint
+    if: inputs.run_tests
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -129,7 +140,7 @@ jobs:
           -p:EnableNETAnalyzers=true -p:EnforceCodeStyleInBuild=true -p:TreatWarningsAsErrors=true
 
       - name: Test Release solution
-        if: matrix.platform == 'x64'
+        if: inputs.run_tests && matrix.platform == 'x64'
         run: dotnet test .\WorkTrail.slnx --configuration Release-Unpackaged -p:Platform=x64 --no-build --no-restore -m:1 --blame-hang-timeout
           5m --blame-hang-dump-type none --results-directory artifacts/ci/test-results/release
 

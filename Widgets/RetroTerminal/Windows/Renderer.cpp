@@ -19,6 +19,7 @@
 
 using Microsoft::WRL::ComPtr;
 using namespace winrt::Windows::Graphics;
+namespace DirectXApi = winrt::Windows::Graphics::DirectX;
 using Clock = std::chrono::steady_clock;
 
 namespace
@@ -132,7 +133,7 @@ struct Renderer::State
             ID3D11ShaderResourceView* empty[2]{};
             context->PSSetShaderResources(0, 2, empty);
             for (auto& view : historyViews) view.Reset();
-            for (auto& target : historyTargets) target.Reset();
+            for (auto& historyTarget : historyTargets) historyTarget.Reset();
             for (auto& texture : history) texture.Reset();
             historyValid = wasTail = false;
             return;
@@ -254,9 +255,9 @@ void Renderer::Start(HWND overlay, HMONITOR monitor, const std::wstring& shaderP
     next->subscribed = true;
     winrt::com_ptr<IInspectable> inspectable;
     Check(CreateDirect3D11DeviceFromDXGIDevice(dxgi.Get(), inspectable.put()));
-    auto captureDevice = inspectable.as<DirectX::Direct3D11::IDirect3DDevice>();
+    auto captureDevice = inspectable.as<DirectXApi::Direct3D11::IDirect3DDevice>();
     next->pool = Capture::Direct3D11CaptureFramePool::CreateFreeThreaded(captureDevice,
-        DirectX::DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, captureSize);
+        DirectXApi::DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, captureSize);
     next->session = next->pool.CreateCaptureSession(next->item);
     next->session.IsCursorCaptureEnabled(false);
     if (winrt::Windows::Foundation::Metadata::ApiInformation::IsPropertyPresent(
@@ -287,7 +288,7 @@ bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, b
         auto size = frame.ContentSize();
         if (size.Width != int(s.width) || size.Height != int(s.height))
             Fail(L"Display size changed. The effect stopped; enable manually to retry.");
-        auto access = frame.Surface().as<IDirect3DDxgiInterfaceAccess>();
+        auto access = frame.Surface().as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
         ComPtr<ID3D11Texture2D> source;
         Check(access->GetInterface(IID_PPV_ARGS(&source)));
         D3D11_TEXTURE2D_DESC description{};

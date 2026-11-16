@@ -70,6 +70,18 @@ internal sealed class TrayService : IDisposable
         versionFour = false;
     }
 
+    internal void Notify(string title, string message)
+    {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        if (!visible) Show();
+        var data = Data();
+        data.Flags = 0x10; // NIF_INFO
+        data.InfoTitle = title.Length > 63 ? title[..63] : title;
+        data.Info = message.Length > 255 ? message[..255] : message;
+        data.InfoFlags = 0x1; // NIIF_INFO
+        if (!ShellNotifyIcon(1, ref data)) throw new Win32Exception("The notification could not be shown.");
+    }
+
     private NotifyIconData Data() => new()
     {
         Size = checked((uint)Marshal.SizeOf<NotifyIconData>()),

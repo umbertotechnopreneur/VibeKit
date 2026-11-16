@@ -34,6 +34,7 @@ internal sealed partial class StudioController : IDisposable
     private readonly CaptureConsentService captureConsent;
     private readonly EmergencyShortcut emergencyShortcut;
     private ScreenEffectSession? screen;
+    private bool notifyWhenRestored;
     private GpuMemory memory;
     private long generation;
     private double nextPerformanceLog;
@@ -141,6 +142,11 @@ internal sealed partial class StudioController : IDisposable
             var session = new ScreenEffectSession(model, caps, metrics =>
             {
                 memory = metrics.Memory;
+                if (notifyWhenRestored && model.State.IsCaptureValid)
+                {
+                    notifyWhenRestored = false;
+                    NotifyEffect("Ripple resumed", "The screen effect is active again.");
+                }
                 model.State.MetricsText = $"Mode\tScreen effect\nPresents\t{metrics.Presents:F1} /s\nDesktop updates\t{metrics.Captures:F1} /s\nCapture submit\t{metrics.Native.LastCaptureMs:F2} ms\nRender submit\t{metrics.Native.LastRenderCpuMs:F2} ms\nCapture size\t{metrics.Native.CaptureWidth} × {metrics.Native.CaptureHeight} px";
             }, (closed, reason) => { if (ReferenceEquals(screen, closed)) StopScreen(reason); });
             screen = session;
@@ -171,6 +177,17 @@ internal sealed partial class StudioController : IDisposable
         memory = default;
         Log.Information("ScreenStopped Generation={Generation} Reason={Reason}", generation, reason);
         model.State.StatusMessage = reason.Length > 0 ? reason : "Screen effect stopped.";
+        if (active is not null && reason.Length > 0 && reason != "Stopped by global shortcut.")
+        {
+            notifyWhenRestored = true;
+            NotifyEffect("Ripple stopped", reason);
+        }
+    }
+
+    private void NotifyEffect(string title, string message)
+    {
+        try { tray.Notify(title, message); }
+        catch (Exception ex) { Log.Warning(ex, "Ripple notification unavailable"); }
     }
 
     private void UpdateResources()

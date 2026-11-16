@@ -32,6 +32,8 @@ Capture uses Windows.Graphics.Capture with two GPU buffers and no CPU pixel read
 
 Screen mode retains the hardware Direct3D 11 requirement and at least 8,000,000,000 bytes of dedicated VRAM. Shared memory does not count. The resource monitor samples private RAM, working set and CPU; it warns at 500 MB private RAM about a possible memory leak and asks for a report. GPU budget and CPU submission timings are shown separately from presentation rates.
 
+Windows shows a notification if the screen effect stops unexpectedly and another when it is successfully started again. Restart after an error is manual; the Linux edition has a separate automatic recovery option for compositor delays.
+
 ## Diagnostics
 
 Early Windows releases keep detailed local logs to help diagnose capture failures and crashes across different Windows builds and GPUs. The logs record WinUI startup checkpoints, GPU capabilities, capture dimensions and status, and failures with their Windows error codes.

@@ -1,5 +1,7 @@
 # Build Thermalright VibeWare
 
+In a VibeKit checkout, run the commands below from `Apps/ThermalRight Panel`.
+
 I use the .NET 10 SDK and Python with pip on the packaging PC.
 
 Use `scripts/vibeware.ps1` as the console; Linux can use `scripts/vibeware` to prepare PowerShell too. The

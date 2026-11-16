@@ -1,5 +1,7 @@
 # Development
 
+In a VibeKit checkout, run the commands below from `Apps/AgentInbox`.
+
 Use Python 3.11+ for the standard-library mail engine. Windows setup also requires WinUI 3 and the .NET SDK declared in `global.json`. Scripts use PowerShell 7.
 
 Read [architecture](ARCHITECTURE.md). Python owns account settings, credentials, mail protocols and sending permissions and outcome recording. Keep desktop and MCP adapters thin.

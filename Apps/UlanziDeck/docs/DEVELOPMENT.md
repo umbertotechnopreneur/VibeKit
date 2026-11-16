@@ -17,6 +17,8 @@ VBWR E -->
 
 # Build and change UlanziDeck
 
+In a VibeKit checkout, run the commands below from `Apps/UlanziDeck`.
+
 The app is written in **Rust**. Rust turns source code into a fast, self-contained program. People using the app do not need Rust or Python installed.
 
 **Slint** draws the settings windows and connects their controls to Rust. **Python** prepares pictures, the printable OBS guide and license notices. It is a development tool, not part of the running controller.

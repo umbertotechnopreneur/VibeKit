@@ -74,6 +74,8 @@ it opens as its own application.
 
 ## Build it
 
+In a VibeKit checkout, run the commands below from `Apps/MarkVibe`.
+
 I use **.NET 10 / C# / OpenSilver XAML**, with **WPF and WebView2** for Windows,
 **Markdig** for Markdown, **Monaco** for source and **Mermaid** for diagrams.
 The browser adapters use JavaScript modules; there is no Vue application.

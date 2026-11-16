@@ -1,5 +1,7 @@
 # Build and debug VoiceDucker
 
+In a VibeKit checkout, run the commands below from `Apps/VoiceDucker`.
+
 ## Open it in Visual Studio
 
 Use Windows 11, the .NET 10 SDK selected by `global.json`, and Visual Studio

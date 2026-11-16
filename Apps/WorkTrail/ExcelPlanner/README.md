@@ -4,6 +4,8 @@ Compare local working hours across seven cities, including availability margins,
 
 This folder contains the standalone Excel prototype, its six CSV datasets and its authoring scripts. It is not integrated with the WorkTrail application or its build.
 
+I pay attention to resource use and the provenance of third-party data and tools. This prototype's documented limitations and data sources are listed below; they are not a security certification.
+
 ## Start
 
 Windows, desktop Microsoft Excel and PowerShell 7 are required for the existing launcher. From this folder, run:

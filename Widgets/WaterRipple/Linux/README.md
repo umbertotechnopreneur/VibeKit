@@ -2,6 +2,8 @@
 
 Ripple adds click-driven refraction to the wallpaper, application windows, or both on GNOME Shell 50 and Wayland. The [Windows edition](../README.md) uses WinUI and Direct3D 11; both editions share the [pipeline catalog and document format](../README.md#portable-pipeline-model).
 
+I pay attention to rendering performance, resource use and the provenance of third-party dependencies. The safeguards below are specific to the GNOME edition.
+
 Open **Ripple** from the applications menu, choose where the effect should appear, and adjust **Effect**. The controller enables the effect when GNOME accepts the extension request. Use the minus button or choose **Hide to tray** from the close dialog to keep it running. From the top bar menu, choose **Open** to restore the panel, **Effect** to toggle the waves, **About** for app information, or **Quit** to stop Ripple and close it. Use **Super + Shift + Esc** to stop the effect. The emergency shortcut can be disabled in the panel, which also shows if GNOME could not register it. The icon needs a StatusNotifier host, such as Ubuntu AppIndicators.
 
 The compositor limits the effect to a local region around the click and at most two waves. The controller keeps the effect alive while running, including when hidden. If its heartbeat stops or the compositor detects sustained delays, the extension turns the effect off.

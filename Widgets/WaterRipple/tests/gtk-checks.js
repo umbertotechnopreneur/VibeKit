@@ -11,6 +11,11 @@ function check(condition, message) { if (!condition) throw Error(message); }
 const settings = Gio.Settings.new_full(loadSchema(directory.get_child('schema.js').get_uri()), null, null);
 const window = new Adw.PreferencesWindow();
 const controls = buildControls(window, settings, null, true);
+check(!controls.glass.active, 'Experimental Liquid Glass must default to off.');
+controls.glass.active = true;
+check(settings.get_boolean('liquid-glass-experimental'), 'Liquid Glass switch did not update settings.');
+settings.set_boolean('liquid-glass-experimental', false);
+check(!controls.glass.active, 'Liquid Glass switch did not follow settings.');
 controls.preset.selected = 1;
 check(settings.get_double('strength') === 7, 'Pipeline selection did not reach settings.');
 controls.pipelines.create('<Test & water>');

@@ -35,4 +35,57 @@ if (exchange && process.argv.includes('--read')) {
 let corrupt = 'broken';
 const broken = new PipelineModel(catalog, model.adapter, {read: () => corrupt, write: value => { corrupt = value; }, id: () => 'safe'});
 broken.create('Safe'); assert.ok(broken.error); assert.equal(corrupt, 'broken');
+const empty = new PipelineModel(catalog, model.adapter, {read: () => '', write: () => { throw Error('Must not write'); }, id: () => 'empty'});
+empty.create('Safe'); assert.ok(empty.error); assert.equal(empty.items.length, catalog.presets.length);
 console.log('PASS Linux model: live application, CRUD, persistence, validation, corrupt input and portable exchange');
+
+// Deterministic scheduling and compare-and-replace storage exercise complete transactions.
+let durable = null, failWrite = false, writes = 0;
+const callbacks = new Map();
+const scheduler = {schedule: callback => { const token = ++id; callbacks.set(token, callback); return token; }, cancel: token => callbacks.delete(token)};
+function fixture() {
+    const state = Object.fromEntries(catalog.parameters.map(p => [p.key, p.default]));
+    const adapter = {supports: () => true, get: key => state[key], clamp: (_key, value) => value,
+        set: (key, value) => { state[key] = value; }};
+    const storage = {id: () => `fixture-${++id}`, read: () => durable,
+        write(contents, expected) {
+            if (failWrite) throw Error('Disk full');
+            if (durable !== expected) throw Error('Library changed');
+            durable = contents; writes++;
+        }};
+    return {model: new PipelineModel(catalog, adapter, storage, scheduler), state};
+}
+const first = fixture(), stale = fixture();
+first.model.create('Saved'); const original = durable;
+stale.model.create('Must not overwrite');
+assert.ok(stale.model.error); assert.equal(durable, original);
+assert.equal(stale.model.items.length, catalog.presets.length); assert.equal(stale.model.selected, null);
+const savedPipeline = first.model.selected;
+failWrite = true;
+for (const action of [() => first.model.rename(savedPipeline, 'Unsaved'), () => first.model.delete(savedPipeline),
+    () => first.model.create('Unsaved'), () => first.model.duplicate(savedPipeline),
+    () => first.model.import(JSON.stringify({version: 1, pipelines: [{id: 'import', name: 'Unsaved', values: {}}]})),
+    () => first.model.select(first.model.items[0])]) {
+    action(); assert.ok(first.model.error); assert.equal(durable, original);
+    assert.equal(first.model.items.length, catalog.presets.length + 1);
+    assert.equal(first.model.selected, savedPipeline); assert.equal(savedPipeline.name, 'Saved');
+    assert.equal(first.state.strength, savedPipeline.values.strength);
+}
+failWrite = false;
+writes = 0;
+for (let i = 0; i < 120; i++) { first.state.strength = 1 + i / 100; first.model.changed('strength'); }
+assert.equal(writes, 0); assert.equal(callbacks.size, 1); assert.equal(savedPipeline.values.strength, 2.19);
+first.model.flush();
+assert.equal(writes, 1); assert.equal(callbacks.size, 0);
+assert.equal(JSON.parse(durable).pipelines[0].values.strength, 2.19);
+first.state.strength = 7; first.model.changed('strength'); failWrite = true;
+assert.equal(first.model.flush(), false); assert.equal(first.state.strength, 2.19); assert.equal(savedPipeline.values.strength, 2.19);
+failWrite = false;
+const concurrent = fixture();
+first.state.strength = 8; first.model.changed('strength'); concurrent.model.rename(concurrent.model.items.at(-1), 'External');
+const external = durable;
+assert.equal(first.model.flush(), false); assert.equal(durable, external); assert.equal(first.state.strength, 2.19);
+const closing = fixture(); closing.model.select(closing.model.items.at(-1));
+closing.state.strength = 6; closing.model.changed('strength'); closing.model.dispose();
+assert.equal(JSON.parse(durable).pipelines[0].values.strength, 6); assert.equal(callbacks.size, 0);
+console.log('PASS pipeline conflicts, transaction rollback, 120 changes / one write, deferred errors and final flush');

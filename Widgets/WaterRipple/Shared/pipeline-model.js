@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Platform-neutral state and portable document contract; storage/settings are injected.
 export class PipelineModel {
-    constructor(catalog, adapter, storage) {
+    constructor(catalog, adapter, storage, scheduler = null) {
         this.catalog = catalog;
         this.adapter = adapter;
         this.storage = storage;
+        this.scheduler = scheduler;
+        this.pending = null;
+        this.saveTimer = null;
+        this.contents = null;
         this.listeners = new Set();
         this.error = '';
         this.selected = null;
@@ -13,7 +17,8 @@ export class PipelineModel {
         this.items = catalog.presets.map(p => ({...p, id: `builtin:${p.id}`, values: this.complete(p.values)}));
         try {
             const contents = storage.read();
-            if (contents) {
+            this.contents = contents;
+            if (contents !== null) {
                 const doc = this.parse(contents);
                 this.items.push(...doc.pipelines);
                 this.selected = this.items.find(p => p.id === doc.selectedId && this.matches(p)) ?? null;
@@ -29,8 +34,28 @@ export class PipelineModel {
     summary(p) { return this.catalog.groups.filter(g => !g.enabled || p.values[g.enabled]).map(g => g.title).join(', '); }
     subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
     notify() { for (const listener of this.listeners) listener(); }
+    checkpoint() {
+        return {items: [...this.items], selected: this.selected, settings: this.capture(),
+            entries: this.items.map(item => ({item, name: item.name, values: {...item.values}}))};
+    }
+    restore(checkpoint) {
+        this.applying = true;
+        try {
+            for (const {item, name, values} of checkpoint.entries) {
+                item.name = name;
+                item.values = values;
+            }
+            this.items = checkpoint.items;
+            this.selected = checkpoint.selected;
+            for (const p of this.catalog.parameters)
+                if (this.adapter.supports(p.key)) this.adapter.set(p.key, checkpoint.settings[p.key]);
+        } finally { this.applying = false; }
+    }
     run(action) {
-        try { this.error = ''; action(); } catch (e) { this.error = e.message; }
+        if (!this.flush()) return;
+        const checkpoint = this.checkpoint();
+        try { this.error = ''; action(); }
+        catch (e) { this.restore(checkpoint); this.error = e.message; }
         this.notify();
     }
     capture(previous = {}) {
@@ -54,34 +79,53 @@ export class PipelineModel {
             this.applying = true;
             try { for (const [key, value] of Object.entries(preset.values)) this.adapter.set(key, value); }
             finally { this.applying = false; }
-            this.changed(Object.keys(preset.values)[0]);
+            if (this.selected && !this.builtIn(this.selected)) this.selected.values = this.capture(this.selected.values);
+            else if (this.selected && !this.matches(this.selected)) this.selected = null;
+            this.save();
         });
     }
     select(pipeline) {
-        this.run(() => {
-            if (!this.items.includes(pipeline)) throw Error('Pipeline is unavailable.');
-            this.applying = true;
-            try {
-                for (const p of this.catalog.parameters)
-                    if (this.adapter.supports(p.key)) this.adapter.set(p.key, pipeline.values[p.key]);
-                this.selected = pipeline;
-                this.save();
-            } finally { this.applying = false; }
-        });
+        this.run(() => this.apply(pipeline));
+    }
+    apply(pipeline) {
+        if (!this.items.includes(pipeline)) throw Error('Pipeline is unavailable.');
+        this.applying = true;
+        try {
+            for (const p of this.catalog.parameters)
+                if (this.adapter.supports(p.key)) this.adapter.set(p.key, pipeline.values[p.key]);
+            this.selected = pipeline;
+            this.save();
+        } finally { this.applying = false; }
     }
     detach() { this.run(() => { this.selected = null; this.save(); }); }
     changed(key) {
         if (this.applying || !this.catalog.parameters.some(p => p.key === key)) return;
-        this.run(() => {
-            if (this.selected && !this.builtIn(this.selected)) {
-                this.selected.values = this.capture(this.selected.values);
-                this.save();
-            } else if (this.selected && !this.matches(this.selected)) {
-                this.selected = null;
-                this.save();
-            }
-        });
+        if (!this.selected || (this.builtIn(this.selected) && this.matches(this.selected))) return;
+        if (!this.pending) {
+            this.pending = this.checkpoint();
+            // Settings signals arrive after the value changes; undo to the saved pipeline on failure.
+            this.pending.settings = {...this.selected.values};
+        }
+        if (!this.builtIn(this.selected)) this.selected.values = this.capture(this.selected.values);
+        else this.selected = null;
+        this.error = '';
+        if (this.saveTimer !== null) this.scheduler.cancel(this.saveTimer);
+        if (this.scheduler) this.saveTimer = this.scheduler.schedule(() => { this.saveTimer = null; this.flush(); });
+        else this.flush();
+        this.notify();
     }
+    flush() {
+        if (this.saveTimer !== null) this.scheduler.cancel(this.saveTimer);
+        this.saveTimer = null;
+        if (!this.pending) return true;
+        const checkpoint = this.pending;
+        this.pending = null;
+        try { this.save(); this.error = ''; }
+        catch (e) { this.restore(checkpoint); this.error = e.message; this.notify(); return false; }
+        this.notify();
+        return true;
+    }
+    dispose() { this.flush(); this.listeners.clear(); }
     create(name) {
         this.run(() => {
             this.validateName(name); this.ensureCapacity();
@@ -93,7 +137,7 @@ export class PipelineModel {
         this.run(() => {
             this.ensureCapacity();
             const copy = {id: this.storage.id(), name: this.uniqueName(`${pipeline.name} copy`), values: {...pipeline.values}};
-            this.items.push(copy); this.select(copy);
+            this.items.push(copy); this.apply(copy);
         });
     }
     rename(pipeline, name) {
@@ -116,10 +160,15 @@ export class PipelineModel {
             this.save();
         });
     }
-    export() { return JSON.stringify({version: 1, pipelines: this.items.filter(p => !this.builtIn(p))}, null, 2); }
+    export() {
+        if (!this.flush()) throw Error(this.error);
+        return JSON.stringify({version: 1, pipelines: this.items.filter(p => !this.builtIn(p))}, null, 2);
+    }
     save() {
         if (!this.writable) throw Error('Repair or move the unreadable pipeline library before saving.');
-        this.storage.write(JSON.stringify({version: 1, selectedId: this.selected?.id ?? null, pipelines: this.items.filter(p => !this.builtIn(p))}, null, 2));
+        const contents = JSON.stringify({version: 1, selectedId: this.selected?.id ?? null, pipelines: this.items.filter(p => !this.builtIn(p))}, null, 2);
+        this.storage.write(contents, this.contents);
+        this.contents = contents;
     }
     parse(contents) {
         if (new TextEncoder().encode(contents).length > 512 * 1024) throw Error('Pipeline library exceeds 512 KiB.');

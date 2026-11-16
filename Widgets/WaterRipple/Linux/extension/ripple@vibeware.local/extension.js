@@ -12,7 +12,8 @@ import {RecoveryPolicy, readResourceSample, retryDelay} from './recovery.js';
 const NUMBERS = ['strength', 'speed', 'wavelength', 'rings', 'lifetime',
     'damping', 'light', 'radius', 'aspect', 'chromatic-separation', 'chromatic-blend',
     'crest-intensity', 'ripples-intensity', 'liquid-intensity'];
-const SWITCHES = ['invert', 'chromatic-enabled', 'crest-enabled', 'ripples-enabled', 'liquid-enabled'];
+const SWITCHES = ['invert', 'chromatic-enabled', 'crest-enabled', 'ripples-enabled', 'liquid-enabled',
+    'liquid-glass-experimental'];
 const now = () => GLib.get_monotonic_time() / 1e6;
 
 export default class RippleExtension extends Extension {

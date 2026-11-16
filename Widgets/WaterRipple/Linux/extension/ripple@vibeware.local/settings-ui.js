@@ -36,6 +36,12 @@ export function buildControls(window, settings, application = null, externalLeas
     const active = new Adw.SwitchRow({title: 'Effect'});
     settings.bind('active', active, 'active', Gio.SettingsBindFlags.DEFAULT);
     group.add(active);
+    const glass = new Adw.SwitchRow({
+        title: 'Liquid Glass (experimental)',
+        subtitle: 'Use glass-like waves and directional reflections; may use more GPU',
+    });
+    settings.bind('liquid-glass-experimental', glass, 'active', Gio.SettingsBindFlags.DEFAULT);
+    group.add(glass);
     const autoRestart = new Adw.SwitchRow({
         title: 'Auto restart',
         subtitle: 'Resume after a performance pause when the system is stable',
@@ -177,6 +183,7 @@ export function buildControls(window, settings, application = null, externalLeas
     }
     const changed = settings.connect('changed::status', () => status.set_title(settings.get_string('status')));
     window.connect('close-request', () => {
+        pipelines.dispose();
         closed = true;
         settings.set_boolean('recovery-pending', false);
         settings.set_boolean('active', false);
@@ -233,5 +240,5 @@ export function buildControls(window, settings, application = null, externalLeas
         enableExtension();
         window.connect('close-request', () => { cancellable.cancel(); return false; });
     }
-    return {page: content, active, preset, stop, status, pipelines};
+    return {page: content, active, glass, preset, stop, status, pipelines};
 }

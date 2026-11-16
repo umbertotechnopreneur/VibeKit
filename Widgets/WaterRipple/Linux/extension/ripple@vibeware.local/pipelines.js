@@ -22,20 +22,57 @@ export function loadPipelines(settings) {
     const storage = {
         id: () => GLib.uuid_string_random(),
         read() {
-            if (!file.query_exists(null)) return null;
-            return readLibrary(file);
+            return snapshot(file).contents;
         },
-        write(contents) {
-            GLib.mkdir_with_parents(file.get_parent().get_path(), 0o700);
-            file.replace_contents(contents, null, false, Gio.FileCreateFlags.PRIVATE, null);
+        write(contents, expected) {
+            withLibraryLock(path, () => {
+                const previous = snapshot(file);
+                if (previous.contents !== expected)
+                    throw Error('Pipeline library changed in another window. Reopen this panel before saving.');
+                GLib.mkdir_with_parents(file.get_parent().get_path(), 0o700);
+                file.replace_contents(contents, previous.etag, false, Gio.FileCreateFlags.PRIVATE, null);
+            });
         },
     };
-    return {model: new PipelineModel(catalog, adapter, storage), path};
+    const scheduler = {
+        schedule(callback) {
+            return GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => { callback(); return GLib.SOURCE_REMOVE; });
+        },
+        cancel: id => GLib.source_remove(id),
+    };
+    return {model: new PipelineModel(catalog, adapter, storage, scheduler), path};
 }
 
-export function readLibrary(file) {
-    if (file.query_info('standard::size', Gio.FileQueryInfoFlags.NONE, null).get_size() > 512 * 1024)
-        throw Error('Pipeline library exceeds 512 KiB.');
-    const [, bytes] = file.load_contents(null);
-    return new TextDecoder().decode(bytes);
+function snapshot(file) {
+    try {
+        if (file.query_info('standard::size', Gio.FileQueryInfoFlags.NONE, null).get_size() > 512 * 1024)
+            throw Error('Pipeline library exceeds 512 KiB.');
+        const [, bytes, etag] = file.load_contents(null);
+        if (bytes.length > 512 * 1024) throw Error('Pipeline library exceeds 512 KiB.');
+        return {contents: new TextDecoder().decode(bytes), etag};
+    } catch (error) {
+        if (error.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND)) return {contents: null, etag: null};
+        throw error;
+    }
+}
+
+export function readLibrary(file) { return snapshot(file).contents; }
+
+// A non-queued bus name serializes the compare-and-replace, including first creation.
+// The bus releases ownership if a panel crashes, so no stale disk lock needs recovery.
+function withLibraryLock(path, action) {
+    const name = `local.vibeware.Ripple.Library.l${GLib.compute_checksum_for_string(GLib.ChecksumType.SHA256, path, -1)}`;
+    const connection = Gio.DBus.session;
+    const call = (method, signature, args) => connection.call_sync(
+        'org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus', method,
+        new GLib.Variant(signature, args), new GLib.VariantType('(u)'), Gio.DBusCallFlags.NONE, 1000, null).deep_unpack()[0];
+    const result = call('RequestName', '(su)', [name, 4]); // DO_NOT_QUEUE
+    if (result !== 1 && result !== 4) throw Error('Pipeline library is busy in another window. Try again.');
+    try { return action(); }
+    finally {
+        if (result === 1) {
+            try { call('ReleaseName', '(s)', [name]); }
+            catch (error) { console.warn('Ripple could not release its library lock:', error.message); }
+        }
+    }
 }

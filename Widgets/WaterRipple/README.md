@@ -87,3 +87,5 @@ The MSIX execution alias is `waterripple.exe`, exposed at `%LOCALAPPDATA%\Micros
 ## Model checks
 
 `dotnet run --project tests/PipelineChecks.csproj` exercises the C# data model without WinUI. `node tests/pipeline-checks.mjs` checks the JavaScript model. Setting `RIPPLE_EXCHANGE` to the same temporary JSON path, running Node, then C#, then Node with `--read`, checks interchange in both directions. Build and overlay checks on Windows are still required for capture, startup and native presentation.
+
+Both models reject stale library writes and restore pipeline selection, values and live settings after a failed transaction. Parameter edits remain immediate; native UI schedulers group library writes after 250 ms of quiet, with a final flush before other library actions or disposal. The checks cover concurrent models, failed CRUD/import/selection, deferred failures, grouped edits and final saves.

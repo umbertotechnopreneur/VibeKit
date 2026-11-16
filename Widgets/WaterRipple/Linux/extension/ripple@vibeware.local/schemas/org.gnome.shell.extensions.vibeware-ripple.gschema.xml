@@ -49,6 +49,10 @@
     <key name="crest-enabled" type="b"><default>false</default></key>
     <key name="ripples-enabled" type="b"><default>false</default></key>
     <key name="liquid-enabled" type="b"><default>false</default></key>
+    <key name="liquid-glass-experimental" type="b">
+      <default>false</default>
+      <summary>Experimental Liquid Glass rendering</summary>
+    </key>
     <key name="chromatic-separation" type="d"><range min="0.0" max="100.0"/><default>18.0</default></key>
     <key name="chromatic-blend" type="d"><range min="0.0" max="100.0"/><default>45.0</default></key>
     <key name="crest-intensity" type="d"><range min="0.0" max="100.0"/><default>50.0</default></key>

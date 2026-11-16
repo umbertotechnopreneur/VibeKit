@@ -14,7 +14,11 @@ Ripple shows desktop notifications when it pauses for performance, resumes autom
 
 Use the **Effect** tab to choose a pipeline and expand **Ripple**, **RGB refraction**, **Crest reflections**, **Multiple ripples**, or **Glass / liquid**. Filters retain their individual presets and controls. Changes apply immediately to active waves and save automatically, without a preview or Apply step.
 
+**Liquid Glass (experimental)** switches to an alternative GNOME renderer with broad irregular rings, directional highlights and subtle color separation. It is off by default and can be toggled at any time. It is a local rendering preference, not part of a portable pipeline. The Ripple controls for speed, duration, damping, aspect, radius, ring spacing, ring count, refraction and inversion still apply; the other filter controls apply to the standard renderer only. Existing area, wave-count and frame-rate limits and performance safeguards also apply. Effects remain confined to individual wallpaper or window patches; they do not refract a combined desktop scene.
+
 The **Pipelines** tab lists built-in and personal pipelines with effect summaries and actions. **New pipeline** saves the current combination. Duplicate a built-in to customize it, rename or delete your copies, and use **Import** / **Export** to transfer JSON libraries between Linux and Windows. Saved pipelines update automatically as parameters change. The library lives at `$XDG_CONFIG_HOME/VibeWare/Ripple/pipelines.json`, normally `~/.config/VibeWare/Ripple/pipelines.json`. Renderer limits are applied locally; rendering can differ across platforms. The library excludes the effect switch, target, performance limits and emergency shortcut.
+
+Parameter changes apply immediately; library writes are grouped after 250 ms of quiet and flushed before another library action or closing the panel. A failed save restores the previous pipeline and settings. Writers compare the loaded file under a temporary D-Bus lock, released automatically on process exit. If another panel has changed the library, saving stops with a request to reopen the panel; the other panel's data is preserved.
 
 The Debian package starts Ripple hidden in the top bar when you sign in to GNOME,
 without presenting the settings window, even while the tray host is starting. The effect
@@ -40,11 +44,13 @@ Build the Debian package and extension archive with Python 3, `glib-compile-sche
 
 ```sh
 python3 build-package.py --output-dir /tmp/water-ripple
-sudo apt install /tmp/water-ripple/vibeware-ripple_0.1.4_all.deb
+sudo apt install /tmp/water-ripple/vibeware-ripple_0.1.5_all.deb
 ```
 
 If GNOME has yet to discover a new extension installation, sign out and back in so Ripple can enable it through GNOME's extension service.
 
 `build-package.py` includes the shared catalog and model in the extension archive and Debian package. For an isolated GTK check, extract the extension archive to a temporary directory and run `tests/gtk-checks.js` from the parent widget directory with `gjs -m`, passing that directory as its argument. Use `GSETTINGS_BACKEND=memory` and a temporary `XDG_CONFIG_HOME` to avoid changing personal settings.
+
+Run `tests/library-checks.js` the same way, with its own empty `XDG_CONFIG_HOME`, to check real GIO writes, separate D-Bus lock owners, stale panels, timed saves and closing with pending changes. Model checks in `tests/pipeline-checks.mjs` additionally inject failed writes and verify rollback of each library action.
 
 The extension, controller, and package files in this directory are licensed under [GPL-3.0-or-later](LICENSE).

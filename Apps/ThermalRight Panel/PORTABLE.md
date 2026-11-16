@@ -60,10 +60,10 @@ Your choices are saved. On short windows, open **Colors +** to see the sliders.
 
 Start with **1 s** updates and **High** quality. **Poor** makes rougher, smaller pictures. **25 ms** asks for very fast updates; your PC or screen may be slower.
 
-For Codex, press **Prepare Codex plugin**. Then finish installation and review its hooks inside Codex. [Help](https://github.com/umbertotechnopreneur/thermalright-vibeware/blob/main/plugins/thermalright-vibeware-codex/README.md). The bundled files are under `engine/plugins/thermalright-vibeware-codex`.
+For Codex, press **Prepare Codex plugin**. Then finish installation and review its hooks inside Codex. [Help](https://github.com/umbertotechnopreneur/VibeKit/blob/main/Apps/ThermalRight%20Panel/plugins/thermalright-vibeware-codex/README.md). The bundled files are under `engine/plugins/thermalright-vibeware-codex`.
 
 Windows only for now. Windows needs WebView2. No music login is needed. The app does not change volume or record sound.
 
-**Themes run code. For now, only use themes from the [official repo](https://github.com/umbertotechnopreneur/thermalright-vibeware).**
+**Themes run code. For now, only use themes from the [official repo](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/ThermalRight%20Panel).**
 
 Hobby project. No warranty. [My to-do list](cave.md) · [Make a theme](docs/theme-packs.md) · [Build](docs/build.md).

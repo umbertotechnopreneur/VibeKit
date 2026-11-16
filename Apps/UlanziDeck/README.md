@@ -21,8 +21,8 @@ VBWR E -->
 
 # UlanziDeck
 
-[![Build status](https://github.com/umbertotechnopreneur/ulanzi-dock-vibeware/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/ulanzi-dock-vibeware/actions/workflows/build.yml)
-![Platform: Windows, Linux and macOS](https://img.shields.io/badge/platform-Windows_%C2%B7_Linux_%C2%B7_macOS-0078D4)
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows and Linux](https://img.shields.io/badge/platform-Windows_%C2%B7_Linux-0078D4)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](LICENSE)
 
 Your shortcuts, music and favourite apps, one button away.
@@ -71,9 +71,9 @@ The code is free to use, change and share under the [MIT License](LICENSE).
 
 ## Get it running
 
-Download a package for your system from [Releases](https://github.com/umbertotechnopreneur/ulanzi-dock-vibeware/releases). For a portable package, extract the whole archive into a writable folder. On Windows, open `ulanzi-dock-vibeware.exe`. Keep the launcher beside it for startup at sign-in.
+Start with the [source build guide](docs/DEVELOPMENT.md) and [packaging instructions](docs/RELEASING.md). Binary downloads are not yet published in VibeKit. If you make a portable package, extract the whole archive into a writable folder. On Windows, open `ulanzi-dock-vibeware.exe`. Keep the launcher beside it for startup at sign-in.
 
-On Debian and Ubuntu, install the `.deb` and open UlanziDeck from the application menu. From a portable Linux or macOS Apple Silicon archive, use `./ulanzi-dock-vibeware run`. See the [platform guide](docs/PLATFORMS.md) for the options on each system.
+On Debian and Ubuntu, install the `.deb` and open UlanziDeck from the application menu. From a portable Linux archive, use `./ulanzi-dock-vibeware run`. See the [platform guide](docs/PLATFORMS.md) for the options on each system.
 
 Linux source builds also offer `./ulanzi-dock-vibeware configure` to choose supported installed apps, including LibreOffice. Choosing an app keeps its current shortcuts; suggested Linux shortcuts are a separate choice. See [Linux application choices](docs/PLATFORMS.md#linux-application-choices). Linux support is in development.
 
@@ -121,7 +121,7 @@ On Windows, with the ten standard pages, the two bottom buttons in the index sho
 **APP DETECT ON/OFF** and **AUTO PAGE ON/OFF**. Press and release either button to change its setting.
 Changes are saved immediately. AUTO PAGE becomes available when app detection is
 on. Turning detection off keeps enabled pages available for manual use. These
-buttons show UNAVAILABLE on Linux and macOS, or when a command-line option locks
+buttons show UNAVAILABLE on Linux, or when a command-line option locks
 the setting for the current run.
 
 ### OBS recording page
@@ -138,16 +138,20 @@ I am planning a WinUI 3 app for editing keys, pages, apps, themes, presets and d
 
 [See the twelve dark/light mockups](docs/design/README.md). They are pictures of an idea, not a working interface. The current dialogs use Slint.
 
+## Platform support
+
+macOS is not supported: I do not have a Mac to develop and test it. Contributors willing to maintain macOS support are welcome.
+
 ## Which hardware works?
 
 > [!IMPORTANT]
 > **Windows on ARM testers wanted — volunteer guinea pigs welcome! 🐹**
 >
-> This is my hobby project, built for my own **Ulanzi D200H on Windows x64**. If you can try the **Windows ARM64**, **Linux x64** or **macOS Apple Silicon** build, I'd love your help checking USB connection, button images and presses, page switching, brightness and shortcuts. I'll give you all the support I can.
+> This is my hobby project, built for my own **Ulanzi D200H on Windows x64**. If you can try the **Windows ARM64** or **Linux x64** build, I'd love your help checking USB connection, button images and presses, page switching, brightness and shortcuts. I'll give you all the support I can.
 >
 > Own another Ulanzi model? You're welcome too. The controller currently detects the D200H specifically, so other models may need code changes before they can connect. You can [build the source](docs/DEVELOPMENT.md) and help me find out what needs changing.
 >
-> [Open an issue](https://github.com/umbertotechnopreneur/ulanzi-dock-vibeware/issues) and tell me your dock model, operating system, CPU architecture, and what worked or failed.
+> [Open an issue](https://github.com/umbertotechnopreneur/VibeKit/issues) and tell me your dock model, operating system, CPU architecture, and what worked or failed.
 
 ## Credits
 
@@ -177,7 +181,7 @@ I am [Umberto Giacobbi](https://umbertogiacobbi.biz). I define this project's pu
 
 To learn what VibeWare means and why I created it, read the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
 
-[UlanziDeck on GitHub](https://github.com/umbertotechnopreneur/ulanzi-dock-vibeware) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
+[UlanziDeck on GitHub](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/UlanziDeck) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
 
 *You are welcome to explore, adapt and reuse the open-source VibeWare materials under the project license — my contribution to the developer community.*
 

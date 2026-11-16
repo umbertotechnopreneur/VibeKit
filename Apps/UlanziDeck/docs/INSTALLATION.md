@@ -18,7 +18,7 @@ VBWR E -->
 
 ## Use the Windows installer
 
-Download an MSIX from [my releases](https://github.com/umbertotechnopreneur/ulanzi-dock-vibeware/releases), when available. MSIX is Windows' app package format.
+Binary downloads are not yet published in VibeKit. Start with the [source build guide](DEVELOPMENT.md), or [build your own installer](#build-your-own-installer). MSIX is Windows' app package format. Once you have a locally built package:
 
 1. Open the MSIX and choose **Install**.
 2. Open **UlanziDeck** from Start.
@@ -36,7 +36,7 @@ Extract the whole Windows ZIP into a writable folder. Open `ulanzi-dock-vibeware
 
 On Windows, `run`, `configure`, `brightness` and portable sign-in startup use the default profile beside the app. Use `--config` with `run`, `configure` and `brightness` to work with another profile.
 
-The Debian package adds UlanziDeck to the Linux application menu. Portable Linux and macOS archives use a terminal. See the [platform guide](PLATFORMS.md).
+The Debian package adds UlanziDeck to the Linux application menu. Portable Linux archives use a terminal. See the [platform guide](PLATFORMS.md).
 
 ## Change and back up settings
 

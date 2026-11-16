@@ -120,4 +120,4 @@ Use a positive maximum and keep missing measurements absent. Colors follow the
 displayed range; they are not hardware alarm thresholds. Decorative rings and
 status symbols keep their own meaning.
 
-[Full drawing API](https://github.com/umbertotechnopreneur/thermalright-vibeware/blob/codex/usb-transport/theme-runtime/README.md) · [Engine commands](engine-protocol.md). In the ZIP, the full API guide is in `engine/theme-runtime/README.md`.
+[Full drawing API](https://github.com/umbertotechnopreneur/VibeKit/blob/main/Apps/ThermalRight%20Panel/theme-runtime/README.md) · [Engine commands](engine-protocol.md). In the ZIP, the full API guide is in `engine/theme-runtime/README.md`.

@@ -10,9 +10,9 @@ I build AgentInbox to help you read email and request optional sends through you
 
 I am Umberto Giacobbi, and I maintain AgentInbox with help from contributors. Contact hello@umbertogiacobbi.biz with questions.
 
-The public source is [MIT-licensed](https://github.com/umbertotechnopreneur/AgentInbox/blob/main/LICENSE). That license governs your rights to use, copy, modify and distribute it. These terms do not remove those rights. Third-party components retain their own licenses.
+The public source is [MIT-licensed](https://github.com/umbertotechnopreneur/VibeKit/blob/main/Apps/AgentInbox/LICENSE). That license governs your rights to use, copy, modify and distribute it. These terms do not remove those rights. Third-party components retain their own licenses.
 
-The Python engine and configuration apps are in development. Windows commercial distribution is MSIX for Windows 11 x64 and ARM64. Linux Debian packages are available for local builds. On macOS, you run the Python CLI from source. Commercial support is outside scope on Linux and macOS.
+The Python engine and configuration apps are in development. Windows commercial distribution is MSIX for Windows 11 x64 and ARM64. Linux Debian packages are available for local builds. macOS is not supported because I do not have a Mac to develop and test it. Contributors willing to maintain macOS support are welcome. Commercial support is outside scope on Linux.
 
 ## Authorized accounts and data
 

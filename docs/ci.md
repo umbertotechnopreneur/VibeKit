@@ -11,7 +11,7 @@ GitHub discovers workflows in the root `.github/workflows/` directory. The copie
 | `Apps/AgentInbox/` | Windows Python source checks |
 | `Apps/HelpMe/` | Quality, Windows/Linux build and tests, Debian packages |
 | `Apps/MarkVibe/` | Quick checks on Windows and Linux |
-| `Apps/RamTaskman/` | Existing Python 3.11/3.13/3.14 matrix on Linux, Windows and macOS; package verification without PyPI publishing |
+| `Apps/RamTaskman/` | Existing Python 3.11/3.13/3.14 matrix on Linux and Windows; package verification without PyPI publishing |
 | `Apps/ThermalRight Panel/` | Windows builds and packages, Linux UI checks and Debian package |
 | `Apps/UlanziDeck/` | Rust tests, builds and packages for the existing target matrix |
 | `Apps/VoiceDucker/` | Windows portable builds, regressions and ZIP verification |
@@ -48,7 +48,7 @@ Versions belong to applications. Tags use an application prefix:
 | MarkVibe | `markvibe/v0.1.0.2` | Reserved namespace; `markvibe-package-windows.yml` produces manual artifacts |
 | Thermalright | `thermalright/v0.1.24` | Reserved namespace; CI produces artifacts without a release-publishing workflow |
 
-Only HelpMe and WorkTrail retain automatic tag-triggered release preparation, scoped to their prefixes. Existing draft defaults, version checks, target architectures and packaging policies remain in effect. VoiceDucker publication is isolated in a manual workflow so its write permission is never required by reusable CI. UlanziDeck's Git tag prefix is removed from archive filenames, preserving the executable/package naming contract. Its previous stable release must be migrated before its next-minor-version check can run. Never use the repository-wide `/releases/latest` to determine an application's latest release.
+Only HelpMe and WorkTrail retain automatic tag-triggered release preparation, scoped to their prefixes. Existing draft defaults, version checks, target architectures and packaging policies remain in effect. VoiceDucker publication is isolated in a manual workflow so its write permission is never required by reusable CI. UlanziDeck's Git tag prefix is removed from archive filenames, preserving the executable/package naming contract. Migrate its previous stable release to preserve release history before preparing a new version. If no published stable `ulanzideck/v*` release exists, the manual workflow can instead create an initial namespaced release: explicitly supply a new tag matching the checked-out `Cargo.toml` version. It will not choose an initial tag automatically. Once a stable release exists, the next-minor-version check applies as before. Existing tags are always rejected, and releases remain drafts by default. Never use the repository-wide `/releases/latest` to determine an application's latest release.
 
 HelpMe's Store workflow and AgentInbox's Debug MSIX workflow remain explicit manual actions. Migrating a workflow does not validate, sign, install or publish a package.
 

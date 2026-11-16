@@ -61,7 +61,7 @@ Account JSON stores non-secret settings and permission choices, not password or 
 | Platform | Password and refresh-token storage |
 | --- | --- |
 | Windows | Windows Credential Manager, through native WinCred APIs |
-| macOS | Keychain through native APIs |
+| macOS | Unsupported; the existing Keychain code is unmaintained and unverified |
 | Linux | Native `libsecret` APIs with an unlocked Secret Service keyring |
 
 On Linux, open **Troubleshooting** and choose **Check keyring access** to verify access in your session. The same disposable check is available through `agentinbox doctor --check-storage`.

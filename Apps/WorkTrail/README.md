@@ -1,6 +1,6 @@
 # WorkTrail — See time zones and availability at a glance
 
-[![Build status](https://github.com/umbertotechnopreneur/WorkTrail/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/WorkTrail/actions/workflows/build.yml)
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
 ![Platform: Windows 11](https://img.shields.io/badge/platform-Windows_11-0078D4)
 ![Status: pre-production](https://img.shields.io/badge/status-pre--production-F9665B)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](LICENSE)
@@ -25,16 +25,13 @@ I review third-party dependencies and their sources and pay attention to memory,
 
 ## Get WorkTrail
 
-WorkTrail targets **Windows 11 x64 and ARM64**. The Microsoft Store channel is separate from the [GitHub Releases](https://github.com/umbertotechnopreneur/WorkTrail/releases) channel. GitHub release downloads use **portable ZIPs**: extract the complete archive and run `WorkTrail.exe`. Keep its DLLs and resource folders together. Linux and macOS are source-only, without binaries or compatibility promises.
-
-The next portable release is being prepared. Its publication and download availability are separate from the source features described here.
+WorkTrail targets **Windows 11 x64 and ARM64**. The Microsoft Store channel is separate from source builds and portable distribution. Binary downloads are not yet published in VibeKit; start with the source instructions below. A locally built **portable ZIP** keeps `WorkTrail.exe`, its DLLs and resource folders together. Linux is source-only, without binaries or compatibility promises. macOS is not supported because I do not have a Mac to develop and test it. Contributors willing to maintain macOS support are welcome.
 
 To work on the source, install PowerShell 7, the .NET 10 SDK and the Windows build tools described in the [development guide](docs/DEVELOPMENT.md). Start with:
 
 ```powershell
-git clone https://github.com/umbertotechnopreneur/WorkTrail.git WorkTrail
-Set-Location .\WorkTrail
-pwsh -NoProfile -File ./scripts/Install-GitHooks.ps1
+git clone https://github.com/umbertotechnopreneur/VibeKit.git
+Set-Location .\VibeKit\Apps\WorkTrail
 ```
 
 On the first import of an external dependency, scan its archive and extracted files with Microsoft Defender before use. Reuse the evidence for the same unchanged import; see [AGENTS.md](AGENTS.md).
@@ -64,9 +61,9 @@ Project-authored code and documentation use the [MIT License](LICENSE). The Work
 
 ## More from MeUp
 
-- [AgentInbox](https://github.com/umbertotechnopreneur/AgentInbox): connect your inboxes to your AI assistant.
-- [PromptMeUp](https://github.com/umbertotechnopreneur/PromptMeUp): Can't remember that command? Git, Bash, or PowerShell: describe what you want to do. hm is here to help.
-- [WorkTrail](https://github.com/umbertotechnopreneur/WorkTrail): compare time zones and availability at a glance, with independent desktop widgets.
+- [AgentInbox](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/AgentInbox): connect your inboxes to your AI assistant.
+- [PromptMeUp](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/HelpMe): Can't remember that command? Git, Bash, or PowerShell: describe what you want to do. hm is here to help.
+- [WorkTrail](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/WorkTrail): compare time zones and availability at a glance, with independent desktop widgets.
 
 I’m Umberto Giacobbi. I built and maintain WorkTrail, with help from contributors. Find me on [LinkedIn](https://www.linkedin.com/in/umbertogiacobbi/) or at [umbertogiacobbi.biz](https://umbertogiacobbi.biz/).
 

@@ -10,7 +10,6 @@ This guide is for preparing downloads. For everyday use, start with [installatio
 | --- | --- |
 | Windows x64 and ARM64 | ZIP with the controller and Windows sign-in launcher. |
 | Linux x64 | tar.gz and a Debian `.deb` installer, built on Ubuntu 24.04 in CI. |
-| macOS Apple Silicon | tar.gz built on macOS 15. No Intel package. |
 
 See [platform coverage](PLATFORMS.md) for features and runtime limits. Windows also has a separate [local MSIX installer](INSTALLATION.md#build-your-own-installer) for x64 and ARM64.
 
@@ -87,7 +86,7 @@ The configurator edits settings without opening the dock; `ulanzideck run`
 starts the controller, waits for the D200H and reconnects after USB errors.
 
 Build CI adds the `.deb` and checksum to its Linux artifact. The manual Release
-workflow includes them alongside the four platform archives. No release is
+workflow includes them alongside the three platform archives. No release is
 published merely by creating a local package or running Build CI.
 
 ## Publish only when requested

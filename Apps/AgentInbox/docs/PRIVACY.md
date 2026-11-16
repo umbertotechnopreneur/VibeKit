@@ -18,7 +18,7 @@ You supply an email address, an incoming protocol, server names, ports, TLS sett
 
 For a Microsoft account, you can explicitly choose **Web authorization** and supply a public client ID and tenant setting from your app registration. AgentInbox then shows a short code for signing in with Microsoft; a browser opens only when you request it. Microsoft processes your sign-in and consent under its policies. AgentInbox receives access and refresh tokens for the requested mail access. Web authorization is not available for Google accounts, and AgentInbox does not change sign-in methods after a failure.
 
-Connection settings and account permissions are stored locally. Windows Credential Manager stores passwords and Microsoft refresh tokens. Current-user DPAPI protects temporary sign-in blobs. The source uses native Keychain on macOS and an available Secret Service on Linux; those paths remain untested. Missing secure storage fails instead of writing plain-text credentials.
+Connection settings and account permissions are stored locally. Windows Credential Manager stores passwords and Microsoft refresh tokens. Current-user DPAPI protects temporary sign-in blobs. On Linux, the source uses an available Secret Service; this path remains untested. Missing secure storage fails instead of writing plain-text credentials.
 
 These facilities do not encrypt every local metadata file or protect a compromised signed-in operating-system account. Server connections require implicit TLS or required STARTTLS with certificate and hostname checks. There is no plaintext mode or custom-CA setting.
 

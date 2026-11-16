@@ -36,7 +36,7 @@ Version label used in the output archive name; this does not create a Git tag.
 [CmdletBinding()]
 param(
     [string]$Target,
-    [ValidateSet('windows-x64', 'windows-arm64', 'linux-x64', 'macos-arm64')]
+    [ValidateSet('windows-x64', 'windows-arm64', 'linux-x64')]
     [string]$Label,
     [ValidatePattern('^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$')]
     [string]$Tag
@@ -56,7 +56,6 @@ $targets = @{
     'windows-x64' = 'x86_64-pc-windows-msvc'
     'windows-arm64' = 'aarch64-pc-windows-msvc'
     'linux-x64' = 'x86_64-unknown-linux-gnu'
-    'macos-arm64' = 'aarch64-apple-darwin'
 }
 if ($Target -ne $targets[$Label]) { throw "Target $Target does not match platform $Label." }
 $package = Join-Path $root "dist/package-$Label"

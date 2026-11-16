@@ -16,7 +16,7 @@ My email was spread across several accounts. I built AgentInbox so I could ask m
   </tr>
 </table>
 
-**[Download for Windows](https://github.com/umbertotechnopreneur/AgentInbox/releases)** · **[Setup guide](docs/GETTING_STARTED.md)** · [Privacy](docs/PRIVACY.md)
+**[Build from source](docs/DEVELOPMENT.md)** · **[Setup guide](docs/GETTING_STARTED.md)** · [Privacy](docs/PRIVACY.md)
 
 Connect as many compatible mailboxes as you need: Gmail, Microsoft, iCloud, GoDaddy and other IMAP or POP3 providers. One MCP connection lets your AI assistant work across them.
 
@@ -26,7 +26,7 @@ Email deserves careful handling. I review third-party dependencies and their sou
 
 ## Get started
 
-1. Download the Windows ZIP, extract the whole folder and open `AgentInbox.Desktop.exe`.
+1. Follow the [build guide](docs/DEVELOPMENT.md) for Windows, or the [Linux setup guide](docs/LINUX_SETUP.md). Binary downloads are not yet published in VibeKit.
 2. Add your mailboxes. Choose which accounts and folders to share.
 3. Connect your assistant and ask a question.
 
@@ -71,7 +71,7 @@ Your mail stays with its provider. Your assistant may send requested content to 
 
 ## Need help?
 
-Windows 11 supports x64 and ARM64. On Linux, use the [GTK setup app or command line](docs/LINUX_SETUP.md) with Python 3.11 or newer. Debian-based systems can install local `.deb` builds. On macOS, run the Python CLI from source.
+Windows 11 supports x64 and ARM64. On Linux, use the [GTK setup app or command line](docs/LINUX_SETUP.md) with Python 3.11 or newer. Debian-based systems can install local `.deb` builds. macOS is not supported because I do not have a Mac to develop and test it. Contributors willing to maintain macOS support are welcome.
 
 [Accounts and passwords](docs/AUTHENTICATION.md) · [Troubleshooting](docs/RECOVERY.md) · [Build and contribute](docs/DEVELOPMENT.md) · [How it works](docs/ARCHITECTURE.md)
 

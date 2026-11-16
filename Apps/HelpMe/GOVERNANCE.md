@@ -16,9 +16,9 @@ Use English for repository writing. Runtime UI and prompt translations retain al
 
 ## Releases and security
 
-The [release process](docs/RELEASING.md) checks the code, builds portable packages with their license notices, and prepares a draft. The maintainer reviews it before publishing. Optional Windows MSI and WinGet packages have a [separate guide](docs/WINDOWS_PACKAGING.md).
+The [VibeKit release guide](../../docs/ci.md) describes the namespaced HelpMe release workflow and its draft preparation. Linux distribution uses Debian packages; Windows MSIX packaging is a separate, explicitly requested workflow.
 
-Please [report security problems privately](https://github.com/umbertotechnopreneur/PromptMeUp/security/advisories/new). Use [Discussions](https://github.com/umbertotechnopreneur/PromptMeUp/discussions) for help and [issues](https://github.com/umbertotechnopreneur/PromptMeUp/issues/new/choose) for bugs or improvements. I maintain this in my own time, so I can't promise a response time.
+Please [report security problems privately](SECURITY.md). Use [VibeKit issues](https://github.com/umbertotechnopreneur/VibeKit/issues) for help, bugs or improvements, with **[HelpMe]** in the title. I maintain this in my own time, so I can't promise a response time.
 
 ## Contribution and attribution
 

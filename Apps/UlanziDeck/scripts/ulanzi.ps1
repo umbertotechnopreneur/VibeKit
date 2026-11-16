@@ -80,7 +80,7 @@ param(
     [string] $PackageVersion,
     [switch] $SignStoreTestPackage,
     [string] $Target,
-    [ValidateSet('windows-x64', 'windows-arm64', 'linux-x64', 'macos-arm64')] [string] $Label,
+    [ValidateSet('windows-x64', 'windows-arm64', 'linux-x64')] [string] $Label,
     [string] $Tag,
     [string] $Source,
     [string] $Settings,
@@ -122,7 +122,7 @@ function Invoke-Task([string] $Name, [hashtable] $Options) {
         return
     }
     if (-not $IsWindows -and $Name -in @('build', 'msix', 'msix-icons')) {
-        throw 'This task uses Windows tools. On Linux or macOS, build with Cargo; see docs/DEVELOPMENT.md.'
+        throw 'This task uses Windows tools. On Linux, build with Cargo; see docs/DEVELOPMENT.md.'
     }
     switch ($Name) {
         build {

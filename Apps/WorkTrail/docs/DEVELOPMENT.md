@@ -1,13 +1,16 @@
 # Build WorkTrail from source
 
-Use Windows 11 x64 or ARM64, PowerShell 7, the .NET 10 SDK selected by `global.json`, and the Windows SDK. Ordinary distributable builds and GitHub releases use portable ZIPs only. Microsoft Store packaging is a separate, explicitly requested task. Linux and macOS are source-only.
+Use Windows 11 x64 or ARM64, PowerShell 7, the .NET 10 SDK selected by `global.json`, and the Windows SDK. Ordinary distributable builds and GitHub releases use portable ZIPs only. Microsoft Store packaging is a separate, explicitly requested task. Linux is source-only. macOS is not supported: I do not have a Mac to develop and test it. Contributors willing to maintain macOS support are welcome.
 
 ## Prepare a checkout
 
+Run from `Apps/WorkTrail` in the VibeKit checkout:
+
 ```powershell
-pwsh -NoProfile -File ./scripts/Install-GitHooks.ps1
 pwsh -NoProfile -File ./scripts/WorkTrail.ps1 -Action Preflight
 ```
+
+The standalone hook installer is not a monorepo hook. Use the scoped formatting commands below; see the [VibeKit CI guide](../../../docs/ci.md).
 
 Before the first use of an external library or binary, scan the downloaded archive and extracted dependency files with Microsoft Defender. Record the official source, version or hash, command and clean result. Reuse the evidence for unchanged imports; do not scan whole installed SDK trees or generated output. See [AGENTS.md](../AGENTS.md).
 

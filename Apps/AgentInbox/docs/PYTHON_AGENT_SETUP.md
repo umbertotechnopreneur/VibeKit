@@ -23,9 +23,9 @@ Set the profile in PowerShell with `$env:AGENTINBOX_DATA_DIR = '<absolute-profil
 python -B python/run.py doctor --check-storage --json
 ```
 
-Require a successful exit and `ready: true`. This checks local prerequisites and round-trips a disposable protected value. It does not test a mail provider. On Windows, credentials use the current user's Credential Manager. On Linux, libsecret and an unlocked Secret Service keyring must be accessible in the same user's D-Bus session as Codex. On macOS, Keychain must be accessible to that user. Native Linux and macOS credential paths require validation on the destination system.
+Require a successful exit and `ready: true`. This checks local prerequisites and round-trips a disposable protected value. It does not test a mail provider. On Windows, credentials use the current user's Credential Manager. On Linux, libsecret and an unlocked Secret Service keyring must be accessible in the same user's D-Bus session as Codex. The native Linux credential path requires validation on the destination system.
 
-Backup decryption also requires OpenSSL AES-GCM and Python's scrypt support. On Windows, the engine looks for `libcrypto-3.dll` beside Python or in its base `DLLs` directory. On Linux and macOS it resolves the system `crypto` library. If import reports unavailable cryptography, repair the official Python or system OpenSSL installation before retrying. Never download an individual DLL from an unofficial site or weaken secure storage.
+Backup decryption also requires OpenSSL AES-GCM and Python's scrypt support. On Windows, the engine looks for `libcrypto-3.dll` beside Python or in its base `DLLs` directory. On Linux it resolves the system `crypto` library. If import reports unavailable cryptography, repair the official Python or system OpenSSL installation before retrying. Never download an individual DLL from an unofficial site or weaken secure storage.
 
 ## Restore the owner's accounts
 

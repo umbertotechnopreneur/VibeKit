@@ -6,7 +6,7 @@ You decide what runs. HelpMe shows the exact command, checks its risks on your m
 
 Please do not open a public issue for a vulnerability that could expose secrets, execute commands unexpectedly, corrupt local history, or bypass authorization.
 
-Use [GitHub's private security report](https://github.com/umbertotechnopreneur/PromptMeUp/security/advisories/new). Tell me which version or commit you used, your operating system, how to reproduce the problem, and what it could affect. Remove API keys, prompts, command output, usernames, and local paths from anything you attach.
+Email [hello@umbertogiacobbi.biz](mailto:hello@umbertogiacobbi.biz?subject=HelpMe%20security%20report) with **HelpMe security report** in the subject. Tell me which version or commit you used, your operating system, how to reproduce the problem, and what it could affect. Remove API keys, prompts, command output, usernames, and local paths from anything you attach.
 
 ## What the checks do — and their limits
 

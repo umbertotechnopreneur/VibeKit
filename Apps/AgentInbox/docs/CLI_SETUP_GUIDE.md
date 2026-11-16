@@ -20,7 +20,7 @@ Copy-Item docs/examples/accounts.setup.json $setup
 python -B python/run.py profile show
 ```
 
-Bash or zsh, on Linux/macOS:
+Bash or zsh, on Linux:
 
 ```sh
 mkdir -p "$HOME/AgentInbox"
@@ -32,7 +32,7 @@ python -B python/run.py profile show
 
 Copy the template once. Edit that copy before adding accounts. Do not overwrite an existing edited file. The variable assignments apply to this terminal; set the same absolute profile path in each new terminal and in your MCP client's environment.
 
-Windows uses Credential Manager. macOS needs an accessible Keychain. Linux needs libsecret and an unlocked Secret Service keyring in the user session running the process. For guided setup without editing JSON, diagnostics and generated MCP configuration, use the [Linux guide](LINUX_SETUP.md). New source commands do not change already distributed Windows packages.
+Windows uses Credential Manager. Linux needs libsecret and an unlocked Secret Service keyring in the user session running the process. For guided setup without editing JSON, diagnostics and generated MCP configuration, use the [Linux guide](LINUX_SETUP.md). New source commands do not change already distributed Windows packages.
 
 <!-- pagebreak -->
 

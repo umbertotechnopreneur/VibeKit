@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Optional ulanzideck/v<version>-stable tag
+        description: ulanzideck/v<version>-stable tag; required for the first release
         required: false
         type: string
       draft:
@@ -59,7 +59,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-      - name: Require the next minor release and a new matching tag
+      - name: Validate the initial or next minor release and a new matching tag
         id: version
         shell: pwsh
         env:
@@ -72,11 +72,18 @@ jobs:
           $version = $versionLine.Matches[0].Groups[1].Value
           $latestTag = @(gh release list --limit 1000 --json tagName,isDraft,isPrerelease | ConvertFrom-Json | Where-Object { -not $_.isDraft -and -not $_.isPrerelease -and $_.tagName.StartsWith('ulanzideck/v') } | Select-Object -First 1 -ExpandProperty tagName)[0]
           if ($LASTEXITCODE -ne 0) { throw 'Could not read the latest published release.' }
-          if ($latestTag -cnotmatch '^ulanzideck/v(?<major>[0-9]+)\.(?<minor>[0-9]+)\.[0-9]+(?:-stable)?$') {
-            throw 'The latest published release must use v<major>.<minor>.<patch>, optionally ending in -stable.'
+          if ([string]::IsNullOrWhiteSpace($latestTag)) {
+            if ([string]::IsNullOrWhiteSpace($env:RELEASE_TAG)) {
+              throw 'No published UlanziDeck release exists in VibeKit. Migrate the previous stable release, or explicitly supply the initial ulanzideck/v<version>-stable tag matching Cargo.toml.'
+            }
+            Write-Output "Preparing the initial namespaced UlanziDeck release from source version $version."
+          } else {
+            if ($latestTag -cnotmatch '^ulanzideck/v(?<major>[0-9]+)\.(?<minor>[0-9]+)\.[0-9]+(?:-stable)?$') {
+              throw 'The latest published release must use ulanzideck/v<major>.<minor>.<patch>, optionally ending in -stable.'
+            }
+            $nextVersion = '{0}.{1}.0' -f [int]$Matches.major, ([int]$Matches.minor + 1)
+            if ($version -cne $nextVersion) { throw "The next public release must be $nextVersion. Update Cargo.toml and Cargo.lock first." }
           }
-          $nextVersion = '{0}.{1}.0' -f [int]$Matches.major, ([int]$Matches.minor + 1)
-          if ($version -cne $nextVersion) { throw "The next public release must be $nextVersion. Update Cargo.toml and Cargo.lock first." }
           if ([string]::IsNullOrWhiteSpace($env:RELEASE_TAG)) { $env:RELEASE_TAG = "ulanzideck/v$version-stable" }
           if ($env:RELEASE_TAG -cnotin @("ulanzideck/v$version", "ulanzideck/v$version-stable")) { throw 'Tag must match Cargo.toml, optionally ending in -stable.' }
           $existing = git ls-remote --tags origin "refs/tags/$env:RELEASE_TAG"
@@ -105,9 +112,6 @@ jobs:
           - runner: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             label: linux-x64
-          - runner: macos-15
-            target: aarch64-apple-darwin
-            label: macos-arm64
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -182,7 +186,7 @@ jobs:
           $archives = @(Get-ChildItem -LiteralPath dist -File | Where-Object { $_.Name -match '\.(zip|tar\.gz)$' })
           $debs = @(Get-ChildItem -LiteralPath dist -Filter '*.deb')
           $checksums = @(Get-ChildItem -LiteralPath dist -Filter '*.sha256')
-          if ($archives.Count -ne 4 -or $debs.Count -ne 1 -or $checksums.Count -ne 5) { throw 'Four platform archives, the Linux Debian package and all five checksums are required.' }
+          if ($archives.Count -ne 3 -or $debs.Count -ne 1 -or $checksums.Count -ne 4) { throw 'Three platform archives, the Linux Debian package and all four checksums are required.' }
           Push-Location dist
           try {
             Get-Content -LiteralPath $checksums.FullName | Set-Content -LiteralPath SHA256SUMS.txt -Encoding ascii

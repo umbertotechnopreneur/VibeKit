@@ -5,7 +5,7 @@
 
 **A local Markdown reader with a document map, optional AI editing and HTML/PDF export.**
 
-[Windows downloads](https://github.com/umbertotechnopreneur/MarkVibe/releases) ·
+[Get started](#build-it) ·
 [MIT license](LICENSE) · [Build and installation](docs/windows-packaging.md)
 
 ## Why I built it
@@ -57,16 +57,18 @@ graph LR
 
 The current source also includes a relation lens, document comparison, navigation
 trails and short directional link animations. See [map behavior and saved layouts](docs/map-layout.md).
-Downloadable prereleases may predate the current source.
+Binary downloads are not yet published in VibeKit. Use the source instructions below.
 
 ## Run it
 
 The desktop app targets **Windows 11, x64 and ARM64**. Windows packaging supports
-MSIX, an MSI installer and a portable ZIP; check each release's actual assets.
+MSIX, an MSI installer and a portable ZIP; see the [packaging guide](docs/windows-packaging.md) to create a local package.
 The .NET runtime is included. Microsoft Edge WebView2 Runtime is required.
 Development-signed MSIX packages include their own installation instructions.
 
-The shared browser build runs through WebAssembly. Linux and macOS have no
+macOS is not supported because I do not have a Mac to develop and test it. Contributors willing to maintain macOS support are welcome.
+
+The shared browser build runs through WebAssembly. Linux has no
 dedicated desktop packages. The Windows app uses WebView2 internally, even though
 it opens as its own application.
 
@@ -129,7 +131,7 @@ license and release status.
 To learn what VibeWare means and why I created it, read the
 [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
 
-[MarkVibe on GitHub](https://github.com/umbertotechnopreneur/MarkVibe) ·
+[MarkVibe on GitHub](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/MarkVibe) ·
 [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) ·
 [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
 

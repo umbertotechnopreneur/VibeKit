@@ -8,6 +8,6 @@ POP3 exposes INBOX only, without unread flags or server folders; its searches us
 
 Choose the accounts your assistant can read. Sending starts disabled. When enabled, Codex sends the messages you request through MCP, without a second confirmation window. The setup apps configure accounts and check connections.
 
-The engine is Python. Windows setup uses WinUI 3. The local Linux setup app uses GTK 4 and is available as a Debian package you build from source. macOS uses the CLI from source.
+The engine is Python. Windows setup uses WinUI 3. The local Linux setup app uses GTK 4 and is available as a Debian package you build from source. macOS is unsupported because I do not have a Mac for development and testing. Contributors willing to maintain macOS support are welcome.
 
 See [getting started](GETTING_STARTED.md) and [privacy](PRIVACY.md).

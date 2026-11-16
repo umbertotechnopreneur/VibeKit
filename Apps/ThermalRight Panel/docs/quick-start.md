@@ -6,8 +6,8 @@ By Umberto Giacobbi
 
 ## 1. Get the app
 
-Open [Downloads](https://github.com/umbertotechnopreneur/thermalright-vibeware/releases).
-On Windows, choose the **x64** or **ARM64** MSI for your PC and follow the installer.
+Follow the [build and packaging guide](build.md). Binary downloads are not yet published in VibeKit.
+For a locally built Windows installer, choose **x64** or **ARM64** to match your PC.
 Using a portable ZIP? Extract the whole folder and keep its files together.
 
 ## 2. Open it
@@ -60,11 +60,11 @@ Missing sensor readings stay unavailable. Open **Sensor access** or the
 [sensor guide](sensors.md) for setup details.
 
 **Themes run Python code on your PC. For now, only download themes from the
-[official repository](https://github.com/umbertotechnopreneur/thermalright-vibeware).**
+[official repository](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/ThermalRight%20Panel).**
 
 ## Useful links
 
-- [Downloads](https://github.com/umbertotechnopreneur/thermalright-vibeware/releases)
+- [Build and packaging](build.md)
 - [Full usage guide](../PORTABLE.md)
 - [Sensor setup](sensors.md)
 - [Make a theme](theme-packs.md)

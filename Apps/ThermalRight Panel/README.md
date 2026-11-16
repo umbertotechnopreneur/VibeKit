@@ -2,7 +2,7 @@
 
 **[Quick Start (PDF)](docs/quick-start.pdf)** · [Read it online](docs/quick-start.md)
 
-[![CI status](https://github.com/umbertotechnopreneur/thermalright-vibeware/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/thermalright-vibeware/actions/workflows/ci.yml)
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
 ![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078D4)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](LICENSE)
 
@@ -65,15 +65,17 @@ This is an independent, unofficial project. I do not work for Thermalright, and 
 
 ## Get it
 
-[Downloads](https://github.com/umbertotechnopreneur/thermalright-vibeware/releases). On Windows, choose the **x64** or **ARM64** MSI for your PC and follow the steps. For a portable ZIP, extract the whole folder before opening the app.
+Start with the [build and packaging guide](docs/build.md). Binary downloads are not yet published in VibeKit. Local Windows packages target **x64** or **ARM64**; for a portable ZIP, extract the whole folder before opening the app.
 
 **On Windows, run Thermalright VibeWare as administrator.**
 
-**Linux and macOS guinea pigs wanted! 🐹** Want to help try it on your computer? [Share what you find](https://github.com/umbertotechnopreneur/thermalright-vibeware/issues).
+macOS is not supported because I do not have a Mac to develop and test it. Contributors willing to maintain macOS support are welcome.
+
+**Linux guinea pigs wanted! 🐹** Want to help try it on your computer? [Share what you find](https://github.com/umbertotechnopreneur/VibeKit/issues).
 
 [How to use Thermalright VibeWare](PORTABLE.md) · [Sensor setup](docs/sensors.md).
 
-**Themes run Python code on your PC. For now, only download themes from [this official repository](https://github.com/umbertotechnopreneur/thermalright-vibeware).**
+**Themes run Python code on your PC. For now, only download themes from [this official repository](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/ThermalRight%20Panel).**
 
 I made this hobby project in a few days on holiday because I wanted lighter display software that I could change to suit me. I learned from other people's public work and used AI to help write it. [Credits](docs/protocol-notes.md#sources-studied).
 
@@ -83,7 +85,7 @@ You are welcome to try it with other screens, use the code and share what you le
 
 ## More tools
 
-[VoiceDucker](https://github.com/umbertotechnopreneur/VoiceDucker) · [Ulanzi Dock](https://github.com/umbertotechnopreneur/ulanzi-dock-vibeware)
+[VoiceDucker](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/VoiceDucker) · [Ulanzi Dock](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/UlanziDeck)
 
 ## A note on security
 

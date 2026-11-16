@@ -7,7 +7,7 @@ I made UlanziDeck for my own D200H. Start with the guide for what you want to do
 | I want to… | Read this |
 | --- | --- |
 | Install the app, change settings or update it | [Installation and settings](INSTALLATION.md) |
-| Know what works on my operating system | [Windows, Linux and macOS](PLATFORMS.md) |
+| Know what works on my operating system | [Windows and Linux](PLATFORMS.md) |
 | Record with the OBS Creator page | [OBS setup](../presets/obs-creator/README.md), or the [printable guide](obs-creator-quick-start.pdf) |
 | Build or change the source | [Development and tools](DEVELOPMENT.md) |
 | Prepare a download or release | [Packaging and releases](RELEASING.md) |

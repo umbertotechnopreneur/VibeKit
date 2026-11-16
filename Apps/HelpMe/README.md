@@ -17,8 +17,8 @@ I want terminal help to stay useful without wasting your computer's resources. I
 Install the .NET 10 SDK, Git, and PowerShell 7, then run from source:
 
 ```powershell
-git clone https://github.com/umbertotechnopreneur/PromptMeUp.git HelpMe
-cd HelpMe
+git clone https://github.com/umbertotechnopreneur/VibeKit.git
+cd VibeKit/Apps/HelpMe
 dotnet run --project HelpMe/HelpMe.csproj -- --setup
 dotnet run --project HelpMe/HelpMe.csproj -- "How do I list the largest files here?"
 ```
@@ -78,7 +78,7 @@ I captured this screenshot before the HelpMe rebrand, cropped and framed it, and
 
 ## Get involved
 
-Found a rough edge? Have a small improvement in mind? Start a [discussion](https://github.com/umbertotechnopreneur/PromptMeUp/discussions), [report a bug](https://github.com/umbertotechnopreneur/PromptMeUp/issues/new/choose), or read the [contribution guide](CONTRIBUTING.md).
+Found a rough edge? Have a small improvement in mind? [Share an idea or report a bug](https://github.com/umbertotechnopreneur/VibeKit/issues/new?title=%5BHelpMe%5D%20), or read the [contribution guide](CONTRIBUTING.md).
 
 Documentation and contributions are in English; the app supports all six interface languages.
 
@@ -89,7 +89,7 @@ Documentation and contributions are in English; the app supports all six interfa
 | [Costs and conversation memory](docs/OPENAI_COSTS_AND_CACHING.md) | [Build and release process](scripts/README.md) |
 | [Support](SUPPORT.md) | [How the project is run](GOVERNANCE.md) |
 
-Security issue? [Report it privately](https://github.com/umbertotechnopreneur/PromptMeUp/security/advisories/new), following the [security policy](SECURITY.md).
+Security issue? [Report it privately](SECURITY.md), following the [security policy](SECURITY.md).
 
 ## License and credits
 
@@ -104,9 +104,9 @@ I built HelpMe with help from contributors, and I’m grateful to the people beh
 </p>
 
 <p align="center">
-  <a href="https://github.com/umbertotechnopreneur/AgentInbox"><strong>AgentInbox</strong></a> · Connect your inboxes to your AI assistant.<br />
-  <a href="https://github.com/umbertotechnopreneur/PromptMeUp"><strong>HelpMe</strong></a> · Can't remember that command? Git, Bash, or PowerShell: describe what you want to do. hm is here to help.<br />
-  <a href="https://github.com/umbertotechnopreneur/WorkTrail"><strong>WorkTrail</strong></a> · Track your time. Find what you worked on.
+  <a href="https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/AgentInbox"><strong>AgentInbox</strong></a> · Connect your inboxes to your AI assistant.<br />
+  <a href="https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/HelpMe"><strong>HelpMe</strong></a> · Can't remember that command? Git, Bash, or PowerShell: describe what you want to do. hm is here to help.<br />
+  <a href="https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/WorkTrail"><strong>WorkTrail</strong></a> · Compare time zones and availability, with independent desktop widgets.
 </p>
 
 <p align="center"><sub>Brand mark, not an app icon. <a href="docs/assets/meup/README.md">Visual style and image credits</a>.</sub></p>

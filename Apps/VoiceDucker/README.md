@@ -1,6 +1,6 @@
 # VoiceDucker
 
-[![Windows build status](https://github.com/umbertotechnopreneur/VoiceDucker/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VoiceDucker/actions/workflows/build.yml)
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
 ![Platform: Windows 11](https://img.shields.io/badge/platform-Windows_11-0078D4)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](LICENSE)
 
@@ -37,10 +37,10 @@ too, that's a good enough reason for me.
 > audio ducking, and volume restoration. I'll give you all the support I can.
 >
 > **VoiceDucker currently runs on Windows only.** macOS and Linux would need
-> ports. If you'd like to help with that work and
+> ports. I do not have a Mac to develop and test macOS support; contributors willing to maintain it are welcome. If you'd like to help with that work and
 > eventually be a guinea pig there too, you're very welcome!
 >
-> [Open an issue](https://github.com/umbertotechnopreneur/VoiceDucker/issues)
+> [Open an issue](https://github.com/umbertotechnopreneur/VibeKit/issues)
 > and tell me which platform you have and what worked or failed.
 
 ## What changed in 0.2.0
@@ -62,15 +62,17 @@ See the [release notes](docs/releases/0.2.0.md) for details.
 
 ## Start here
 
-1. On **Windows 11**, download a ZIP from [GitHub Releases](https://github.com/umbertotechnopreneur/VoiceDucker/releases).
+Binary downloads are not yet published in VibeKit. You can run the current source:
+
+1. Follow the [build guide](docs/DEVELOPMENT.md) on **Windows 11**.
    Choose **x64** for most PCs, or **ARM64** for Windows on ARM.
-2. Extract the whole ZIP. Open `VoiceDucker.exe`. Keep the files together.
+2. Open the resulting `VoiceDucker.exe`. Keep its files together.
 3. Play some music. Press **Enable**.
 4. Speak. The music gets quieter. Pause, and it slowly comes back.
 
 Press **Disable** to stop. The microphone starts **off** unless you explicitly
 turn on **Enable microphone on startup**.
-The ZIP needs no installer; it is unsigned, so Windows may show a security prompt.
+A locally packaged portable ZIP needs no installer; unsigned builds may show a Windows security prompt.
 
 ## Choose which apps get quieter
 
@@ -241,7 +243,7 @@ I created VoiceDucker with AI assistance. I define its purpose, guide the implem
 
 To learn what VibeWare means and why I created it, read the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
 
-[VoiceDucker on GitHub](https://github.com/umbertotechnopreneur/VoiceDucker) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
+[VoiceDucker on GitHub](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/VoiceDucker) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
 
 *You are welcome to explore, adapt and reuse the open-source VibeWare materials under the project license — my contribution to the developer community.*
 

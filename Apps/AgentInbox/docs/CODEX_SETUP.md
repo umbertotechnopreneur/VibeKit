@@ -40,14 +40,13 @@ Choose a Python 3.11+ interpreter and the checkout's `python/run.py`. Configure 
 
 Pass `-B`, the script path and `mcp` as separate arguments. Do not depend on the client's working directory. Keep the checkout and interpreter at those paths.
 
-### Linux and macOS prerequisites
+### Linux prerequisites
 
 Use Python 3.11 or newer on the machine running the MCP client. Configure accounts through the [management CLI](CLI_REFERENCE.md) or the [Linux setup app](LINUX_SETUP.md). The Python engine uses the standard library, but credential storage needs the operating system's native facilities:
 
 - On Linux, install libsecret through your distribution and make an unlocked Secret Service keyring available in the same user session as the MCP process. Python alone is insufficient. A headless or SSH session needs its own working Secret Service session; no plaintext storage is provided.
-- On macOS, make the login Keychain available to the user running the MCP process.
 
-Without an explicit `AGENTINBOX_DATA_DIR`, Linux uses `$XDG_DATA_HOME/agentinbox`, or `~/.local/share/agentinbox` when `XDG_DATA_HOME` is unset or empty. A relative value is rejected. macOS uses `~/Library/Application Support/AgentInbox`. To avoid selecting a different profile, pass the same absolute `AGENTINBOX_DATA_DIR` to management commands and the MCP client.
+Without an explicit `AGENTINBOX_DATA_DIR`, Linux uses `$XDG_DATA_HOME/agentinbox`, or `~/.local/share/agentinbox` when `XDG_DATA_HOME` is unset or empty. A relative value is rejected. To avoid selecting a different profile, pass the same absolute `AGENTINBOX_DATA_DIR` to management commands and the MCP client.
 
 On Linux, the [Linux setup guide](LINUX_SETUP.md) covers guided `accounts add`, `doctor --check-storage` and `mcp-config`. The latter prints a stdio JSON entry with absolute interpreter, source and profile paths without editing your client's settings. Register the entry in your client, then start a new session and request the account list.
 
@@ -73,7 +72,7 @@ python -B scripts/export-plugin.py --data-dir <absolute-profile-directory>
 
 Use `--python <absolute-interpreter>` if the client should use a different Python installation. The engine has no GUI dependency; the setup apps are for local configuration.
 
-Export on each target machine. The exporter preserves the interpreter path you supply, including a virtual environment's Python symlink; resolving that link could select the base installation instead. On Linux and macOS, the selected interpreter must have execute permission. An existing file cannot be used as the profile directory. The exporter checks paths without starting the interpreter or checking its version.
+Export on each target machine. The exporter preserves the interpreter path you supply, including a virtual environment's Python symlink; resolving that link could select the base installation instead. On Linux, the selected interpreter must have execute permission. An existing file cannot be used as the profile directory. The exporter checks paths without starting the interpreter or checking its version.
 
 The exporter writes only to a new `artifacts/codex-source` directory. It copies project source, sets the interpreter and profile paths, and includes no passwords, account data or runtime binaries. Do not publish this machine-specific configuration. It does not install or validate the plugin.
 

@@ -27,7 +27,7 @@ Use implicit TLS or required STARTTLS. Certificate and hostname checks cannot be
 
 Connection checks and sample reading are separate. You can optionally test reading one message; an empty folder can pass connection and sign-in without providing a sample. A successful check does not prove that every later search will work.
 
-Windows passwords and Microsoft refresh tokens go to Credential Manager. Temporary sign-in blobs use DPAPI. The native macOS Keychain and Linux Secret Service paths remain untested. Unavailable secure storage is an error, not a reason to write plain-text credentials.
+Windows passwords and Microsoft refresh tokens go to Credential Manager. Temporary sign-in blobs use DPAPI. The native Linux Secret Service path remains untested. macOS is unsupported because I do not have a Mac for development and testing; contributors willing to maintain it are welcome. Unavailable secure storage is an error, not a reason to write plain-text credentials.
 
 ## 3. Enable sending if needed
 

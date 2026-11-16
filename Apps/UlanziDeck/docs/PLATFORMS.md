@@ -17,27 +17,27 @@ VBWR E -->
 
 <!-- Copyright (c) 2026 Umberto Giacobbi | MIT License: see LICENSE -->
 
-# Windows, Linux and macOS
+# Windows and Linux
 
-The controller shares its Rust code across these systems. The controller retries a missing or disconnected dock on every platform. Windows also has native tray integration and active-application matching.
+The controller shares its Rust code across Windows and Linux. The controller retries a missing or disconnected dock on every platform. Windows also has native tray integration and active-application matching.
 
 ## What is available
 
-| Feature | Windows x64 / ARM64 | Linux x64 | macOS Apple Silicon |
-| --- | --- | --- | --- |
-| USB controller, page navigation, themes and brightness | Implemented | Implemented; device permissions needed | Implemented; device access needs checking |
-| Shortcut and media-key output | Implemented | MPRIS for playback. PipeWire for audio. Native GNOME desktop commands. Portal keyboard session on Wayland. X11 shortcuts on X11. | Implemented; OS permissions and Mac shortcuts need checking |
-| Settings and About windows | Slint windows | Standalone Slint windows in the source | Standalone Slint windows in the source |
-| Choose supported installed applications | Shared application catalogue | Linux selector and optional shortcut presets in the source | Shared application catalogue |
-| Tray icon and settings while the controller runs | Implemented | StatusNotifierItem on compatible desktops | No tray integration |
-| Follow the app in front and dim inactive actions | Implemented | Not implemented | Not implemented |
-| Sign-in startup and replacement of a running controller | Implemented | Opt-in installed user service; desktop launcher reuses it | Start and stop manually |
-| Automatic reconnect after a missing/disconnected dock | Implemented | Implemented; owner confirmed display restoration after reconnect | Implemented; unverified |
-| Download format | ZIP and local x64 and ARM64 MSIX builder | tar.gz and Debian package | tar.gz |
+| Feature | Windows x64 / ARM64 | Linux x64  |
+| --- | --- | ---  |
+| USB controller, page navigation, themes and brightness | Implemented | Implemented; device permissions needed  |
+| Shortcut and media-key output | Implemented | MPRIS for playback. PipeWire for audio. Native GNOME desktop commands. Portal keyboard session on Wayland. X11 shortcuts on X11.  |
+| Settings and About windows | Slint windows | Standalone Slint windows in the source  |
+| Choose supported installed applications | Shared application catalogue | Linux selector and optional shortcut presets in the source  |
+| Tray icon and settings while the controller runs | Implemented | StatusNotifierItem on compatible desktops  |
+| Follow the app in front and dim inactive actions | Implemented | Not implemented  |
+| Sign-in startup and replacement of a running controller | Implemented | Opt-in installed user service; desktop launcher reuses it  |
+| Automatic reconnect after a missing/disconnected dock | Implemented | Implemented; owner confirmed display restoration after reconnect  |
+| Download format | ZIP and local x64 and ARM64 MSIX builder | tar.gz and Debian package  |
 
-On Linux and macOS, active-application matching reports “unsupported”. Enabled pages remain available, but do not switch automatically. The Linux application selector below does not add active-application matching. The page index always lists enabled pages, including those whose app is closed. Selecting LibreOffice changes the visible Word/Excel/PowerPoint labels to Writer/Calc/Impress while keeping the internal page identifiers. On macOS, edit Windows-specific shortcuts for your system; Ctrl and the Windows key do not automatically become Command shortcuts.
+On Linux, active-application matching reports “unsupported”. Enabled pages remain available, but do not switch automatically. The Linux application selector below does not add active-application matching. The page index always lists enabled pages, including those whose app is closed. Selecting LibreOffice changes the visible Word/Excel/PowerPoint labels to Writer/Calc/Impress while keeping the internal page identifiers.
 
-## Linux and macOS use
+## Linux use
 
 Extract the whole archive into a writable folder. In a terminal, enter that folder and run:
 
@@ -45,7 +45,7 @@ Extract the whole archive into a writable folder. In a terminal, enter that fold
 ./ulanzi-dock-vibeware run
 ```
 
-Keep the terminal open. Press Ctrl+C to stop the controller. On macOS, run one controller at a time from the extracted folder.
+Keep the terminal open. Press Ctrl+C to stop the controller.
 
 When the Linux controller starts, it sends a desktop notification and displays the UlanziDeck icon on desktops with an indicator host, such as KDE Plasma or GNOME with AppIndicator support. Desktop notification preferences control the banner. Activating the indicator opens settings for the running profile. The icon remains available while waiting for the dock or recovering a connection. Its tooltip reports the connection state. The icon disappears when the controller stops.
 
@@ -61,7 +61,7 @@ On Wayland, the first keyboard shortcut opens the desktop's keyboard permission 
 
 For PLAY / PAUSE, NEXT TRACK and PREVIOUS, open a player with MPRIS support in the same desktop session. Playback commands work on Wayland and X11. A playing player takes priority over a paused or stopped player. Ties are resolved by the player's MPRIS bus name in alphabetical order. MUTE and volume use WirePlumber's `wpctl` to control the default PipeWire output. Volume moves by five percentage points up to 100%. The Debian package includes WirePlumber as a dependency.
 
-The macOS build targets macOS 15 for Apple Silicon. Older macOS versions are outside the current target, and there is no Intel package. It is a terminal program, without app signing or notarization. Input permissions and the foreground application's shortcut choices still apply.
+macOS is not supported because I do not have a Mac to develop and test it. Contributors who want to maintain macOS support are welcome.
 
 ## Linux desktop buttons
 
@@ -127,11 +127,11 @@ The latest local package is Windows x64 Debug 1.0.9.0, built from source and
 signed for local testing. Windows x64 Release 1.0.8.0 is still installed.
 
 I own and use only a D200H on Windows x64. Other models and platforms need owner
-reports. [Tell me what you find](https://github.com/umbertotechnopreneur/ulanzi-dock-vibeware/issues),
+reports. [Tell me what you find](https://github.com/umbertotechnopreneur/VibeKit/issues),
 including your model, operating system and processor type.
 
 ## Where the platform differences live
 
-For contributors: `Cargo.toml` selects Windows, Linux and macOS HID backends. `src/actions.rs` provides Windows foreground detection and delegates URL opening to `src/tray.rs`. `src/linux_apps.rs` discovers supported Linux installations, and `src/linux_apps/shortcuts.rs` defines explicitly applied presets. `src/model.rs` and `src/settings.rs` load and save the independent Linux choices. `src/gui.rs` exposes their Linux selector and standalone Slint windows on all platforms, but its resident event loop and saved monitor placement in `src/gui/placement.rs` are Windows-only. `src/controller.rs`, `src/tray.rs`, `src/startup.rs` and `src/singleton.rs` contain the connection recovery, tray, startup and single-instance rules. The locked `enigo` 0.6.1 dependency uses its default `x11rb` input feature.
+For contributors: `Cargo.toml` selects platform-specific HID backends. `src/actions.rs` provides Windows foreground detection and delegates URL opening to `src/tray.rs`. `src/linux_apps.rs` discovers supported Linux installations, and `src/linux_apps/shortcuts.rs` defines explicitly applied presets. `src/model.rs` and `src/settings.rs` load and save the independent Linux choices. `src/gui.rs` exposes their Linux selector and standalone Slint windows on all platforms, but its resident event loop and saved monitor placement in `src/gui/placement.rs` are Windows-only. `src/controller.rs`, `src/tray.rs`, `src/startup.rs` and `src/singleton.rs` contain the connection recovery, tray, startup and single-instance rules. The locked `enigo` 0.6.1 dependency uses its default `x11rb` input feature.
 
 The planned WinUI 3 editor is [a separate Windows-only design](design/README.md). It does not replace the portable controller or current Slint windows.

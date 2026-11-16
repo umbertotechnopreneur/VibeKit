@@ -44,6 +44,10 @@ This is an independent, unofficial project. I do not work for Ulanzi, and I am n
 
 *These desk photos were enhanced with AI.*
 
+## Built with care
+
+I want the controller to do its job without taking over your computer. I review third-party dependencies and their sources, pay attention to memory and performance, and keep device actions under your control. Checks and hardware validation are described for this project; they are not a blanket security guarantee.
+
 ## What it does
 
 - Ten pages: Windows / media, Utility, Codex, VS Code, Spotify, Word, PowerPoint, Excel, OBS Creator and Themes.

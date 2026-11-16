@@ -15,8 +15,6 @@ VBWR E -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
-    <!-- Keep self-contained builds on the runtime verified in dependency-imports.json. -->
-    <RuntimeFrameworkVersion>10.0.14</RuntimeFrameworkVersion>
     <TargetPlatformMinVersion>10.0.22000.0</TargetPlatformMinVersion>
     <RootNamespace>VoiceDucker</RootNamespace>
     <Version>0.2.0</Version>
@@ -82,6 +80,8 @@ VBWR E -->
     <PropertyGroup> above to opt out.
   -->
   <ItemGroup>
+    <!-- Pin only the verified .NET runtime; the Windows SDK has its own version. -->
+    <FrameworkReference Update="Microsoft.NETCore.App" RuntimeFrameworkVersion="10.0.14" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.7.1" />

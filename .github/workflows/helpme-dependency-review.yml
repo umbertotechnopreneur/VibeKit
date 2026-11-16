@@ -31,7 +31,7 @@ permissions:
 jobs:
   review:
     name: Review dependencies
-    if: ${{ !github.event.repository.private || vars.GITHUB_CODE_SECURITY_ENABLED == 'true' }}
+    if: ${{ !github.event.repository.private || vars.CODE_SECURITY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -48,7 +48,7 @@ jobs:
 
   nuget-audit:
     name: Audit NuGet dependencies
-    if: ${{ github.event.repository.private && vars.GITHUB_CODE_SECURITY_ENABLED != 'true' }}
+    if: ${{ github.event.repository.private && vars.CODE_SECURITY_ENABLED != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

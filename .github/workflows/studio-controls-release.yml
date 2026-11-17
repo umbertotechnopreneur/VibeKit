@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: studio-controls-release-${{ inputs.tag || github.ref }}
+  group: studio-controls-release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -79,8 +79,7 @@ jobs:
           import os
           from pathlib import Path
           import subprocess
-          import tempfile
-          from urllib.parse import quote
+          import json
           names = ['StudioControls-windows-x64.zip', 'StudioControls-linux-all.deb']
           files = [Path('release') / name for name in names]
           if any(not file.is_file() or file.stat().st_size == 0 for file in files):
@@ -101,16 +100,11 @@ jobs:
               source = next((line.split()[0] for line in refs if line.endswith('^{}')), refs[0].split()[0])
               if source != os.environ['SOURCE_SHA']:
                   raise SystemExit('An existing tag points to different source; it is never moved.')
-          # Distinguish a missing release from network/authentication errors.
-          with tempfile.NamedTemporaryFile() as response:
-              tag_path = quote(tag, safe='')
-              result = subprocess.run(['gh', 'api', '--include', f'repos/{os.environ["GH_REPO"]}/releases/tags/{tag_path}'], stdout=response, stderr=subprocess.DEVNULL)
-              response.seek(0)
-              status = response.readline().decode(errors='replace')
-          if result.returncode == 0:
+          # Listing also includes drafts visible to this write-enabled release job.
+          response = subprocess.check_output(['gh', 'api', '--paginate', '--slurp', f'repos/{os.environ["GH_REPO"]}/releases?per_page=100'], text=True)
+          pages = json.loads(response)
+          if any(release.get('tag_name') == tag for page in pages for release in page):
               raise SystemExit('This release already exists; assets are never replaced.')
-          if '404' not in status:
-              raise SystemExit('Could not establish that the release is new.')
           command = ['gh', 'release', 'create', os.environ['RELEASE_TAG'], *map(str, files), str(checksums), '--target', os.environ['SOURCE_SHA'], '--title', f'Studio Controls {os.environ["RELEASE_VERSION"]} · preview', '--notes-file', str(notes), '--prerelease', '--latest=false']
           if os.environ['IS_DRAFT'].lower() == 'true':
               command.append('--draft')

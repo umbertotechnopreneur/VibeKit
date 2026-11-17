@@ -31,6 +31,19 @@ export const DEFAULTS = Object.freeze({
     ...Object.fromEntries(NUMERIC.map(({key, defaultValue}) => [key, defaultValue])),
     ...Object.fromEntries(BOOLEAN), preset: Palette.GREEN, mask: PhosphorMask.NONE, 'phosphor-color': '#33ff6b',
 });
+
+// A low-mix, static starting point keeps the desktop's original colors dominant.
+// Each named look changes only the finish it needs; animation stays opt-in.
+function subtleLook(name, overrides) {
+    return {name, values: {...DEFAULTS,
+        preset: Palette.ARCADE, intensity: 0.25, scanlines: 0, glow: 0,
+        'glow-radius': 0.75, mask: PhosphorMask.NONE, 'mask-strength': 0,
+        vignette: 0, grain: 0, contrast: 1, 'black-level': 0,
+        'persistence-enabled': false, 'glitches-enabled': false,
+        ...overrides,
+    }};
+}
+
 export const BUILTINS = [
     {name: 'Clean green', values: {...DEFAULTS, scanlines: 0.12, glow: 0.18, grain: 0}},
     {name: 'Worn terminal', values: {...DEFAULTS, preset: Palette.AMBER, scanlines: 0.25,
@@ -38,6 +51,39 @@ export const BUILTINS = [
     {name: 'Arcade', values: {...DEFAULTS, preset: Palette.ARCADE, mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.18, glow: 0.4}},
     {name: 'Long phosphor', values: {...DEFAULTS, 'persistence-enabled': true,
         'persistence-duration': 0.3, 'persistence-strength': 0.45}},
+    // Append new entries: saved built-in IDs use the original array indices.
+    subtleLook('Almost clear', {intensity: 0.15, scanlines: 0.02}),
+    subtleLook('Fine raster', {intensity: 0.3, scanlines: 0.06,
+        'scanline-spacing': 2, 'scanline-width': 0.5}),
+    subtleLook('Wide raster', {intensity: 0.25, scanlines: 0.08,
+        'scanline-spacing': 6, 'scanline-width': 0.5}),
+    subtleLook('Quiet RGB', {intensity: 0.25, mask: PhosphorMask.RGB_STRIPES,
+        'mask-strength': 0.04}),
+    subtleLook('Quiet dots', {intensity: 0.25, mask: PhosphorMask.DOTS,
+        'mask-strength': 0.04}),
+    subtleLook('Soft glass', {intensity: 0.25, glow: 0.04, 'glow-radius': 0.5}),
+    subtleLook('Edge shade', {intensity: 0.25, vignette: 0.08}),
+    subtleLook('Paper grain', {intensity: 0.3, grain: 0.005}),
+    subtleLook('Lifted shadows', {intensity: 0.3, 'black-level': 0.02}),
+    subtleLook('Gentle contrast', {intensity: 0.3, contrast: 1.05}),
+    subtleLook('Green whisper', {preset: Palette.GREEN, intensity: 0.12}),
+    subtleLook('Green glass', {preset: Palette.GREEN, intensity: 0.18,
+        glow: 0.03, vignette: 0.03}),
+    subtleLook('Sage tint', {'custom-color': true, 'phosphor-color': '#b8d9bc',
+        intensity: 0.16}),
+    subtleLook('Mint raster', {'custom-color': true, 'phosphor-color': '#b5e5d0',
+        intensity: 0.18, scanlines: 0.04}),
+    subtleLook('Amber whisper', {preset: Palette.AMBER, intensity: 0.12}),
+    subtleLook('Warm glass', {preset: Palette.AMBER, intensity: 0.18,
+        glow: 0.03, vignette: 0.03}),
+    subtleLook('Ivory phosphor', {'custom-color': true, 'phosphor-color': '#f5ecd8',
+        intensity: 0.16}),
+    subtleLook('Peach tint', {'custom-color': true, 'phosphor-color': '#f2c8ae',
+        intensity: 0.14}),
+    subtleLook('Ice phosphor', {'custom-color': true, 'phosphor-color': '#c4e1f2',
+        intensity: 0.16, scanlines: 0.03}),
+    subtleLook('Lavender dusk', {'custom-color': true, 'phosphor-color': '#d5c9eb',
+        intensity: 0.14, vignette: 0.04}),
 ];
 
 export function validateValues(values) {

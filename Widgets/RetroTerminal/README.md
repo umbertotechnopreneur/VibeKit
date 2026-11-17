@@ -47,7 +47,24 @@ available above the sections. Preferences expose:
 - Four individually allowed glitches: local RGB separation, horizontal tear,
   line interference and a soft scanning band.
 
-**Pipelines** contains Clean green, Worn terminal, Arcade and Long phosphor.
+**Pipelines** includes 20 subtle looks alongside the original Clean green,
+Worn terminal, Arcade and Long phosphor. The new looks use a 12–30% effect mix,
+with random glitches and temporal afterglow disabled. They keep the original
+desktop colors dominant, with light raster, glass, texture or phosphor tints.
+
+| Finish | Subtle pipelines |
+| --- | --- |
+| Original colors | Almost clear, Fine raster, Wide raster, Quiet RGB, Quiet dots |
+| Glass and texture | Soft glass, Edge shade, Paper grain, Lifted shadows, Gentle contrast |
+| Green and mint | Green whisper, Green glass, Sage tint, Mint raster |
+| Warm | Amber whisper, Warm glass, Ivory phosphor, Peach tint |
+| Cool | Ice phosphor, Lavender dusk |
+
+Start with **Almost clear** for a faint raster or **Green whisper** for a light
+green tint. These presets are available in the GNOME preferences; the Windows
+edition has its own controls. Adding presets does not change the current look
+or turn the effect on.
+
 Select a pipeline from the Effect page or the library. Built-ins are protected;
 duplicate one to keep your changes. Personal pipelines update automatically as
 you adjust controls. **New pipeline** saves the current appearance; personal

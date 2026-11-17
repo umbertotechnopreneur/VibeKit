@@ -42,9 +42,10 @@ A little hardware, a few desktop windows, and plenty of curiosity. **[Open the 2
 
 | Project | The finishing touch |
 | --- | --- |
+| [Studio Controls](Widgets/StudioControls/README.md) | A native OBS control desk with scenes, screen zoom, vignettes and project cards; Windows ZIP and Linux Debian preview packages. |
 | [Gauge / OpenAI Usage](Widgets/OpenAI/README.md) | Keep AI usage visible in a desktop widget. Other providers are a future goal. |
 | [Desktop Ripple](Widgets/WaterRipple/README.md) | Give the desktop a water-like ripple effect; see also the [Linux edition](Widgets/WaterRipple/Linux/README.md). |
-| [Retro Terminal](Widgets/RetroTerminal/README.md) | Give the GNOME desktop green phosphor, amber or arcade color, with controls for the effect and an emergency stop. |
+| [CRT Filter / Retro Terminal](Widgets/RetroTerminal/README.md) | Give the GNOME desktop green phosphor, amber or arcade color, with controls for the effect and an emergency stop. |
 
 Each project has its own supported platforms, installation instructions, license and limitations. **Start with that project's README**: availability, packaging and maturity differ between tools.
 

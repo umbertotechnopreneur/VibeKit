@@ -1,0 +1,4150 @@
+{
+  "name": "VibeWare Studio Controls",
+  "DesktopAudioDevice1": {
+    "prev_ver": 553648128,
+    "name": "Desktop Audio",
+    "uuid": "efd94cc2-d9f3-49ff-9147-60da5beb787b",
+    "id": "wasapi_output_capture",
+    "versioned_id": "wasapi_output_capture",
+    "settings": {
+      "device_id": "default"
+    },
+    "mixers": 255,
+    "sync": 0,
+    "flags": 0,
+    "volume": 1.0,
+    "balance": 0.5,
+    "enabled": true,
+    "muted": true,
+    "push-to-mute": false,
+    "push-to-mute-delay": 0,
+    "push-to-talk": false,
+    "push-to-talk-delay": 0,
+    "hotkeys": {},
+    "deinterlace_mode": 0,
+    "deinterlace_field_order": 0,
+    "monitoring_type": 0,
+    "monitoring_enabled": false,
+    "private_settings": {}
+  },
+  "AuxAudioDevice1": {
+    "prev_ver": 553648128,
+    "name": "Mic/Aux",
+    "uuid": "448d95f4-736e-47a9-9e40-ab30e663b677",
+    "id": "wasapi_input_capture",
+    "versioned_id": "wasapi_input_capture",
+    "settings": {
+      "device_id": "default"
+    },
+    "mixers": 255,
+    "sync": 0,
+    "flags": 0,
+    "volume": 1.0,
+    "balance": 0.5,
+    "enabled": true,
+    "muted": true,
+    "push-to-mute": false,
+    "push-to-mute-delay": 0,
+    "push-to-talk": false,
+    "push-to-talk-delay": 0,
+    "hotkeys": {},
+    "deinterlace_mode": 0,
+    "deinterlace_field_order": 0,
+    "monitoring_type": 0,
+    "monitoring_enabled": false,
+    "private_settings": {}
+  },
+  "sources": [
+    {
+      "prev_ver": 553648128,
+      "name": "Logitech Brio",
+      "uuid": "226cc7c7-af8b-4029-97f8-1c915823d1c6",
+      "id": "dshow_input",
+      "versioned_id": "dshow_input",
+      "settings": {
+        "video_device_id": "",
+        "deactivate_when_not_showing": true,
+        "buffering": 2
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "filters": [
+        {
+          "prev_ver": 553648128,
+          "name": "Background blur",
+          "uuid": "e2d7a52b-6aa5-4278-834f-bede00c00be1",
+          "id": "background_removal",
+          "versioned_id": "background_removal",
+          "settings": {
+            "blur_background": 4
+          },
+          "mixers": 0,
+          "sync": 0,
+          "flags": 0,
+          "volume": 1.0,
+          "balance": 0.5,
+          "enabled": false,
+          "muted": false,
+          "push-to-mute": false,
+          "push-to-mute-delay": 0,
+          "push-to-talk": false,
+          "push-to-talk-delay": 0,
+          "hotkeys": {},
+          "deinterlace_mode": 0,
+          "deinterlace_field_order": 0,
+          "monitoring_type": 0,
+          "monitoring_enabled": false,
+          "private_settings": {}
+        }
+      ]
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Sony",
+      "uuid": "b7f6e8c6-b795-4ea7-be2b-3612fa79fac5",
+      "id": "dshow_input",
+      "versioned_id": "dshow_input",
+      "settings": {
+        "video_device_id": "",
+        "deactivate_when_not_showing": true,
+        "buffering": 2
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "ASUS ProArt",
+      "uuid": "47e4cf1f-742c-4f36-a90c-3dc5f2472fa7",
+      "id": "monitor_capture",
+      "versioned_id": "monitor_capture",
+      "settings": {
+        "monitor_id": "DUMMY",
+        "method": 0,
+        "capture_cursor": true,
+        "force_sdr": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Hardware Demo artwork",
+      "uuid": "e64fae29-2ca4-4997-9525-0f8f134f549e",
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "settings": {
+        "file": "${ASSET_ROOT}/Sfondo-Hardware-Demo.png",
+        "unload": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "umbertogiacobbi.biz",
+      "uuid": "2bff4ece-bd33-47da-a52d-2c23a6a621a4",
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "settings": {
+        "file": "${ASSET_ROOT}/Firma.png",
+        "unload": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Software Demo frame",
+      "uuid": "515a6b18-e7b4-4265-beb6-81c976a3c677",
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "settings": {
+        "file": "${ASSET_ROOT}/Cornice-Software.png",
+        "unload": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "On the Table frame",
+      "uuid": "4e183ecc-b7d0-47f3-91b0-5d6166083bc2",
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "settings": {
+        "file": "${ASSET_ROOT}/Cornice-Tavolo.png",
+        "unload": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Table camera standby",
+      "uuid": "26a7a56f-39ad-4b57-8516-d923c8f7b289",
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "settings": {
+        "file": "${ASSET_ROOT}/Attesa-Tavolo.png",
+        "unload": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Hardware Demo",
+      "uuid": "059c8fd1-d904-4ed2-b35f-eb540ba7bbd6",
+      "id": "scene",
+      "versioned_id": "scene",
+      "settings": {
+        "id_counter": 9,
+        "custom_size": false,
+        "items": [
+          {
+            "name": "Hardware Demo artwork",
+            "source_uuid": "e64fae29-2ca4-4997-9525-0f8f134f549e",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 1,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777910232544,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.555555582046509,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "ASUS ProArt",
+            "source_uuid": "47e4cf1f-742c-4f36-a90c-3dc5f2472fa7",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 2,
+            "group_item_backup": false,
+            "pos": {
+              "x": 48.0,
+              "y": 158.0625
+            },
+            "pos_rel": {
+              "x": -1.6888889074325562,
+              "y": -0.7074074149131775
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1248.0,
+              "y": 702.0
+            },
+            "bounds_rel": {
+              "x": 2.3111112117767334,
+              "y": 1.2999999523162842
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Screen vignette",
+            "source_uuid": "37933c8e-f068-4aff-84ba-1056cd79174c",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 1,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 6,
+            "group_item_backup": false,
+            "pos": {
+              "x": 48.0,
+              "y": 158.0625
+            },
+            "pos_rel": {
+              "x": -1.6888889074325562,
+              "y": -0.7074074149131775
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1248.0,
+              "y": 702.0
+            },
+            "bounds_rel": {
+              "x": 2.3111112117767334,
+              "y": 1.2999999523162842
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Logitech Brio",
+            "source_uuid": "226cc7c7-af8b-4029-97f8-1c915823d1c6",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 3,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1344.0,
+              "y": 158.0625
+            },
+            "pos_rel": {
+              "x": 0.7111111283302307,
+              "y": -0.7074074149131775
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 528.0,
+              "y": 297.0
+            },
+            "bounds_rel": {
+              "x": 0.9777777791023254,
+              "y": 0.550000011920929
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Webcam vignette",
+            "source_uuid": "5eaa1757-a883-4940-9f0e-faedc3b2daf5",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 1,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 7,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1344.0,
+              "y": 158.0625
+            },
+            "pos_rel": {
+              "x": 0.7111111283302307,
+              "y": -0.7074074149131775
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 528.0,
+              "y": 297.0
+            },
+            "bounds_rel": {
+              "x": 0.9777777791023254,
+              "y": 0.550000011920929
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Sony",
+            "source_uuid": "b7f6e8c6-b795-4ea7-be2b-3612fa79fac5",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 4,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1344.0,
+              "y": 563.0625
+            },
+            "pos_rel": {
+              "x": 0.7111111283302307,
+              "y": 0.04259259253740311
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 528.0,
+              "y": 297.0
+            },
+            "bounds_rel": {
+              "x": 0.9777777791023254,
+              "y": 0.550000011920929
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Hardware vignette",
+            "source_uuid": "7b70263e-81d3-4c5a-a2cf-a4b052cc12ec",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 1,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 8,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1344.0,
+              "y": 563.0625
+            },
+            "pos_rel": {
+              "x": 0.7111111283302307,
+              "y": 0.04259259253740311
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 528.0,
+              "y": 297.0
+            },
+            "bounds_rel": {
+              "x": 0.9777777791023254,
+              "y": 0.550000011920929
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "umbertogiacobbi.biz",
+            "source_uuid": "2bff4ece-bd33-47da-a52d-2c23a6a621a4",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 5,
+            "group_item_backup": false,
+            "pos": {
+              "x": 48.0,
+              "y": 926.0625
+            },
+            "pos_rel": {
+              "x": -1.6888889074325562,
+              "y": 0.7148148417472839
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 414.0,
+              "y": 102.0
+            },
+            "bounds_rel": {
+              "x": 0.7666666507720947,
+              "y": 0.18888889253139496
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "VibeWare branding",
+            "source_uuid": "8e10cc9f-43e1-4c87-bb35-c5cd31aa8ca1",
+            "visible": false,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 2,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 9,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1755.0,
+              "y": 930.0
+            },
+            "pos_rel": {
+              "x": 1.4722222222222223,
+              "y": 0.7222222222222222
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 120.0,
+              "y": 120.0
+            },
+            "bounds_rel": {
+              "x": 0.2222222222222222,
+              "y": 0.2222222222222222
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e"
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "That's me",
+      "uuid": "f7c3655b-aeb7-4f4e-be57-0526e8f83e5b",
+      "id": "scene",
+      "versioned_id": "scene",
+      "settings": {
+        "id_counter": 4,
+        "custom_size": false,
+        "items": [
+          {
+            "name": "Logitech Brio",
+            "source_uuid": "226cc7c7-af8b-4029-97f8-1c915823d1c6",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 1,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777910232544,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.555555582046509,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Webcam vignette",
+            "source_uuid": "5eaa1757-a883-4940-9f0e-faedc3b2daf5",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 1,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 3,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777910232544,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.555555582046509,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "umbertogiacobbi.biz",
+            "source_uuid": "2bff4ece-bd33-47da-a52d-2c23a6a621a4",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 2,
+            "group_item_backup": false,
+            "pos": {
+              "x": 48.0,
+              "y": 926.0625
+            },
+            "pos_rel": {
+              "x": -1.6888889074325562,
+              "y": 0.7148148417472839
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 414.0,
+              "y": 102.0
+            },
+            "bounds_rel": {
+              "x": 0.7666666507720947,
+              "y": 0.18888889253139496
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "VibeWare branding",
+            "source_uuid": "8e10cc9f-43e1-4c87-bb35-c5cd31aa8ca1",
+            "visible": false,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 2,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 4,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1755.0,
+              "y": 930.0
+            },
+            "pos_rel": {
+              "x": 1.4722222222222223,
+              "y": 0.7222222222222222
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 120.0,
+              "y": 120.0
+            },
+            "bounds_rel": {
+              "x": 0.2222222222222222,
+              "y": 0.2222222222222222
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e"
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Software Demo",
+      "uuid": "256c788e-335b-4033-a3a0-d5ddde4f3c95",
+      "id": "scene",
+      "versioned_id": "scene",
+      "settings": {
+        "id_counter": 7,
+        "custom_size": false,
+        "items": [
+          {
+            "name": "ASUS ProArt",
+            "source_uuid": "47e4cf1f-742c-4f36-a90c-3dc5f2472fa7",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 1,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777910232544,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.555555582046509,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Screen vignette",
+            "source_uuid": "37933c8e-f068-4aff-84ba-1056cd79174c",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 1,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 5,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777910232544,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.555555582046509,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Logitech Brio",
+            "source_uuid": "226cc7c7-af8b-4029-97f8-1c915823d1c6",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 2,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1488.0,
+              "y": 80.0625
+            },
+            "pos_rel": {
+              "x": 0.9777777791023254,
+              "y": -0.8518518805503845
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 384.0,
+              "y": 216.0
+            },
+            "bounds_rel": {
+              "x": 0.7111111283302307,
+              "y": 0.4000000059604645
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Webcam vignette",
+            "source_uuid": "5eaa1757-a883-4940-9f0e-faedc3b2daf5",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 1,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 6,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1488.0,
+              "y": 80.0625
+            },
+            "pos_rel": {
+              "x": 0.9777777791023254,
+              "y": -0.8518518805503845
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 384.0,
+              "y": 216.0
+            },
+            "bounds_rel": {
+              "x": 0.7111111283302307,
+              "y": 0.4000000059604645
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Software Demo frame",
+            "source_uuid": "515a6b18-e7b4-4265-beb6-81c976a3c677",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 3,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777910232544,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.555555582046509,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "umbertogiacobbi.biz",
+            "source_uuid": "2bff4ece-bd33-47da-a52d-2c23a6a621a4",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 4,
+            "group_item_backup": false,
+            "pos": {
+              "x": 48.0,
+              "y": 926.0625
+            },
+            "pos_rel": {
+              "x": -1.6888889074325562,
+              "y": 0.7148148417472839
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 414.0,
+              "y": 102.0
+            },
+            "bounds_rel": {
+              "x": 0.7666666507720947,
+              "y": 0.18888889253139496
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "VibeWare branding",
+            "source_uuid": "8e10cc9f-43e1-4c87-bb35-c5cd31aa8ca1",
+            "visible": false,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 2,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 7,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1755.0,
+              "y": 930.0
+            },
+            "pos_rel": {
+              "x": 1.4722222222222223,
+              "y": 0.7222222222222222
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 120.0,
+              "y": 120.0
+            },
+            "bounds_rel": {
+              "x": 0.2222222222222222,
+              "y": 0.2222222222222222
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e"
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Screen Only",
+      "uuid": "4c148144-ae3a-4c98-84c5-710364766633",
+      "id": "scene",
+      "versioned_id": "scene",
+      "settings": {
+        "id_counter": 4,
+        "custom_size": false,
+        "items": [
+          {
+            "name": "ASUS ProArt",
+            "source_uuid": "47e4cf1f-742c-4f36-a90c-3dc5f2472fa7",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 1,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777910232544,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.555555582046509,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Screen vignette",
+            "source_uuid": "37933c8e-f068-4aff-84ba-1056cd79174c",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 1,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 3,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777910232544,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.555555582046509,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "umbertogiacobbi.biz",
+            "source_uuid": "2bff4ece-bd33-47da-a52d-2c23a6a621a4",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 2,
+            "group_item_backup": false,
+            "pos": {
+              "x": 48.0,
+              "y": 926.0625
+            },
+            "pos_rel": {
+              "x": -1.6888889074325562,
+              "y": 0.7148148417472839
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 414.0,
+              "y": 102.0
+            },
+            "bounds_rel": {
+              "x": 0.7666666507720947,
+              "y": 0.18888889253139496
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "VibeWare branding",
+            "source_uuid": "8e10cc9f-43e1-4c87-bb35-c5cd31aa8ca1",
+            "visible": false,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 2,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 4,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1755.0,
+              "y": 930.0
+            },
+            "pos_rel": {
+              "x": 1.4722222222222223,
+              "y": 0.7222222222222222
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 120.0,
+              "y": 120.0
+            },
+            "bounds_rel": {
+              "x": 0.2222222222222222,
+              "y": 0.2222222222222222
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e"
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "On the Table",
+      "uuid": "1b1e02ad-3ef5-4049-b5ed-6aeca78b36e9",
+      "id": "scene",
+      "versioned_id": "scene",
+      "settings": {
+        "id_counter": 8,
+        "custom_size": false,
+        "items": [
+          {
+            "name": "Table camera standby",
+            "source_uuid": "26a7a56f-39ad-4b57-8516-d923c8f7b289",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 1,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777910232544,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.555555582046509,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Sony",
+            "source_uuid": "b7f6e8c6-b795-4ea7-be2b-3612fa79fac5",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 2,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777910232544,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.555555582046509,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Hardware vignette",
+            "source_uuid": "7b70263e-81d3-4c5a-a2cf-a4b052cc12ec",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 1,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 7,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777910232544,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.555555582046509,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Logitech Brio",
+            "source_uuid": "226cc7c7-af8b-4029-97f8-1c915823d1c6",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 3,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1488.0,
+              "y": 80.0625
+            },
+            "pos_rel": {
+              "x": 0.9777777791023254,
+              "y": -0.8518518805503845
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 384.0,
+              "y": 216.0
+            },
+            "bounds_rel": {
+              "x": 0.7111111283302307,
+              "y": 0.4000000059604645
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Webcam vignette",
+            "source_uuid": "5eaa1757-a883-4940-9f0e-faedc3b2daf5",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 1,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 6,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1488.0,
+              "y": 80.0625
+            },
+            "pos_rel": {
+              "x": 0.9777777791023254,
+              "y": -0.8518518805503845
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 384.0,
+              "y": 216.0
+            },
+            "bounds_rel": {
+              "x": 0.7111111283302307,
+              "y": 0.4000000059604645
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "On the Table frame",
+            "source_uuid": "4e183ecc-b7d0-47f3-91b0-5d6166083bc2",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 4,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777910232544,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.555555582046509,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "umbertogiacobbi.biz",
+            "source_uuid": "2bff4ece-bd33-47da-a52d-2c23a6a621a4",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 5,
+            "group_item_backup": false,
+            "pos": {
+              "x": 48.0,
+              "y": 926.0625
+            },
+            "pos_rel": {
+              "x": -1.6888889074325562,
+              "y": 0.7148148417472839
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 414.0,
+              "y": 102.0
+            },
+            "bounds_rel": {
+              "x": 0.7666666507720947,
+              "y": 0.18888889253139496
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "VibeWare branding",
+            "source_uuid": "8e10cc9f-43e1-4c87-bb35-c5cd31aa8ca1",
+            "visible": false,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 2,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 8,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1755.0,
+              "y": 930.0
+            },
+            "pos_rel": {
+              "x": 1.4722222222222223,
+              "y": 0.7222222222222222
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 120.0,
+              "y": 120.0
+            },
+            "bounds_rel": {
+              "x": 0.2222222222222222,
+              "y": 0.2222222222222222
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e"
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Intro artwork",
+      "uuid": "20f7b716-3197-4cd5-b5cc-faf7846c5c2a",
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "settings": {
+        "file": "${ASSET_ROOT}/Intro-card.png",
+        "unload": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "filters": []
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Thank you artwork",
+      "uuid": "512c25d3-260b-42f5-9898-3f23f25bcece",
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "settings": {
+        "file": "${ASSET_ROOT}/Thank-you-card.png",
+        "unload": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "filters": []
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Chapter artwork",
+      "uuid": "80ff23db-1aab-4155-85c3-77f2d4100149",
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "settings": {
+        "file": "${ASSET_ROOT}/Chapter-card.png",
+        "unload": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "filters": []
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Privacy artwork",
+      "uuid": "08031c6c-8774-45a9-9c02-fccd164aa1d4",
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "settings": {
+        "file": "${ASSET_ROOT}/Privacy-card.png",
+        "unload": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "filters": []
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Comparison frame",
+      "uuid": "b3c9c1bc-6394-411e-82c7-7302c4bcf43b",
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "settings": {
+        "file": "${ASSET_ROOT}/Compare-frame.png",
+        "unload": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "filters": []
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "CRT title overlay",
+      "uuid": "45fe8c5a-61c6-4ac8-ba65-d2ca2e4b71a9",
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "settings": {
+        "file": "${ASSET_ROOT}/CRT-overlay.png",
+        "unload": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "filters": []
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Intro",
+      "uuid": "dbb91512-569a-496a-b198-359bba81f559",
+      "id": "scene",
+      "versioned_id": "scene",
+      "settings": {
+        "id_counter": 2,
+        "items": [
+          {
+            "name": "Intro artwork",
+            "source_uuid": "20f7b716-3197-4cd5-b5cc-faf7846c5c2a",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 1,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777777777777,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.5555555555555554,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Lab intro sound",
+            "source_uuid": "f31897ee-6ab2-4a36-8c18-6e3f91d1c5b2",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 2,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777777777777,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 0.75,
+              "y": 0.75
+            },
+            "bounds_rel": {
+              "x": 0.001388888888888889,
+              "y": 0.001388888888888889
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e"
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Thank you",
+      "uuid": "e7587ccb-0a5a-4f3b-8fd6-00c2e054be63",
+      "id": "scene",
+      "versioned_id": "scene",
+      "settings": {
+        "id_counter": 3,
+        "items": [
+          {
+            "name": "Logitech Brio",
+            "source_uuid": "226cc7c7-af8b-4029-97f8-1c915823d1c6",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 1,
+            "group_item_backup": false,
+            "pos": {
+              "x": 84.0,
+              "y": 262.5
+            },
+            "pos_rel": {
+              "x": -1.6222222222222222,
+              "y": -0.5138888888888888
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1098.0,
+              "y": 618.0
+            },
+            "bounds_rel": {
+              "x": 2.033333333333333,
+              "y": 1.1444444444444444
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Webcam vignette",
+            "source_uuid": "5eaa1757-a883-4940-9f0e-faedc3b2daf5",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 1,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 3,
+            "group_item_backup": false,
+            "pos": {
+              "x": 84.0,
+              "y": 262.5
+            },
+            "pos_rel": {
+              "x": -1.6222222222222222,
+              "y": -0.5138888888888888
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1098.0,
+              "y": 618.0
+            },
+            "bounds_rel": {
+              "x": 2.033333333333333,
+              "y": 1.1444444444444444
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Thank you artwork",
+            "source_uuid": "512c25d3-260b-42f5-9898-3f23f25bcece",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 2,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777777777777,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.5555555555555554,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e"
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Chapter",
+      "uuid": "7d4ca7c4-6025-4356-93ff-90546cd48926",
+      "id": "scene",
+      "versioned_id": "scene",
+      "settings": {
+        "id_counter": 2,
+        "items": [
+          {
+            "name": "Chapter artwork",
+            "source_uuid": "80ff23db-1aab-4155-85c3-77f2d4100149",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 1,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777777777777,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.5555555555555554,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "VibeWare branding",
+            "source_uuid": "8e10cc9f-43e1-4c87-bb35-c5cd31aa8ca1",
+            "visible": false,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 2,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 2,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1755.0,
+              "y": 930.0
+            },
+            "pos_rel": {
+              "x": 1.4722222222222223,
+              "y": 0.7222222222222222
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 120.0,
+              "y": 120.0
+            },
+            "bounds_rel": {
+              "x": 0.2222222222222222,
+              "y": 0.2222222222222222
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e"
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Privacy",
+      "uuid": "c3386c67-4910-4e19-b347-104ea344557f",
+      "id": "scene",
+      "versioned_id": "scene",
+      "settings": {
+        "id_counter": 2,
+        "items": [
+          {
+            "name": "Privacy artwork",
+            "source_uuid": "08031c6c-8774-45a9-9c02-fccd164aa1d4",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 1,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777777777777,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.5555555555555554,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "VibeWare branding",
+            "source_uuid": "8e10cc9f-43e1-4c87-bb35-c5cd31aa8ca1",
+            "visible": false,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 2,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 2,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1755.0,
+              "y": 930.0
+            },
+            "pos_rel": {
+              "x": 1.4722222222222223,
+              "y": 0.7222222222222222
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 120.0,
+              "y": 120.0
+            },
+            "bounds_rel": {
+              "x": 0.2222222222222222,
+              "y": 0.2222222222222222
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e"
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Comparison A-B",
+      "uuid": "c550db78-7c67-410b-a6b4-ce47ab8abf6c",
+      "id": "scene",
+      "versioned_id": "scene",
+      "settings": {
+        "id_counter": 6,
+        "items": [
+          {
+            "name": "ASUS ProArt",
+            "source_uuid": "47e4cf1f-742c-4f36-a90c-3dc5f2472fa7",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 2,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 960,
+            "crop_bottom": 0,
+            "id": 1,
+            "group_item_backup": false,
+            "pos": {
+              "x": 60.0,
+              "y": 247.5
+            },
+            "pos_rel": {
+              "x": -1.6666666666666667,
+              "y": -0.5416666666666666
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 870.0,
+              "y": 675.0
+            },
+            "bounds_rel": {
+              "x": 1.6111111111111112,
+              "y": 1.25
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Screen vignette",
+            "source_uuid": "37933c8e-f068-4aff-84ba-1056cd79174c",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 1,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 4,
+            "group_item_backup": false,
+            "pos": {
+              "x": 60.0,
+              "y": 247.5
+            },
+            "pos_rel": {
+              "x": -1.6666666666666667,
+              "y": -0.5416666666666666
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 870.0,
+              "y": 675.0
+            },
+            "bounds_rel": {
+              "x": 1.6111111111111112,
+              "y": 1.25
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "ASUS ProArt",
+            "source_uuid": "47e4cf1f-742c-4f36-a90c-3dc5f2472fa7",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 2,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 960,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 2,
+            "group_item_backup": false,
+            "pos": {
+              "x": 990.0,
+              "y": 247.5
+            },
+            "pos_rel": {
+              "x": 0.05555555555555555,
+              "y": -0.5416666666666666
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 870.0,
+              "y": 675.0
+            },
+            "bounds_rel": {
+              "x": 1.6111111111111112,
+              "y": 1.25
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Screen vignette",
+            "source_uuid": "37933c8e-f068-4aff-84ba-1056cd79174c",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 1,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 5,
+            "group_item_backup": false,
+            "pos": {
+              "x": 990.0,
+              "y": 247.5
+            },
+            "pos_rel": {
+              "x": 0.05555555555555555,
+              "y": -0.5416666666666666
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 870.0,
+              "y": 675.0
+            },
+            "bounds_rel": {
+              "x": 1.6111111111111112,
+              "y": 1.25
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Comparison frame",
+            "source_uuid": "b3c9c1bc-6394-411e-82c7-7302c4bcf43b",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 3,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777777777777,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.5555555555555554,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "VibeWare branding",
+            "source_uuid": "8e10cc9f-43e1-4c87-bb35-c5cd31aa8ca1",
+            "visible": false,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 2,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 6,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1755.0,
+              "y": 930.0
+            },
+            "pos_rel": {
+              "x": 1.4722222222222223,
+              "y": 0.7222222222222222
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 120.0,
+              "y": 120.0
+            },
+            "bounds_rel": {
+              "x": 0.2222222222222222,
+              "y": 0.2222222222222222
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e"
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Test card",
+      "uuid": "db111ce0-f65f-49fb-a2c5-575277414569",
+      "id": "scene",
+      "versioned_id": "scene",
+      "settings": {
+        "id_counter": 3,
+        "items": [
+          {
+            "name": "CRT test video",
+            "source_uuid": "e67601fa-9e71-48ba-ba41-f6ddf290a0ee",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 2,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 1,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777777777777,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.5555555555555554,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "CRT title overlay",
+            "source_uuid": "45fe8c5a-61c6-4ac8-ba65-d2ca2e4b71a9",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 2,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777777777777,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.5555555555555554,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "VibeWare branding",
+            "source_uuid": "8e10cc9f-43e1-4c87-bb35-c5cd31aa8ca1",
+            "visible": false,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 2,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 3,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1755.0,
+              "y": 930.0
+            },
+            "pos_rel": {
+              "x": 1.4722222222222223,
+              "y": 0.7222222222222222
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 120.0,
+              "y": 120.0
+            },
+            "bounds_rel": {
+              "x": 0.2222222222222222,
+              "y": 0.2222222222222222
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e"
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Detail",
+      "uuid": "378db11b-e221-434e-b98f-1ab0c7e5854d",
+      "id": "scene",
+      "versioned_id": "scene",
+      "settings": {
+        "id_counter": 4,
+        "items": [
+          {
+            "name": "ASUS ProArt",
+            "source_uuid": "47e4cf1f-742c-4f36-a90c-3dc5f2472fa7",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 1,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777777777777,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.5555555555555554,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "Screen vignette",
+            "source_uuid": "37933c8e-f068-4aff-84ba-1056cd79174c",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 1,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 3,
+            "group_item_backup": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "pos_rel": {
+              "x": -1.7777777777777777,
+              "y": -1.0
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 1920.0,
+              "y": 1080.0
+            },
+            "bounds_rel": {
+              "x": 3.5555555555555554,
+              "y": 2.0
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "umbertogiacobbi.biz",
+            "source_uuid": "2bff4ece-bd33-47da-a52d-2c23a6a621a4",
+            "visible": true,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 3,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 2,
+            "group_item_backup": false,
+            "pos": {
+              "x": 48.0,
+              "y": 926.0625
+            },
+            "pos_rel": {
+              "x": -1.6888888888888889,
+              "y": 0.7149305555555555
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 414.0,
+              "y": 102.0
+            },
+            "bounds_rel": {
+              "x": 0.7666666666666667,
+              "y": 0.18888888888888888
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "VibeWare branding",
+            "source_uuid": "8e10cc9f-43e1-4c87-bb35-c5cd31aa8ca1",
+            "visible": false,
+            "locked": true,
+            "rot": 0.0,
+            "scale_ref": {
+              "x": 1920,
+              "y": 1080
+            },
+            "align": 5,
+            "bounds_type": 2,
+            "bounds_align": 0,
+            "bounds_crop": true,
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "id": 4,
+            "group_item_backup": false,
+            "pos": {
+              "x": 1755.0,
+              "y": 930.0
+            },
+            "pos_rel": {
+              "x": 1.4722222222222223,
+              "y": 0.7222222222222222
+            },
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "scale_rel": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "bounds": {
+              "x": 120.0,
+              "y": 120.0
+            },
+            "bounds_rel": {
+              "x": 0.2222222222222222,
+              "y": 0.2222222222222222
+            },
+            "scale_filter": "bicubic",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 300
+            },
+            "hide_transition": {
+              "duration": 300
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e"
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "CRT test video",
+      "uuid": "e67601fa-9e71-48ba-ba41-f6ddf290a0ee",
+      "id": "ffmpeg_source",
+      "versioned_id": "ffmpeg_source",
+      "settings": {
+        "local_file": "${ASSET_ROOT}/CRT-test.mp4",
+        "is_local_file": true,
+        "looping": true,
+        "restart_on_activate": true,
+        "close_when_inactive": true,
+        "hw_decode": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": true,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "filters": []
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Lab intro sound",
+      "uuid": "f31897ee-6ab2-4a36-8c18-6e3f91d1c5b2",
+      "id": "ffmpeg_source",
+      "versioned_id": "ffmpeg_source",
+      "settings": {
+        "local_file": "${ASSET_ROOT}/Lab-intro.wav",
+        "is_local_file": true,
+        "looping": false,
+        "restart_on_activate": true,
+        "close_when_inactive": true
+      },
+      "mixers": 255,
+      "sync": 0,
+      "flags": 0,
+      "volume": 0.18,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "filters": []
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Screen vignette",
+      "uuid": "37933c8e-f068-4aff-84ba-1056cd79174c",
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "settings": {
+        "file": "${ASSET_ROOT}/Vignette.png",
+        "unload": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "filters": [
+        {
+          "prev_ver": 553648128,
+          "name": "Vignette intensity",
+          "uuid": "19e305b4-1b71-436d-90cb-624c167c3903",
+          "id": "color_filter",
+          "versioned_id": "color_filter_v2",
+          "settings": {
+            "opacity": 0.2,
+            "lab_enabled": true,
+            "lab_strength": 20
+          },
+          "mixers": 0,
+          "sync": 0,
+          "flags": 0,
+          "volume": 1.0,
+          "balance": 0.5,
+          "enabled": true,
+          "muted": false,
+          "push-to-mute": false,
+          "push-to-mute-delay": 0,
+          "push-to-talk": false,
+          "push-to-talk-delay": 0,
+          "hotkeys": {},
+          "deinterlace_mode": 0,
+          "deinterlace_field_order": 0,
+          "monitoring_type": 0,
+          "monitoring_enabled": false,
+          "private_settings": {},
+          "filters": []
+        }
+      ]
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Webcam vignette",
+      "uuid": "5eaa1757-a883-4940-9f0e-faedc3b2daf5",
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "settings": {
+        "file": "${ASSET_ROOT}/Vignette.png",
+        "unload": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "filters": [
+        {
+          "prev_ver": 553648128,
+          "name": "Vignette intensity",
+          "uuid": "8385978c-c2c5-42c2-9f3b-81479ee42cf9",
+          "id": "color_filter",
+          "versioned_id": "color_filter_v2",
+          "settings": {
+            "opacity": 0.25,
+            "lab_enabled": true,
+            "lab_strength": 25
+          },
+          "mixers": 0,
+          "sync": 0,
+          "flags": 0,
+          "volume": 1.0,
+          "balance": 0.5,
+          "enabled": true,
+          "muted": false,
+          "push-to-mute": false,
+          "push-to-mute-delay": 0,
+          "push-to-talk": false,
+          "push-to-talk-delay": 0,
+          "hotkeys": {},
+          "deinterlace_mode": 0,
+          "deinterlace_field_order": 0,
+          "monitoring_type": 0,
+          "monitoring_enabled": false,
+          "private_settings": {},
+          "filters": []
+        }
+      ]
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "Hardware vignette",
+      "uuid": "7b70263e-81d3-4c5a-a2cf-a4b052cc12ec",
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "settings": {
+        "file": "${ASSET_ROOT}/Vignette.png",
+        "unload": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "filters": [
+        {
+          "prev_ver": 553648128,
+          "name": "Vignette intensity",
+          "uuid": "1cd99669-6234-4c8d-a0ff-c491c34f5c72",
+          "id": "color_filter",
+          "versioned_id": "color_filter_v2",
+          "settings": {
+            "opacity": 0.2,
+            "lab_enabled": true,
+            "lab_strength": 20
+          },
+          "mixers": 0,
+          "sync": 0,
+          "flags": 0,
+          "volume": 1.0,
+          "balance": 0.5,
+          "enabled": true,
+          "muted": false,
+          "push-to-mute": false,
+          "push-to-mute-delay": 0,
+          "push-to-talk": false,
+          "push-to-talk-delay": 0,
+          "hotkeys": {},
+          "deinterlace_mode": 0,
+          "deinterlace_field_order": 0,
+          "monitoring_type": 0,
+          "monitoring_enabled": false,
+          "private_settings": {},
+          "filters": []
+        }
+      ]
+    },
+    {
+      "prev_ver": 553648128,
+      "name": "VibeWare branding",
+      "uuid": "8e10cc9f-43e1-4c87-bb35-c5cd31aa8ca1",
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "settings": {
+        "file": "${ASSET_ROOT}/VibeWare-logo.png",
+        "unload": false
+      },
+      "mixers": 0,
+      "sync": 0,
+      "flags": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "enabled": true,
+      "muted": false,
+      "push-to-mute": false,
+      "push-to-mute-delay": 0,
+      "push-to-talk": false,
+      "push-to-talk-delay": 0,
+      "hotkeys": {},
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "monitoring_type": 0,
+      "monitoring_enabled": false,
+      "filters": []
+    }
+  ],
+  "groups": [],
+  "scene_order": [
+    {
+      "name": "Test card"
+    },
+    {
+      "name": "Intro"
+    },
+    {
+      "name": "That's me"
+    },
+    {
+      "name": "Software Demo"
+    },
+    {
+      "name": "Screen Only"
+    },
+    {
+      "name": "Detail"
+    },
+    {
+      "name": "Comparison A-B"
+    },
+    {
+      "name": "Chapter"
+    },
+    {
+      "name": "Hardware Demo"
+    },
+    {
+      "name": "On the Table"
+    },
+    {
+      "name": "Thank you"
+    },
+    {
+      "name": "Privacy"
+    }
+  ],
+  "current_scene": "Privacy",
+  "current_program_scene": "Privacy",
+  "canvases": [],
+  "current_transition": "Fade",
+  "transition_duration": 300,
+  "transitions": [],
+  "quick_transitions": [
+    {
+      "name": "Cut",
+      "duration": 300,
+      "hotkeys": [],
+      "id": 1,
+      "fade_to_black": false
+    },
+    {
+      "name": "Fade",
+      "duration": 300,
+      "hotkeys": [],
+      "id": 2,
+      "fade_to_black": false
+    },
+    {
+      "name": "Fade",
+      "duration": 300,
+      "hotkeys": [],
+      "id": 3,
+      "fade_to_black": true
+    }
+  ],
+  "saved_projectors": [],
+  "preview_locked": false,
+  "scaling_enabled": false,
+  "scaling_level": -19,
+  "scaling_off_x": 0.0,
+  "scaling_off_y": 0.0,
+  "virtual-camera": {
+    "type2": 3
+  },
+  "modules": {},
+  "resolution": {
+    "x": 1920,
+    "y": 1080
+  },
+  "version": 2
+}

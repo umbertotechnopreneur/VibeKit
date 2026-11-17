@@ -20,6 +20,7 @@ PROJECTS = {
     "openai-usage": "Widgets/OpenAI/",
     "desktop-ripple": "Widgets/WaterRipple/",
     "retro-terminal": "Widgets/RetroTerminal/",
+    "studio-controls": "Widgets/StudioControls/",
 }
 
 

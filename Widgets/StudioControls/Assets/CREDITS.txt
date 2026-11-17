@@ -1,0 +1,28 @@
+OBS LAB ASSET CREDITS
+
+CRT test-card video
+Title: TV Test Patterns (Stock Footage Release 30, Clip 8)
+Creator: Ivan Bridgewater
+Source: https://archive.org/details/IMB_SF_R30_C8
+Original file: IMB_SF_R30_C8_512kb.mp4
+License shown by the creator's Internet Archive metadata: Creative Commons Attribution 3.0
+https://creativecommons.org/licenses/by/3.0/
+Local version: a 10-second excerpt beginning at 00:16, re-encoded to H.264; audio removed.
+The Test card scene displays attribution, source and license. Do not remove that attribution.
+
+OBS Studio logo
+Official installed OBS Studio icon, copied from the system OBS package.
+https://obsproject.com/
+Used in the requested “Made with OBS Studio” credit.
+
+VibeWare logo
+Existing owner-supplied project asset from the owner's website repository.
+https://umbertogiacobbi.biz/vibeware/manifesto
+
+Intro cue
+Original synthesized three-note cue generated for this local control panel.
+No stock music or third-party recording was used.
+
+Title-card graphics and vignette
+Procedurally rendered local assets, with system DejaVu typography.
+No generated product interfaces, simulated product metrics, or extra video captures.

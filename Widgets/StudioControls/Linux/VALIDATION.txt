@@ -1,0 +1,53 @@
+STUDIO CONTROLS VALIDATION
+
+The source migration retains the Linux logic and native GTK controls from the
+local prototype. Automated checks use fake OBS responses, temporary preferences
+and synthetic source transforms. They do not capture a screen, open a camera
+stream, or measure actual encoding/capture performance.
+
+Regression checks cover bounded crop math, scene/source identity, independent
+vignettes, optional-source failure isolation, confirmed recording followed by
+refresh failure, no mutation replay, request deadlines, malformed settings,
+transaction rollback, theme persistence, shutdown cancellation and diagnostics.
+
+The GTK runner uses a private home, display and D-Bus with fake devices.
+Windows compilation, synthetic card/DPAPI checks and window startup are reported
+by the Windows workflow, separately from actual hardware validation.
+
+PORTABLE PACKAGE UPDATE — 17 NOVEMBER 2026
+
+The staged VibeKit package passed 85 Python unit tests in 5.510 seconds.
+The 22 path/package checks cover bundled versus writable assets, original flat
+installation compatibility, lazy client construction, empty/relative XDG fallback,
+preservation of custom artwork, interrupted copies, validated scene references,
+1920x1080 template layout, Privacy startup, muted global audio, unassigned capture
+devices, absence of personal paths/restore tokens, asset resolution, traversal and
+outside-symlink rejection, new-output-only preparation, and isolated versioned installation.
+
+The installer tests copied a tiny synthetic project into temporary user-data roots.
+They verified that no application was launched, existing installations/launchers
+were preserved, incomplete copies never became an installed version, and source
+checkouts were rejected as installation destinations. Desktop-entry validation
+also passed for a synthetic path containing spaces, quotes, dollar/percent signs,
+backticks and a backslash. No owner OBS configuration or live device was consulted.
+
+Ruff configured static checks passed; all 27 checked Python files were formatted.
+The shared .NET 10 core separately passed 30 synthetic tests and a zero-warning
+build. These results validate application/package behavior, not capture speed,
+encoding performance, Windows runtime behavior or real-device compatibility.
+
+DEBIAN PACKAGE UPDATE — 17 NOVEMBER 2026
+
+All 94 Python tests passed in 6.412 seconds, including nine package regressions.
+The package was built with dpkg-deb without root privileges and was inspected and
+extracted, not installed. Checks covered declared dependencies, Architecture all,
+root archive ownership, permissions, exact runtime/assets manifest, retained
+licenses, absence of maintainer scripts/private state/build caches, shell/desktop
+launcher syntax, and python3 -B bytecode suppression. The extracted prefix copied
+working assets only into a synthetic user directory and prepared a new Privacy
+scene import using synthetic storage. No application window or device was opened.
+
+Two builds using the same source/epoch and different umasks produced identical
+SHA-256 digests. Existing package outputs were preserved. Real Linux installation,
+native Windows operation, selected devices and short recording checks remain the
+owner's explicit manual release verification described in DEBIAN.md.

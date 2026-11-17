@@ -1,0 +1,118 @@
+name: studio-controls / Release packages
+
+on:
+  push:
+    tags: ['studio-controls/v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: New studio-controls/v<version> tag matching the source
+        required: true
+        type: string
+      draft:
+        description: Keep the release as a draft
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: studio-controls-release-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Require an application-scoped version matching both platforms
+        id: version
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import tomllib
+          import xml.etree.ElementTree as ET
+          root = Path('Widgets/StudioControls')
+          version = tomllib.loads((root / 'Linux/pyproject.toml').read_text())['project']['version']
+          windows = ET.parse(root / 'Windows/StudioControls.Windows.csproj').findtext('.//Version')
+          tag = os.environ['RELEASE_TAG']
+          if windows != version or tag != f'studio-controls/v{version}':
+              raise SystemExit('The release tag must match both platform versions.')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as stream:
+              stream.write(f'tag={tag}\nversion={version}\n')
+          PY
+
+  packages:
+    needs: version
+    uses: ./.github/workflows/ci-studio-controls.yml
+
+  release:
+    needs: [version, packages]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: studio-controls-*
+          path: release
+          merge-multiple: true
+      - name: Publish new preview assets without replacing an existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          SOURCE_SHA: ${{ github.sha }}
+          IS_DRAFT: ${{ inputs.draft || false }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+          import subprocess
+          import tempfile
+          from urllib.parse import quote
+          names = ['StudioControls-windows-x64.zip', 'StudioControls-linux-all.deb']
+          files = [Path('release') / name for name in names]
+          if any(not file.is_file() or file.stat().st_size == 0 for file in files):
+              raise SystemExit('Both verified platform packages are required.')
+          checksums = Path('release/SHA256SUMS.txt')
+          sums = []
+          for file in files:
+              with file.open('rb') as stream:
+                  digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+              sums.append(f'{digest}  {file.name}\n')
+          checksums.write_text(''.join(sums))
+          notes = Path('Widgets/StudioControls/docs/releases') / (os.environ['RELEASE_VERSION'] + '.md')
+          if not notes.is_file():
+              raise SystemExit('Versioned release notes are required.')
+          tag = os.environ['RELEASE_TAG']
+          refs = subprocess.check_output(['git', 'ls-remote', '--tags', 'origin', f'refs/tags/{tag}', f'refs/tags/{tag}^{{}}'], text=True).splitlines()
+          if refs:
+              source = next((line.split()[0] for line in refs if line.endswith('^{}')), refs[0].split()[0])
+              if source != os.environ['SOURCE_SHA']:
+                  raise SystemExit('An existing tag points to different source; it is never moved.')
+          # Distinguish a missing release from network/authentication errors.
+          with tempfile.NamedTemporaryFile() as response:
+              tag_path = quote(tag, safe='')
+              result = subprocess.run(['gh', 'api', '--include', f'repos/{os.environ["GH_REPO"]}/releases/tags/{tag_path}'], stdout=response, stderr=subprocess.DEVNULL)
+              response.seek(0)
+              status = response.readline().decode(errors='replace')
+          if result.returncode == 0:
+              raise SystemExit('This release already exists; assets are never replaced.')
+          if '404' not in status:
+              raise SystemExit('Could not establish that the release is new.')
+          command = ['gh', 'release', 'create', os.environ['RELEASE_TAG'], *map(str, files), str(checksums), '--target', os.environ['SOURCE_SHA'], '--title', f'Studio Controls {os.environ["RELEASE_VERSION"]} · preview', '--notes-file', str(notes), '--prerelease', '--latest=false']
+          if os.environ['IS_DRAFT'].lower() == 'true':
+              command.append('--draft')
+          subprocess.run(command, check=True)
+          PY

@@ -25,6 +25,7 @@ on:
           - openai-usage
           - desktop-ripple
           - retro-terminal
+          - studio-controls
 
 permissions:
   contents: read
@@ -108,10 +109,15 @@ jobs:
     if: contains(fromJSON(needs.changes.outputs.projects), 'retro-terminal')
     uses: ./.github/workflows/ci-retro-terminal.yml
 
+  studio-controls:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'studio-controls')
+    uses: ./.github/workflows/ci-studio-controls.yml
+
   required:
     name: VibeKit CI required
     if: always()
-    needs: [changes, agentinbox, helpme, markvibe, ramtaskman, thermalright, ulanzideck, voiceducker, worktrail, worktrail-scripts, ghostty-shaders, desktop-ripple, openai-usage, retro-terminal]
+    needs: [changes, agentinbox, helpme, markvibe, ramtaskman, thermalright, ulanzideck, voiceducker, worktrail, worktrail-scripts, ghostty-shaders, desktop-ripple, openai-usage, retro-terminal, studio-controls]
     runs-on: ubuntu-24.04
     steps:
       - name: Require every selected pipeline to succeed

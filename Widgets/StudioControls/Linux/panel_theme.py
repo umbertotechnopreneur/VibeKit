@@ -1,0 +1,245 @@
+"""Panel appearance preferences and GTK palettes, independent from OBS output."""
+
+import json
+from pathlib import Path
+
+from diagnostics import get_logger
+from lab_titles import atomic_bytes
+
+LOGGER = get_logger(__name__)
+SETTINGS_PATH = Path.home() / ".config/umbertogiacobbi/panel-settings.json"
+THEMES = ("light", "dark", "system")
+DEFAULT_THEME = "light"
+# Symbolic icons retain a distinct colour in both palettes. Selected scenes
+# use the darker variant so the icon remains visible on the salmon surface.
+SCENE_COLORS = {
+    "Test card": ("test-card", "#7243a1", "#c9a2f0"),
+    "Intro": ("intro", "#0d6b64", "#5ed4c7"),
+    "That's me": ("presenter", "#1a61a8", "#86b9f4"),
+    "Software Demo": ("software", "#4c4aa9", "#aba7ff"),
+    "Screen Only": ("screen", "#00677e", "#69c7e4"),
+    "Detail": ("detail", "#964700", "#f9b367"),
+    "Comparison A-B": ("comparison", "#8c3e83", "#e3a1d9"),
+    "Chapter": ("chapter", "#3f6a25", "#a5cf7b"),
+    "Hardware Demo": ("hardware", "#775900", "#e1c266"),
+    "On the Table": ("table", "#994332", "#f3a18f"),
+    "Thank you": ("thanks", "#9e325d", "#f59dbd"),
+    "Privacy": ("privacy", "#49616d", "#a3becd"),
+}
+PALETTES = {
+    "light": {
+        "background": "#f5f2ee",
+        "header": "#ece7e1",
+        "surface": "#fffdf9",
+        "hover": "#e9e3dc",
+        "foreground": "#292622",
+        "muted": "#625b53",
+        "border": "#bcb3aa",
+        "disabled_background": "#e8e3dd",
+        "disabled_foreground": "#6c6259",
+        "focus": "#935040",
+    },
+    "dark": {
+        "background": "#171a1e",
+        "header": "#20242a",
+        "surface": "#292e35",
+        "hover": "#343b44",
+        "foreground": "#eee9e2",
+        "muted": "#b9b0a6",
+        "border": "#69727e",
+        "disabled_background": "#262a30",
+        "disabled_foreground": "#a49a90",
+        "focus": "#eba295",
+    },
+}
+
+
+def load_theme(path=SETTINGS_PATH):
+    try:
+        settings = json.loads(Path(path).read_text())
+        if not isinstance(settings, dict) or settings.get("theme", DEFAULT_THEME) not in THEMES:
+            raise ValueError("Unknown panel appearance")
+        return settings.get("theme", DEFAULT_THEME)
+    except FileNotFoundError:
+        return DEFAULT_THEME
+    except (OSError, ValueError, TypeError):
+        LOGGER.warning("Could not read panel appearance; using Light", exc_info=True)
+        return DEFAULT_THEME
+
+
+def save_theme(theme, path=SETTINGS_PATH):
+    if theme not in THEMES:
+        raise ValueError("Unknown panel appearance")
+    atomic_bytes(Path(path), (json.dumps({"theme": theme}, indent=2) + "\n").encode())
+
+
+def resolve_theme(preference, system_scheme="default", fallback_dark=False):
+    if preference in PALETTES:
+        return preference
+    if preference != "system":
+        return DEFAULT_THEME
+    if system_scheme == "prefer-dark":
+        return "dark"
+    if system_scheme == "prefer-light":
+        return "light"
+    return "dark" if fallback_dark else "light"
+
+
+def theme_css(theme):
+    palette = PALETTES[theme]
+    definitions = "\n".join(f"@define-color lab_{name} {value};" for name, value in palette.items())
+    icon_rules = []
+    for name, light, dark in SCENE_COLORS.values():
+        color = light if theme == "light" else dark
+        icon_rules.append(
+            f"window.umberto-lab button.scene-button image.scene-{name} "
+            f"{{ color: {color}; }}\n"
+            f"window.umberto-lab button.scene-button.suggested-action:not(:disabled) "
+            f"image.scene-{name} {{ color: {light}; }}"
+        )
+    return (
+        definitions
+        + """
+@define-color lab_accent #eba295;
+@define-color lab_accent_foreground #29201c;
+
+window.umberto-lab, window.umberto-lab:backdrop {
+  background-color: @lab_background;
+  color: @lab_foreground;
+}
+window.umberto-lab headerbar, window.umberto-lab headerbar:backdrop {
+  background-image: none;
+  background-color: @lab_header;
+  color: @lab_foreground;
+  border-bottom: 1px solid @lab_border;
+  box-shadow: none;
+}
+window.umberto-lab button {
+  background-image: none;
+  background-color: @lab_surface;
+  color: @lab_foreground;
+  border: 1px solid @lab_border;
+  border-radius: 8px;
+  box-shadow: none;
+  text-shadow: none;
+}
+window.umberto-lab button:hover { background-color: @lab_hover; }
+window.umberto-lab button.suggested-action,
+window.umberto-lab button:checked {
+  background-color: @lab_accent;
+  color: @lab_accent_foreground;
+  border-color: @lab_focus;
+}
+window.umberto-lab .dim-label { color: @lab_muted; opacity: 1; }
+window.umberto-lab button.suggested-action .dim-label,
+window.umberto-lab button:checked .dim-label { color: @lab_accent_foreground; }
+window.umberto-lab button:disabled {
+  background-color: @lab_disabled_background;
+  color: @lab_disabled_foreground;
+  border-color: @lab_border;
+  opacity: 1;
+}
+window.umberto-lab button:disabled label,
+window.umberto-lab button:disabled image,
+window.umberto-lab button:disabled .dim-label,
+window.umberto-lab scale:disabled { color: @lab_disabled_foreground; opacity: 1; }
+window.umberto-lab button.scene-button { padding: 12px; }
+window.umberto-lab button.scene-button:disabled image {
+  -gtk-icon-filter: none;
+  opacity: 0.85;
+}
+window.umberto-lab .scene-title { font-weight: 700; }
+window.umberto-lab headerbar windowcontrols button {
+  background-image: none;
+  background-color: @lab_hover;
+  border: none;
+  border-radius: 999px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+  margin: 8px 3px;
+  box-shadow: none;
+}
+window.umberto-lab headerbar windowcontrols button image {
+  background: none;
+  border: none;
+  padding: 0;
+  box-shadow: none;
+}
+window.umberto-lab headerbar windowcontrols button:hover { background-color: @lab_border; }
+window.umberto-lab headerbar windowcontrols button.close {
+  background-color: #c43e42;
+  color: #ffffff;
+}
+window.umberto-lab headerbar windowcontrols button.close:hover { background-color: #a62d32; }
+window.umberto-lab headerbar windowcontrols button:focus-visible {
+  outline: 2px solid @lab_focus;
+  outline-offset: 2px;
+}
+window.umberto-lab entry,
+window.umberto-lab textview, window.umberto-lab textview text {
+  background-color: @lab_surface;
+  color: @lab_foreground;
+  caret-color: @lab_foreground;
+}
+window.umberto-lab entry { border-color: @lab_border; }
+window.umberto-lab entry:disabled,
+window.umberto-lab textview:disabled, window.umberto-lab textview:disabled text {
+  background-color: @lab_disabled_background;
+  color: @lab_disabled_foreground;
+}
+window.umberto-lab notebook > header {
+  background-color: @lab_header;
+  border-color: @lab_border;
+}
+window.umberto-lab notebook > header tab { color: @lab_muted; }
+window.umberto-lab notebook > header tab:checked {
+  background-color: @lab_surface;
+  color: @lab_foreground;
+  border-bottom: 3px solid @lab_focus;
+  box-shadow: none;
+}
+window.umberto-lab notebook > stack { background-color: @lab_background; }
+window.umberto-lab scale trough {
+  background-color: @lab_hover;
+  border: 1px solid @lab_border;
+}
+window.umberto-lab scale highlight {
+  background-color: @lab_accent;
+  border-color: @lab_focus;
+}
+window.umberto-lab scale slider {
+  background-image: none;
+  background-color: @lab_foreground;
+  border-color: @lab_surface;
+  box-shadow: none;
+}
+window.umberto-lab scale:disabled slider { background-color: @lab_disabled_foreground; }
+window.umberto-lab scale value { color: @lab_muted; }
+window.umberto-lab scale:disabled value { color: @lab_disabled_foreground; }
+window.umberto-lab checkbutton check {
+  background-color: @lab_surface;
+  border-color: @lab_border;
+  color: @lab_foreground;
+}
+window.umberto-lab checkbutton check:checked {
+  background-color: @lab_accent;
+  color: @lab_accent_foreground;
+}
+window.umberto-lab popover > contents,
+window.umberto-lab dropdown listview,
+window.umberto-lab dropdown row {
+  background-color: @lab_surface;
+  color: @lab_foreground;
+}
+window.umberto-lab dropdown row:hover { background-color: @lab_hover; }
+window.umberto-lab dropdown row:selected {
+  background-color: @lab_accent;
+  color: @lab_accent_foreground;
+}
+window.umberto-lab scrollbar slider { background-color: @lab_muted; }
+window.umberto-lab :focus-visible { outline-color: @lab_focus; }
+window.umberto-lab .title-1 { font-size: 28px; }
+"""
+        + "\n".join(icon_rules)
+    )

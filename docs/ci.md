@@ -19,6 +19,7 @@ GitHub discovers workflows in the root `.github/workflows/` directory. The copie
 | `Apps/Ghostty Shaders/` | Manager checks with isolated configuration directories |
 | `Widgets/OpenAI/` | Shared .NET calculations on Windows/Linux and synthetic watchdog ownership checks |
 | `Widgets/WaterRipple/` | Portable C# and Linux model checks, recovery checks and Debian/extension packaging |
+| `Widgets/StudioControls/` | Shared synthetic checks, isolated GTK/WinUI startup and Windows ZIP/Linux Debian packages |
 
 For example, changing only `Apps/WorkTrail/` runs its two pipelines and the common selection/result jobs. It does not build HelpMe or another application. Changing multiple applications runs each affected pipeline. Shared `scripts/` or `.github/actions/` changes check all configured consumers. `Widgets/Shared/` changes check OpenAI Usage and Ripple, its two consumers. Editing one application's root workflow checks that application. Root documentation alone does not build applications; WaterRipple retains its Markdown-only exclusion.
 
@@ -47,6 +48,7 @@ Versions belong to applications. Tags use an application prefix:
 | AgentInbox | `agentinbox/v2.0.0` | Reserved namespace; the existing manual workflow produces Debug MSIX artifacts only |
 | MarkVibe | `markvibe/v0.1.0.2` | Reserved namespace; `markvibe-package-windows.yml` produces manual artifacts |
 | Thermalright | `thermalright/v0.1.24` | Reserved namespace; CI produces artifacts without a release-publishing workflow |
+| Studio Controls | `studio-controls/v0.3.0` | `studio-controls-release.yml`, tag or manual preview release |
 
 Only HelpMe and WorkTrail retain automatic tag-triggered release preparation, scoped to their prefixes. Existing draft defaults, version checks, target architectures and packaging policies remain in effect. VoiceDucker publication is isolated in a manual workflow so its write permission is never required by reusable CI. UlanziDeck's Git tag prefix is removed from archive filenames, preserving the executable/package naming contract. Migrate its previous stable release to preserve release history before preparing a new version. If no published stable `ulanzideck/v*` release exists, the manual workflow can instead create an initial namespaced release: explicitly supply a new tag matching the checked-out `Cargo.toml` version. It will not choose an initial tag automatically. Once a stable release exists, the next-minor-version check applies as before. Existing tags are always rejected, and releases remain drafts by default. Never use the repository-wide `/releases/latest` to determine an application's latest release.
 
@@ -63,3 +65,23 @@ Local preparation does not update GitHub visibility, release assets, secrets, br
 5. Make only the imported standalone application repositories private, then archive them, including Ram Taskman if its separate repository has been published. Keep VibeKit active. Cody/Luna Shell, VibeWare branding, Tools' remaining shell utilities, and other projects outside this import retain their own repositories.
 
 The original local checkouts are separate backups. Archiving a repository on GitHub is a distinct action; the presence of a local archive folder does not change its online visibility or read-only state.
+
+## Studio Controls
+
+`studio-controls` selects `Widgets/StudioControls/` and its reusable workflow.
+It runs dependency-free .NET protocol/state checks on Linux and Windows, Linux
+Python/GTK checks on a private display with fake devices, and a Windows x64 WinUI
+publish followed by synthetic DPAPI/card-rendering verification and isolated
+window startup/theme checks. These checks never enumerate cameras, capture
+media or connect to a live OBS instance. CI builds a Windows x64 ZIP and an
+architecture-independent Debian package, checks package contents/exclusions and
+retains them as artifacts. It does not install packages or modify an OBS collection.
+Interactive device compatibility remains a separate check on both platforms.
+
+The application-scoped `studio-controls/v<version>` tag (or explicit manual
+release action) runs all Studio Controls checks before publishing new preview
+assets and SHA-256 checksums. Both platform versions must match the tag. Existing
+release assets are never replaced, and the release does not become the monorepo's
+latest release. The normal CI workflow retains read-only repository permissions;
+only the final release job can write release metadata. Manual releases default to
+drafts. Website downloads use an explicit application/version URL.

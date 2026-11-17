@@ -28,6 +28,11 @@ class ProjectSelectionTests(unittest.TestCase):
         self.assertEqual(select_paths([".github/workflows/ci-retro-terminal.yml"]), ["retro-terminal"])
         self.assertEqual(select_paths(["Widgets/Shared/WidgetAbout.cs"]), ["openai-usage", "desktop-ripple"])
 
+    def test_studio_controls_isolated_selection(self):
+        self.assertEqual(select_paths(["Widgets/StudioControls/Windows/MainWindow.cs"]), ["studio-controls"])
+        self.assertEqual(select_paths(["Widgets/StudioControls/Linux/controlli-brio.py"]), ["studio-controls"])
+        self.assertEqual(select_paths([".github/workflows/ci-studio-controls.yml"]), ["studio-controls"])
+
     def test_complete_push_and_cross_app_move(self):
         original = Path.cwd()
         with tempfile.TemporaryDirectory(prefix="vibekit-diff-") as directory:

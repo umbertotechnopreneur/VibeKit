@@ -1,0 +1,41 @@
+{
+  "canvasWidth": 2560,
+  "canvasHeight": 1440,
+  "cameraSource": "Logitech Brio",
+  "screenSource": "ASUS ProArt",
+  "hardwareSource": "Sony",
+  "blurFilter": "Background blur",
+  "vignetteFilter": "Vignette intensity",
+  "brandingSource": "VibeWare branding",
+  "introSoundSource": "Lab intro sound",
+  "audioInputs": ["Mic/Aux", "Desktop Audio"],
+  "outroCameraBounds": {"x":112,"y":350,"width":1464,"height":824},
+  "comparisonBounds": [{"x":80,"y":330,"width":1160,"height":900},{"x":1320,"y":330,"width":1160,"height":900}],
+  "scenes": [
+    {"name":"Test card","title":"Test card · CRT","description":"Retro standby with the video title"},
+    {"name":"Intro","title":"Intro","description":"Project title, description and links"},
+    {"name":"That's me","title":"That's me","description":"You, full screen"},
+    {"name":"Software Demo","title":"Software Demo","description":"Screen with you in the corner"},
+    {"name":"Screen Only","title":"Screen Only","description":"Screen without a camera"},
+    {"name":"Detail","title":"Detail","description":"Screen with saved detail positions"},
+    {"name":"Comparison A-B","title":"Comparison A/B","description":"Left and right halves of the screen"},
+    {"name":"Chapter","title":"Chapter","description":"A title card for the next section"},
+    {"name":"Hardware Demo","title":"Hardware Demo","description":"Screen, webcam and workbench"},
+    {"name":"On the Table","title":"On the Table","description":"Workbench with you in the corner"},
+    {"name":"Thank you","title":"Thank you","description":"You, project links and credits"},
+    {"name":"Privacy","title":"Pause / privacy","description":"Screen hidden; audio stays as set"}
+  ],
+  "cardSources": [
+    {"sourceName":"Intro artwork","fileName":"Intro-card.png"},
+    {"sourceName":"Thank you artwork","fileName":"Thank-you-card.png"},
+    {"sourceName":"Chapter artwork","fileName":"Chapter-card.png"},
+    {"sourceName":"Privacy artwork","fileName":"Privacy-card.png"},
+    {"sourceName":"Comparison frame","fileName":"Compare-frame.png"},
+    {"sourceName":"CRT title overlay","fileName":"CRT-overlay.png"}
+  ],
+  "vignettes": [
+    {"key":"screen","sourceName":"Screen vignette","targetSource":"ASUS ProArt","label":"Screen"},
+    {"key":"camera","sourceName":"Webcam vignette","targetSource":"Logitech Brio","label":"Webcam"},
+    {"key":"hardware","sourceName":"Hardware vignette","targetSource":"Sony","label":"Hardware"}
+  ]
+}

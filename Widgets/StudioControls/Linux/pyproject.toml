@@ -1,0 +1,25 @@
+[project]
+name = "umberto-lab-controls"
+version = "0.3.0"
+description = "Native GTK controls for a local OBS demonstration setup"
+requires-python = ">=3.11"
+dependencies = ["Pillow>=10,<13", "websocket-client==1.9.2"]
+
+# GTK/PyGObject, X11 libraries and fonts come from the Linux distribution.
+# _vendor retains the existing websocket-client release for the portable install.
+# This manifest documents the source project; it does not install system packages.
+
+[project.optional-dependencies]
+dev = ["ruff>=0.11,<1"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+exclude = ["_vendor", "Backups", "_runtime"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "B"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

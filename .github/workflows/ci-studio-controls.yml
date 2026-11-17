@@ -1,0 +1,98 @@
+name: Studio Controls checks
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: Shared protocol and synthetic state checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    defaults:
+      run:
+        working-directory: Widgets/StudioControls
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: Widgets/StudioControls/global.json
+      - name: Check protocol, state recovery and import paths without devices
+        run: dotnet run --project Shared/StudioControls.Core.Tests -c Release --artifacts-path "${{ runner.temp }}/studio-core-checks"
+  gtk:
+    name: Linux GTK and portable scene checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install native check prerequisites
+        run: sudo apt-get update && sudo apt-get install -y python3-gi python3-pil python3-cairo python3-gi-cairo gir1.2-gtk-4.0 xvfb xauth dbus-x11 fonts-dejavu-core
+      - name: Check pure Python logic and prepared scenes
+        working-directory: Widgets/StudioControls/Linux
+        run: python3 -B -m unittest discover -v
+      - name: Check native GTK on a private display with fake devices
+        run: python3 -B Widgets/StudioControls/Linux/tests/run_gui_smoke.py
+      - name: Build and inspect the Debian package without installing it
+        working-directory: Widgets/StudioControls
+        env:
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/studio-controls-linux
+        run: |
+          version=$(python3 -c 'import pathlib,tomllib; print(tomllib.loads(pathlib.Path("Linux/pyproject.toml").read_text())["project"]["version"])')
+          python3 -B scripts/build-linux-deb.py --version "$version" --output-dir "$PACKAGE_DIRECTORY" --epoch "$(git log -1 --format=%ct)"
+          dpkg-deb --info "$PACKAGE_DIRECTORY/studio-controls_${version}_all.deb"
+          dpkg-deb --contents "$PACKAGE_DIRECTORY/studio-controls_${version}_all.deb"
+          cp "$PACKAGE_DIRECTORY/studio-controls_${version}_all.deb" "$PACKAGE_DIRECTORY/StudioControls-linux-all.deb"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: studio-controls-linux-deb
+          path: ${{ runner.temp }}/studio-controls-linux/StudioControls-linux-all.deb
+          if-no-files-found: error
+  windows:
+    name: Build native Windows UI and verify synthetic rendering
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: Widgets/StudioControls
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: Widgets/StudioControls/global.json
+      - name: Publish Windows x64 package and verify without devices
+        shell: pwsh
+        run: ./scripts/Build-Windows.ps1 -Configuration Release -Verify -OutputDirectory '${{ runner.temp }}/studio-controls-windows'
+      - name: Exercise isolated native window startup and theme changes
+        shell: pwsh
+        run: |
+          $exe = Join-Path '${{ runner.temp }}/studio-controls-windows' 'StudioControls.Windows.exe'
+          $process = Start-Process -FilePath $exe -ArgumentList '--ui-smoke' -PassThru
+          if (-not $process.WaitForExit(60000)) {
+            Stop-Process -Id $process.Id
+            throw 'The isolated UI smoke process timed out.'
+          }
+          if ($process.ExitCode -ne 0) { throw "Native UI smoke failed: $($process.ExitCode)" }
+          $report = Join-Path '${{ runner.temp }}/studio-controls-windows' 'ui-smoke.txt'
+          if (-not (Test-Path -LiteralPath $report)) { throw 'No native UI smoke report was produced.' }
+          Get-Content -LiteralPath $report
+      - name: Verify archive exclusions and package the Windows application
+        shell: pwsh
+        run: |
+          ./scripts/Test-WindowsPackage.ps1
+          ./scripts/Package-Windows.ps1 -PublishDirectory '${{ runner.temp }}/studio-controls-windows' -OutputDirectory '${{ runner.temp }}/studio-controls-release'
+          [xml]$project = Get-Content Windows/StudioControls.Windows.csproj
+          $version = @($project.Project.PropertyGroup.Version | Where-Object { $_ })[0]
+          $archive = Join-Path '${{ runner.temp }}/studio-controls-release' "StudioControls-$version-windows-x64.zip"
+          Copy-Item -LiteralPath $archive -Destination '${{ runner.temp }}/studio-controls-release/StudioControls-windows-x64.zip'
+      - uses: actions/upload-artifact@v6
+        with:
+          name: studio-controls-windows-x64
+          path: ${{ runner.temp }}/studio-controls-release/StudioControls-windows-x64.zip
+          if-no-files-found: error

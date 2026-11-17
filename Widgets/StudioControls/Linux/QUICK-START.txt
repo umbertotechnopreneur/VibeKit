@@ -1,0 +1,121 @@
+UMBERTO'S LAB
+
+FIRST SETUP
+Install with scripts/install-linux.py from the project root, then open the panel manually.
+Prepare a new scene file with scripts/prepare-scenes.py and import it through OBS's
+Scene Collection menu. The package starts on Privacy with global audio muted.
+Choose your actual screen, webcam, table camera and audio devices in OBS before use.
+Logitech Brio, ASUS ProArt and Sony are stable source aliases, not detected devices.
+
+RECORD A VIDEO
+1. Keep OBS and this control panel on your second monitor.
+2. Open the software you want to demonstrate on the ASUS ProArt display.
+3. Choose a scene in the panel. The highlighted scene is the video output.
+4. Click Start recording.
+5. Click any scene to switch with a 300 ms crossfade while recording.
+6. Click Stop and save recording. The panel shows the saved file path.
+Choose the recording folder in OBS. The panel reports the saved file path.
+
+SCENES
+Test card: a locally stored, looping retro TV video with the current project title and description.
+Intro: editable project card and optional original cue.
+That's me: Logitech Brio full screen.
+Software Demo: ASUS ProArt display with the Brio in the upper-right corner.
+Screen Only: ASUS ProArt display, no camera.
+Detail: screen with the saved Overview, Detail A and Detail B positions.
+Comparison A/B: arrange two apps on the left/right halves of ASUS ProArt, then choose this scene.
+Its labels are editable. Display width is read when selecting the scene from the panel.
+Chapter: current chapter title and subtitle.
+Hardware Demo: display on the left, Brio above the table camera on the right.
+On the Table: table camera full screen with the Brio in the upper-right corner.
+Thank you: your Brio large on the left; project information and links on the right.
+Includes your website, official OBS Studio logo, “Made with OBS Studio” and © 2026 Umberto Giacobbi.
+Privacy: no screen or camera shown. Audio stays as set; use the explicit mute buttons or Pause recording.
+No space is reserved for subtitles.
+
+CAMERA
+Reset framing returns the Brio to 1x zoom and centers pan and tilt.
+Wide, Medium and Close-up recall saved camera positions.
+Adjust Zoom/Pan/Tilt, then click Save preset below the preset you want to replace.
+Presets are saved in ~/.config/umbertogiacobbi/brio-presets.json.
+Initial presets are 1x, 1.4x and 1.8x, all centered.
+Camera framing is controlled by the Brio hardware controls. Screen framing is independent.
+Background blur switches the same Brio filter on or off in every scene.
+Blur intensity adjusts strength from 1 (light) to 20 (strong). OBS saves the setting.
+Changing intensity preserves the ON/OFF switch and the tuned camera edges.
+The table camera must be powered on in USB video mode to provide a picture.
+
+IMPLEMENTATION
+Python 3 + GTK 4; V4L2 hardware controls; authenticated local OBS WebSocket.
+Bundled websocket-client 1.9.2 (license included under _vendor).
+Background blur is optional and requires a compatible obs-backgroundremoval plugin.
+No plugin binary or model is bundled. Select its processing settings for your computer.
+https://github.com/royshil/obs-backgroundremoval
+The panel sends no video to a cloud service.
+OBS control config: ~/.config/obs-studio/plugin_config/obs-websocket/config.json
+Do not share the OBS control config: it contains the connection password.
+
+SCREEN DETAILS
+Screen zoom and Horizontal/Vertical affect only the captured screen in the selected scene.
+Available in Software Demo, Screen Only, Detail and Hardware Demo. Webcam, frames and branding stay fixed.
+Zoom range: 1x to 4x. Horizontal/Vertical move the visible area inside the captured screen.
+At 1x the full screen is visible, so position controls are disabled.
+Reset screen returns the selected scene to 1x, centered. Each scene keeps its own crop in OBS.
+The template canvas is 1920x1080. Capture resolution and output/encoder settings depend
+on your selected display and OBS profile; zoom beyond available pixels enlarges detail digitally.
+
+VIGNETTES
+Screen, Webcam and Hardware each have independent ON/OFF and intensity (0-100%) controls.
+OFF preserves the chosen intensity; ON restores it. Settings are saved by OBS.
+A soft black edge overlay stays inside each video box, below frames and branding.
+The screen vignette stays at the viewport edges when you zoom or pan.
+Vignettes use native OBS image sources and Color Correction filters; no extra plugin.
+The vignette overlay is Vignette.png in the working assets; title cards and other media have their own assets.
+Control changes are coalesced on the existing worker, without capturing another video feed.
+If a connection or adjustment fails, queued changes are dropped; adjust again after reconnecting.
+
+CONTROL PANEL TABS
+Camera & recording: camera framing, saved camera presets, blur, scene selection,
+recording start/stop, pause/resume, elapsed time and independent microphone/desktop mute.
+Screen & vignettes: screen zoom and X/Y position, three saved framing presets,
+independent Screen/Webcam/Hardware vignette ON/OFF and intensity.
+Project, intro & outro: project name, eyebrow, subtitle, description, up to three links,
+local project logo, chapter title/subtitle, comparison labels, VibeWare flag and intro audio.
+Click Apply project to scenes to update the title cards and conditional branding.
+
+VIBEWARE FLAG
+OFF: generic project cards; VibeWare logos hidden.
+ON: branding on Intro; logo and manifesto link on Thank you; a small logo on the other scenes.
+https://umbertogiacobbi.biz/vibeware/manifesto
+
+PORTABILITY AND VALIDATION
+Packaged defaults live in Assets. Editable cards and copied defaults use
+$XDG_DATA_HOME/VibeWare/StudioControls/working-assets (normally ~/.local/share/...).
+Existing flat installations keep their original adjacent assets. The source checkout is not a data directory.
+Editable project settings: ~/.config/umbertogiacobbi/lab-titles.json.
+Saved screen positions: ~/.config/umbertogiacobbi/screen-presets.json.
+A selected project logo is normalized and copied to Project-logo.png in working assets.
+Image logos support PNG, JPEG and WebP, up to 16 megapixels.
+Installation does not modify OBS plugins, device selection, encoder settings or existing collections.
+Python Pillow renders static title cards only when Apply is pressed, on a dedicated renderer worker; recording controls remain available.
+Scene changes and recording resume remain explicit user actions.
+See Assets/CREDITS.txt at the project root for the reused video and logo sources.
+
+LOCAL DIAGNOSTICS
+Application logs: ~/.local/state/umberto-lab/panel.log, or $XDG_STATE_HOME/umberto-lab/panel.log.
+The log rotates at 1 MiB and retains three previous files.
+Crash stack reports: crash.log in the same directory, plus one previous bounded report.
+Logs are local. There is no cloud reporting, Crashpad integration or automatic restart.
+Messages identify the operation and keep error tracebacks; do not put passwords or full OBS payloads in logs.
+Diagnostic export includes only application logs and basic runtime versions, excluding OBS config and media.
+See README.md for repeatable tests, dependency information and diagnostic limitations.
+
+Export diagnostic logs in the panel saves a local ZIP to your chosen destination.
+Missing optional audio/camera effects do not disable scene and recording controls.
+After an uncertain connection error, check the recording state in OBS; Start/Resume are never replayed.
+
+APPEARANCE
+Use Light / Dark / System in the native title bar. Light is the initial theme.
+The selected theme is remembered in ~/.config/umbertogiacobbi/panel-settings.json.
+System follows the desktop color preference when GNOME exposes it.
+Changing the theme does not change OBS scenes, effects or recording state.

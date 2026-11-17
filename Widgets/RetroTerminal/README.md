@@ -1,5 +1,9 @@
 # Retro Terminal
 
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows 11 · GNOME 50](https://img.shields.io/badge/platform-Windows_11_%C2%B7_GNOME_50-0078D4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](LICENSE)
+
 A separate desktop CRT utility: green phosphor, amber terminal, and arcade color.
 Custom phosphor color, scanlines, glow, masks, temporal afterglow and optional
 signal glitches transform the live desktop. This is an effect, not a terminal
@@ -137,6 +141,13 @@ See [Windows/README.md](Windows/README.md) for the native Win32 / Direct3D 11
 implementation, build requirements, capture behavior and emergency shortcut.
 The two platforms share the visual direction, not their compositor architecture.
 
+> [!IMPORTANT]
+> **A Mac port needs more than a green tint**
+>
+> GNOME and Windows use different compositor and capture paths. **macOS is unsupported**: I do not have a Mac to implement and validate its own integration.
+>
+> If you can maintain that port, [join in](https://github.com/umbertotechnopreneur/VibeKit/issues/new?title=%5BRetro%20Terminal%5D%20). GPU cost, input behavior and an emergency stop need checks on real hardware, alongside the phosphor effect.
+
 ## Verification
 
 ```sh
@@ -184,3 +195,24 @@ against the installed GNOME 50 sources and the upstream
 [layout hierarchy](https://gitlab.gnome.org/GNOME/gnome-shell/-/blob/50.1/js/ui/layout.js)
 and [GLSL effect API](https://gitlab.gnome.org/GNOME/gnome-shell/-/blob/50.1/src/shell-glsl-effect.c).
 Only GNOME 50 is declared supported. This is an experimental utility.
+
+---
+
+### This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
+
+I created Retro Terminal with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security. VibeWare is my initiative for building useful software openly with AI; I ask you to judge the result and the evidence behind it.
+
+To learn what VibeWare means and why I created it, read the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
+
+[Retro Terminal on GitHub](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/RetroTerminal) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
+
+*You are welcome to explore, adapt and reuse the open-source VibeWare materials under the project license — my contribution to the developer community.*
+
+[Terms](https://umbertogiacobbi.biz/terms/) · [Privacy](https://umbertogiacobbi.biz/privacy/)
+
+<p align="right">
+  <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
+    <img src="Linux/extension/retro-terminal@vibeware.local/VibeWare.png" alt="VibeWare floppy logo — read the manifesto" width="160">
+  </a><br>
+  <em>Human intent, AI execution, and plenty of tokens</em>
+</p>

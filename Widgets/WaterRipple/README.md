@@ -1,5 +1,9 @@
 # Water Ripple
 
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows 11 · GNOME](https://img.shields.io/badge/platform-Windows_11_%C2%B7_GNOME-0078D4)
+[![License: see notes](https://img.shields.io/badge/license-see_notes-8A6D3B)](README.md#licensing)
+
 A small Windows 11 click-ripple app by Umberto Giacobbi, using C# / WinUI 3 and C++ / Direct3D 11 HLSL.
 
 ## Built with care
@@ -15,6 +19,13 @@ The **Pipelines** tab lists saved effect combinations with a summary and an acti
 Expandable sections retain **RGB refraction**, **Crest reflections**, **Multiple ripples**, and **Glass / liquid**, with independent enable switches, described filter presets and numeric controls. **Settings** contains capture/animation limits, Acrylic and **Start with Windows**. Startup uses the packaged Windows `StartupTask` API. Existing Windows startup choices and policy are respected; unpackaged builds explain that an MSIX installation is needed.
 
 Closing offers tray minimization, exit or cancel. Tray mode keeps an enabled effect running. The overlay stays hidden until capture and presentation are valid and hides before GPU resources are released. Only the screen overlay is excluded from capture to prevent feedback.
+
+> [!NOTE]
+> **Ripples on a Mac would need their own renderer**
+>
+> There are Windows and [GNOME editions](Linux/README.md), with different capture and rendering paths. **macOS is unsupported**; I do not have a Mac for development or testing.
+>
+> A Mac contributor would need to own capture, GPU rendering and a dependable stop control. [Discuss a port](https://github.com/umbertotechnopreneur/VibeKit/issues/new?title=%5BDesktop%20Ripple%5D%20) before assuming the shared pipeline format makes the desktop effect portable.
 
 ## Portable pipeline model
 
@@ -74,10 +85,6 @@ References: [Windows startup integration](https://learn.microsoft.com/en-us/wind
 
 The app icon was generated with ImageGen. The approved VibeWare badge is unchanged; its separate artwork license is in `Assets/VibeWare-LICENSE.txt` and does not relicense this repository.
 
-Created by [Umberto Giacobbi](https://umbertogiacobbi.biz). **Human intent, AI execution, and plenty of tokens**
-
-This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
-
 ## Capture border
 
 Windows owns the colored capture border. The package declares `graphicsCaptureWithoutBorder`, and Ripple can set `GraphicsCaptureSession.IsBorderRequired(false)` when permitted. Starting Ripple automatically leaves the border visible when Windows requires it. Manually enabling the effect offers **Ask Windows** or **Keep border** when permission is needed. Another capturing app can also require the border. See [Microsoft's IsBorderRequired documentation](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.graphicscapturesession.isborderrequired).
@@ -91,3 +98,28 @@ The MSIX execution alias is `waterripple.exe`, exposed at `%LOCALAPPDATA%\Micros
 Both models reject stale library writes. A stale panel detaches its selection and requires reopening; it never restores an old snapshot over another panel's shared live settings. Ordinary local write failures still restore the failed transaction. Parameter edits remain immediate; native UI schedulers group library writes after 250 ms of quiet, with a final flush before other library actions or disposal. Native pipeline lists retain row identity during value, selection and name updates so edits do not rebuild their controls.
 
 The model checks cover two models sharing the same settings, failed transactions, coalesced/background preference writes, final close ordering and retries, native structure layout, capture-validity flags and render unit conversions. `StudioDiagnostics` owns process monitoring and its UI timer; `RenderParameters` keeps unit conversion separate from capture/session lifetime while preserving the native C ABI. The monorepo workflow also checks pacing, GTK/GIO views against temporary state, and Windows WinUI/native/HLSL compilation. Actual display capture and GPU performance still require testing on the target Windows hardware.
+
+## Licensing
+
+The [Linux edition has an MIT license](Linux/LICENSE). No project-wide software license is currently declared for the Windows edition in this folder. The [VibeWare artwork notice](Assets/VibeWare-LICENSE.txt) applies to the logo only.
+
+---
+
+### This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
+
+I created Water Ripple with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security. VibeWare is my initiative for building useful software openly with AI; I ask you to judge the result and the evidence behind it.
+
+To learn what VibeWare means and why I created it, read the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
+
+[Water Ripple on GitHub](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/WaterRipple) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
+
+*You are welcome to explore the VibeWare materials. Reuse is governed by the applicable licenses and notices; this footer does not grant a software license.*
+
+[Terms](https://umbertogiacobbi.biz/terms/) · [Privacy](https://umbertogiacobbi.biz/privacy/)
+
+<p align="right">
+  <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
+    <img src="Assets/VibeWare.png" alt="VibeWare floppy logo — read the manifesto" width="160">
+  </a><br>
+  <em>Human intent, AI execution, and plenty of tokens</em>
+</p>

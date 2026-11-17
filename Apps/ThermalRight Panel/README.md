@@ -69,9 +69,12 @@ Start with the [build and packaging guide](docs/build.md). Binary downloads are 
 
 **On Windows, run Thermalright VibeWare as administrator.**
 
-macOS is not supported because I do not have a Mac to develop and test it. Contributors willing to maintain macOS support are welcome.
-
-**Linux guinea pigs wanted! 🐹** Want to help try it on your computer? [Share what you find](https://github.com/umbertotechnopreneur/VibeKit/issues).
+> [!IMPORTANT]
+> **A real display is worth a thousand successful builds**
+>
+> Windows is the current hardware target. Linux USB and audio support still need work and checks on real devices. **macOS is unsupported**; I do not have a Mac to build and test that support.
+>
+> Own a compatible display and want to help with a port? [Tell me your display model and operating system](https://github.com/umbertotechnopreneur/VibeKit/issues/new?title=%5BThermalRight%20Panel%5D%20). A working preview alone does not establish USB output, audio or sensor support.
 
 [How to use Thermalright VibeWare](PORTABLE.md) · [Sensor setup](docs/sensors.md).
 
@@ -95,11 +98,21 @@ I check the source, version and scan result during preparation. If the scan fail
 
 ---
 
-Part of my VibeWare initiative. [My manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
+### This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
+
+I created Thermalright VibeWare with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security. VibeWare is my initiative for building useful software openly with AI; I ask you to judge the result and the evidence behind it.
+
+To learn what VibeWare means and why I created it, read the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
+
+[Thermalright VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/ThermalRight%20Panel) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
+
+*You are welcome to explore, adapt and reuse the open-source VibeWare materials under the project license — my contribution to the developer community.*
 
 [Terms](https://umbertogiacobbi.biz/terms/) · [Privacy](https://umbertogiacobbi.biz/privacy/)
 
 <p align="right">
-  <a href="https://umbertogiacobbi.biz/vibeware/manifesto"><img src="src/ThermalrightVibeWare.App/Assets/vibeware-logo.png" alt="VibeWare floppy logo" width="200"></a><br>
-  <em>Human Intent, AI Execution, Plenty of Token</em>
+  <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
+    <img src="src/ThermalrightVibeWare.App/Assets/vibeware-logo.png" alt="VibeWare floppy logo — read the manifesto" width="160">
+  </a><br>
+  <em>Human intent, AI execution, and plenty of tokens</em>
 </p>

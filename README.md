@@ -1,12 +1,25 @@
-# VibeKit by Umberto Giacobbi
+<h1 align="center">VibeKit</h1>
 
-**Small tools. Real problems. Your computer deserves a little breathing room.**
+<p align="center">
+  <strong>Small tools. Real problems.</strong><br>
+  Your computer deserves a little breathing room.
+</p>
+
+<p align="center">
+  By <a href="https://umbertogiacobbi.biz">Umberto Giacobbi</a> and contributors<br>
+  <a href="https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml"><img src="https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main" alt="VibeKit CI"></a>
+</p>
 
 Music should make room for your voice. A memory monitor should tell you where your RAM went. A desk controller should put useful buttons under your fingers.
 
 VibeKit is my workbench for turning those everyday annoyances into applications and desktop utilities. Built with AI, guided by human judgment, and open for you to explore, adapt and improve.
 
-**[Take the visual tour →](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)** · [Choose a project](#find-your-next-tool) · [Contribute](#want-to-help)
+<p align="center">
+  <a href="#find-your-next-tool"><strong>Choose a project</strong></a> ·
+  <a href="https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery">Take the visual tour</a> ·
+  <a href="#want-to-help">Contribute</a> ·
+  <a href="https://umbertogiacobbi.biz/vibeware/manifesto">VibeWare manifesto</a>
+</p>
 
 ## Meet the projects
 
@@ -24,30 +37,115 @@ A little hardware, a few desktop windows, and plenty of curiosity. **[Open the 2
 
 ## Find your next tool
 
+Each project has its own setup, maturity and limitations. Start with its README. CI badges show the shared VibeKit workflow, whose selected checks depend on the changed projects.
+
 ### Applications
 
-| Project | The small problem it takes on |
-| --- | --- |
-| [Ram Taskman](Apps/RamTaskman/README.md) | “Where did my RAM go?” Inspect system memory, application groups and processes in a terminal, and put a hardware-cost estimate beside their memory use. |
-| [VoiceDucker](Apps/VoiceDucker/README.md) | “Let me talk to my AI.” Lower selected playing apps when the microphone detects sound, then bring their volume back gradually. |
-| [UlanziDeck](Apps/UlanziDeck/README.md) | “That action deserves a button.” Put apps, media controls and shortcuts on an Ulanzi D200H. |
-| [ThermalRight Panel](Apps/ThermalRight%20Panel/README.md) | “That little display could do more.” Show music, artwork and system readings on supported Thermalright displays. |
-| [AgentInbox](Apps/AgentInbox/README.md) | “My mailboxes are scattered everywhere.” Connect as many compatible mailboxes as you need—Gmail, Microsoft, iCloud, GoDaddy and other IMAP/POP3 providers—then let an AI agent work across their selected folders through one MCP connection. |
-| [HelpMe](Apps/HelpMe/README.md) | “I know what I want; I forgot the command.” Describe a task in your terminal, read the explanation and review suggested commands. |
-| [MarkVibe](Apps/MarkVibe/README.md) | “I just want to read this Markdown file.” Open local documents with a document map, optional AI editing and HTML/PDF export. |
-| [WorkTrail](Apps/WorkTrail/README.md) | “Is this a good time over there?” Compare time zones and working hours, with world clocks, calendars and celestial desktop views. |
-| [Ghostty Shaders](Apps/Ghostty%20Shaders/README.md) | “A little phosphor, please.” Add configurable CRT or subtle scanline effects to Ghostty through GLSL shaders. |
+#### [Ram Taskman](Apps/RamTaskman/README.md)
+
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Linux · Windows](https://img.shields.io/badge/platform-Linux_%C2%B7_Windows-0078D4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](Apps/RamTaskman/LICENSE)
+
+**“Where did my RAM go?”** Inspect system memory, application groups and processes in a terminal, and put a hardware-cost estimate beside their memory use.
+
+#### [VoiceDucker](Apps/VoiceDucker/README.md)
+
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows 11](https://img.shields.io/badge/platform-Windows_11-0078D4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](Apps/VoiceDucker/LICENSE)
+
+**“Let me talk to my AI.”** Lower selected playing apps when the microphone detects sound, then bring their volume back gradually.
+
+#### [UlanziDeck](Apps/UlanziDeck/README.md)
+
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows · Linux](https://img.shields.io/badge/platform-Windows_%C2%B7_Linux-0078D4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](Apps/UlanziDeck/LICENSE)
+
+**“That action deserves a button.”** Put apps, media controls and shortcuts on an Ulanzi D200H.
+
+#### [ThermalRight Panel](Apps/ThermalRight%20Panel/README.md)
+
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078D4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](Apps/ThermalRight%20Panel/LICENSE)
+
+**“That little display could do more.”** Show music, artwork and system readings on supported Thermalright displays.
+
+#### [AgentInbox](Apps/AgentInbox/README.md)
+
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows 11 · Linux](https://img.shields.io/badge/platform-Windows_11_%C2%B7_Linux-0078D4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](Apps/AgentInbox/LICENSE)
+
+**“My mailboxes are scattered everywhere.”** Connect as many compatible mailboxes as you need—Gmail, Microsoft, iCloud, GoDaddy and other IMAP/POP3 providers—then let an AI agent work across their selected folders through one MCP connection.
+
+#### [HelpMe](Apps/HelpMe/README.md)
+
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows · Linux](https://img.shields.io/badge/platform-Windows_%C2%B7_Linux-0078D4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](Apps/HelpMe/LICENSE)
+
+**“I know what I want; I forgot the command.”** Describe a task in your terminal, read the explanation and review suggested commands.
+
+#### [MarkVibe](Apps/MarkVibe/README.md)
+
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows 11 · WebAssembly](https://img.shields.io/badge/platform-Windows_11_%C2%B7_WebAssembly-0078D4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](Apps/MarkVibe/LICENSE)
+
+**“I just want to read this Markdown file.”** Open local documents with a document map, optional AI editing and HTML/PDF export.
+
+#### [WorkTrail](Apps/WorkTrail/README.md)
+
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows 11](https://img.shields.io/badge/platform-Windows_11-0078D4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](Apps/WorkTrail/LICENSE)
+
+**“Is this a good time over there?”** Compare time zones and working hours, with world clocks, calendars and celestial desktop views.
+
+#### [Ghostty Shaders](Apps/Ghostty%20Shaders/README.md)
+
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Linux · Ghostty](https://img.shields.io/badge/platform-Linux_%C2%B7_Ghostty-0078D4)
+[![License: see notices](https://img.shields.io/badge/license-see_notices-8A6D3B)](Apps/Ghostty%20Shaders/README.md#attribution-and-status)
+
+**“A little phosphor, please.”** Add configurable CRT or subtle scanline effects to Ghostty through GLSL shaders.
 
 ### Desktop utilities
 
-| Project | The finishing touch |
-| --- | --- |
-| [Studio Controls](Widgets/StudioControls/README.md) | A native OBS control desk with scenes, screen zoom, vignettes and project cards; Windows ZIP and Linux Debian preview packages. |
-| [Gauge / OpenAI Usage](Widgets/OpenAI/README.md) | Keep AI usage visible in a desktop widget. Other providers are a future goal. |
-| [Desktop Ripple](Widgets/WaterRipple/README.md) | Give the desktop a water-like ripple effect; see also the [Linux edition](Widgets/WaterRipple/Linux/README.md). |
-| [CRT Filter / Retro Terminal](Widgets/RetroTerminal/README.md) | Give the GNOME desktop green phosphor, amber or arcade color, with controls for the effect and an emergency stop. |
+#### [Studio Controls](Widgets/StudioControls/README.md)
 
-Each project has its own supported platforms, installation instructions, license and limitations. **Start with that project's README**: availability, packaging and maturity differ between tools.
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows 11 · Linux](https://img.shields.io/badge/platform-Windows_11_%C2%B7_Linux-0078D4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](Widgets/StudioControls/LICENSE)
+
+A native OBS control desk with twelve scenes, screen zoom, independent vignettes and editable project cards. Windows ZIP and Linux Debian preview packages include generic, device-unassigned scene templates.
+
+#### [Gauge / OpenAI Usage](Widgets/OpenAI/README.md)
+
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows 11 · Linux](https://img.shields.io/badge/platform-Windows_11_%C2%B7_Linux-0078D4)
+[![License: see notes](https://img.shields.io/badge/license-see_notes-8A6D3B)](Widgets/OpenAI/README.md#licensing)
+
+Keep AI usage visible in a desktop widget. Other providers are a future goal.
+
+#### [Desktop Ripple](Widgets/WaterRipple/README.md)
+
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows 11 · GNOME](https://img.shields.io/badge/platform-Windows_11_%C2%B7_GNOME-0078D4)
+[![License: see notes](https://img.shields.io/badge/license-see_notes-8A6D3B)](Widgets/WaterRipple/README.md#licensing)
+
+Give the desktop a water-like ripple effect; see also the [Linux edition](Widgets/WaterRipple/Linux/README.md).
+
+#### [CRT Filter / Retro Terminal](Widgets/RetroTerminal/README.md)
+
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows 11 · GNOME 50](https://img.shields.io/badge/platform-Windows_11_%C2%B7_GNOME_50-0078D4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](Widgets/RetroTerminal/LICENSE)
+
+Give the GNOME desktop green phosphor, amber or arcade color, with controls for the effect and an emergency stop.
 
 ## Small tools, serious care
 
@@ -72,10 +170,36 @@ Try a tool, report a reproducible bug, improve the documentation or contribute s
 
 Our studio develops these projects in spare time and through its **20% time rule**, giving team members and collaborators room for personal projects. We share the work freely; community help lets it go further than our available time.
 
-**Have a Mac? We'd love a hand.** We develop and test on Windows and Linux as documented by each project. macOS is not supported because we do not have a Mac to maintain or validate it. Contributors willing to take ownership of that platform are welcome.
+> [!TIP]
+> **Have a Mac and a little time to contribute?**
+>
+> These tools target Windows and Linux as documented by each project. **macOS is unsupported** because I do not have a Mac for development or testing.
+>
+> Pick a project you would like to maintain and [open an issue](https://github.com/umbertotechnopreneur/VibeKit/issues) with its name and your proposed contribution. Native integrations, packaging and checks on real hardware are all useful ways to help.
 
 ## A thank-you worth keeping
 
 Ram Taskman adapts parts of [GPU Taskman](https://github.com/shanselman/gputaskman) for RAM monitoring. Thank you to **Scott Hanselman** for the inspiration and original code. The original MIT license and [reuse notes](Apps/RamTaskman/docs/upstream.md) are preserved.
 
 Made by [Umberto Giacobbi](https://umbertogiacobbi.biz) and contributors, with curiosity and a healthy suspicion of apps that need half your RAM to show one button.
+
+---
+
+### This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
+
+I created VibeKit with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security. VibeWare is my initiative for building useful software openly with AI; I ask you to judge the result and the evidence behind it.
+
+To learn what VibeWare means and why I created it, read the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
+
+[VibeKit on GitHub](https://github.com/umbertotechnopreneur/VibeKit) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
+
+*You are welcome to explore, adapt and reuse the open-source VibeWare materials under their respective licenses and notices — my contribution to the developer community.*
+
+[Terms](https://umbertogiacobbi.biz/terms/) · [Privacy](https://umbertogiacobbi.biz/privacy/)
+
+<p align="right">
+  <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
+    <img src="https://raw.githubusercontent.com/umbertotechnopreneur/VibeWare/main/Branding/vibeware-logo.png" alt="VibeWare floppy logo — read the manifesto" width="160">
+  </a><br>
+  <em>Human intent, AI execution, and plenty of tokens</em>
+</p>

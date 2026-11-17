@@ -1,5 +1,9 @@
 # AgentInbox
 
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows 11 · Linux](https://img.shields.io/badge/platform-Windows_11_%C2%B7_Linux-0078D4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](LICENSE)
+
 **All your mailboxes. One AI conversation.**
 
 My email was spread across several accounts. I built AgentInbox so I could ask my assistant about all of them at once.
@@ -71,7 +75,14 @@ Your mail stays with its provider. Your assistant may send requested content to 
 
 ## Need help?
 
-Windows 11 supports x64 and ARM64. On Linux, use the [GTK setup app or command line](docs/LINUX_SETUP.md) with Python 3.11 or newer. Debian-based systems can install local `.deb` builds. macOS is not supported because I do not have a Mac to develop and test it. Contributors willing to maintain macOS support are welcome.
+> [!TIP]
+> **Help bring your mail setup to another desktop**
+>
+> I do not have a Mac for development or testing, so **macOS is unsupported**. If you would like to maintain a Mac version, the useful starting points are account setup, secure credential storage and the MCP connection.
+>
+> [Start a conversation](https://github.com/umbertotechnopreneur/VibeKit/issues/new?title=%5BAgentInbox%5D%20) with your platform and the part you can help with. Keep real email and credentials out of reports.
+
+Windows 11 supports x64 and ARM64. On Linux, use the [GTK setup app or command line](docs/LINUX_SETUP.md) with Python 3.11 or newer. Debian-based systems can install local `.deb` builds.
 
 [Accounts and passwords](docs/AUTHENTICATION.md) · [Troubleshooting](docs/RECOVERY.md) · [Build and contribute](docs/DEVELOPMENT.md) · [How it works](docs/ARCHITECTURE.md)
 
@@ -83,10 +94,21 @@ Before I add an external library or binary, its archive, extracted files and dep
 
 ---
 
-AgentInbox is part of [VibeWare](https://umbertogiacobbi.biz/vibeware/manifesto). I guide the work and take responsibility for checking the results.
+### This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
+
+I created AgentInbox with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security. VibeWare is my initiative for building useful software openly with AI; I ask you to judge the result and the evidence behind it.
+
+To learn what VibeWare means and why I created it, read the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
+
+[AgentInbox on GitHub](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/AgentInbox) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
+
+*You are welcome to explore, adapt and reuse the open-source VibeWare materials under the project license — my contribution to the developer community.*
+
+[Terms](https://umbertogiacobbi.biz/terms/) · [Privacy](https://umbertogiacobbi.biz/privacy/)
 
 <p align="right">
   <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
-    <img src="resources/vibeware/vibeware-logo.png" alt="AgentInbox participates in VibeWare. Read the manifesto." width="200">
-  </a>
+    <img src="resources/vibeware/vibeware-logo.png" alt="VibeWare floppy logo — read the manifesto" width="160">
+  </a><br>
+  <em>Human intent, AI execution, and plenty of tokens</em>
 </p>

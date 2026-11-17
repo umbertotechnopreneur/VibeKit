@@ -25,7 +25,7 @@ I review third-party dependencies and their sources and pay attention to memory,
 
 ## Get WorkTrail
 
-WorkTrail targets **Windows 11 x64 and ARM64**. The Microsoft Store channel is separate from source builds and portable distribution. Binary downloads are not yet published in VibeKit; start with the source instructions below. A locally built **portable ZIP** keeps `WorkTrail.exe`, its DLLs and resource folders together. Linux is source-only, without binaries or compatibility promises. macOS is not supported because I do not have a Mac to develop and test it. Contributors willing to maintain macOS support are welcome.
+WorkTrail targets **Windows 11 x64 and ARM64**. The Microsoft Store channel is separate from source builds and portable distribution. Binary downloads are not yet published in VibeKit; start with the source instructions below. A locally built **portable ZIP** keeps `WorkTrail.exe`, its DLLs and resource folders together. Linux is source-only, without binaries or compatibility promises.
 
 To work on the source, install PowerShell 7, the .NET 10 SDK and the Windows build tools described in the [development guide](docs/DEVELOPMENT.md). Start with:
 
@@ -55,6 +55,13 @@ Weather, satellite data and space-weather information use external sources when 
 
 ## Build and contribute
 
+> [!NOTE]
+> **Time zones travel farther than this Windows app**
+>
+> WorkTrail currently targets Windows 11. **macOS is unsupported**: I do not have a Mac to develop and check a native version. Linux remains source-only, with no compatibility promise.
+>
+> If you can maintain a Mac port, [let me know](https://github.com/umbertotechnopreneur/VibeKit/issues/new?title=%5BWorkTrail%5D%20). Native desktop windows, calendar behavior and daylight-saving changes would all need attention.
+
 The Windows views call `IWorkTrailApplication`. `WorkTrail.Core` owns settings, astronomy and Windows integration; `WorkTrail.Presentation` contains passive projection and window-state helpers. See [architecture](docs/ARCHITECTURE.md), [development](docs/DEVELOPMENT.md), [contributing](CONTRIBUTING.md) and [licenses](THIRD_PARTY_NOTICES.md).
 
 Project-authored code and documentation use the [MIT License](LICENSE). The WorkTrail name and brand assets follow [TRADEMARKS.md](TRADEMARKS.md).
@@ -69,11 +76,13 @@ I’m Umberto Giacobbi. I built and maintain WorkTrail, with help from contribut
 
 ---
 
-### What is VibeWare?
+### This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
 
-I coined the term [VibeWare](https://umbertogiacobbi.biz) and started an open initiative for developers who build with AI and care about the craft. I challenge the assumption that vibe coding is synonymous with low-quality code, while openly acknowledging the weaknesses and risks of AI-generated software: experienced developers must guide the process, test carefully, check security and take responsibility for the result. With this footer, I acknowledge that I developed this software with AI and ask you to judge the quality of the work.
+I created WorkTrail with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security. VibeWare is my initiative for building useful software openly with AI; I ask you to judge the result and the evidence behind it.
 
-[**Read the VibeWare manifesto**](https://umbertogiacobbi.biz/vibeware/manifesto)
+To learn what VibeWare means and why I created it, read the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
+
+[WorkTrail on GitHub](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/WorkTrail) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
 
 *You are welcome to explore, adapt and reuse the open-source VibeWare materials under the project license — my contribution to the developer community.*
 
@@ -81,7 +90,7 @@ I coined the term [VibeWare](https://umbertogiacobbi.biz) and started an open in
 
 <p align="right">
   <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
-    <img src="https://raw.githubusercontent.com/umbertotechnopreneur/VibeWare/main/Branding/vibeware-logo.png" alt="VibeWare floppy logo" width="160">
+    <img src="https://raw.githubusercontent.com/umbertotechnopreneur/VibeWare/main/Branding/vibeware-logo.png" alt="VibeWare floppy logo — read the manifesto" width="160">
   </a><br>
-  <em>Human Intent, AI Execution, Plenty of Token</em>
+  <em>Human intent, AI execution, and plenty of tokens</em>
 </p>

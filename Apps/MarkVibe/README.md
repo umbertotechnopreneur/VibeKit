@@ -1,5 +1,6 @@
 # MarkVibe
 
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
 ![Platform: Windows 11 and WebAssembly](https://img.shields.io/badge/platform-Windows_11_%C2%B7_WebAssembly-0078D4)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](LICENSE)
 
@@ -66,11 +67,16 @@ MSIX, an MSI installer and a portable ZIP; see the [packaging guide](docs/window
 The .NET runtime is included. Microsoft Edge WebView2 Runtime is required.
 Development-signed MSIX packages include their own installation instructions.
 
-macOS is not supported because I do not have a Mac to develop and test it. Contributors willing to maintain macOS support are welcome.
-
 The shared browser build runs through WebAssembly. Linux has no
 dedicated desktop packages. The Windows app uses WebView2 internally, even though
 it opens as its own application.
+
+> [!NOTE]
+> **A Mac reader needs a Mac maintainer**
+>
+> The desktop app is built for Windows; the shared browser version uses WebAssembly. Neither is a promise of macOS support. I have no Mac to develop and test a native edition.
+>
+> Interested in owning that work? [Open an issue](https://github.com/umbertotechnopreneur/VibeKit/issues/new?title=%5BMarkVibe%5D%20) about native file access, document navigation or PDF export. Those are useful places to start.
 
 ## Build it
 
@@ -121,30 +127,19 @@ I keep a record of where each new import came from and the scan result. If a sca
 
 ### This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
 
-This project participates in the **VibeWare initiative**, an open initiative for
-developers who build useful software with AI under human direction. VibeWare is
-not the application's author or publisher.
+I created MarkVibe with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security. VibeWare is my initiative for building useful software openly with AI; I ask you to judge the result and the evidence behind it.
 
-I am [Umberto Giacobbi](https://umbertogiacobbi.biz). I define this project's
-purpose, guide its implementation, and remain responsible for checking
-functionality, performance, and security. Each project keeps its own identity,
-license and release status.
+To learn what VibeWare means and why I created it, read the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
 
-To learn what VibeWare means and why I created it, read the
-[VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
+[MarkVibe on GitHub](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/MarkVibe) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
 
-[MarkVibe on GitHub](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/MarkVibe) ·
-[VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) ·
-[umbertogiacobbi.biz](https://umbertogiacobbi.biz)
-
-*You are welcome to explore, adapt and reuse the open-source VibeWare materials
-under the project license — my contribution to the developer community.*
+*You are welcome to explore, adapt and reuse the open-source VibeWare materials under the project license — my contribution to the developer community.*
 
 [Terms](https://umbertogiacobbi.biz/terms/) · [Privacy](https://umbertogiacobbi.biz/privacy/)
 
 <p align="right">
   <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
-    <img src="https://raw.githubusercontent.com/umbertotechnopreneur/VibeWare/main/Branding/vibeware-logo.png" alt="VibeWare floppy logo" width="160">
+    <img src="src/MarkVibe.Browser/wwwroot/images/vibeware-logo.png" alt="VibeWare floppy logo — read the manifesto" width="160">
   </a><br>
-  <em>Human Intent, AI Execution, Plenty of Token</em>
+  <em>Human intent, AI execution, and plenty of tokens</em>
 </p>

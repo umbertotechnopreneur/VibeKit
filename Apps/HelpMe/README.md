@@ -1,5 +1,9 @@
 # HelpMe — terminal help with `hm`
 
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows · Linux](https://img.shields.io/badge/platform-Windows_%C2%B7_Linux-0078D4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](LICENSE)
+
 I use Git every day, and I still forget its commands. Other command-line tools give me more syntax to remember. I built HelpMe so I can describe what I need, read an explanation, and review suggested commands in the same terminal.
 
 ```powershell
@@ -31,7 +35,7 @@ The examples below use `hm`. From source, replace it with `dotnet run --project 
 
 ## Platforms and downloads
 
-HelpMe targets Windows and Linux on x64 and ARM64. Linux packaging uses `.deb` files with the .NET runtime included; native libraries are declared as dependencies. See [build, installation, and release instructions](scripts/README.md). A configured workflow does not mean a package has already been published. macOS is not supported because I do not have a Mac to develop and test it. Contributors willing to maintain macOS support are welcome. I do not provide commercial Linux support or promise compatibility with every distribution.
+HelpMe targets Windows and Linux on x64 and ARM64. Linux packaging uses `.deb` files with the .NET runtime included; native libraries are declared as dependencies. See [build, installation, and release instructions](scripts/README.md). A configured workflow does not mean a package has already been published. I do not provide commercial Linux support or promise compatibility with every distribution.
 
 The commercial edition targets Windows 11 on x64 and ARM64 and uses MSIX. The existing [Microsoft Store listing](https://apps.microsoft.com/detail/9P2WJBVQMW4J) is for the previous PromptMeUp release; the HelpMe rebrand has not been submitted.
 
@@ -80,6 +84,13 @@ I captured this screenshot before the HelpMe rebrand, cropped and framed it, and
 
 Found a rough edge? Have a small improvement in mind? [Share an idea or report a bug](https://github.com/umbertotechnopreneur/VibeKit/issues/new?title=%5BHelpMe%5D%20), or read the [contribution guide](CONTRIBUTING.md).
 
+> [!TIP]
+> **Know your way around a Mac terminal?**
+>
+> HelpMe targets Windows and Linux. I do not own a Mac, so **macOS is not supported or tested here**. A contributor who can maintain the shell integration, setup and packaging would make a Mac port possible to explore.
+>
+> [Tell me what you can help with](https://github.com/umbertotechnopreneur/VibeKit/issues/new?title=%5BHelpMe%5D%20). Command previews and cancellation matter just as much as getting the app to launch.
+
 Documentation and contributions are in English; the app supports all six interface languages.
 
 | For users | For contributors |
@@ -121,11 +132,13 @@ I keep a record of where each new import came from and the scan result. If a sca
 
 ---
 
-### What is VibeWare?
+### This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
 
-I coined the term [VibeWare](https://umbertogiacobbi.biz) and started an open initiative for developers who build with AI and care about the craft. I challenge the assumption that vibe coding is synonymous with low-quality code, while openly acknowledging the weaknesses and risks of AI-generated software: experienced developers must guide the process, test carefully, check security and take responsibility for the result. With this footer, I acknowledge that I developed this software with AI and ask you to judge the quality of the work.
+I created HelpMe with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security. VibeWare is my initiative for building useful software openly with AI; I ask you to judge the result and the evidence behind it.
 
-[**Read the VibeWare manifesto**](https://umbertogiacobbi.biz/vibeware/manifesto)
+To learn what VibeWare means and why I created it, read the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
+
+[HelpMe on GitHub](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/HelpMe) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
 
 *You are welcome to explore, adapt and reuse the open-source VibeWare materials under the project license — my contribution to the developer community.*
 
@@ -133,7 +146,7 @@ I coined the term [VibeWare](https://umbertogiacobbi.biz) and started an open in
 
 <p align="right">
   <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
-    <img src="https://raw.githubusercontent.com/umbertotechnopreneur/VibeWare/main/Branding/vibeware-logo.png" alt="VibeWare floppy logo" width="160">
+    <img src="https://raw.githubusercontent.com/umbertotechnopreneur/VibeWare/main/Branding/vibeware-logo.png" alt="VibeWare floppy logo — read the manifesto" width="160">
   </a><br>
-  <em>Human Intent, AI Execution, Plenty of Token</em>
+  <em>Human intent, AI execution, and plenty of tokens</em>
 </p>

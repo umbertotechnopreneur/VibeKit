@@ -37,8 +37,9 @@ too, that's a good enough reason for me.
 > audio ducking, and volume restoration. I'll give you all the support I can.
 >
 > **VoiceDucker currently runs on Windows only.** macOS and Linux would need
-> ports. I do not have a Mac to develop and test macOS support; contributors willing to maintain it are welcome. If you'd like to help with that work and
-> eventually be a guinea pig there too, you're very welcome!
+> ports. **macOS is unsupported:** I do not have a Mac to develop and test it.
+> A contributor who can maintain native microphone detection and per-app volume
+> control would be very welcome, along with testers once a port is available.
 >
 > [Open an issue](https://github.com/umbertotechnopreneur/VibeKit/issues)
 > and tell me which platform you have and what worked or failed.
@@ -251,7 +252,7 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
 
 <p align="right">
   <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
-    <img src="https://raw.githubusercontent.com/umbertotechnopreneur/VibeWare/main/Branding/vibeware-logo.png" alt="VibeWare floppy logo" width="160">
+    <img src="Assets/vibeware-logo.png" alt="VibeWare floppy logo — read the manifesto" width="160">
   </a><br>
-  <em>Human Intent, AI Execution, Plenty of Token</em>
+  <em>Human intent, AI execution, and plenty of tokens</em>
 </p>

@@ -138,20 +138,16 @@ I am planning a WinUI 3 app for editing keys, pages, apps, themes, presets and d
 
 [See the twelve dark/light mockups](docs/design/README.md). They are pictures of an idea, not a working interface. The current dialogs use Slint.
 
-## Platform support
-
-macOS is not supported: I do not have a Mac to develop and test it. Contributors willing to maintain macOS support are welcome.
-
 ## Which hardware works?
 
-> [!IMPORTANT]
-> **Windows on ARM testers wanted — volunteer guinea pigs welcome! 🐹**
+> [!TIP]
+> **A different dock, a different computer? Pull up a chair. 🐹**
 >
-> This is my hobby project, built for my own **Ulanzi D200H on Windows x64**. If you can try the **Windows ARM64** or **Linux x64** build, I'd love your help checking USB connection, button images and presses, page switching, brightness and shortcuts. I'll give you all the support I can.
+> My reference setup is an **Ulanzi D200H on Windows x64**. Windows ARM64 and Linux x64 testers can help with USB connection, button images, page switching, brightness and shortcuts. Some features still need checks even on my D200H.
 >
-> Own another Ulanzi model? You're welcome too. The controller currently detects the D200H specifically, so other models may need code changes before they can connect. You can [build the source](docs/DEVELOPMENT.md) and help me find out what needs changing.
+> The controller detects the D200H specifically. Other models may need code changes before they connect. **macOS is unsupported** because I have no Mac for development or testing; a contributor willing to maintain a Mac port is welcome.
 >
-> [Open an issue](https://github.com/umbertotechnopreneur/VibeKit/issues) and tell me your dock model, operating system, CPU architecture, and what worked or failed.
+> [Build the source](docs/DEVELOPMENT.md) and [share your setup](https://github.com/umbertotechnopreneur/VibeKit/issues/new?title=%5BUlanziDeck%5D%20): dock model, operating system, CPU architecture, and what worked or failed.
 
 ## Credits
 
@@ -165,19 +161,9 @@ Before I add a library or binary, I check its source and version and scan the do
 
 ---
 
-<p align="right">
-  <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
-    <img src="assets/brand/vibeware-logo.png" alt="VibeWare floppy logo" width="160">
-  </a><br>
-  <strong>VibeWare</strong><br>
-  <em>Human intent, AI execution, and plenty of tokens</em>
-</p>
-
 ### This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
 
-This project participates in the **VibeWare initiative**, an open initiative for developers who build useful software with AI under human direction. VibeWare describes participation in the initiative; it is not the application's author or publisher.
-
-I am [Umberto Giacobbi](https://umbertogiacobbi.biz). I define this project's purpose, guide its implementation, and remain responsible for checking functionality, performance, and security. Each project keeps its own identity and license.
+I created UlanziDeck with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security. VibeWare is my initiative for building useful software openly with AI; I ask you to judge the result and the evidence behind it.
 
 To learn what VibeWare means and why I created it, read the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
 
@@ -186,3 +172,10 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
 *You are welcome to explore, adapt and reuse the open-source VibeWare materials under the project license — my contribution to the developer community.*
 
 [Terms](https://umbertogiacobbi.biz/terms/) · [Privacy](https://umbertogiacobbi.biz/privacy/)
+
+<p align="right">
+  <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
+    <img src="assets/brand/vibeware-logo.png" alt="VibeWare floppy logo — read the manifesto" width="160">
+  </a><br>
+  <em>Human intent, AI execution, and plenty of tokens</em>
+</p>

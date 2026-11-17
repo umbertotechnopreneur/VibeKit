@@ -1,5 +1,9 @@
 # Ghostty Shaders
 
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Linux · Ghostty](https://img.shields.io/badge/platform-Linux_%C2%B7_Ghostty-0078D4)
+[![License: see notices](https://img.shields.io/badge/license-see_notices-8A6D3B)](README.md#attribution-and-status)
+
 A collection of GLSL post-processing effects for [Ghostty](https://ghostty.org/docs/config/reference#custom-shader). Ghostty is the first target; other terminals and compositors need their own integration.
 
 ## Built with care
@@ -10,6 +14,13 @@ Visual effects should earn their GPU time. I pay attention to rendering cost and
 
 - [CRT](shaders/crt.glsl): configurable curvature, overscan, bloom, blur, grayscale, black level, refresh line, scanlines, tint and grain. Its defaults follow the locally customized Windows Terminal CRT shader. The GLSL adaptation is not pixel-identical: Ghostty has different coordinate, scale and background inputs; overscan outside the image is opaque black, and scanline width is specified in physical pixels.
 - [Soft CRT](shaders/soft-crt.glsl): static, subtle scanlines and edge shading that preserve the terminal's colors.
+
+> [!NOTE]
+> **Ghostty on your Mac? Help check the phosphor.**
+>
+> This collection and its manager are maintained for Linux. **macOS support is not maintained or tested here**, because I do not have a Mac. Ghostty itself being available there does not validate these shaders or the manager.
+>
+> [Contributors with a Mac are welcome](https://github.com/umbertotechnopreneur/VibeKit/issues/new?title=%5BGhostty%20Shaders%5D%20), especially for shader compilation, display scaling and configuration handling. Please include your Ghostty version and graphics hardware.
 
 ## Interactive manager (Linux)
 
@@ -73,8 +84,31 @@ ghostty --custom-shader="$PWD/shaders/soft-crt.glsl" --custom-shader-animation=f
 
 CRT is adapted from the locally modified `crt.hlsl` in [Hammster/windows-terminal-shaders](https://github.com/Hammster/windows-terminal-shaders), based on revision `2f56929`; the original collection's CC0 text and the Microsoft Terminal MIT notice for scanline-derived code are in [licenses](licenses/). The local shader has modifications after that revision. No other collection shaders have been ported. Visual appearance and performance depend on display scale, colors, GPU and transparency; CRT effects can reduce text legibility.
 
+The notices in `licenses/` cover the attributed upstream material; this folder does not declare a single license for the whole collection.
+
 ## Verification
 
 Run `python3 tests/check-manager.py` to exercise the PowerShell menu, all presets, persistence, duplicate protection, editor argument handling, disable and malformed-marker handling in temporary directories. It requires PowerShell 7 and Python 3, with no third-party Python packages.
 
 The five presets were smoke-tested in Ghostty under Xvfb with Mesa software rendering and visually inspected as a contact sheet. The renderer emits an uninitialized-parameter warning for the Arcade CRT preset; no compilation failure was observed. Hardware GPU performance and different display scales remain to be checked.
+
+---
+
+### This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
+
+I created Ghostty Shaders with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security. VibeWare is my initiative for building useful software openly with AI; I ask you to judge the result and the evidence behind it.
+
+To learn what VibeWare means and why I created it, read the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
+
+[Ghostty Shaders on GitHub](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/Ghostty%20Shaders) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
+
+*You are welcome to explore the VibeWare materials. Reuse is governed by the applicable licenses and notices; this footer does not grant a software license.*
+
+[Terms](https://umbertogiacobbi.biz/terms/) · [Privacy](https://umbertogiacobbi.biz/privacy/)
+
+<p align="right">
+  <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
+    <img src="https://raw.githubusercontent.com/umbertotechnopreneur/VibeWare/main/Branding/vibeware-logo.png" alt="VibeWare floppy logo — read the manifesto" width="160">
+  </a><br>
+  <em>Human intent, AI execution, and plenty of tokens</em>
+</p>

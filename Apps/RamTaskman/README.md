@@ -1,5 +1,9 @@
 # Ram Taskman
 
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Linux · Windows](https://img.shields.io/badge/platform-Linux_%C2%B7_Windows-0078D4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](LICENSE)
+
 ### Your RAM has a job. Find out who hired it.
 
 Ram Taskman puts system memory, applications, individual processes and memory history
@@ -114,9 +118,12 @@ available memory overlap. Per-process swap is not inferred from commit. Bars sho
 shares of usage, not physical memory addresses. Process identities use native
 name/executable reads without command-line fallback.
 
-**macOS is not supported.** We do not have a Mac for development and validation;
-contributors willing to own that work are welcome. Live collection is intentionally
-disabled on macOS and the CI matrix contains Linux and Windows only.
+> [!IMPORTANT]
+> **Mac memory counters need someone who can check them**
+>
+> **macOS is unsupported and live collection is intentionally disabled.** I do not have a Mac for development or validation; CI covers Linux and Windows.
+>
+> If you can maintain a Mac backend, [join the work](https://github.com/umbertotechnopreneur/VibeKit/issues/new?title=%5BRam%20Taskman%5D%20). Help would start with checking what each native memory counter means, its permission limits and how unavailable readings appear.
 
 The [technical guide](docs/guida.md), [counter audit](docs/audit-contatori-piattaforma.md)
 and [architecture](docs/architecture.md) give more detail; these documents are
@@ -146,7 +153,27 @@ Ram Taskman reuses parts of its terminal interface and adapts them to RAM
 monitoring. It is an independent project. The original MIT copyright and
 [reuse notes](docs/upstream.md) are preserved.
 
-Created by [Umberto Giacobbi](https://umbertogiacobbi.biz/), as part of
-[VibeWare](https://umbertogiacobbi.biz/vibeware/). [MIT license](LICENSE).
+[MIT license](LICENSE).
 Translations were prepared with AI assistance; corrections from native speakers
 are welcome.
+
+---
+
+### This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
+
+I created Ram Taskman with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security. VibeWare is my initiative for building useful software openly with AI; I ask you to judge the result and the evidence behind it.
+
+To learn what VibeWare means and why I created it, read the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
+
+[Ram Taskman on GitHub](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/RamTaskman) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
+
+*You are welcome to explore, adapt and reuse the open-source VibeWare materials under the project license — my contribution to the developer community.*
+
+[Terms](https://umbertogiacobbi.biz/terms/) · [Privacy](https://umbertogiacobbi.biz/privacy/)
+
+<p align="right">
+  <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
+    <img src="https://raw.githubusercontent.com/umbertotechnopreneur/VibeWare/main/Branding/vibeware-logo.png" alt="VibeWare floppy logo — read the manifesto" width="160">
+  </a><br>
+  <em>Human intent, AI execution, and plenty of tokens</em>
+</p>

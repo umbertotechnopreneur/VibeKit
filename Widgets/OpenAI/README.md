@@ -1,5 +1,9 @@
 # OpenAI Usage
 
+[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
+![Platform: Windows 11 · Linux](https://img.shields.io/badge/platform-Windows_11_%C2%B7_Linux-0078D4)
+[![License: see notes](https://img.shields.io/badge/license-see_notes-8A6D3B)](README.md#licensing)
+
 Two native desktop clients in VibeKit:
 
 - **Windows:** C# / WinUI 3, a single compact desktop-acrylic strip and optional always-on-top.
@@ -37,6 +41,13 @@ Token quantities use decimal prefixes **K, M, G, T, P, E** (powers of 1,000). Th
 - The widget opens as a compact horizontal strip. Drag an empty area to move it. On Windows, click the logo to open your ChatGPT profile, or click usage, the estimate/reset metric or the countdown to open ChatGPT usage settings in the default browser. On GTK, the compositor move gesture excludes buttons.
 - Windows uses a native Shell notification icon and menu; no Windows Forms or browser UI is added. Toolbar glyphs retain theme-aware foregrounds even when pressed/selected. The taskbar/shortcut use an explicit app identity.
 - Ubuntu uses the native StatusNotifierItem/DBusMenu protocol. The desktop must provide a compatible tray host (as supplied by Ubuntu's indicator integration). If absent, the app leaves its window accessible and disables the hide-to-tray option. No desktop extension is installed automatically. Native GNOME tray execution is not verified in this environment.
+
+> [!TIP]
+> **Help the widget feel at home on another desktop**
+>
+> The clients target Windows and Linux; native Linux execution still needs validation. **There is no supported macOS client.** I do not have a Mac to develop and test one.
+>
+> Want to maintain a Mac version? [Start here](https://github.com/umbertotechnopreneur/VibeKit/issues/new?title=%5BOpenAI%20Usage%5D%20) with ideas for a native widget, tray controls and reliable shutdown. Use synthetic data in reports; keep account details private.
 
 ## Installers
 
@@ -167,3 +178,28 @@ Before first introducing an external library or prebuilt binary, run one explici
 - [Adwaita appearance and system preferences](https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/styles-and-appearance.html)
 
 Mockups and ImageGen prompts are design source assets. Their numbers are illustrative, not account telemetry.
+
+## Licensing
+
+This folder does not currently include a project-wide software license. The [VibeWare artwork license](Branding/VibeWare-LICENSE.txt) covers the logo only; it does not license the widget code.
+
+---
+
+### This is VibeWare · [Manifesto](https://umbertogiacobbi.biz/vibeware/manifesto)
+
+I created OpenAI Usage with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security. VibeWare is my initiative for building useful software openly with AI; I ask you to judge the result and the evidence behind it.
+
+To learn what VibeWare means and why I created it, read the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
+
+[OpenAI Usage on GitHub](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/OpenAI) · [VibeWare on GitHub](https://github.com/umbertotechnopreneur/VibeWare) · [umbertogiacobbi.biz](https://umbertogiacobbi.biz)
+
+*You are welcome to explore the VibeWare materials. Reuse is governed by the applicable licenses and notices; this footer does not grant a software license.*
+
+[Terms](https://umbertogiacobbi.biz/terms/) · [Privacy](https://umbertogiacobbi.biz/privacy/)
+
+<p align="right">
+  <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
+    <img src="Branding/VibeWare.png" alt="VibeWare floppy logo — read the manifesto" width="160">
+  </a><br>
+  <em>Human intent, AI execution, and plenty of tokens</em>
+</p>

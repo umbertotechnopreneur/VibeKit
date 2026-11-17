@@ -11,9 +11,19 @@ Local version: a 10-second excerpt beginning at 00:16, re-encoded to H.264; audi
 The Test card scene displays attribution, source and license. Do not remove that attribution.
 
 OBS Studio logo
-Official installed OBS Studio icon, copied from the system OBS package.
-https://obsproject.com/
-Used in the requested “Made with OBS Studio” credit.
+Official OBS Studio 512px icon, originally copied from the system OBS package.
+The bundled PNG is byte-identical to OBS Studio 33.0.0's source asset:
+https://github.com/obsproject/obs-studio/blob/33.0.0/frontend/cmake/linux/icons/obs-logo-512.png
+Upstream: OBS Project / OBS Studio contributors.
+Upstream repository license: GNU General Public License version 2 or any later version.
+License declaration: https://github.com/obsproject/obs-studio/blob/33.0.0/README.rst
+The complete upstream COPYING is preserved unchanged as OBS-COPYING.txt:
+https://github.com/obsproject/obs-studio/blob/33.0.0/COPYING
+The logo is retained as a separate third-party asset, outside this project's MIT license.
+Used to identify OBS Studio in the “Made with OBS Studio” credit.
+OBS, OBS Studio, Open Broadcaster Software and the OBS Studio logo are registered
+trademarks of Wizards of OBS LLC: https://obsproject.com/
+Studio Controls is independently developed; no affiliation or endorsement is claimed.
 
 VibeWare logo
 Existing owner-supplied project asset from the owner's website repository.

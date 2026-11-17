@@ -23,6 +23,7 @@ ASSET_NAMES = (
     "Attesa-Tavolo.png",
     "Vignette.png",
     "OBS-logo.png",
+    "OBS-COPYING.txt",
     "VibeWare-logo.png",
     "CRT-test.mp4",
     "Lab-intro.wav",

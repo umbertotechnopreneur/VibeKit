@@ -8,10 +8,18 @@ Umberto Giacobbi. It does not relicense the following materials.
   License: https://creativecommons.org/licenses/by/3.0/ . The excerpt was
   trimmed and re-encoded; its audio was removed. Keep the attribution visible
   in the Test card overlay and in distributed credits.
-- `Assets/OBS-logo.png`: official OBS Studio icon, used to identify OBS Studio
-  in the Made with OBS Studio credit. OBS Studio and its logo are trademarks
-  of Wizards of OBS LLC. This utility is independently developed.
-  https://obsproject.com/ . The icon originated in the installed OBS package.
+- `Assets/OBS-logo.png`: official OBS Studio 512px icon, used to identify OBS
+  Studio in the Made with OBS Studio credit. The PNG is byte-identical to
+  [`frontend/cmake/linux/icons/obs-logo-512.png` in OBS Studio 33.0.0](https://github.com/obsproject/obs-studio/blob/33.0.0/frontend/cmake/linux/icons/obs-logo-512.png).
+  It originally came from the system OBS package. The OBS Project / OBS Studio
+  contributors distribute the upstream repository under
+  [GPL-2.0-or-later](https://github.com/obsproject/obs-studio/blob/33.0.0/README.rst).
+  The unchanged upstream [COPYING](https://github.com/obsproject/obs-studio/blob/33.0.0/COPYING)
+  is included as `Assets/OBS-COPYING.txt`; these third-party terms apply to the
+  logo asset, outside this project's MIT license. OBS, OBS Studio, Open Broadcaster
+  Software and the OBS Studio logo are registered trademarks of Wizards of OBS LLC
+  ([official site](https://obsproject.com/)). Studio Controls is independently
+  developed; no affiliation or endorsement is claimed.
 - `Assets/VibeWare-logo.png`: owner-supplied VibeWare branding.
   https://umbertogiacobbi.biz/vibeware/manifesto .
 - `Linux/_vendor/websocket`: websocket-client 1.9.2; the complete upstream

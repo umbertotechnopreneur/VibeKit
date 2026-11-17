@@ -10,7 +10,7 @@
   <a href="https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml"><img src="https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main" alt="VibeKit CI"></a>
 </p>
 
-Music should make room for your voice. A memory monitor should tell you where your RAM went. A desk controller should put useful buttons under your fingers.
+Music should make room for your voice. A desk controller should put useful buttons under your fingers.
 
 VibeKit is my workbench for turning those everyday annoyances into applications and desktop utilities. Built with AI, guided by human judgment, and open for you to explore, adapt and improve.
 
@@ -29,7 +29,7 @@ A little hardware, a few desktop windows, and plenty of curiosity. **[Open the 2
 | --- | --- | --- | --- |
 | [![Cody, the round-screen AI companion](docs/assets/showcase/thumbs/01-cody.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**Cody** | [![Cody showing its QR pairing screen](docs/assets/showcase/thumbs/02-cody-pairing.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**Cody · pairing** | [![VoiceDucker microphone monitoring and application volume controls](docs/assets/showcase/thumbs/03-voiceducker.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**VoiceDucker** | [![VoiceDucker volume timing and restoration controls](docs/assets/showcase/thumbs/04-voice-controls.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**VoiceDucker · controls** |
 | [![UlanziDeck controls for a coding workspace](docs/assets/showcase/thumbs/05-ulanzi-code.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**UlanziDeck · code** | [![UlanziDeck music and playback controls](docs/assets/showcase/thumbs/06-ulanzi-music.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**UlanziDeck · music** | [![ThermalRight Panel with system readings](docs/assets/showcase/thumbs/07-thermal-system.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**ThermalRight · system** | [![ThermalRight Panel with music and album artwork](docs/assets/showcase/thumbs/08-thermal-music.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**ThermalRight · music** |
-| [![Ram Taskman system memory diagnostics and application groups](docs/assets/showcase/thumbs/09-ram-diagnostics.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**Ram Taskman** | [![Ram Taskman resident memory regions](docs/assets/showcase/thumbs/10-ram-regions.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**Ram · memory regions** | [![AgentInbox connected mailbox accounts](docs/assets/showcase/thumbs/11-inbox-accounts.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**AgentInbox · accounts** | [![AgentInbox connection setup for Codex](docs/assets/showcase/thumbs/12-inbox-connect.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**AgentInbox · connection** |
+| [![AgentInbox connected mailbox accounts](docs/assets/showcase/thumbs/11-inbox-accounts.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**AgentInbox · accounts** | [![AgentInbox connection setup for Codex](docs/assets/showcase/thumbs/12-inbox-connect.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**AgentInbox · connection** |  |  |
 | [![HelpMe terminal command suggestions and explanations](docs/assets/showcase/thumbs/13-helpme-command.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**HelpMe · commands** | [![HelpMe terminal help and command guide](docs/assets/showcase/thumbs/14-helpme-guide.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**HelpMe · guide** | [![WorkTrail world map with the boundary between day and night](docs/assets/showcase/thumbs/15-worktrail-map.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**WorkTrail · day & night** | [![WorkTrail Earth globe desktop view](docs/assets/showcase/thumbs/16-worktrail-globe.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**WorkTrail · globe** |
 | [![MarkVibe Markdown reading workspace design](docs/assets/showcase/thumbs/17-markvibe.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**MarkVibe** | [![Gauge desktop AI usage widget design](docs/assets/showcase/thumbs/18-gauge.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**Gauge** | [![Desktop Ripple water effect over an alpine desktop](docs/assets/showcase/thumbs/19-ripple-alpine.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**Ripple · alpine** | [![Desktop Ripple water effect over a violet desktop](docs/assets/showcase/thumbs/20-ripple-violet.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**Ripple · violet** |
 
@@ -40,14 +40,6 @@ A little hardware, a few desktop windows, and plenty of curiosity. **[Open the 2
 Each project has its own setup, maturity and limitations. Start with its README. CI badges show the shared VibeKit workflow, whose selected checks depend on the changed projects.
 
 ### Applications
-
-#### [Ram Taskman](Apps/RamTaskman/README.md)
-
-[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
-![Platform: Linux · Windows](https://img.shields.io/badge/platform-Linux_%C2%B7_Windows-0078D4)
-[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](Apps/RamTaskman/LICENSE)
-
-**“Where did my RAM go?”** Inspect system memory, application groups and processes in a terminal, and put a hardware-cost estimate beside their memory use.
 
 #### [VoiceDucker](Apps/VoiceDucker/README.md)
 
@@ -176,10 +168,6 @@ Our studio develops these projects in spare time and through its **20% time rule
 > These tools target Windows and Linux as documented by each project. **macOS is unsupported** because I do not have a Mac for development or testing.
 >
 > Pick a project you would like to maintain and [open an issue](https://github.com/umbertotechnopreneur/VibeKit/issues) with its name and your proposed contribution. Native integrations, packaging and checks on real hardware are all useful ways to help.
-
-## A thank-you worth keeping
-
-Ram Taskman adapts parts of [GPU Taskman](https://github.com/shanselman/gputaskman) for RAM monitoring. Thank you to **Scott Hanselman** for the inspiration and original code. The original MIT license and [reuse notes](Apps/RamTaskman/docs/upstream.md) are preserved.
 
 Made by [Umberto Giacobbi](https://umbertogiacobbi.biz) and contributors, with curiosity and a healthy suspicion of apps that need half your RAM to show one button.
 

@@ -59,20 +59,6 @@
       "sha256": "ae1f6a1e59d9c8f9bed38b439c7156ef6006df9728f55ac0e0ac9df840a3a4da"
     },
     {
-      "filename": "09-ram-diagnostics.webp",
-      "title": "Ram Taskman \u2014 diagnostics",
-      "source": "website/public/assets/ramtaskman-gallery/diagnostics.webp",
-      "prompt": "Create a premium Apple-style product showcase composition for Ram Taskman \u2014 diagnostics, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
-      "sha256": "303d30c155e96b012a391bceb4cf32fcb670e9a2c65690d1facbbe790694f596"
-    },
-    {
-      "filename": "10-ram-regions.webp",
-      "title": "Ram Taskman \u2014 memory regions",
-      "source": "website/public/assets/ramtaskman-gallery/regions.webp",
-      "prompt": "Create a premium Apple-style product showcase composition for Ram Taskman \u2014 memory regions, landscape 3:2 format, 1536x1024. Use only the referenced product design as the subject. Display the entire supplied app window as one floating glass-mounted screenshot above a matte white surface, shallow 4-degree perspective, crisp readable contents and subtle contact shadow. Seamless pure white background, restrained gallery lighting, very subtle cool glass edge reflections, generous clean margins (10-15%), product occupies 75-82% of canvas. It must look like polished studio product photography. Preserve the supplied screen and all its existing UI layout, type, values, labels and icons without inventing or changing features. No added headlines, no captions, no badges, no watermark, no Apple branding, no fantasy UI, no extra objects. ",
-      "sha256": "d1b91ed1f2869de199101b7a88def6e8be846a2a8d6ce4dfbd1e1708d18a602a"
-    },
-    {
       "filename": "11-inbox-accounts.webp",
       "title": "AgentInbox \u2014 accounts",
       "source": "VibeKit/Apps/AgentInbox/docs/assets/screenshots/agentinbox-accounts-v1.png",

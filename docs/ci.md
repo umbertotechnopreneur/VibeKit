@@ -11,7 +11,6 @@ GitHub discovers workflows in the root `.github/workflows/` directory. The copie
 | `Apps/AgentInbox/` | Windows Python source checks |
 | `Apps/HelpMe/` | Quality, Windows/Linux build and tests, Debian packages |
 | `Apps/MarkVibe/` | Quick checks on Windows and Linux |
-| `Apps/RamTaskman/` | Existing Python 3.11/3.13/3.14 matrix on Linux and Windows; package verification without PyPI publishing |
 | `Apps/ThermalRight Panel/` | Windows builds and packages, Linux UI checks and Debian package |
 | `Apps/UlanziDeck/` | Rust tests, builds and packages for the existing target matrix |
 | `Apps/VoiceDucker/` | Windows portable builds, regressions and ZIP verification |
@@ -62,7 +61,7 @@ Local preparation does not update GitHub visibility, release assets, secrets, br
 2. Complete the content/history review before making VibeKit public. Secret scanning supplements review; it does not certify that every document or image is suitable for publication.
 3. Copy existing public releases into namespaced VibeKit releases with their original assets, notes and checksums. Preserve source attribution: historical standalone tags identify the original source commits, not a rebuilt monorepo revision. Do not execute downloaded assets or silently replace them with new builds. Scope latest-release lookup by application prefix.
 4. Validate the public source, license, privacy and release links anonymously. Deploy the prepared website source changes after these destinations exist.
-5. Make only the imported standalone application repositories private, then archive them, including Ram Taskman if its separate repository has been published. Keep VibeKit active. Cody/Luna Shell, VibeWare branding, Tools' remaining shell utilities, and other projects outside this import retain their own repositories.
+5. Make only the imported standalone application repositories private, then archive them. Keep VibeKit active. Cody/Luna Shell, VibeWare branding, Tools' remaining shell utilities, and other projects outside this import retain their own repositories.
 
 The original local checkouts are separate backups. Archiving a repository on GitHub is a distinct action; the presence of a local archive folder does not change its online visibility or read-only state.
 

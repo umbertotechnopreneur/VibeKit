@@ -11,7 +11,6 @@ PROJECTS = {
     "agentinbox": "Apps/AgentInbox/",
     "helpme": "Apps/HelpMe/",
     "markvibe": "Apps/MarkVibe/",
-    "ramtaskman": "Apps/RamTaskman/",
     "thermalright": "Apps/ThermalRight Panel/",
     "ulanzideck": "Apps/UlanziDeck/",
     "voiceducker": "Apps/VoiceDucker/",

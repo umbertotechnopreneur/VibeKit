@@ -6,7 +6,7 @@ The imports are unsquashed Git subtrees of the locally checked-out revisions: He
 
 The imports retain their original commit ancestry through merge commits. Do not squash or rebase those historical import merges when publishing the monorepo.
 
-Ram Taskman is imported separately under `Apps/RamTaskman/`, retaining its original repository history, including the GPU Taskman upstream ancestry. Scott Hanselman's MIT license and the application's `docs/upstream.md` explain the original source and concrete reuse. Its local translation changes accompany the import; the original working directory remains intact. Ripple is already part of the widget imports under `Widgets/WaterRipple/`, including its Windows and GNOME editions.
+Ripple is already part of the widget imports under `Widgets/WaterRipple/`, including its Windows and GNOME editions.
 
 Only tracked files from each imported revision were imported; ignored build output, caches, and untracked local files were not copied. The previous workspace itself and its absent PromptMeUp checkout were not imported as applications; the HelpMe checkout contains a PromptMeUp project.
 

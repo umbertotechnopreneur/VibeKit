@@ -16,7 +16,6 @@ on:
           - agentinbox
           - helpme
           - markvibe
-          - ramtaskman
           - thermalright
           - ulanzideck
           - voiceducker
@@ -68,10 +67,6 @@ jobs:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.projects), 'markvibe')
     uses: ./.github/workflows/ci-markvibe.yml
-  ramtaskman:
-    needs: changes
-    if: contains(fromJSON(needs.changes.outputs.projects), 'ramtaskman')
-    uses: ./.github/workflows/ci-ramtaskman.yml
   thermalright:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.projects), 'thermalright')
@@ -117,7 +112,7 @@ jobs:
   required:
     name: VibeKit CI required
     if: always()
-    needs: [changes, agentinbox, helpme, markvibe, ramtaskman, thermalright, ulanzideck, voiceducker, worktrail, worktrail-scripts, ghostty-shaders, desktop-ripple, openai-usage, retro-terminal, studio-controls]
+    needs: [changes, agentinbox, helpme, markvibe, thermalright, ulanzideck, voiceducker, worktrail, worktrail-scripts, ghostty-shaders, desktop-ripple, openai-usage, retro-terminal, studio-controls]
     runs-on: ubuntu-24.04
     steps:
       - name: Require every selected pipeline to succeed

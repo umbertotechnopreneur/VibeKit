@@ -14,8 +14,6 @@ class ProjectSelectionTests(unittest.TestCase):
     def test_app_isolation_and_shared_changes(self):
         self.assertEqual(select_paths(["Apps/WorkTrail/WorkTrail/MainWindow.cs"]), ["worktrail"])
         self.assertEqual(select_paths(["Apps/ThermalRight Panel/src/file.cs"]), ["thermalright"])
-        self.assertEqual(select_paths(["Apps/RamTaskman/src/ramtaskman/locales/it.json"]), ["ramtaskman"])
-        self.assertEqual(select_paths([".github/workflows/ci-ramtaskman.yml"]), ["ramtaskman"])
         self.assertEqual(select_paths(["README.md", "docs/project-imports.md"]), [])
         self.assertEqual(select_paths([".github/workflows/ci-helpme.yml"]), ["helpme"])
         self.assertEqual(select_paths([".github/workflows/agentinbox-debug-msix.yml"]), ["agentinbox"])

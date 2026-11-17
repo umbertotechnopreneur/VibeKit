@@ -10,6 +10,20 @@ WinUI 3, with a shared, UI-independent .NET core. Windows compilation and synthe
 checks are reported separately from validation on real Windows hardware. macOS
 is not supported.
 
+## Interface languages
+
+Choose Italiano, English, Tiếng Việt, Français, Deutsch, 한국어, 中文 (Simplified
+Chinese) or 日本語 from the native header dropdown. The choice is saved locally.
+Switching language updates controls, messages and accessibility labels in place;
+it does not reconnect OBS, change recording, rename sources or translate your
+project text/cards. Technical error details retain their original language.
+Linux CJK interface text uses the distribution's font fallback; the Debian package recommends
+`fonts-noto-cjk`. No font binaries or translation services are bundled.
+
+The native adapters use `Shared/ui-translations.json`. Keep every message complete
+for all eight language codes, in the catalog's declared order. Protocol identifiers
+and editable values must never pass through the presentation translator.
+
 ## What it controls
 
 - Twelve scenes: Test card, Intro, That's me, Software Demo, Screen Only, Detail,
@@ -66,7 +80,7 @@ for the current user with DPAPI; they are not portable plaintext files.
 The build uses locked dependencies and a fresh publish folder. Choose a new or
 empty `-OutputDirectory` for another build; existing files are never mixed into
 the release. `-Package` produces
-`artifacts/StudioControls-0.3.0-windows-x64.zip` and its `.zip.sha256` checksum.
+`artifacts/StudioControls-0.3.1-windows-x64.zip` and its `.zip.sha256` checksum.
 Extract the complete ZIP before starting the executable. It includes the .NET
 and WinUI runtimes, generic assets, the sanitized scene template and licences.
 No Python installation is required on Windows.

@@ -168,6 +168,20 @@ def run_child() -> int:
         app.theme_selector.set_selected(0)
         assert app.effective_theme == "light"
         assert panel.load_theme() == "light"
+        from localization import CODES, load_language
+
+        original_record_label = app.record_button.get_label()
+        original_scene = app.current_scene
+        original_project = dict(app.title_values)
+        for index, code in enumerate(CODES):
+            app.language_selector.set_selected(index)
+            assert app.localizer.language == code
+            assert load_language() == code
+            assert app.record_button.get_label() == app.localizer.text(original_record_label)
+            assert app.current_scene == original_scene
+            assert app.title_values == original_project
+            assert app.theme_preference == "light"
+        app.language_selector.set_selected(CODES.index("en"))
         result["completed"] = True
         app.quit()
         return GLib.SOURCE_REMOVE

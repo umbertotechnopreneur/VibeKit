@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parents[1]
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 
 def data_home_default():
@@ -73,10 +73,11 @@ def install(data_home):
             ),
         )
         # Keep the small cross-platform catalog used by package checks, not the .NET build tree.
-        catalog = PROJECT / "Shared/scene-catalog.json"
-        if catalog.is_file():
-            (staged / "Shared").mkdir()
-            shutil.copyfile(catalog, staged / "Shared/scene-catalog.json")
+        for name in ("scene-catalog.json", "ui-translations.json"):
+            catalog = PROJECT / "Shared" / name
+            if catalog.is_file():
+                (staged / "Shared").mkdir(exist_ok=True)
+                shutil.copyfile(catalog, staged / "Shared" / name)
         # Reserve exclusively after copying, so an interrupted copy is never an installed version.
         destination.mkdir()
         try:

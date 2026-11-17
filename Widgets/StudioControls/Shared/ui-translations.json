@@ -1,0 +1,2404 @@
+{
+  "languages": [
+    "it",
+    "en",
+    "vi",
+    "fr",
+    "de",
+    "ko",
+    "zh",
+    "ja"
+  ],
+  "strings": {
+    "Language": [
+      "Lingua",
+      "Language",
+      "Ngôn ngữ",
+      "Langue",
+      "Sprache",
+      "언어",
+      "语言",
+      "言語"
+    ],
+    "Appearance": [
+      "Aspetto",
+      "Appearance",
+      "Giao diện",
+      "Apparence",
+      "Darstellung",
+      "화면 모양",
+      "外观",
+      "外観"
+    ],
+    "Light": [
+      "Chiaro",
+      "Light",
+      "Sáng",
+      "Clair",
+      "Hell",
+      "밝게",
+      "浅色",
+      "ライト"
+    ],
+    "Dark": [
+      "Scuro",
+      "Dark",
+      "Tối",
+      "Sombre",
+      "Dunkel",
+      "어둡게",
+      "深色",
+      "ダーク"
+    ],
+    "System": [
+      "Sistema",
+      "System",
+      "Hệ thống",
+      "Système",
+      "System",
+      "시스템",
+      "跟随系统",
+      "システム"
+    ],
+    "Camera & recording": [
+      "Webcam e registrazione",
+      "Camera & recording",
+      "Camera và ghi hình",
+      "Caméra et enregistrement",
+      "Kamera und Aufnahme",
+      "카메라 및 녹화",
+      "摄像头与录制",
+      "カメラと録画"
+    ],
+    "Screen & vignettes": [
+      "Schermo e vignette",
+      "Screen & vignettes",
+      "Màn hình và tối viền",
+      "Écran et vignettes",
+      "Bildschirm und Vignetten",
+      "화면 및 비네트",
+      "屏幕与暗角",
+      "画面とビネット"
+    ],
+    "Project & cards": [
+      "Progetto e cartelli",
+      "Project & cards",
+      "Dự án và thẻ",
+      "Projet et cartons",
+      "Projekt und Tafeln",
+      "프로젝트 및 타이틀 카드",
+      "项目与标题卡",
+      "プロジェクトとタイトルカード"
+    ],
+    "Connect": [
+      "Connetti",
+      "Connect",
+      "Kết nối",
+      "Connecter",
+      "Verbinden",
+      "연결",
+      "连接",
+      "接続"
+    ],
+    "Disconnect": [
+      "Disconnetti",
+      "Disconnect",
+      "Ngắt kết nối",
+      "Déconnecter",
+      "Trennen",
+      "연결 해제",
+      "断开连接",
+      "切断"
+    ],
+    "OBS connection & setup": [
+      "Connessione e configurazione OBS",
+      "OBS connection & setup",
+      "Kết nối và thiết lập OBS",
+      "Connexion et configuration OBS",
+      "OBS-Verbindung und Einrichtung",
+      "OBS 연결 및 설정",
+      "OBS 连接与设置",
+      "OBS の接続と設定"
+    ],
+    "OBS host": [
+      "Host OBS",
+      "OBS host",
+      "Máy chủ OBS",
+      "Hôte OBS",
+      "OBS-Host",
+      "OBS 호스트",
+      "OBS 主机",
+      "OBS ホスト"
+    ],
+    "WebSocket port": [
+      "Porta WebSocket",
+      "WebSocket port",
+      "Cổng WebSocket",
+      "Port WebSocket",
+      "WebSocket-Port",
+      "WebSocket 포트",
+      "WebSocket 端口",
+      "WebSocket ポート"
+    ],
+    "OBS WebSocket password": [
+      "Password WebSocket OBS",
+      "OBS WebSocket password",
+      "Mật khẩu WebSocket OBS",
+      "Mot de passe WebSocket OBS",
+      "OBS-WebSocket-Passwort",
+      "OBS WebSocket 비밀번호",
+      "OBS WebSocket 密码",
+      "OBS WebSocket パスワード"
+    ],
+    "Prepare OBS scene collection…": [
+      "Prepara raccolta scene OBS…",
+      "Prepare OBS scene collection…",
+      "Chuẩn bị bộ cảnh OBS…",
+      "Préparer la collection de scènes OBS…",
+      "OBS-Szenensammlung vorbereiten…",
+      "OBS 장면 모음 준비…",
+      "准备 OBS 场景集合…",
+      "OBS シーンコレクションを準備…"
+    ],
+    "Export diagnostics…": [
+      "Esporta diagnostica…",
+      "Export diagnostics…",
+      "Xuất chẩn đoán…",
+      "Exporter le diagnostic…",
+      "Diagnose exportieren…",
+      "진단 내보내기…",
+      "导出诊断…",
+      "診断情報をエクスポート…"
+    ],
+    "Export diagnostic logs…": [
+      "Esporta log diagnostici…",
+      "Export diagnostic logs…",
+      "Xuất nhật ký chẩn đoán…",
+      "Exporter les journaux de diagnostic…",
+      "Diagnoseprotokolle exportieren…",
+      "진단 로그 내보내기…",
+      "导出诊断日志…",
+      "診断ログをエクスポート…"
+    ],
+    "Export diagnostic logs": [
+      "Esporta log diagnostici",
+      "Export diagnostic logs",
+      "Xuất nhật ký chẩn đoán",
+      "Exporter les journaux de diagnostic",
+      "Diagnoseprotokolle exportieren",
+      "진단 로그 내보내기",
+      "导出诊断日志",
+      "診断ログをエクスポート"
+    ],
+    "Export": [
+      "Esporta",
+      "Export",
+      "Xuất",
+      "Exporter",
+      "Exportieren",
+      "내보내기",
+      "导出",
+      "エクスポート"
+    ],
+    "Choose": [
+      "Scegli",
+      "Choose",
+      "Chọn",
+      "Choisir",
+      "Auswählen",
+      "선택",
+      "选择",
+      "選択"
+    ],
+    "Cancel": [
+      "Annulla",
+      "Cancel",
+      "Hủy",
+      "Annuler",
+      "Abbrechen",
+      "취소",
+      "取消",
+      "キャンセル"
+    ],
+    "Start recording": [
+      "Avvia registrazione",
+      "Start recording",
+      "Bắt đầu ghi",
+      "Démarrer l’enregistrement",
+      "Aufnahme starten",
+      "녹화 시작",
+      "开始录制",
+      "録画開始"
+    ],
+    "●  Start recording": [
+      "●  Avvia registrazione",
+      "●  Start recording",
+      "●  Bắt đầu ghi",
+      "●  Démarrer l’enregistrement",
+      "●  Aufnahme starten",
+      "●  녹화 시작",
+      "●  开始录制",
+      "●  録画開始"
+    ],
+    "■ Stop and save": [
+      "■ Ferma e salva",
+      "■ Stop and save",
+      "■ Dừng và lưu",
+      "■ Arrêter et enregistrer",
+      "■ Stoppen und speichern",
+      "■ 중지 및 저장",
+      "■ 停止并保存",
+      "■ 停止して保存"
+    ],
+    "■  Stop and save recording": [
+      "■  Ferma e salva registrazione",
+      "■  Stop and save recording",
+      "■  Dừng và lưu bản ghi",
+      "■  Arrêter et sauvegarder l’enregistrement",
+      "■  Aufnahme stoppen und speichern",
+      "■  녹화 중지 및 저장",
+      "■  停止并保存录制",
+      "■  録画を停止して保存"
+    ],
+    "Stop requested…": [
+      "Arresto richiesto…",
+      "Stop requested…",
+      "Đã yêu cầu dừng…",
+      "Arrêt demandé…",
+      "Stopp angefordert…",
+      "중지 요청됨…",
+      "已请求停止…",
+      "停止要求済み…"
+    ],
+    "Pause": [
+      "Pausa",
+      "Pause",
+      "Tạm dừng",
+      "Pause",
+      "Pausieren",
+      "일시 정지",
+      "暂停",
+      "一時停止"
+    ],
+    "Resume": [
+      "Riprendi",
+      "Resume",
+      "Tiếp tục",
+      "Reprendre",
+      "Fortsetzen",
+      "계속",
+      "继续",
+      "再開"
+    ],
+    "Pause recording": [
+      "Metti in pausa",
+      "Pause recording",
+      "Tạm dừng ghi",
+      "Suspendre l’enregistrement",
+      "Aufnahme pausieren",
+      "녹화 일시 정지",
+      "暂停录制",
+      "録画を一時停止"
+    ],
+    "Resume recording": [
+      "Riprendi registrazione",
+      "Resume recording",
+      "Tiếp tục ghi",
+      "Reprendre l’enregistrement",
+      "Aufnahme fortsetzen",
+      "녹화 계속",
+      "继续录制",
+      "録画を再開"
+    ],
+    "Ready · not recording": [
+      "Pronto · registrazione ferma",
+      "Ready · not recording",
+      "Sẵn sàng · chưa ghi",
+      "Prêt · aucun enregistrement",
+      "Bereit · keine Aufnahme",
+      "준비됨 · 녹화 안 함",
+      "就绪 · 未录制",
+      "準備完了 · 録画停止中"
+    ],
+    "● Recording": [
+      "● Registrazione",
+      "● Recording",
+      "● Đang ghi",
+      "● Enregistrement",
+      "● Aufnahme läuft",
+      "● 녹화 중",
+      "● 录制中",
+      "● 録画中"
+    ],
+    "● REC": [
+      "● REG",
+      "● REC",
+      "● GHI",
+      "● ENR",
+      "● AUFNAHME",
+      "● 녹화",
+      "● 录制",
+      "● 録画"
+    ],
+    "Ⅱ Paused": [
+      "Ⅱ In pausa",
+      "Ⅱ Paused",
+      "Ⅱ Tạm dừng",
+      "Ⅱ En pause",
+      "Ⅱ Pausiert",
+      "Ⅱ 일시 정지",
+      "Ⅱ 已暂停",
+      "Ⅱ 一時停止中"
+    ],
+    "Ⅱ PAUSED": [
+      "Ⅱ IN PAUSA",
+      "Ⅱ PAUSED",
+      "Ⅱ TẠM DỪNG",
+      "Ⅱ EN PAUSE",
+      "Ⅱ PAUSIERT",
+      "Ⅱ 일시 정지",
+      "Ⅱ 已暂停",
+      "Ⅱ 一時停止中"
+    ],
+    "Unknown scene": [
+      "Scena sconosciuta",
+      "Unknown scene",
+      "Cảnh không xác định",
+      "Scène inconnue",
+      "Unbekannte Szene",
+      "알 수 없는 장면",
+      "未知场景",
+      "不明なシーン"
+    ],
+    "Video saved:": [
+      "Video salvato:",
+      "Video saved:",
+      "Đã lưu video:",
+      "Vidéo enregistrée :",
+      "Video gespeichert:",
+      "동영상 저장됨:",
+      "视频已保存：",
+      "動画を保存しました:"
+    ],
+    "Microphone": [
+      "Microfono",
+      "Microphone",
+      "Micrô",
+      "Microphone",
+      "Mikrofon",
+      "마이크",
+      "麦克风",
+      "マイク"
+    ],
+    "Desktop audio": [
+      "Audio desktop",
+      "Desktop audio",
+      "Âm thanh máy tính",
+      "Audio du bureau",
+      "Desktop-Audio",
+      "데스크톱 오디오",
+      "桌面音频",
+      "デスクトップ音声"
+    ],
+    "Desktop Audio": [
+      "Audio desktop",
+      "Desktop Audio",
+      "Âm thanh máy tính",
+      "Audio du bureau",
+      "Desktop-Audio",
+      "데스크톱 오디오",
+      "桌面音频",
+      "デスクトップ音声"
+    ],
+    "ON": [
+      "ATTIVO",
+      "ON",
+      "BẬT",
+      "ACTIF",
+      "AN",
+      "켜짐",
+      "开启",
+      "オン"
+    ],
+    "OFF": [
+      "SPENTO",
+      "OFF",
+      "TẮT",
+      "INACTIF",
+      "AUS",
+      "꺼짐",
+      "关闭",
+      "オフ"
+    ],
+    "MUTED": [
+      "DISATTIVATO",
+      "MUTED",
+      "TẮT TIẾNG",
+      "COUPÉ",
+      "STUMM",
+      "음소거",
+      "静音",
+      "ミュート"
+    ],
+    "unavailable": [
+      "non disponibile",
+      "unavailable",
+      "không khả dụng",
+      "indisponible",
+      "nicht verfügbar",
+      "사용 불가",
+      "不可用",
+      "利用不可"
+    ],
+    "offline": [
+      "scollegato",
+      "offline",
+      "ngoại tuyến",
+      "hors ligne",
+      "getrennt",
+      "오프라인",
+      "离线",
+      "オフライン"
+    ],
+    "connecting…": [
+      "connessione…",
+      "connecting…",
+      "đang kết nối…",
+      "connexion…",
+      "Verbindung wird hergestellt…",
+      "연결 중…",
+      "正在连接…",
+      "接続中…"
+    ],
+    "connection lost; check OBS": [
+      "connessione persa; controlla OBS",
+      "connection lost; check OBS",
+      "mất kết nối; kiểm tra OBS",
+      "connexion perdue ; vérifiez OBS",
+      "Verbindung verloren; OBS prüfen",
+      "연결 끊김, OBS 확인",
+      "连接中断，请检查 OBS",
+      "接続切断。OBS を確認"
+    ],
+    "status refresh pending": [
+      "aggiornamento stato in attesa",
+      "status refresh pending",
+      "đang chờ cập nhật trạng thái",
+      "actualisation de l’état en attente",
+      "Statusaktualisierung ausstehend",
+      "상태 업데이트 대기 중",
+      "等待更新状态",
+      "状態の更新待ち"
+    ],
+    "Zoom": [
+      "Zoom",
+      "Zoom",
+      "Thu phóng",
+      "Zoom",
+      "Zoom",
+      "확대/축소",
+      "缩放",
+      "ズーム"
+    ],
+    "Pan": [
+      "Spostamento orizzontale",
+      "Pan",
+      "Xoay ngang",
+      "Panoramique horizontal",
+      "Horizontal schwenken",
+      "좌우 이동",
+      "水平移动",
+      "左右移動"
+    ],
+    "Tilt": [
+      "Spostamento verticale",
+      "Tilt",
+      "Nghiêng dọc",
+      "Inclinaison verticale",
+      "Vertikal neigen",
+      "상하 이동",
+      "垂直移动",
+      "上下移動"
+    ],
+    "Wide": [
+      "Ampia",
+      "Wide",
+      "Toàn cảnh",
+      "Large",
+      "Weit",
+      "와이드",
+      "广角",
+      "ワイド"
+    ],
+    "Medium": [
+      "Media",
+      "Medium",
+      "Trung bình",
+      "Moyen",
+      "Mittel",
+      "중간",
+      "中景",
+      "ミディアム"
+    ],
+    "Close-up": [
+      "Primo piano",
+      "Close-up",
+      "Cận cảnh",
+      "Gros plan",
+      "Nahaufnahme",
+      "클로즈업",
+      "特写",
+      "クローズアップ"
+    ],
+    "Save preset": [
+      "Salva inquadratura",
+      "Save preset",
+      "Lưu khung hình",
+      "Enregistrer le préréglage",
+      "Voreinstellung speichern",
+      "프리셋 저장",
+      "保存预设",
+      "プリセットを保存"
+    ],
+    "Save position": [
+      "Salva posizione",
+      "Save position",
+      "Lưu vị trí",
+      "Enregistrer la position",
+      "Position speichern",
+      "위치 저장",
+      "保存位置",
+      "位置を保存"
+    ],
+    "Screen zoom": [
+      "Zoom schermo",
+      "Screen zoom",
+      "Thu phóng màn hình",
+      "Zoom de l’écran",
+      "Bildschirmzoom",
+      "화면 확대/축소",
+      "屏幕缩放",
+      "画面ズーム"
+    ],
+    "Horizontal position": [
+      "Posizione orizzontale",
+      "Horizontal position",
+      "Vị trí ngang",
+      "Position horizontale",
+      "Horizontale Position",
+      "가로 위치",
+      "水平位置",
+      "水平位置"
+    ],
+    "Vertical position": [
+      "Posizione verticale",
+      "Vertical position",
+      "Vị trí dọc",
+      "Position verticale",
+      "Vertikale Position",
+      "세로 위치",
+      "垂直位置",
+      "垂直位置"
+    ],
+    "Reset camera framing": [
+      "Ripristina inquadratura webcam",
+      "Reset camera framing",
+      "Đặt lại khung camera",
+      "Réinitialiser le cadrage caméra",
+      "Kamerabildausschnitt zurücksetzen",
+      "카메라 구도 초기화",
+      "重置摄像头构图",
+      "カメラの構図をリセット"
+    ],
+    "↺  Reset framing": [
+      "↺  Ripristina inquadratura",
+      "↺  Reset framing",
+      "↺  Đặt lại khung hình",
+      "↺  Réinitialiser le cadrage",
+      "↺  Bildausschnitt zurücksetzen",
+      "↺  구도 초기화",
+      "↺  重置构图",
+      "↺  構図をリセット"
+    ],
+    "↺  Reset screen · 1×, centered": [
+      "↺  Ripristina schermo · 1×, centrato",
+      "↺  Reset screen · 1×, centered",
+      "↺  Đặt lại màn hình · 1×, giữa",
+      "↺  Réinitialiser l’écran · 1×, centré",
+      "↺  Bildschirm zurücksetzen · 1×, zentriert",
+      "↺  화면 초기화 · 1×, 가운데",
+      "↺  重置屏幕 · 1×，居中",
+      "↺  画面をリセット · 1×、中央"
+    ],
+    "Reset screen · 1×, centred": [
+      "Ripristina schermo · 1×, centrato",
+      "Reset screen · 1×, centred",
+      "Đặt lại màn hình · 1×, giữa",
+      "Réinitialiser l’écran · 1×, centré",
+      "Bildschirm zurücksetzen · 1×, zentriert",
+      "화면 초기화 · 1×, 가운데",
+      "重置屏幕 · 1×，居中",
+      "画面をリセット · 1×、中央"
+    ],
+    "Background blur": [
+      "Sfocatura sfondo",
+      "Background blur",
+      "Làm mờ nền",
+      "Flou d’arrière-plan",
+      "Hintergrundunschärfe",
+      "배경 흐림",
+      "背景模糊",
+      "背景ぼかし"
+    ],
+    "Blur intensity": [
+      "Intensità sfocatura",
+      "Blur intensity",
+      "Mức làm mờ",
+      "Intensité du flou",
+      "Unschärfestärke",
+      "흐림 강도",
+      "模糊强度",
+      "ぼかしの強さ"
+    ],
+    "filter unavailable": [
+      "filtro non disponibile",
+      "filter unavailable",
+      "bộ lọc không khả dụng",
+      "filtre indisponible",
+      "Filter nicht verfügbar",
+      "필터 사용 불가",
+      "滤镜不可用",
+      "フィルター利用不可"
+    ],
+    "Webcam": [
+      "Webcam",
+      "Webcam",
+      "Webcam",
+      "Webcam",
+      "Webcam",
+      "웹캠",
+      "网络摄像头",
+      "ウェブカメラ"
+    ],
+    "Screen": [
+      "Schermo",
+      "Screen",
+      "Màn hình",
+      "Écran",
+      "Bildschirm",
+      "화면",
+      "屏幕",
+      "画面"
+    ],
+    "Hardware": [
+      "Hardware",
+      "Hardware",
+      "Phần cứng",
+      "Matériel",
+      "Hardware",
+      "하드웨어",
+      "硬件",
+      "ハードウェア"
+    ],
+    "intensity": [
+      "intensità",
+      "intensity",
+      "cường độ",
+      "intensité",
+      "Intensität",
+      "강도",
+      "强度",
+      "強さ"
+    ],
+    "vignette intensity": [
+      "intensità vignetta",
+      "vignette intensity",
+      "cường độ tối viền",
+      "intensité de la vignette",
+      "Vignettenstärke",
+      "비네트 강도",
+      "暗角强度",
+      "ビネットの強さ"
+    ],
+    "SCENES · choose what to record": [
+      "SCENE · scegli cosa registrare",
+      "SCENES · choose what to record",
+      "CẢNH · chọn nội dung ghi",
+      "SCÈNES · choisir quoi enregistrer",
+      "SZENEN · Aufnahmeinhalt wählen",
+      "장면 · 녹화할 내용 선택",
+      "场景 · 选择录制内容",
+      "シーン · 録画内容を選択"
+    ],
+    "SCREEN · zoom & position": [
+      "SCHERMO · zoom e posizione",
+      "SCREEN · zoom & position",
+      "MÀN HÌNH · thu phóng và vị trí",
+      "ÉCRAN · zoom et position",
+      "BILDSCHIRM · Zoom und Position",
+      "화면 · 확대/축소 및 위치",
+      "屏幕 · 缩放与位置",
+      "画面 · ズームと位置"
+    ],
+    "VIGNETTES · independent controls": [
+      "VIGNETTE · controlli indipendenti",
+      "VIGNETTES · independent controls",
+      "TỐI VIỀN · điều khiển riêng",
+      "VIGNETTES · réglages indépendants",
+      "VIGNETTEN · getrennte Steuerung",
+      "비네트 · 개별 제어",
+      "暗角 · 独立控制",
+      "ビネット · 個別の調整"
+    ],
+    "FRAMING · LOGITECH BRIO": [
+      "INQUADRATURA · LOGITECH BRIO",
+      "FRAMING · LOGITECH BRIO",
+      "KHUNG HÌNH · LOGITECH BRIO",
+      "CADRAGE · LOGITECH BRIO",
+      "BILDAUSSCHNITT · LOGITECH BRIO",
+      "구도 · LOGITECH BRIO",
+      "构图 · LOGITECH BRIO",
+      "構図 · LOGITECH BRIO"
+    ],
+    "CAMERA · native Windows controls": [
+      "WEBCAM · controlli nativi Windows",
+      "CAMERA · native Windows controls",
+      "CAMERA · điều khiển Windows gốc",
+      "CAMÉRA · commandes natives Windows",
+      "KAMERA · native Windows-Steuerung",
+      "카메라 · Windows 기본 제어",
+      "摄像头 · Windows 原生控制",
+      "カメラ · Windows ネイティブ制御"
+    ],
+    "Test card": [
+      "Monoscopio",
+      "Test card",
+      "Bảng thử",
+      "Mire",
+      "Testbild",
+      "테스트 패턴",
+      "测试图",
+      "テストパターン"
+    ],
+    "Test card · CRT": [
+      "Monoscopio · CRT",
+      "Test card · CRT",
+      "Bảng thử · CRT",
+      "Mire · CRT",
+      "Testbild · CRT",
+      "테스트 패턴 · CRT",
+      "测试图 · CRT",
+      "テストパターン · CRT"
+    ],
+    "Intro": [
+      "Introduzione",
+      "Intro",
+      "Giới thiệu",
+      "Introduction",
+      "Einleitung",
+      "소개",
+      "介绍",
+      "イントロ"
+    ],
+    "That's me": [
+      "Eccomi",
+      "That's me",
+      "Đây là tôi",
+      "C’est moi",
+      "Das bin ich",
+      "내 모습",
+      "这是我",
+      "私の紹介"
+    ],
+    "Software Demo": [
+      "Demo software",
+      "Software Demo",
+      "Demo phần mềm",
+      "Démo logiciel",
+      "Software-Demo",
+      "소프트웨어 데모",
+      "软件演示",
+      "ソフトウェアデモ"
+    ],
+    "Screen Only": [
+      "Solo schermo",
+      "Screen Only",
+      "Chỉ màn hình",
+      "Écran seul",
+      "Nur Bildschirm",
+      "화면만",
+      "仅屏幕",
+      "画面のみ"
+    ],
+    "Detail": [
+      "Dettaglio",
+      "Detail",
+      "Chi tiết",
+      "Détail",
+      "Detail",
+      "세부 사항",
+      "细节",
+      "詳細"
+    ],
+    "Comparison A/B": [
+      "Confronto A/B",
+      "Comparison A/B",
+      "So sánh A/B",
+      "Comparaison A/B",
+      "Vergleich A/B",
+      "A/B 비교",
+      "A/B 对比",
+      "A/B 比較"
+    ],
+    "Comparison A-B": [
+      "Confronto A-B",
+      "Comparison A-B",
+      "So sánh A-B",
+      "Comparaison A-B",
+      "Vergleich A-B",
+      "A-B 비교",
+      "A-B 对比",
+      "A-B 比較"
+    ],
+    "Chapter": [
+      "Capitolo",
+      "Chapter",
+      "Chương",
+      "Chapitre",
+      "Kapitel",
+      "챕터",
+      "章节",
+      "チャプター"
+    ],
+    "Hardware Demo": [
+      "Demo hardware",
+      "Hardware Demo",
+      "Demo phần cứng",
+      "Démo matériel",
+      "Hardware-Demo",
+      "하드웨어 데모",
+      "硬件演示",
+      "ハードウェアデモ"
+    ],
+    "On the Table": [
+      "Sul tavolo",
+      "On the Table",
+      "Trên bàn",
+      "Sur la table",
+      "Auf dem Tisch",
+      "테이블 위",
+      "桌面展示",
+      "テーブル上"
+    ],
+    "Thank you": [
+      "Grazie",
+      "Thank you",
+      "Cảm ơn",
+      "Merci",
+      "Vielen Dank",
+      "감사합니다",
+      "谢谢",
+      "ありがとうございました"
+    ],
+    "Pause / privacy": [
+      "Pausa / privacy",
+      "Pause / privacy",
+      "Tạm dừng / riêng tư",
+      "Pause / confidentialité",
+      "Pause / Privatsphäre",
+      "일시 정지 / 개인정보 보호",
+      "暂停 / 隐私",
+      "一時停止 / プライバシー"
+    ],
+    "Retro standby": [
+      "Attesa rétro",
+      "Retro standby",
+      "Chờ kiểu cổ điển",
+      "Attente rétro",
+      "Retro-Bereitschaft",
+      "레트로 대기 화면",
+      "复古待机",
+      "レトロな待機画面"
+    ],
+    "Project introduction": [
+      "Introduzione al progetto",
+      "Project introduction",
+      "Giới thiệu dự án",
+      "Présentation du projet",
+      "Projektvorstellung",
+      "프로젝트 소개",
+      "项目介绍",
+      "プロジェクトの紹介"
+    ],
+    "Full-screen webcam": [
+      "Webcam a tutto schermo",
+      "Full-screen webcam",
+      "Webcam toàn màn hình",
+      "Webcam plein écran",
+      "Webcam im Vollbild",
+      "전체 화면 웹캠",
+      "全屏摄像头",
+      "全画面ウェブカメラ"
+    ],
+    "Screen + corner webcam": [
+      "Schermo + webcam nell’angolo",
+      "Screen + corner webcam",
+      "Màn hình + webcam góc",
+      "Écran + webcam en coin",
+      "Bildschirm + Webcam in der Ecke",
+      "화면 + 모서리 웹캠",
+      "屏幕 + 角落摄像头",
+      "画面 + 隅にウェブカメラ"
+    ],
+    "Screen, no webcam": [
+      "Schermo senza webcam",
+      "Screen, no webcam",
+      "Màn hình, không webcam",
+      "Écran sans webcam",
+      "Bildschirm ohne Webcam",
+      "웹캠 없는 화면",
+      "屏幕，无摄像头",
+      "ウェブカメラなしの画面"
+    ],
+    "Screen zoom & presets": [
+      "Zoom schermo e inquadrature",
+      "Screen zoom & presets",
+      "Thu phóng và khung lưu",
+      "Zoom écran et préréglages",
+      "Bildschirmzoom und Voreinstellungen",
+      "화면 확대/축소 및 프리셋",
+      "屏幕缩放与预设",
+      "画面ズームとプリセット"
+    ],
+    "Two apps side by side": [
+      "Due app affiancate",
+      "Two apps side by side",
+      "Hai ứng dụng cạnh nhau",
+      "Deux applications côte à côte",
+      "Zwei Apps nebeneinander",
+      "두 앱 나란히 표시",
+      "两个应用并排显示",
+      "2 つのアプリを並べて表示"
+    ],
+    "Next section": [
+      "Sezione successiva",
+      "Next section",
+      "Phần tiếp theo",
+      "Section suivante",
+      "Nächster Abschnitt",
+      "다음 섹션",
+      "下一节",
+      "次のセクション"
+    ],
+    "Screen, webcam + table": [
+      "Schermo, webcam e tavolo",
+      "Screen, webcam + table",
+      "Màn hình, webcam và bàn",
+      "Écran, webcam et table",
+      "Bildschirm, Webcam und Tisch",
+      "화면, 웹캠 및 테이블",
+      "屏幕、摄像头和桌面",
+      "画面、ウェブカメラ、テーブル"
+    ],
+    "Table + corner webcam": [
+      "Tavolo + webcam nell’angolo",
+      "Table + corner webcam",
+      "Bàn + webcam góc",
+      "Table + webcam en coin",
+      "Tisch + Webcam in der Ecke",
+      "테이블 + 모서리 웹캠",
+      "桌面 + 角落摄像头",
+      "テーブル + 隅にウェブカメラ"
+    ],
+    "You, links + credits": [
+      "Tu, link e crediti",
+      "You, links + credits",
+      "Bạn, liên kết và ghi công",
+      "Vous, liens et crédits",
+      "Sie, Links und Credits",
+      "발표자, 링크 및 크레딧",
+      "您、链接和鸣谢",
+      "発表者、リンク、クレジット"
+    ],
+    "Video hidden · audio as set": [
+      "Video nascosto · audio invariato",
+      "Video hidden · audio as set",
+      "Ẩn video · giữ âm thanh",
+      "Vidéo masquée · audio inchangé",
+      "Video verborgen · Audio unverändert",
+      "영상 숨김 · 오디오 설정 유지",
+      "隐藏视频 · 保持音频设置",
+      "映像非表示 · 音声設定を維持"
+    ],
+    "PROJECT · intro & thank you": [
+      "PROGETTO · intro e ringraziamenti",
+      "PROJECT · intro & thank you",
+      "DỰ ÁN · giới thiệu và cảm ơn",
+      "PROJET · introduction et remerciements",
+      "PROJEKT · Einleitung und Dank",
+      "프로젝트 · 소개 및 감사",
+      "项目 · 介绍与致谢",
+      "プロジェクト · イントロと謝辞"
+    ],
+    "PROJECT · intro, chapters & thank you": [
+      "PROGETTO · intro, capitoli e ringraziamenti",
+      "PROJECT · intro, chapters & thank you",
+      "DỰ ÁN · giới thiệu, chương và cảm ơn",
+      "PROJET · introduction, chapitres et remerciements",
+      "PROJEKT · Einleitung, Kapitel und Dank",
+      "프로젝트 · 소개, 챕터 및 감사",
+      "项目 · 介绍、章节与致谢",
+      "プロジェクト · イントロ、チャプター、謝辞"
+    ],
+    "Project name": [
+      "Nome progetto",
+      "Project name",
+      "Tên dự án",
+      "Nom du projet",
+      "Projektname",
+      "프로젝트 이름",
+      "项目名称",
+      "プロジェクト名"
+    ],
+    "Eyebrow": [
+      "Occhiello",
+      "Eyebrow",
+      "Dòng dẫn",
+      "Surtitre",
+      "Dachzeile",
+      "머리말",
+      "眉题",
+      "見出し上のテキスト"
+    ],
+    "Subtitle": [
+      "Sottotitolo",
+      "Subtitle",
+      "Phụ đề",
+      "Sous-titre",
+      "Untertitel",
+      "부제",
+      "副标题",
+      "サブタイトル"
+    ],
+    "Description · up to 600 characters": [
+      "Descrizione · massimo 600 caratteri",
+      "Description · up to 600 characters",
+      "Mô tả · tối đa 600 ký tự",
+      "Description · 600 caractères maximum",
+      "Beschreibung · maximal 600 Zeichen",
+      "설명 · 최대 600자",
+      "描述 · 最多 600 字符",
+      "説明 · 最大 600 文字"
+    ],
+    "Project link": [
+      "Link progetto",
+      "Project link",
+      "Liên kết dự án",
+      "Lien du projet",
+      "Projektlink",
+      "프로젝트 링크",
+      "项目链接",
+      "プロジェクトのリンク"
+    ],
+    "Link": [
+      "Link",
+      "Link",
+      "Liên kết",
+      "Lien",
+      "Link",
+      "링크",
+      "链接",
+      "リンク"
+    ],
+    "Project logo": [
+      "Logo progetto",
+      "Project logo",
+      "Logo dự án",
+      "Logo du projet",
+      "Projektlogo",
+      "프로젝트 로고",
+      "项目标志",
+      "プロジェクトのロゴ"
+    ],
+    "Optional project logo · PNG, JPEG or WebP": [
+      "Logo facoltativo · PNG, JPEG o WebP",
+      "Optional project logo · PNG, JPEG or WebP",
+      "Logo tùy chọn · PNG, JPEG hoặc WebP",
+      "Logo facultatif · PNG, JPEG ou WebP",
+      "Optionales Logo · PNG, JPEG oder WebP",
+      "선택 사항 로고 · PNG, JPEG 또는 WebP",
+      "可选标志 · PNG、JPEG 或 WebP",
+      "任意のロゴ · PNG、JPEG、WebP"
+    ],
+    "Choose logo…": [
+      "Scegli logo…",
+      "Choose logo…",
+      "Chọn logo…",
+      "Choisir un logo…",
+      "Logo auswählen…",
+      "로고 선택…",
+      "选择标志…",
+      "ロゴを選択…"
+    ],
+    "Choose project logo": [
+      "Scegli logo progetto",
+      "Choose project logo",
+      "Chọn logo dự án",
+      "Choisir le logo du projet",
+      "Projektlogo auswählen",
+      "프로젝트 로고 선택",
+      "选择项目标志",
+      "プロジェクトのロゴを選択"
+    ],
+    "Choose a local PNG, JPG or BMP": [
+      "Scegli un PNG, JPG o BMP locale",
+      "Choose a local PNG, JPG or BMP",
+      "Chọn PNG, JPG hoặc BMP cục bộ",
+      "Choisir un fichier PNG, JPG ou BMP local",
+      "Lokale PNG-, JPG- oder BMP-Datei wählen",
+      "로컬 PNG, JPG 또는 BMP 선택",
+      "选择本地 PNG、JPG 或 BMP",
+      "ローカルの PNG、JPG、BMP を選択"
+    ],
+    "Project logos · PNG, JPEG, WebP": [
+      "Loghi progetto · PNG, JPEG, WebP",
+      "Project logos · PNG, JPEG, WebP",
+      "Logo dự án · PNG, JPEG, WebP",
+      "Logos de projet · PNG, JPEG, WebP",
+      "Projektlogos · PNG, JPEG, WebP",
+      "프로젝트 로고 · PNG, JPEG, WebP",
+      "项目标志 · PNG、JPEG、WebP",
+      "プロジェクトロゴ · PNG、JPEG、WebP"
+    ],
+    "Remove logo": [
+      "Rimuovi logo",
+      "Remove logo",
+      "Xóa logo",
+      "Retirer le logo",
+      "Logo entfernen",
+      "로고 제거",
+      "移除标志",
+      "ロゴを削除"
+    ],
+    "Chapter title": [
+      "Titolo capitolo",
+      "Chapter title",
+      "Tiêu đề chương",
+      "Titre du chapitre",
+      "Kapiteltitel",
+      "챕터 제목",
+      "章节标题",
+      "チャプターのタイトル"
+    ],
+    "Chapter subtitle": [
+      "Sottotitolo capitolo",
+      "Chapter subtitle",
+      "Phụ đề chương",
+      "Sous-titre du chapitre",
+      "Kapiteluntertitel",
+      "챕터 부제",
+      "章节副标题",
+      "チャプターのサブタイトル"
+    ],
+    "Chapter description": [
+      "Descrizione capitolo",
+      "Chapter description",
+      "Mô tả chương",
+      "Description du chapitre",
+      "Kapitelbeschreibung",
+      "챕터 설명",
+      "章节描述",
+      "チャプターの説明"
+    ],
+    "Comparison · left": [
+      "Confronto · sinistra",
+      "Comparison · left",
+      "So sánh · trái",
+      "Comparaison · gauche",
+      "Vergleich · links",
+      "비교 · 왼쪽",
+      "对比 · 左侧",
+      "比較 · 左"
+    ],
+    "Comparison · right": [
+      "Confronto · destra",
+      "Comparison · right",
+      "So sánh · phải",
+      "Comparaison · droite",
+      "Vergleich · rechts",
+      "비교 · 오른쪽",
+      "对比 · 右侧",
+      "比較 · 右"
+    ],
+    "This project is VibeWare": [
+      "Questo progetto è VibeWare",
+      "This project is VibeWare",
+      "Dự án này là VibeWare",
+      "Ce projet est VibeWare",
+      "Dieses Projekt ist VibeWare",
+      "이 프로젝트는 VibeWare입니다",
+      "此项目属于 VibeWare",
+      "このプロジェクトは VibeWare です"
+    ],
+    "VibeWare project": [
+      "Progetto VibeWare",
+      "VibeWare project",
+      "Dự án VibeWare",
+      "Projet VibeWare",
+      "VibeWare-Projekt",
+      "VibeWare 프로젝트",
+      "VibeWare 项目",
+      "VibeWare プロジェクト"
+    ],
+    "Intro sound": [
+      "Suono introduttivo",
+      "Intro sound",
+      "Âm thanh mở đầu",
+      "Son d’introduction",
+      "Einleitungston",
+      "인트로 사운드",
+      "片头音效",
+      "イントロの効果音"
+    ],
+    "Intro sound volume": [
+      "Volume introduzione",
+      "Intro sound volume",
+      "Âm lượng mở đầu",
+      "Volume d’introduction",
+      "Lautstärke des Einleitungstons",
+      "인트로 음량",
+      "片头音量",
+      "イントロの音量"
+    ],
+    "Apply project to scenes": [
+      "Applica progetto alle scene",
+      "Apply project to scenes",
+      "Áp dụng dự án vào cảnh",
+      "Appliquer le projet aux scènes",
+      "Projekt auf Szenen anwenden",
+      "장면에 프로젝트 적용",
+      "将项目应用到场景",
+      "プロジェクトをシーンに適用"
+    ],
+    "Save project & apply to OBS": [
+      "Salva progetto e applica a OBS",
+      "Save project & apply to OBS",
+      "Lưu dự án và áp dụng vào OBS",
+      "Enregistrer le projet et appliquer à OBS",
+      "Projekt speichern und auf OBS anwenden",
+      "프로젝트 저장 및 OBS에 적용",
+      "保存项目并应用到 OBS",
+      "プロジェクトを保存して OBS に適用"
+    ],
+    "Open controls": [
+      "Apri controlli",
+      "Open controls",
+      "Mở điều khiển",
+      "Ouvrir les commandes",
+      "Steuerung öffnen",
+      "제어 열기",
+      "打开控制",
+      "コントロールを開く"
+    ],
+    "Refresh cameras": [
+      "Aggiorna webcam",
+      "Refresh cameras",
+      "Làm mới camera",
+      "Actualiser les caméras",
+      "Kameras aktualisieren",
+      "카메라 새로 고침",
+      "刷新摄像头",
+      "カメラ一覧を更新"
+    ],
+    "Open camera controls first.": [
+      "Apri prima i controlli webcam.",
+      "Open camera controls first.",
+      "Mở điều khiển camera trước.",
+      "Ouvrez d’abord les commandes caméra.",
+      "Zuerst die Kamerasteuerung öffnen.",
+      "먼저 카메라 제어를 여세요.",
+      "请先打开摄像头控制。",
+      "先にカメラのコントロールを開いてください。"
+    ],
+    "No camera found.": [
+      "Nessuna webcam trovata.",
+      "No camera found.",
+      "Không tìm thấy camera.",
+      "Aucune caméra trouvée.",
+      "Keine Kamera gefunden.",
+      "카메라를 찾을 수 없습니다.",
+      "未找到摄像头。",
+      "カメラが見つかりません。"
+    ],
+    "Diagnostic ZIP": [
+      "ZIP diagnostico",
+      "Diagnostic ZIP",
+      "ZIP chẩn đoán",
+      "ZIP de diagnostic",
+      "Diagnose-ZIP",
+      "진단 ZIP",
+      "诊断 ZIP",
+      "診断 ZIP"
+    ],
+    "Diagnostic logs exported.": [
+      "Log diagnostici esportati.",
+      "Diagnostic logs exported.",
+      "Đã xuất nhật ký chẩn đoán.",
+      "Journaux de diagnostic exportés.",
+      "Diagnoseprotokolle exportiert.",
+      "진단 로그를 내보냈습니다.",
+      "诊断日志已导出。",
+      "診断ログをエクスポートしました。"
+    ],
+    "Panel appearance": [
+      "Aspetto del pannello",
+      "Panel appearance",
+      "Giao diện bảng điều khiển",
+      "Apparence du panneau",
+      "Darstellung des Panels",
+      "패널 모양",
+      "面板外观",
+      "パネルの外観"
+    ],
+    "Connecting to OBS…": [
+      "Connessione a OBS…",
+      "Connecting to OBS…",
+      "Đang kết nối OBS…",
+      "Connexion à OBS…",
+      "Verbindung mit OBS…",
+      "OBS 연결 중…",
+      "正在连接 OBS…",
+      "OBS に接続中…"
+    ],
+    "Not connected · open OBS, then choose Connect.": [
+      "Scollegato · apri OBS, poi premi Connetti.",
+      "Not connected · open OBS, then choose Connect.",
+      "Chưa kết nối · mở OBS rồi chọn Kết nối.",
+      "Déconnecté · ouvrez OBS, puis Connecter.",
+      "Nicht verbunden · OBS öffnen, dann Verbinden wählen.",
+      "연결 안 됨 · OBS를 연 후 연결을 누르세요.",
+      "未连接 · 请打开 OBS，然后选择连接。",
+      "未接続 · OBS を開き、接続を選択してください。"
+    ],
+    "Not connected · choose Connect when OBS is ready.": [
+      "Scollegato · premi Connetti quando OBS è pronto.",
+      "Not connected · choose Connect when OBS is ready.",
+      "Chưa kết nối · chọn Kết nối khi OBS sẵn sàng.",
+      "Déconnecté · cliquez sur Connecter quand OBS est prêt.",
+      "Nicht verbunden · Verbinden wählen, sobald OBS bereit ist.",
+      "연결 안 됨 · OBS가 준비되면 연결을 누르세요.",
+      "未连接 · OBS 就绪后请选择连接。",
+      "未接続 · OBS の準備ができたら接続を選択してください。"
+    ],
+    "Connected. Recording starts only when you press Start recording.": [
+      "Connesso. La registrazione parte solo premendo Avvia registrazione.",
+      "Connected. Recording starts only when you press Start recording.",
+      "Đã kết nối. Chỉ ghi khi bạn chọn Bắt đầu ghi.",
+      "Connecté. L’enregistrement démarre uniquement avec Démarrer l’enregistrement.",
+      "Verbunden. Die Aufnahme beginnt erst mit Aufnahme starten.",
+      "연결됨. 녹화 시작을 눌러야 녹화됩니다.",
+      "已连接。只有按下开始录制才会录制。",
+      "接続済み。「録画開始」を押すまで録画は始まりません。"
+    ],
+    "Waiting for OBS · open OBS with WebSocket enabled, then Connect.": [
+      "In attesa di OBS · apri OBS con WebSocket attivo, poi Connetti.",
+      "Waiting for OBS · open OBS with WebSocket enabled, then Connect.",
+      "Đang chờ OBS · mở OBS với WebSocket bật rồi Kết nối.",
+      "En attente d’OBS · activez WebSocket dans OBS, puis Connecter.",
+      "Warte auf OBS · OBS mit aktiviertem WebSocket öffnen, dann Verbinden.",
+      "OBS 대기 중 · WebSocket을 켠 OBS를 연 후 연결하세요.",
+      "等待 OBS · 请打开已启用 WebSocket 的 OBS，然后连接。",
+      "OBS 待機中 · WebSocket を有効にした OBS を開き、接続してください。"
+    ],
+    "Waiting for OBS · open OBS with WebSocket enabled.": [
+      "In attesa di OBS · apri OBS con WebSocket attivo.",
+      "Waiting for OBS · open OBS with WebSocket enabled.",
+      "Đang chờ OBS · mở OBS với WebSocket bật.",
+      "En attente d’OBS · ouvrez OBS avec WebSocket activé.",
+      "Warte auf OBS · OBS mit aktiviertem WebSocket öffnen.",
+      "OBS 대기 중 · WebSocket을 켠 OBS를 여세요.",
+      "等待 OBS · 请打开已启用 WebSocket 的 OBS。",
+      "OBS 待機中 · WebSocket を有効にした OBS を開いてください。"
+    ],
+    "OBS connection lost · recording state unconfirmed. Check OBS, then reconnect.": [
+      "Connessione OBS persa · stato della registrazione non confermato. Controlla OBS, poi riconnetti.",
+      "OBS connection lost · recording state unconfirmed. Check OBS, then reconnect.",
+      "Mất kết nối OBS · chưa xác nhận trạng thái ghi. Kiểm tra OBS rồi kết nối lại.",
+      "Connexion OBS perdue · état de l’enregistrement non confirmé. Vérifiez OBS, puis reconnectez-vous.",
+      "OBS-Verbindung verloren · Aufnahmestatus unbestätigt. OBS prüfen, dann erneut verbinden.",
+      "OBS 연결 끊김 · 녹화 상태를 확인할 수 없습니다. OBS를 확인한 후 다시 연결하세요.",
+      "OBS 连接中断 · 无法确认录制状态。请检查 OBS 后重新连接。",
+      "OBS 接続切断 · 録画状態を確認できません。OBS を確認してから再接続してください。"
+    ],
+    "OBS connection lost · recording state unconfirmed. Check OBS.": [
+      "Connessione OBS persa · stato registrazione non confermato. Controlla OBS.",
+      "OBS connection lost · recording state unconfirmed. Check OBS.",
+      "Mất kết nối OBS · chưa xác nhận trạng thái ghi. Kiểm tra OBS.",
+      "Connexion OBS perdue · état d’enregistrement non confirmé. Vérifiez OBS.",
+      "OBS-Verbindung verloren · Aufnahmestatus unbestätigt. OBS prüfen.",
+      "OBS 연결 끊김 · 녹화 상태를 확인할 수 없습니다. OBS를 확인하세요.",
+      "OBS 连接中断 · 无法确认录制状态。请检查 OBS。",
+      "OBS 接続切断 · 録画状態を確認できません。OBS を確認してください。"
+    ],
+    "Disconnected · OBS may still be recording. Check OBS.": [
+      "Scollegato · OBS potrebbe registrare ancora. Controlla OBS.",
+      "Disconnected · OBS may still be recording. Check OBS.",
+      "Đã ngắt kết nối · OBS có thể vẫn đang ghi. Kiểm tra OBS.",
+      "Déconnecté · OBS enregistre peut-être encore. Vérifiez OBS.",
+      "Getrennt · OBS nimmt möglicherweise weiter auf. OBS prüfen.",
+      "연결 해제됨 · OBS가 계속 녹화 중일 수 있습니다. OBS를 확인하세요.",
+      "已断开 · OBS 可能仍在录制。请检查 OBS。",
+      "切断済み · OBS は録画を続けている可能性があります。OBS を確認してください。"
+    ],
+    "An OBS request is finishing. Try again in a moment.": [
+      "Una richiesta OBS sta terminando. Riprova tra poco.",
+      "An OBS request is finishing. Try again in a moment.",
+      "Một yêu cầu OBS sắp hoàn tất. Vui lòng thử lại sau.",
+      "Une requête OBS se termine. Réessayez dans un instant.",
+      "Eine OBS-Anfrage wird abgeschlossen. Gleich erneut versuchen.",
+      "OBS 요청을 마무리하고 있습니다. 잠시 후 다시 시도하세요.",
+      "OBS 请求即将完成。请稍后重试。",
+      "OBS のリクエストを処理中です。少し待って再試行してください。"
+    ],
+    "Wait for the current OBS action before disconnecting.": [
+      "Attendi la fine dell’operazione OBS prima di scollegare.",
+      "Wait for the current OBS action before disconnecting.",
+      "Chờ thao tác OBS hiện tại xong rồi ngắt kết nối.",
+      "Attendez la fin de l’action OBS avant de déconnecter.",
+      "Vor dem Trennen die aktuelle OBS-Aktion abwarten.",
+      "현재 OBS 작업이 끝난 후 연결을 해제하세요.",
+      "请等待当前 OBS 操作完成后再断开连接。",
+      "現在の OBS 操作が完了してから切断してください。"
+    ],
+    "Stop was not sent because OBS disconnected. Check OBS before reconnecting.": [
+      "Arresto non inviato perché OBS è scollegato. Controlla OBS prima di riconnettere.",
+      "Stop was not sent because OBS disconnected. Check OBS before reconnecting.",
+      "Không gửi lệnh dừng vì OBS mất kết nối. Kiểm tra OBS trước khi kết nối lại.",
+      "L’arrêt n’a pas été envoyé car OBS est déconnecté. Vérifiez OBS avant de reconnecter.",
+      "Stopp wurde wegen getrennter OBS-Verbindung nicht gesendet. OBS vor dem erneuten Verbinden prüfen.",
+      "OBS 연결이 끊겨 중지 명령을 보내지 못했습니다. 다시 연결하기 전에 OBS를 확인하세요.",
+      "由于 OBS 已断开，未发送停止命令。重新连接前请检查 OBS。",
+      "OBS が切断されたため停止を送信できませんでした。再接続の前に OBS を確認してください。"
+    ],
+    "Action could not be confirmed:": [
+      "Operazione non confermata:",
+      "Action could not be confirmed:",
+      "Chưa xác nhận thao tác:",
+      "Action non confirmée :",
+      "Aktion konnte nicht bestätigt werden:",
+      "작업 확인 불가:",
+      "无法确认操作：",
+      "操作を確認できませんでした:"
+    ],
+    "Adjustment failed:": [
+      "Regolazione non riuscita:",
+      "Adjustment failed:",
+      "Điều chỉnh thất bại:",
+      "Échec du réglage :",
+      "Anpassung fehlgeschlagen:",
+      "조정 실패:",
+      "调整失败：",
+      "調整に失敗しました:"
+    ],
+    "Camera operation failed:": [
+      "Operazione webcam non riuscita:",
+      "Camera operation failed:",
+      "Thao tác camera thất bại:",
+      "Échec de l’opération caméra :",
+      "Kameraaktion fehlgeschlagen:",
+      "카메라 작업 실패:",
+      "摄像头操作失败：",
+      "カメラ操作に失敗しました:"
+    ],
+    "Camera controls unavailable:": [
+      "Controlli webcam non disponibili:",
+      "Camera controls unavailable:",
+      "Điều khiển camera không khả dụng:",
+      "Commandes caméra indisponibles :",
+      "Kamerasteuerung nicht verfügbar:",
+      "카메라 제어 사용 불가:",
+      "摄像头控制不可用：",
+      "カメラのコントロールを利用できません:"
+    ],
+    "Could not export logs:": [
+      "Esportazione log non riuscita:",
+      "Could not export logs:",
+      "Không thể xuất nhật ký:",
+      "Impossible d’exporter les journaux :",
+      "Protokollexport fehlgeschlagen:",
+      "로그 내보내기 실패:",
+      "无法导出日志：",
+      "ログをエクスポートできませんでした:"
+    ],
+    "Could not save screen position:": [
+      "Salvataggio posizione non riuscito:",
+      "Could not save screen position:",
+      "Không thể lưu vị trí màn hình:",
+      "Impossible d’enregistrer la position :",
+      "Bildschirmposition konnte nicht gespeichert werden:",
+      "화면 위치 저장 실패:",
+      "无法保存屏幕位置：",
+      "画面位置を保存できませんでした:"
+    ],
+    "Screen position saved:": [
+      "Posizione schermo salvata:",
+      "Screen position saved:",
+      "Đã lưu vị trí màn hình:",
+      "Position d’écran enregistrée :",
+      "Bildschirmposition gespeichert:",
+      "화면 위치 저장됨:",
+      "屏幕位置已保存：",
+      "画面位置を保存しました:"
+    ],
+    "Preset recalled:": [
+      "Inquadratura richiamata:",
+      "Preset recalled:",
+      "Đã gọi khung lưu:",
+      "Préréglage rappelé :",
+      "Voreinstellung geladen:",
+      "프리셋 불러옴:",
+      "预设已调用：",
+      "プリセットを呼び出しました:"
+    ],
+    "Preset saved:": [
+      "Inquadratura salvata:",
+      "Preset saved:",
+      "Đã lưu khung hình:",
+      "Préréglage enregistré :",
+      "Voreinstellung gespeichert:",
+      "프리셋 저장됨:",
+      "预设已保存：",
+      "プリセットを保存しました:"
+    ],
+    "Framing reset: 1×, centered.": [
+      "Inquadratura ripristinata: 1×, centrata.",
+      "Framing reset: 1×, centered.",
+      "Đã đặt lại khung hình: 1×, giữa.",
+      "Cadrage réinitialisé : 1×, centré.",
+      "Bildausschnitt zurückgesetzt: 1×, zentriert.",
+      "구도 초기화됨: 1×, 가운데.",
+      "构图已重置：1×，居中。",
+      "構図をリセットしました: 1×、中央。"
+    ],
+    "Camera framing adjusted.": [
+      "Inquadratura webcam regolata.",
+      "Camera framing adjusted.",
+      "Đã điều chỉnh khung camera.",
+      "Cadrage caméra réglé.",
+      "Kamerabildausschnitt angepasst.",
+      "카메라 구도를 조정했습니다.",
+      "摄像头构图已调整。",
+      "カメラの構図を調整しました。"
+    ],
+    "Project saved locally. Applying to OBS…": [
+      "Progetto salvato localmente. Applicazione a OBS…",
+      "Project saved locally. Applying to OBS…",
+      "Đã lưu dự án cục bộ. Đang áp dụng vào OBS…",
+      "Projet enregistré localement. Application à OBS…",
+      "Projekt lokal gespeichert. Wird auf OBS angewendet…",
+      "프로젝트가 로컬에 저장되었습니다. OBS에 적용 중…",
+      "项目已保存到本地。正在应用到 OBS…",
+      "プロジェクトをローカルに保存しました。OBS に適用中…"
+    ],
+    "Project saved locally · applying artwork to OBS…": [
+      "Progetto salvato localmente · applicazione grafica a OBS…",
+      "Project saved locally · applying artwork to OBS…",
+      "Đã lưu cục bộ · đang áp dụng hình vào OBS…",
+      "Projet enregistré localement · application des visuels à OBS…",
+      "Projekt lokal gespeichert · Grafiken werden auf OBS angewendet…",
+      "프로젝트 로컬 저장됨 · OBS에 그래픽 적용 중…",
+      "项目已保存到本地 · 正在向 OBS 应用图像…",
+      "プロジェクトをローカルに保存 · OBS に画像を適用中…"
+    ],
+    "Project saved and applied to OBS.": [
+      "Progetto salvato e applicato a OBS.",
+      "Project saved and applied to OBS.",
+      "Đã lưu và áp dụng dự án vào OBS.",
+      "Projet enregistré et appliqué à OBS.",
+      "Projekt gespeichert und auf OBS angewendet.",
+      "프로젝트를 저장하고 OBS에 적용했습니다.",
+      "项目已保存并应用到 OBS。",
+      "プロジェクトを保存し、OBS に適用しました。"
+    ],
+    "Project saved locally. Connect to OBS, then Apply again to update its sources.": [
+      "Progetto salvato localmente. Connetti OBS e premi di nuovo Applica per aggiornare le sorgenti.",
+      "Project saved locally. Connect to OBS, then Apply again to update its sources.",
+      "Đã lưu cục bộ. Kết nối OBS rồi Áp dụng lại để cập nhật nguồn.",
+      "Projet enregistré localement. Connectez OBS, puis appliquez à nouveau pour mettre à jour ses sources.",
+      "Projekt lokal gespeichert. OBS verbinden und erneut anwenden, um die Quellen zu aktualisieren.",
+      "프로젝트가 로컬에 저장되었습니다. OBS에 연결한 후 다시 적용하여 소스를 업데이트하세요.",
+      "项目已保存到本地。连接 OBS 后再次应用以更新源。",
+      "プロジェクトをローカルに保存しました。OBS に接続し、再度適用してソースを更新してください。"
+    ],
+    "Project was not saved:": [
+      "Progetto non salvato:",
+      "Project was not saved:",
+      "Chưa lưu dự án:",
+      "Projet non enregistré :",
+      "Projekt wurde nicht gespeichert:",
+      "프로젝트 저장 안 됨:",
+      "项目未保存：",
+      "プロジェクトを保存できませんでした:"
+    ],
+    "Project was not saved.": [
+      "Progetto non salvato.",
+      "Project was not saved.",
+      "Chưa lưu dự án.",
+      "Projet non enregistré.",
+      "Projekt wurde nicht gespeichert.",
+      "프로젝트가 저장되지 않았습니다.",
+      "项目未保存。",
+      "プロジェクトを保存できませんでした。"
+    ],
+    "Project saved locally; OBS update incomplete. Retry Apply.": [
+      "Progetto salvato localmente; aggiornamento OBS incompleto. Premi di nuovo Applica.",
+      "Project saved locally; OBS update incomplete. Retry Apply.",
+      "Đã lưu cục bộ; cập nhật OBS chưa hoàn tất. Hãy Áp dụng lại.",
+      "Projet enregistré localement ; mise à jour OBS incomplète. Réessayez Appliquer.",
+      "Projekt lokal gespeichert; OBS-Aktualisierung unvollständig. Erneut anwenden.",
+      "프로젝트는 로컬에 저장되었지만 OBS 업데이트가 완료되지 않았습니다. 다시 적용하세요.",
+      "项目已保存到本地，但 OBS 更新未完成。请重新应用。",
+      "プロジェクトはローカルに保存されましたが、OBS の更新は未完了です。再度適用してください。"
+    ],
+    "Preparing project cards… Recording controls remain available.": [
+      "Preparazione cartelli… I controlli di registrazione restano disponibili.",
+      "Preparing project cards… Recording controls remain available.",
+      "Đang tạo thẻ dự án… Điều khiển ghi vẫn dùng được.",
+      "Préparation des cartons… Les commandes d’enregistrement restent disponibles.",
+      "Projekttafeln werden erstellt… Aufnahmesteuerung bleibt verfügbar.",
+      "프로젝트 카드 준비 중… 녹화 제어는 계속 사용할 수 있습니다.",
+      "正在准备项目卡… 录制控制仍可使用。",
+      "プロジェクトカードを準備中… 録画の操作は引き続き利用できます。"
+    ],
+    "Scene collection prepared:": [
+      "Raccolta scene preparata:",
+      "Scene collection prepared:",
+      "Đã chuẩn bị bộ cảnh:",
+      "Collection de scènes préparée :",
+      "Szenensammlung vorbereitet:",
+      "장면 모음 준비됨:",
+      "场景集合已准备：",
+      "シーンコレクションを準備しました:"
+    ],
+    "Appearance changed for this window, but could not save:": [
+      "Aspetto cambiato nella finestra, ma salvataggio non riuscito:",
+      "Appearance changed for this window, but could not save:",
+      "Đã đổi giao diện cửa sổ nhưng không thể lưu:",
+      "Apparence modifiée, mais enregistrement impossible :",
+      "Fensterdarstellung geändert, aber Speichern fehlgeschlagen:",
+      "창 모양은 변경되었지만 저장하지 못했습니다:",
+      "窗口外观已更改，但无法保存：",
+      "ウィンドウの外観は変更しましたが、保存できませんでした:"
+    ],
+    "Appearance did not apply or persist.": [
+      "Aspetto non applicato o non salvato.",
+      "Appearance did not apply or persist.",
+      "Không thể áp dụng hoặc lưu giao diện.",
+      "L’apparence n’a pas pu être appliquée ou enregistrée.",
+      "Darstellung konnte nicht angewendet oder gespeichert werden.",
+      "화면 모양을 적용하거나 저장하지 못했습니다.",
+      "无法应用或保存外观。",
+      "外観を適用または保存できませんでした。"
+    ],
+    "Could not save panel appearance": [
+      "Salvataggio aspetto non riuscito",
+      "Could not save panel appearance",
+      "Không thể lưu giao diện bảng điều khiển",
+      "Impossible d’enregistrer l’apparence du panneau",
+      "Paneldarstellung konnte nicht gespeichert werden",
+      "패널 모양을 저장하지 못했습니다",
+      "无法保存面板外观",
+      "パネルの外観を保存できませんでした"
+    ],
+    "Language changed for this window; the preference could not be saved.": [
+      "Lingua cambiata nella finestra; impossibile salvare la preferenza.",
+      "Language changed for this window; the preference could not be saved.",
+      "Đã đổi ngôn ngữ cửa sổ nhưng không thể lưu lựa chọn.",
+      "Langue modifiée pour cette fenêtre ; impossible d’enregistrer le choix.",
+      "Sprache für dieses Fenster geändert; Einstellung konnte nicht gespeichert werden.",
+      "이 창의 언어는 변경되었지만 설정을 저장하지 못했습니다.",
+      "此窗口的语言已更改，但无法保存偏好设置。",
+      "このウィンドウの言語は変更しましたが、設定を保存できませんでした。"
+    ],
+    "Connection error:": [
+      "Errore di connessione:",
+      "Connection error:",
+      "Lỗi kết nối:",
+      "Erreur de connexion :",
+      "Verbindungsfehler:",
+      "연결 오류:",
+      "连接错误：",
+      "接続エラー:"
+    ],
+    "Adjust the camera and save this preset first.": [
+      "Regola la webcam e salva prima questa inquadratura.",
+      "Adjust the camera and save this preset first.",
+      "Điều chỉnh camera và lưu khung hình này trước.",
+      "Réglez la caméra et enregistrez d’abord ce préréglage.",
+      "Zuerst die Kamera einstellen und diese Voreinstellung speichern.",
+      "먼저 카메라를 조정하고 이 프리셋을 저장하세요.",
+      "请先调整摄像头并保存此预设。",
+      "先にカメラを調整して、このプリセットを保存してください。"
+    ],
+    "Adjust the camera, then click “Save preset”.": [
+      "Regola la webcam, poi premi “Salva inquadratura”.",
+      "Adjust the camera, then click “Save preset”.",
+      "Điều chỉnh camera rồi chọn “Lưu khung hình”.",
+      "Réglez la caméra, puis cliquez sur « Enregistrer le préréglage ».",
+      "Kamera einstellen, dann „Voreinstellung speichern“ wählen.",
+      "카메라를 조정한 후 “프리셋 저장”을 누르세요.",
+      "调整摄像头后，点击“保存预设”。",
+      "カメラを調整してから「プリセットを保存」を押してください。"
+    ],
+    "1× = full framing. Zoom in to use pan and tilt.": [
+      "1× = inquadratura completa. Ingrandisci per spostarti sui due assi.",
+      "1× = full framing. Zoom in to use pan and tilt.",
+      "1× = toàn khung. Phóng to để di chuyển ngang và dọc.",
+      "1× = cadrage complet. Zoomez pour déplacer le cadrage sur deux axes.",
+      "1× = vollständiger Bildausschnitt. Zum Schwenken und Neigen hineinzoomen.",
+      "1×는 전체 구도입니다. 확대하면 좌우와 상하 이동을 사용할 수 있습니다.",
+      "1× 为完整构图。放大后可水平或垂直移动。",
+      "1× は全体表示です。拡大すると左右・上下に移動できます。"
+    ],
+    "1 = light, 20 = strong. Use Background blur ON/OFF to enable or disable the effect.": [
+      "1 = lieve, 20 = forte. Attiva o disattiva l’effetto con Sfocatura sfondo.",
+      "1 = light, 20 = strong. Use Background blur ON/OFF to enable or disable the effect.",
+      "1 = nhẹ, 20 = mạnh. Bật hoặc tắt hiệu ứng bằng Làm mờ nền.",
+      "1 = léger, 20 = fort. Activez ou désactivez l’effet avec Flou d’arrière-plan.",
+      "1 = leicht, 20 = stark. Den Effekt mit Hintergrundunschärfe ein- oder ausschalten.",
+      "1은 약하게, 20은 강하게입니다. 배경 흐림으로 효과를 켜거나 끄세요.",
+      "1 为轻微，20 为强烈。使用背景模糊开关控制效果。",
+      "1 は弱く、20 は強い設定です。背景ぼかしのスイッチで効果を切り替えます。"
+    ],
+    "Return to 1× and center the camera. Your saved presets are kept.": [
+      "Torna a 1× e centra la webcam. Le inquadrature salvate restano disponibili.",
+      "Return to 1× and center the camera. Your saved presets are kept.",
+      "Trở về 1× và căn giữa camera. Các khung đã lưu được giữ nguyên.",
+      "Revenir à 1× et centrer la caméra. Les préréglages enregistrés sont conservés.",
+      "Auf 1× zurücksetzen und Kamera zentrieren. Gespeicherte Voreinstellungen bleiben erhalten.",
+      "1×로 돌아가 카메라를 가운데에 맞춥니다. 저장된 프리셋은 유지됩니다.",
+      "恢复 1× 并将摄像头居中。已保存的预设不会改变。",
+      "1× に戻してカメラを中央に配置します。保存済みのプリセットは保持されます。"
+    ],
+    "Adjustments apply to the recorded video. Reset screen returns to the full view.": [
+      "Le regolazioni si applicano al video registrato. Ripristina schermo torna alla vista completa.",
+      "Adjustments apply to the recorded video. Reset screen returns to the full view.",
+      "Điều chỉnh áp dụng vào video ghi. Đặt lại màn hình để xem toàn bộ.",
+      "Les réglages s’appliquent à la vidéo enregistrée. Réinitialiser l’écran rétablit la vue complète.",
+      "Die Anpassungen gelten für die Aufnahme. Bildschirm zurücksetzen stellt die Gesamtansicht wieder her.",
+      "조정 내용은 녹화 영상에 적용됩니다. 화면 초기화로 전체 보기로 돌아갑니다.",
+      "调整会应用到录制的视频。重置屏幕可恢复完整视图。",
+      "調整は録画映像に適用されます。画面をリセットすると全体表示に戻ります。"
+    ],
+    "Choose a scene with a captured screen first.": [
+      "Scegli prima una scena che cattura lo schermo.",
+      "Choose a scene with a captured screen first.",
+      "Chọn cảnh có chụp màn hình trước.",
+      "Choisissez d’abord une scène avec capture d’écran.",
+      "Zuerst eine Szene mit Bildschirmaufnahme wählen.",
+      "먼저 화면 캡처가 있는 장면을 선택하세요.",
+      "请先选择包含屏幕捕获的场景。",
+      "先に画面キャプチャを含むシーンを選択してください。"
+    ],
+    "Choose a scene with a captured screen.": [
+      "Scegli una scena che cattura lo schermo.",
+      "Choose a scene with a captured screen.",
+      "Chọn cảnh có chụp màn hình.",
+      "Choisissez une scène avec capture d’écran.",
+      "Eine Szene mit Bildschirmaufnahme wählen.",
+      "화면 캡처가 있는 장면을 선택하세요.",
+      "请选择包含屏幕捕获的场景。",
+      "画面キャプチャを含むシーンを選択してください。"
+    ],
+    "Choose Software Demo, Screen Only, Detail or Hardware Demo. Comparison uses the two display halves.": [
+      "Scegli Demo software, Solo schermo, Dettaglio o Demo hardware. Il confronto usa le due metà dello schermo.",
+      "Choose Software Demo, Screen Only, Detail or Hardware Demo. Comparison uses the two display halves.",
+      "Chọn Demo phần mềm, Chỉ màn hình, Chi tiết hoặc Demo phần cứng. So sánh dùng hai nửa màn hình.",
+      "Choisissez Démo logiciel, Écran seul, Détail ou Démo matériel. La comparaison utilise les deux moitiés de l’écran.",
+      "Software-Demo, Nur Bildschirm, Detail oder Hardware-Demo wählen. Der Vergleich verwendet die beiden Bildschirmhälften.",
+      "소프트웨어 데모, 화면만, 세부 사항 또는 하드웨어 데모를 선택하세요. 비교는 화면의 두 절반을 사용합니다.",
+      "选择软件演示、仅屏幕、细节或硬件演示。对比使用屏幕的左右两半。",
+      "ソフトウェアデモ、画面のみ、詳細、ハードウェアデモを選択してください。比較には画面の左右半分を使用します。"
+    ],
+    "Zoom stays between 1× and 4×. Horizontal and vertical positioning become available above 1×; presets keep the framing inside the captured screen.": [
+      "Lo zoom va da 1× a 4×. Sopra 1× puoi spostarti sui due assi; le inquadrature restano dentro lo schermo catturato.",
+      "Zoom stays between 1× and 4×. Horizontal and vertical positioning become available above 1×; presets keep the framing inside the captured screen.",
+      "Thu phóng từ 1× đến 4×. Trên 1× có thể di chuyển ngang và dọc; khung lưu luôn nằm trong màn hình chụp.",
+      "Le zoom va de 1× à 4×. Au-delà de 1×, déplacez le cadrage horizontalement et verticalement ; les préréglages restent dans l’écran capturé.",
+      "Zoom von 1× bis 4×. Über 1× ist horizontales und vertikales Verschieben möglich; Voreinstellungen bleiben im erfassten Bildschirm.",
+      "확대 범위는 1×~4×입니다. 1×보다 크게 확대하면 가로·세로 이동이 가능하며 프리셋은 캡처 화면 안에 유지됩니다.",
+      "缩放范围为 1× 到 4×。超过 1× 后可水平和垂直移动；预设始终保持在捕获的屏幕范围内。",
+      "ズーム範囲は 1×～4× です。1× を超えると左右・上下に移動でき、プリセットはキャプチャ画面内に収まります。"
+    ],
+    "Each vignette stays inside its own video box. OFF keeps the selected intensity.": [
+      "Ogni vignetta resta nel proprio riquadro video. Spegnendola mantieni l’intensità scelta.",
+      "Each vignette stays inside its own video box. OFF keeps the selected intensity.",
+      "Mỗi tối viền nằm trong khung video riêng. Tắt vẫn giữ cường độ đã chọn.",
+      "Chaque vignette reste dans son cadre vidéo. La désactivation conserve l’intensité choisie.",
+      "Jede Vignette bleibt in ihrem Videobereich. Beim Ausschalten bleibt die gewählte Stärke erhalten.",
+      "각 비네트는 해당 영상 영역 안에만 적용됩니다. 꺼도 선택한 강도는 유지됩니다.",
+      "每个暗角只作用于自己的视频框。关闭后仍保留所选强度。",
+      "各ビネットは対応する映像枠の内側だけに適用されます。オフにしても選択した強さは保持されます。"
+    ],
+    "Each vignette is confined to its own screen, webcam or hardware box. Switching it off keeps the chosen intensity.": [
+      "Ogni vignetta resta nel riquadro dello schermo, della webcam o dell’hardware. Spegnendola mantieni l’intensità scelta.",
+      "Each vignette is confined to its own screen, webcam or hardware box. Switching it off keeps the chosen intensity.",
+      "Mỗi tối viền chỉ áp dụng vào khung màn hình, webcam hoặc phần cứng riêng. Tắt vẫn giữ cường độ đã chọn.",
+      "Chaque vignette reste dans son cadre écran, webcam ou matériel. La désactivation conserve l’intensité choisie.",
+      "Jede Vignette bleibt im jeweiligen Bildschirm-, Webcam- oder Hardwarebereich. Ausschalten erhält die Stärke.",
+      "각 비네트는 화면, 웹캠 또는 하드웨어의 개별 영역에만 적용됩니다. 꺼도 선택한 강도는 유지됩니다.",
+      "每个暗角只作用于各自的屏幕、摄像头或硬件视频框。关闭后仍保留强度。",
+      "各ビネットは画面、ウェブカメラ、ハードウェアの各映像枠だけに適用されます。オフにしても強さは保持されます。"
+    ],
+    "Light, Dark or System. Appearance only changes the control panel, not the video.": [
+      "Chiaro, Scuro o Sistema. L’aspetto cambia solo il pannello, non il video.",
+      "Light, Dark or System. Appearance only changes the control panel, not the video.",
+      "Sáng, Tối hoặc Hệ thống. Chỉ thay đổi bảng điều khiển, không đổi video.",
+      "Clair, Sombre ou Système. L’apparence ne modifie que le panneau, pas la vidéo.",
+      "Hell, Dunkel oder System. Die Darstellung ändert nur das Panel, nicht das Video.",
+      "밝게, 어둡게 또는 시스템을 선택합니다. 패널 모양만 바뀌며 영상에는 영향을 주지 않습니다.",
+      "浅色、深色或跟随系统。只改变控制面板外观，不影响视频。",
+      "ライト、ダーク、システムから選択します。パネルの外観だけが変わり、映像には影響しません。"
+    ],
+    "Choose a camera to open its native controls. No preview is captured.": [
+      "Scegli una webcam per aprirne i controlli nativi. Non viene acquisita un’anteprima.",
+      "Choose a camera to open its native controls. No preview is captured.",
+      "Chọn camera để mở điều khiển gốc. Không chụp bản xem trước.",
+      "Choisissez une caméra pour ouvrir ses commandes natives. Aucune prévisualisation n’est capturée.",
+      "Eine Kamera wählen, um ihre native Steuerung zu öffnen. Es wird keine Vorschau erfasst.",
+      "카메라를 선택하면 기본 제어가 열립니다. 미리보기는 캡처하지 않습니다.",
+      "选择摄像头以打开原生控制。不捕获预览。",
+      "カメラを選択してネイティブのコントロールを開きます。プレビューは取得しません。"
+    ],
+    "Choose a camera, then Open controls. OBS selects its video source separately.": [
+      "Scegli una webcam, poi Apri controlli. La sorgente video si seleziona separatamente in OBS.",
+      "Choose a camera, then Open controls. OBS selects its video source separately.",
+      "Chọn camera rồi Mở điều khiển. Nguồn video được chọn riêng trong OBS.",
+      "Choisissez une caméra, puis Ouvrir les commandes. La source vidéo se choisit séparément dans OBS.",
+      "Kamera wählen, dann Steuerung öffnen. Die Videoquelle wird in OBS separat gewählt.",
+      "카메라를 선택한 후 제어 열기를 누르세요. 영상 소스는 OBS에서 별도로 선택합니다.",
+      "选择摄像头后点击打开控制。视频源需在 OBS 中单独选择。",
+      "カメラを選択して「コントロールを開く」を押してください。映像ソースは OBS で別途選択します。"
+    ],
+    "Native camera controls ready. Unsupported adjustments are disabled.": [
+      "Controlli webcam pronti. Le regolazioni non supportate sono disattivate.",
+      "Native camera controls ready. Unsupported adjustments are disabled.",
+      "Điều khiển camera đã sẵn sàng. Điều chỉnh không hỗ trợ được tắt.",
+      "Commandes caméra prêtes. Les réglages non pris en charge sont désactivés.",
+      "Kamerasteuerung bereit. Nicht unterstützte Anpassungen sind deaktiviert.",
+      "카메라 제어가 준비되었습니다. 지원되지 않는 조정은 비활성화됩니다.",
+      "摄像头控制已就绪。不支持的调整已禁用。",
+      "カメラのコントロールは準備完了です。非対応の調整は無効になっています。"
+    ],
+    "This camera does not expose native pan, tilt or zoom.": [
+      "Questa webcam non offre controlli nativi per spostamento o zoom.",
+      "This camera does not expose native pan, tilt or zoom.",
+      "Camera này không cung cấp điều khiển ngang, dọc hoặc thu phóng.",
+      "Cette caméra ne propose pas de commandes natives de déplacement ou de zoom.",
+      "Diese Kamera bietet keine native Schwenk-, Neige- oder Zoomsteuerung.",
+      "이 카메라는 기본 좌우·상하 이동 또는 확대/축소 제어를 제공하지 않습니다.",
+      "此摄像头未提供原生水平移动、垂直移动或缩放控制。",
+      "このカメラは左右・上下移動やズームのネイティブ制御に対応していません。"
+    ],
+    "Camera driver timed out. Controls are paused; reconnect the camera and reopen this panel. OBS controls remain available.": [
+      "Il driver webcam non risponde. Controlli sospesi: ricollega la webcam e riapri il pannello. I controlli OBS restano disponibili.",
+      "Camera driver timed out. Controls are paused; reconnect the camera and reopen this panel. OBS controls remain available.",
+      "Trình điều khiển camera hết thời gian chờ. Tạm dừng điều khiển; kết nối lại camera và mở lại bảng. Điều khiển OBS vẫn dùng được.",
+      "Le pilote caméra a expiré. Commandes suspendues ; reconnectez la caméra et rouvrez le panneau. OBS reste contrôlable.",
+      "Zeitüberschreitung des Kameratreibers. Steuerung pausiert; Kamera neu verbinden und Panel erneut öffnen. OBS bleibt bedienbar.",
+      "카메라 드라이버 응답 시간이 초과되었습니다. 제어가 중단되었습니다. 카메라를 다시 연결하고 패널을 다시 여세요. OBS 제어는 계속 사용할 수 있습니다.",
+      "摄像头驱动响应超时。控制已暂停；请重新连接摄像头并重新打开面板。OBS 控制仍可使用。",
+      "カメラドライバーがタイムアウトしました。制御を停止しています。カメラを再接続してパネルを開き直してください。OBS の操作は引き続き利用できます。"
+    ],
+    "Click a scene while recording. The crossfade is automatic.": [
+      "Scegli una scena durante la registrazione. La dissolvenza è automatica.",
+      "Click a scene while recording. The crossfade is automatic.",
+      "Chọn cảnh khi đang ghi. Chuyển cảnh mờ dần tự động.",
+      "Cliquez sur une scène pendant l’enregistrement. Le fondu est automatique.",
+      "Während der Aufnahme eine Szene wählen. Die Überblendung erfolgt automatisch.",
+      "녹화 중 장면을 선택하세요. 크로스페이드는 자동으로 적용됩니다.",
+      "录制时点击场景。交叉淡入淡出会自动进行。",
+      "録画中にシーンを選択してください。クロスフェードは自動です。"
+    ],
+    "Scene changes use OBS’s configured transition. Privacy hides video; audio keeps its current mute state.": [
+      "Il cambio scena usa la transizione configurata in OBS. Privacy nasconde il video; l’audio mantiene lo stato attuale.",
+      "Scene changes use OBS’s configured transition. Privacy hides video; audio keeps its current mute state.",
+      "Chuyển cảnh dùng hiệu ứng đã đặt trong OBS. Riêng tư ẩn video; âm thanh giữ trạng thái tắt tiếng hiện tại.",
+      "Les changements de scène utilisent la transition d’OBS. Confidentialité masque la vidéo ; l’audio conserve son état.",
+      "Szenenwechsel verwenden den OBS-Übergang. Privatsphäre verbirgt Video; der Stummschaltstatus bleibt unverändert.",
+      "장면 전환에는 OBS에 설정된 전환 효과를 사용합니다. 개인정보 보호는 영상만 숨기며 오디오의 음소거 상태는 유지됩니다.",
+      "场景切换使用 OBS 中配置的转场。隐私模式只隐藏视频，音频保持当前静音状态。",
+      "シーン変更には OBS で設定したトランジションを使用します。プライバシーは映像を非表示にし、音声のミュート状態は維持します。"
+    ],
+    "Enable Tools → WebSocket Server Settings in OBS. Passwords are protected with Windows DPAPI. Connecting never starts OBS or recording.": [
+      "Attiva Strumenti → Impostazioni server WebSocket in OBS. Le password sono protette con Windows DPAPI. La connessione non avvia OBS né la registrazione.",
+      "Enable Tools → WebSocket Server Settings in OBS. Passwords are protected with Windows DPAPI. Connecting never starts OBS or recording.",
+      "Bật Công cụ → Thiết lập máy chủ WebSocket trong OBS. Mật khẩu được bảo vệ bằng Windows DPAPI. Kết nối không tự mở OBS hay bắt đầu ghi.",
+      "Activez Outils → Paramètres du serveur WebSocket dans OBS. Les mots de passe sont protégés par Windows DPAPI. La connexion ne démarre ni OBS ni l’enregistrement.",
+      "In OBS Werkzeuge → WebSocket-Servereinstellungen aktivieren. Passwörter sind mit Windows DPAPI geschützt. Verbinden startet weder OBS noch eine Aufnahme.",
+      "OBS의 도구 → WebSocket 서버 설정을 켜세요. 비밀번호는 Windows DPAPI로 보호됩니다. 연결해도 OBS나 녹화가 자동으로 시작되지 않습니다.",
+      "请在 OBS 的工具 → WebSocket 服务器设置中启用服务。密码由 Windows DPAPI 保护。连接不会自动启动 OBS 或录制。",
+      "OBS のツール → WebSocket サーバー設定を有効にしてください。パスワードは Windows DPAPI で保護されます。接続しても OBS や録画は自動で開始されません。"
+    ],
+    "Re-enter the OBS password. It is protected for the Windows user who saved it.": [
+      "Reinserisci la password OBS. È protetta per l’utente Windows che l’ha salvata.",
+      "Re-enter the OBS password. It is protected for the Windows user who saved it.",
+      "Nhập lại mật khẩu OBS. Mật khẩu được bảo vệ cho người dùng Windows đã lưu.",
+      "Saisissez à nouveau le mot de passe OBS. Il est protégé pour l’utilisateur Windows qui l’a enregistré.",
+      "OBS-Passwort erneut eingeben. Es ist für den Windows-Benutzer geschützt, der es gespeichert hat.",
+      "OBS 비밀번호를 다시 입력하세요. 저장한 Windows 사용자용으로 보호되어 있습니다.",
+      "请重新输入 OBS 密码。该密码仅受保存它的 Windows 用户账户保护。",
+      "OBS のパスワードを再入力してください。保存した Windows ユーザー用に保護されています。"
+    ],
+    "Diagnostic logs exported. Passwords, settings and project content are excluded.": [
+      "Log esportati. Password, impostazioni e contenuti del progetto sono esclusi.",
+      "Diagnostic logs exported. Passwords, settings and project content are excluded.",
+      "Đã xuất nhật ký. Không bao gồm mật khẩu, cài đặt và nội dung dự án.",
+      "Journaux exportés. Mots de passe, paramètres et contenu du projet exclus.",
+      "Protokolle exportiert. Passwörter, Einstellungen und Projektinhalte sind ausgeschlossen.",
+      "로그를 내보냈습니다. 비밀번호, 설정 및 프로젝트 내용은 제외됩니다.",
+      "日志已导出。不包含密码、设置和项目内容。",
+      "ログをエクスポートしました。パスワード、設定、プロジェクトの内容は含まれません。"
+    ],
+    "The saved project could not be read. Defaults are shown; Apply explicitly replaces the saved project.": [
+      "Impossibile leggere il progetto salvato. Sono mostrati i valori predefiniti; Applica sostituisce il progetto salvato.",
+      "The saved project could not be read. Defaults are shown; Apply explicitly replaces the saved project.",
+      "Không thể đọc dự án đã lưu. Hiển thị mặc định; Áp dụng sẽ thay thế dự án đã lưu.",
+      "Impossible de lire le projet enregistré. Valeurs par défaut affichées ; Appliquer remplace le projet sauvegardé.",
+      "Gespeichertes Projekt konnte nicht gelesen werden. Standardwerte werden angezeigt; Anwenden ersetzt das gespeicherte Projekt.",
+      "저장된 프로젝트를 읽지 못했습니다. 기본값이 표시됩니다. 적용을 누르면 저장된 프로젝트를 교체합니다.",
+      "无法读取已保存的项目。现显示默认值；点击应用将替换已保存的项目。",
+      "保存済みのプロジェクトを読み込めませんでした。初期値を表示しています。「適用」を押すと保存済みのプロジェクトを置き換えます。"
+    ],
+    "Open OBS, then Apply. The local logo is copied beside the panel for portability. Scene changes remain manual.": [
+      "Apri OBS, poi Applica. Il logo locale viene copiato accanto al pannello per mantenerlo portabile. Le scene si cambiano manualmente.",
+      "Open OBS, then Apply. The local logo is copied beside the panel for portability. Scene changes remain manual.",
+      "Mở OBS rồi Áp dụng. Logo cục bộ được sao chép cạnh bảng để dễ mang theo. Chuyển cảnh vẫn thủ công.",
+      "Ouvrez OBS, puis Appliquer. Le logo local est copié avec le panneau pour la portabilité. Les scènes se changent manuellement.",
+      "OBS öffnen, dann Anwenden wählen. Das lokale Logo wird zur portablen Nutzung neben das Panel kopiert. Szenenwechsel bleiben manuell.",
+      "OBS를 연 후 적용하세요. 이동성을 위해 로컬 로고를 패널 옆에 복사합니다. 장면은 직접 변경합니다.",
+      "打开 OBS 后点击应用。本地标志会复制到面板旁以便携带。场景仍需手动切换。",
+      "OBS を開いてから適用してください。持ち運び用にローカルのロゴをパネルの隣にコピーします。シーンは手動で切り替えます。"
+    ],
+    "Project applied. Check the OBS capability warnings.": [
+      "Progetto applicato. Controlla gli avvisi sulle funzioni OBS.",
+      "Project applied. Check the OBS capability warnings.",
+      "Đã áp dụng dự án. Kiểm tra cảnh báo tính năng OBS.",
+      "Projet appliqué. Vérifiez les avertissements des fonctions OBS.",
+      "Projekt angewendet. Warnungen zu OBS-Funktionen prüfen.",
+      "프로젝트를 적용했습니다. OBS 기능 경고를 확인하세요.",
+      "项目已应用。请检查 OBS 功能警告。",
+      "プロジェクトを適用しました。OBS 機能の警告を確認してください。"
+    ],
+    "Project applied. Check the OBS warnings below the scene controls.": [
+      "Progetto applicato. Controlla gli avvisi OBS sotto i controlli delle scene.",
+      "Project applied. Check the OBS warnings below the scene controls.",
+      "Đã áp dụng dự án. Kiểm tra cảnh báo OBS dưới điều khiển cảnh.",
+      "Projet appliqué. Vérifiez les avertissements OBS sous les commandes de scènes.",
+      "Projekt angewendet. OBS-Warnungen unter der Szenensteuerung prüfen.",
+      "프로젝트를 적용했습니다. 장면 제어 아래의 OBS 경고를 확인하세요.",
+      "项目已应用。请检查场景控制下方的 OBS 警告。",
+      "プロジェクトを適用しました。シーンの操作欄の下にある OBS の警告を確認してください。"
+    ],
+    "OBS disconnected before the project could be applied.": [
+      "OBS scollegato prima di applicare il progetto.",
+      "OBS disconnected before the project could be applied.",
+      "OBS mất kết nối trước khi áp dụng dự án.",
+      "OBS déconnecté avant l’application du projet.",
+      "OBS wurde vor dem Anwenden des Projekts getrennt.",
+      "프로젝트를 적용하기 전에 OBS 연결이 끊겼습니다.",
+      "应用项目前 OBS 已断开连接。",
+      "プロジェクトを適用する前に OBS が切断されました。"
+    ],
+    "camera preset saved.": [
+      "inquadratura webcam salvata.",
+      "camera preset saved.",
+      "đã lưu khung camera.",
+      "préréglage caméra enregistré.",
+      "Kameravoreinstellung gespeichert.",
+      "카메라 프리셋 저장됨.",
+      "摄像头预设已保存。",
+      "カメラのプリセットを保存しました。"
+    ],
+    "screen position saved.": [
+      "posizione schermo salvata.",
+      "screen position saved.",
+      "đã lưu vị trí màn hình.",
+      "position d’écran enregistrée.",
+      "Bildschirmposition gespeichert.",
+      "화면 위치 저장됨.",
+      "屏幕位置已保存。",
+      "画面位置を保存しました。"
+    ],
+    "Screen preset save failed": [
+      "Salvataggio inquadratura schermo non riuscito",
+      "Screen preset save failed",
+      "Lưu khung màn hình thất bại",
+      "Échec d’enregistrement du préréglage écran",
+      "Bildschirmvoreinstellung konnte nicht gespeichert werden",
+      "화면 프리셋 저장 실패",
+      "屏幕预设保存失败",
+      "画面プリセットの保存に失敗しました"
+    ],
+    "device units": [
+      "unità del dispositivo",
+      "device units",
+      "đơn vị thiết bị",
+      "unités du périphérique",
+      "Geräteeinheiten",
+      "장치 단위",
+      "设备单位",
+      "デバイス単位"
+    ],
+    "Overview": [
+      "Panoramica",
+      "Overview",
+      "Tổng quan",
+      "Vue d’ensemble",
+      "Übersicht",
+      "전체 보기",
+      "概览",
+      "全体表示"
+    ],
+    "Zoom in to move horizontally or vertically.": [
+      "Ingrandisci per spostarti in orizzontale o verticale.",
+      "Zoom in to move horizontally or vertically.",
+      "Phóng to để di chuyển ngang hoặc dọc.",
+      "Zoomez pour déplacer le cadrage horizontalement ou verticalement.",
+      "Zum horizontalen oder vertikalen Verschieben hineinzoomen.",
+      "확대하면 가로 또는 세로로 이동할 수 있습니다.",
+      "放大后可水平或垂直移动。",
+      "拡大すると左右・上下に移動できます。"
+    ],
+    "Vignette darkens only the edges. 0% = clear, 100% = strongest.": [
+      "La vignetta oscura solo i bordi. 0% = nessun effetto, 100% = massimo.",
+      "Vignette darkens only the edges. 0% = clear, 100% = strongest.",
+      "Tối viền chỉ làm tối các cạnh. 0% = rõ, 100% = mạnh nhất.",
+      "La vignette assombrit uniquement les bords. 0% = aucun effet, 100% = maximum.",
+      "Die Vignette dunkelt nur die Ränder ab. 0% = klar, 100% = stärkster Effekt.",
+      "비네트는 가장자리만 어둡게 합니다. 0%는 효과 없음, 100%는 가장 강한 효과입니다.",
+      "暗角只使边缘变暗。0% 为无效果，100% 为最强。",
+      "ビネットは縁だけを暗くします。0% は効果なし、100% は最大です。"
+    ],
+    "Check OBS and adjust again.": [
+      "Controlla OBS e riprova la regolazione.",
+      "Check OBS and adjust again.",
+      "Kiểm tra OBS và điều chỉnh lại.",
+      "Vérifiez OBS et réessayez le réglage.",
+      "OBS prüfen und erneut anpassen.",
+      "OBS를 확인하고 다시 조정하세요.",
+      "请检查 OBS 并重新调整。",
+      "OBS を確認して、もう一度調整してください。"
+    ],
+    "Left and right halves of your display": [
+      "Le due metà dello schermo",
+      "Left and right halves of your display",
+      "Hai nửa trái và phải màn hình",
+      "Moitiés gauche et droite de l’écran",
+      "Linke und rechte Bildschirmhälfte",
+      "화면의 왼쪽과 오른쪽 절반",
+      "屏幕的左右两半",
+      "画面の左右半分"
+    ],
+    "Retro standby with the video title": [
+      "Attesa rétro con il titolo del video",
+      "Retro standby with the video title",
+      "Chờ kiểu cổ điển với tiêu đề video",
+      "Attente rétro avec le titre de la vidéo",
+      "Retro-Wartebild mit Videotitel",
+      "동영상 제목이 있는 레트로 대기 화면",
+      "带视频标题的复古待机画面",
+      "動画タイトル付きのレトロな待機画面"
+    ],
+    "Project title, description and links": [
+      "Titolo, descrizione e link del progetto",
+      "Project title, description and links",
+      "Tiêu đề, mô tả và liên kết dự án",
+      "Titre, description et liens du projet",
+      "Projekttitel, Beschreibung und Links",
+      "프로젝트 제목, 설명 및 링크",
+      "项目标题、描述和链接",
+      "プロジェクトのタイトル、説明、リンク"
+    ],
+    "A title card for the next section": [
+      "Un cartello per la prossima sezione",
+      "A title card for the next section",
+      "Thẻ tiêu đề cho phần tiếp theo",
+      "Un carton de titre pour la section suivante",
+      "Eine Titeltafel für den nächsten Abschnitt",
+      "다음 섹션을 위한 타이틀 카드",
+      "下一节的标题卡",
+      "次のセクションのタイトルカード"
+    ],
+    "Cards render locally when you Apply. Stop recording stays available while artwork is prepared. VibeWare branding follows the project flag. The final card includes OBS credit and © 2026 Umberto Giacobbi.": [
+      "I cartelli vengono generati localmente quando premi Applica. Puoi fermare la registrazione durante la preparazione. Il branding VibeWare segue l’opzione del progetto. Il cartello finale include il credito OBS e © 2026 Umberto Giacobbi.",
+      "Cards render locally when you Apply. Stop recording stays available while artwork is prepared. VibeWare branding follows the project flag. The final card includes OBS credit and © 2026 Umberto Giacobbi.",
+      "Thẻ được tạo cục bộ khi Áp dụng. Có thể dừng ghi khi đang chuẩn bị hình. Thương hiệu VibeWare theo lựa chọn dự án. Thẻ cuối có ghi công OBS và © 2026 Umberto Giacobbi.",
+      "Les cartons sont créés localement avec Appliquer. L’arrêt de l’enregistrement reste disponible pendant la préparation. Le branding VibeWare suit l’option du projet. Le carton final inclut le crédit OBS et © 2026 Umberto Giacobbi.",
+      "Die Tafeln werden beim Anwenden lokal erstellt. Aufnahme stoppen bleibt währenddessen verfügbar. Das VibeWare-Branding folgt der Projektoption. Die Schlussszene enthält den OBS-Credit und © 2026 Umberto Giacobbi.",
+      "적용하면 카드가 로컬에서 생성됩니다. 그래픽을 준비하는 동안에도 녹화를 중지할 수 있습니다. VibeWare 표시는 프로젝트 옵션을 따릅니다. 마지막 카드에는 OBS 크레딧과 © 2026 Umberto Giacobbi가 포함됩니다.",
+      "点击应用后会在本地生成卡片。准备图像时仍可停止录制。VibeWare 品牌显示由项目选项控制。片尾卡包含 OBS 鸣谢和 © 2026 Umberto Giacobbi。",
+      "適用するとカードをローカルで生成します。画像の準備中も録画を停止できます。VibeWare の表示はプロジェクト設定に従います。最後のカードには OBS のクレジットと © 2026 Umberto Giacobbi が含まれます。"
+    ],
+    "Show VibeWare branding on the intro, a logo and link on Thank you, and a small logo in the other scenes.": [
+      "Mostra il branding VibeWare nell’intro, logo e link nei ringraziamenti e un piccolo logo nelle altre scene.",
+      "Show VibeWare branding on the intro, a logo and link on Thank you, and a small logo in the other scenes.",
+      "Hiện VibeWare ở phần giới thiệu, logo và liên kết ở phần cảm ơn và logo nhỏ trong các cảnh khác.",
+      "Afficher VibeWare dans l’introduction, un logo et un lien dans les remerciements, et un petit logo dans les autres scènes.",
+      "VibeWare in der Einleitung, Logo und Link im Dank sowie ein kleines Logo in den anderen Szenen anzeigen.",
+      "소개에 VibeWare를, 감사 장면에 로고와 링크를, 다른 장면에 작은 로고를 표시합니다.",
+      "在片头显示 VibeWare 品牌，在致谢场景显示标志和链接，在其他场景显示小标志。",
+      "イントロに VibeWare の表示、謝辞にロゴとリンク、その他のシーンに小さなロゴを表示します。"
+    ],
+    "project website, repository, documentation…": [
+      "sito del progetto, repository, documentazione…",
+      "project website, repository, documentation…",
+      "website dự án, kho mã, tài liệu…",
+      "site du projet, dépôt, documentation…",
+      "Projektwebsite, Repository, Dokumentation…",
+      "프로젝트 웹사이트, 저장소, 문서…",
+      "项目网站、代码仓库、文档…",
+      "プロジェクトのサイト、リポジトリ、ドキュメント…"
+    ],
+    "Umberto’s Lab · Controls": [
+      "Umberto’s Lab · Controlli",
+      "Umberto’s Lab · Controls",
+      "Umberto’s Lab · Điều khiển",
+      "Umberto’s Lab · Commandes",
+      "Umberto’s Lab · Steuerung",
+      "Umberto’s Lab · 제어",
+      "Umberto’s Lab · 控制",
+      "Umberto’s Lab · コントロール"
+    ],
+    "Save the current zoom, pan and tilt as": [
+      "Salva zoom e posizione attuali come",
+      "Save the current zoom, pan and tilt as",
+      "Lưu thu phóng và vị trí hiện tại thành",
+      "Enregistrer le zoom et le cadrage actuels sous",
+      "Aktuellen Zoom und Bildausschnitt speichern als",
+      "현재 확대/축소 및 위치 저장:",
+      "将当前缩放和位置另存为",
+      "現在のズームと位置を保存:"
+    ],
+    "Ready": [
+      "Pronto",
+      "Ready",
+      "Sẵn sàng",
+      "Prêt",
+      "Bereit",
+      "준비됨",
+      "就绪",
+      "準備完了"
+    ],
+    "not recording": [
+      "registrazione ferma",
+      "not recording",
+      "chưa ghi",
+      "aucun enregistrement",
+      "keine Aufnahme",
+      "녹화 안 함",
+      "未录制",
+      "録画停止中"
+    ],
+    "Audio": [
+      "Audio",
+      "Audio",
+      "Âm thanh",
+      "Audio",
+      "Audio",
+      "오디오",
+      "音频",
+      "音声"
+    ],
+    "You, full screen": [
+      "Webcam a tutto schermo",
+      "You, full screen",
+      "Webcam toàn màn hình",
+      "Webcam plein écran",
+      "Webcam im Vollbild",
+      "전체 화면 웹캠",
+      "全屏摄像头",
+      "全画面ウェブカメラ"
+    ],
+    "Full screen, no camera": [
+      "Schermo senza webcam",
+      "Full screen, no camera",
+      "Màn hình, không webcam",
+      "Écran sans webcam",
+      "Bildschirm ohne Webcam",
+      "웹캠 없는 화면",
+      "屏幕，无摄像头",
+      "ウェブカメラなしの画面"
+    ],
+    "Screen details and saved framing": [
+      "Zoom schermo e inquadrature",
+      "Screen details and saved framing",
+      "Thu phóng và khung lưu",
+      "Zoom écran et préréglages",
+      "Bildschirmzoom und Voreinstellungen",
+      "화면 확대/축소 및 프리셋",
+      "屏幕缩放与预设",
+      "画面ズームとプリセット"
+    ],
+    "Your screen with you in the corner": [
+      "Schermo + webcam nell’angolo",
+      "Your screen with you in the corner",
+      "Màn hình + webcam góc",
+      "Écran + webcam en coin",
+      "Bildschirm + Webcam in der Ecke",
+      "화면 + 모서리 웹캠",
+      "屏幕 + 角落摄像头",
+      "画面 + 隅にウェブカメラ"
+    ],
+    "The table with you in the corner": [
+      "Tavolo + webcam nell’angolo",
+      "The table with you in the corner",
+      "Bàn + webcam góc",
+      "Table + webcam en coin",
+      "Tisch + Webcam in der Ecke",
+      "테이블 + 모서리 웹캠",
+      "桌面 + 角落摄像头",
+      "テーブル + 隅にウェブカメラ"
+    ],
+    "Your screen, you and the table": [
+      "Schermo, webcam e tavolo",
+      "Your screen, you and the table",
+      "Màn hình, webcam và bàn",
+      "Écran, webcam et table",
+      "Bildschirm, Webcam und Tisch",
+      "화면, 웹캠 및 테이블",
+      "屏幕、摄像头和桌面",
+      "画面、ウェブカメラ、テーブル"
+    ],
+    "You, project links and credits": [
+      "Tu, link e crediti",
+      "You, project links and credits",
+      "Bạn, liên kết và ghi công",
+      "Vous, liens et crédits",
+      "Sie, Links und Credits",
+      "발표자, 링크 및 크레딧",
+      "您、链接和鸣谢",
+      "発表者、リンク、クレジット"
+    ],
+    "Screen hidden · audio stays as set": [
+      "Video nascosto · audio invariato",
+      "Screen hidden · audio stays as set",
+      "Ẩn video · giữ âm thanh",
+      "Vidéo masquée · audio inchangé",
+      "Video verborgen · Audio unverändert",
+      "영상 숨김 · 오디오 설정 유지",
+      "隐藏视频 · 保持音频设置",
+      "映像非表示 · 音声設定を維持"
+    ],
+    "Preparing project cards… recording controls remain available.": [
+      "Preparazione cartelli… I controlli di registrazione restano disponibili.",
+      "Preparing project cards… recording controls remain available.",
+      "Đang tạo thẻ dự án… Điều khiển ghi vẫn dùng được.",
+      "Préparation des cartons… Les commandes d’enregistrement restent disponibles.",
+      "Projekttafeln werden erstellt… Aufnahmesteuerung bleibt verfügbar.",
+      "프로젝트 카드 준비 중… 녹화 제어는 계속 사용할 수 있습니다.",
+      "正在准备项目卡… 录制控制仍可使用。",
+      "プロジェクトカードを準備中… 録画の操作は引き続き利用できます。"
+    ],
+    "Name": [
+      "Nome progetto",
+      "Name",
+      "Tên dự án",
+      "Nom du projet",
+      "Projektname",
+      "프로젝트 이름",
+      "项目名称",
+      "プロジェクト名"
+    ],
+    "Description": [
+      "Descrizione · massimo 600 caratteri",
+      "Description",
+      "Mô tả · tối đa 600 ký tự",
+      "Description · 600 caractères maximum",
+      "Beschreibung · maximal 600 Zeichen",
+      "설명 · 최대 600자",
+      "描述 · 最多 600 字符",
+      "説明 · 最大 600 文字"
+    ],
+    "On": [
+      "ATTIVO",
+      "On",
+      "BẬT",
+      "ACTIF",
+      "AN",
+      "켜짐",
+      "开启",
+      "オン"
+    ],
+    "Off": [
+      "SPENTO",
+      "Off",
+      "TẮT",
+      "INACTIF",
+      "AUS",
+      "꺼짐",
+      "关闭",
+      "オフ"
+    ],
+    "Screen intensity": [
+      "Schermo · intensità",
+      "Screen intensity",
+      "Màn hình · cường độ",
+      "Écran · intensité",
+      "Bildschirm · Intensität",
+      "화면 · 강도",
+      "屏幕 · 强度",
+      "画面 · 強さ"
+    ],
+    "Screen vignette intensity": [
+      "Schermo · intensità vignetta",
+      "Screen vignette intensity",
+      "Màn hình · cường độ tối viền",
+      "Écran · intensité de la vignette",
+      "Bildschirm · Vignettenstärke",
+      "화면 · 비네트 강도",
+      "屏幕 · 暗角强度",
+      "画面 · ビネットの強さ"
+    ],
+    "Webcam intensity": [
+      "Webcam · intensità",
+      "Webcam intensity",
+      "Webcam · cường độ",
+      "Webcam · intensité",
+      "Webcam · Intensität",
+      "웹캠 · 강도",
+      "网络摄像头 · 强度",
+      "ウェブカメラ · 強さ"
+    ],
+    "Webcam vignette intensity": [
+      "Webcam · intensità vignetta",
+      "Webcam vignette intensity",
+      "Webcam · cường độ tối viền",
+      "Webcam · intensité de la vignette",
+      "Webcam · Vignettenstärke",
+      "웹캠 · 비네트 강도",
+      "网络摄像头 · 暗角强度",
+      "ウェブカメラ · ビネットの強さ"
+    ],
+    "Hardware intensity": [
+      "Hardware · intensità",
+      "Hardware intensity",
+      "Phần cứng · cường độ",
+      "Matériel · intensité",
+      "Hardware · Intensität",
+      "하드웨어 · 강도",
+      "硬件 · 强度",
+      "ハードウェア · 強さ"
+    ],
+    "Hardware vignette intensity": [
+      "Hardware · intensità vignetta",
+      "Hardware vignette intensity",
+      "Phần cứng · cường độ tối viền",
+      "Matériel · intensité de la vignette",
+      "Hardware · Vignettenstärke",
+      "하드웨어 · 비네트 강도",
+      "硬件 · 暗角强度",
+      "ハードウェア · ビネットの強さ"
+    ]
+  }
+}

@@ -76,14 +76,16 @@ public sealed class ObsClient : IObsClient, IAsyncDisposable
     private readonly Func<IObsTransport> transportFactory;
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly TimeSpan requestTimeout;
+    private readonly Action<string>? reportCleanupFailure;
     private IObsTransport? transport;
     private bool identified;
     private volatile bool disposed;
 
-    public ObsClient(ObsConnectionSettings settings, Func<IObsTransport>? transportFactory = null, TimeSpan? requestTimeout = null)
+    public ObsClient(ObsConnectionSettings settings, Func<IObsTransport>? transportFactory = null, TimeSpan? requestTimeout = null, Action<string>? reportCleanupFailure = null)
     {
         settings.Validate();
         this.settings = settings;
+        this.reportCleanupFailure = reportCleanupFailure;
         this.transportFactory = transportFactory ?? (() => new WebSocketObsTransport());
         this.requestTimeout = requestTimeout ?? TimeSpan.FromSeconds(3);
         if (this.requestTimeout <= TimeSpan.Zero || this.requestTimeout > TimeSpan.FromSeconds(30))
@@ -199,8 +201,17 @@ public sealed class ObsClient : IObsClient, IAsyncDisposable
         IObsTransport? previous = transport;
         transport = null;
         if (previous is null) return;
-        previous.Abort();
-        await previous.DisposeAsync().ConfigureAwait(false);
+        AbortTransport(previous);
+        try { await previous.DisposeAsync().ConfigureAwait(false); }
+        catch (Exception error) when (IsConnectionFailure(error))
+        { reportCleanupFailure?.Invoke("obs.cleanup.dispose." + error.GetType().Name); }
+    }
+
+    private void AbortTransport(IObsTransport connection)
+    {
+        try { connection.Abort(); }
+        catch (Exception error) when (IsConnectionFailure(error))
+        { reportCleanupFailure?.Invoke("obs.cleanup.abort." + error.GetType().Name); }
     }
 
     public async Task DisconnectAsync(CancellationToken cancellationToken = default)
@@ -224,7 +235,7 @@ public sealed class ObsClient : IObsClient, IAsyncDisposable
     {
         if (disposed) return;
         disposed = true;
-        transport?.Abort();
+        if (transport is { } active) AbortTransport(active);
         await gate.WaitAsync().ConfigureAwait(false);
         try { await DiscardTransportAsync().ConfigureAwait(false); }
         finally { gate.Release(); }

@@ -36,6 +36,9 @@ public static class Diagnostics
                     }
                 }
                 string entry = $"{DateTimeOffset.UtcNow:O} {operation} {error?.GetType().Name}\n";
+                Exception? cause = error?.InnerException;
+                for (int depth = 0; depth < 4 && cause is not null; depth++, cause = cause.InnerException)
+                    entry += "caused-by " + cause.GetType().FullName + "\n";
                 if (error?.StackTrace is { } stack) entry += stack[..Math.Min(stack.Length, 12000)] + "\n";
                 File.AppendAllText(LogPath, entry, Encoding.UTF8);
             }

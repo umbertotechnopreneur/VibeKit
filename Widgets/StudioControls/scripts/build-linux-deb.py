@@ -37,6 +37,8 @@ ASSET_NAMES = (
 )
 RUNTIME_FILES = (
     "camera_controls.py",
+    "localization.py",
+    "gtk_localization.py",
     "configure_lab.py",
     "controlli-brio.py",
     "diagnostics.py",
@@ -93,7 +95,7 @@ def _launcher(script, x11=False):
 
 def _validate_metadata(version, epoch, maintainer):
     if len(version) > 64 or not re.fullmatch(r"[0-9][0-9A-Za-z]*(?:[.+~-][0-9A-Za-z]+)*", version):
-        raise ValueError("Use a simple Debian version such as 0.3.0 or 0.3.0-1")
+        raise ValueError("Use a simple Debian version such as 0.3.1 or 0.3.1-1")
     if not isinstance(epoch, int) or epoch < 0 or epoch > 4_294_967_295:
         raise ValueError("Build epoch must be a nonnegative Unix timestamp below 2^32")
     if not maintainer.strip() or any(character in maintainer for character in "\r\n\x00"):
@@ -101,7 +103,7 @@ def _validate_metadata(version, epoch, maintainer):
 
 
 def stage_package(
-    destination, *, project=PROJECT_ROOT, version="0.3.0", epoch=0, maintainer="Umberto Giacobbi"
+    destination, *, project=PROJECT_ROOT, version="0.3.1", epoch=0, maintainer="Umberto Giacobbi"
 ):
     """Create a fresh package tree; never inspect or modify installed application data."""
     _validate_metadata(version, epoch, maintainer)
@@ -127,7 +129,8 @@ def stage_package(
             project / "Scenes" / f"studio-{platform}.json",
             application / "Scenes" / f"studio-{platform}.json",
         )
-    _copy(project / "Shared/scene-catalog.json", application / "Shared/scene-catalog.json")
+    for name in ("scene-catalog.json", "ui-translations.json"):
+        _copy(project / "Shared" / name, application / "Shared" / name)
     _copy(project / "scripts/prepare-scenes.py", application / "scripts/prepare-scenes.py")
     for name in ("LICENSE", "THIRD-PARTY-NOTICES.md"):
         _copy(project / name, application / name)
@@ -170,7 +173,7 @@ Architecture: all
 Maintainer: {maintainer}
 Installed-Size: {installed_size}
 Depends: {", ".join(DEPENDENCIES)}
-Recommends: x11-xserver-utils, xwayland
+Recommends: x11-xserver-utils, xwayland, fonts-noto-cjk
 Suggests: obs-studio
 Homepage: https://github.com/umbertotechnopreneur/VibeKit
 Description: native control desk for local OBS Studio demonstrations
@@ -196,7 +199,7 @@ Description: native control desk for local OBS Studio demonstrations
 
 
 def build(
-    *, project=PROJECT_ROOT, output_dir, version="0.3.0", epoch=0, maintainer="Umberto Giacobbi"
+    *, project=PROJECT_ROOT, output_dir, version="0.3.1", epoch=0, maintainer="Umberto Giacobbi"
 ):
     _validate_metadata(version, epoch, maintainer)
     executable = shutil.which("dpkg-deb")

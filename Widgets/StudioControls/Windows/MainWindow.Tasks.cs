@@ -10,17 +10,27 @@ public sealed partial class MainWindow
     private async Task ConnectAsync()
     {
         if (connecting || commandBusy || stopPending || closed) return;
+        ObsConnectionSettings connection;
+        try
+        {
+            connection = new ObsConnectionSettings(host.Text.Trim(), ParseObsPort(port.Value), password.Password);
+            connection.Validate();
+        }
+        catch (ArgumentException error)
+        {
+            // Invalid form input must not disable Stop on a healthy connection.
+            Fail("obs.settings", error);
+            return;
+        }
         connecting = true;
         connect.IsEnabled = false;
         try
         {
-            var connection = new ObsConnectionSettings(host.Text.Trim(), checked((int)port.Value), password.Password);
-            connection.Validate();
             await DisconnectAsync();
             settings.Host = connection.Host; settings.Port = connection.Port;
             settings.ProtectedPassword = LocalSettings.ProtectPassword(connection.Password);
             LocalSettings.Save(settings);
-            client = new ObsClient(connection);
+            client = new ObsClient(connection, reportCleanupFailure: operation => Diagnostics.Record(operation));
             await client.ConnectAsync(lifetime.Token);
             service = new StudioService(client);
             SetState(await service.GetStatusAsync(lifetime.Token));
@@ -37,6 +47,13 @@ public sealed partial class MainWindow
             connecting = false;
             if (!closed) { connect.IsEnabled = true; UpdateEnabled(service is not null && state?.ConnectionAvailable == true); }
         }
+    }
+
+    private static int ParseObsPort(double value)
+    {
+        if (!double.IsFinite(value) || value < 1 || value > 65535 || Math.Truncate(value) != value)
+            throw new ArgumentOutOfRangeException(nameof(value), "Use a whole WebSocket port between 1 and 65535.");
+        return (int)value;
     }
 
     private async Task DisconnectAsync()
@@ -208,7 +225,7 @@ public sealed partial class MainWindow
         if (state is not null) state = state with { ConnectionAvailable = false, IsFresh = false };
         status.Text = state is null ? "Waiting for OBS · open OBS with WebSocket enabled, then Connect."
             : "OBS connection lost · recording state unconfirmed. Check OBS, then reconnect.";
-        notice.Text = error.Message;
+        notice.Text = "Connection error: " + error.Message;
         foreach (var (name, button) in audioButtons) button.Content = name + " · offline";
         UpdateEnabled(false);
     }
@@ -310,6 +327,7 @@ public sealed partial class MainWindow
         polling.Stop(); effectsTimer.Stop(); cameraTimer.Stop(); smokeTimer?.Stop();
         pendingEffects.Clear(); pendingCamera.Clear();
         systemSettings.ColorValuesChanged -= SystemThemeChanged;
+        localization.Dispose();
         if (camera.IsValueCreated) camera.Value.Dispose();
         if (client is not null) _ = CloseClientAsync(client);
     }

@@ -12,6 +12,8 @@ namespace VibeKit.StudioControls.Windows;
 
 public sealed partial class MainWindow : Window
 {
+    private readonly NativeLocalization localization = new();
+    private readonly ComboBox languageSelector = new() { Header = "Language", Width = 160, DisplayMemberPath = "Label" };
     private readonly Grid root = new() { Padding = new(18), RowSpacing = 14 };
     private readonly CancellationTokenSource lifetime = new();
     private readonly SemaphoreSlim obsGate = new(1, 1);
@@ -39,7 +41,7 @@ public sealed partial class MainWindow : Window
     private readonly TextBlock notice = Text("");
     private readonly TextBlock cameraNotice = Text("Choose a camera to open its native controls. No preview is captured.");
     private readonly TextBlock projectNotice = Text("");
-    private readonly ComboBox theme = new() { ItemsSource = new[] { "Light", "Dark", "System" }, Width = 120 };
+    private readonly ComboBox theme = new() { Width = 120 };
     private readonly ComboBox cameras = new() { DisplayMemberPath = "Name", MinWidth = 220, HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TextBox host = new() { Header = "OBS host", PlaceholderText = "127.0.0.1" };
     private readonly NumberBox port = new() { Header = "WebSocket port", Minimum = 1, Maximum = 65535, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
@@ -62,6 +64,8 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         settings = LocalSettings.Load(out string? settingsWarning);
+        localization.Language = settings.Language;
+        root.Language = localization.Language;
         Title = "Studio Controls · Umberto’s Lab";
         AppWindow.Resize(new(1120, 940));
         Content = root;
@@ -78,8 +82,23 @@ public sealed partial class MainWindow : Window
         try { password.Password = LocalSettings.ReadPassword(settings); }
         catch (Exception error) when (error is System.Security.Cryptography.CryptographicException or FormatException)
         { Diagnostics.Record("credentials.read", error); notice.Text = "Re-enter the OBS password. It is protected for the Windows user who saved it."; }
-        theme.SelectedItem = settings.Theme;
-        theme.SelectionChanged += (_, _) => { settings.Theme = (string)theme.SelectedItem; ApplyTheme(); SavePreferences(); };
+        foreach (string name in new[] { "Light", "Dark", "System" })
+            theme.Items.Add(new ComboBoxItem { Tag = name, Content = name });
+        SelectTheme(settings.Theme);
+        theme.SelectionChanged += (_, _) =>
+        {
+            if (theme.SelectedItem is ComboBoxItem item) { settings.Theme = (string)item.Tag; ApplyTheme(); SavePreferences(); }
+        };
+        languageSelector.ItemsSource = StudioTranslations.Languages;
+        languageSelector.SelectedItem = StudioTranslations.Languages.First(item => item.Code == localization.Language);
+        languageSelector.SelectionChanged += (_, _) =>
+        {
+            if (languageSelector.SelectedItem is not UiLanguage selected) return;
+            settings.Language = selected.Code;
+            root.Language = selected.Code;
+            localization.Language = selected.Code;
+            SavePreferences();
+        };
         systemSettings.ColorValuesChanged += SystemThemeChanged;
         ApplyTheme();
         if (settingsWarning is not null) notice.Text = settingsWarning;
@@ -87,6 +106,7 @@ public sealed partial class MainWindow : Window
         polling.Tick += async (_, _) => await PollAsync();
         effectsTimer.Tick += async (_, _) => await FlushEffectsAsync();
         cameraTimer.Tick += async (_, _) => await FlushCameraAsync();
+        localization.Attach(root);
         Closed += (_, _) => Shutdown();
     }
 
@@ -95,6 +115,10 @@ public sealed partial class MainWindow : Window
         var header = new Grid();
         header.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
         header.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+        header.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+        header.ColumnSpacing = 12;
+        Grid.SetColumn(languageSelector, 2);
+        header.Children.Add(languageSelector);
         header.Children.Add(new TextBlock { Text = "Umberto’s Lab", FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.Bold });
         theme.Header = "Appearance";
         Grid.SetColumn(theme, 1);
@@ -194,6 +218,8 @@ public sealed partial class MainWindow : Window
         return button;
     }
 
+    private void SelectTheme(string name) => theme.SelectedItem = theme.Items.OfType<ComboBoxItem>().First(item => (string)item.Tag == name);
+
     private void SavePreferences()
     {
         try { LocalSettings.Save(settings); }
@@ -225,12 +251,19 @@ public sealed partial class MainWindow : Window
     private void Fail(string operation, Exception error)
     {
         Diagnostics.Record(operation, error);
-        if (!closed) notice.Text = error.Message;
+        if (!closed) notice.Text = "Action could not be confirmed: " + error.Message;
     }
 
     internal void RunUiSmoke()
     {
         if (!UiSmoke.Enabled) throw new InvalidOperationException("UI smoke requires its isolated launch mode.");
+        foreach (double invalidPort in new[] { double.NaN, 0, 65536, 1.5 })
+        {
+            bool rejected = false;
+            try { ParseObsPort(invalidPort); }
+            catch (ArgumentException) { rejected = true; }
+            if (!rejected) throw new InvalidOperationException("Invalid connection input was accepted.");
+        }
         int stage = 0;
         smokeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
         smokeTimer.Tick += (_, _) =>
@@ -243,10 +276,23 @@ public sealed partial class MainWindow : Window
                 string[] choices = ["Light", "Dark", "System"];
                 if (stage < choices.Length)
                 {
-                    theme.SelectedItem = choices[stage++];
+                    SelectTheme(choices[stage++]);
                     ElementTheme expected = settings.Theme switch { "Light" => ElementTheme.Light, "Dark" => ElementTheme.Dark, _ => ElementTheme.Default };
                     if (root.RequestedTheme != expected || LocalSettings.Load(out _).Theme != settings.Theme)
                         throw new InvalidOperationException("Appearance did not apply or persist.");
+                    return;
+                }
+                int languageIndex = stage - choices.Length;
+                if (languageIndex < StudioTranslations.Languages.Count)
+                {
+                    var projectText = projectFields.ToDictionary(pair => pair.Key, pair => pair.Value.Text);
+                    languageSelector.SelectedItem = StudioTranslations.Languages[languageIndex];
+                    string code = StudioTranslations.Languages[languageIndex].Code;
+                    if (localization.Language != code || LocalSettings.Load(out _).Language != code ||
+                        !Equals(record.Content, localization.Text("Start recording")) ||
+                        !Equals(connect.Content, localization.Text("Connect")) || projectFields.Any(pair => pair.Value.Text != projectText[pair.Key]))
+                        throw new InvalidOperationException("Native language selection did not apply or preserve project data.");
+                    stage++;
                     return;
                 }
                 UiSmoke.Complete();

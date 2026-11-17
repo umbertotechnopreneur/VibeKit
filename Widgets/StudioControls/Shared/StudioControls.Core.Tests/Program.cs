@@ -5,10 +5,12 @@ using VibeKit.StudioControls.Core;
 var tests = new (string Name, Func<Task> Run)[]
 {
     ("shared scene catalog", Tests.Catalog),
+    ("eight UI languages preserve source identifiers and filenames", Tests.Localization),
     ("loopback connection and password redaction", Tests.ConnectionSettings),
     ("OBS authentication challenge", Tests.Authentication),
     ("typed request rejection preserves connection", Tests.RequestRejection),
     ("partial mutation is never replayed", Tests.NoReplay),
+    ("cleanup failure preserves uncertain mutation and attempts disposal", Tests.CleanupFailure),
     ("malformed handshake closes connection", Tests.InvalidHandshake),
     ("unrelated events cannot extend deadline", Tests.AbsoluteDeadline),
     ("cancelled queued call preserves active connection", Tests.QueueCancellation),
@@ -85,6 +87,23 @@ internal static class Tests
         Check(catalog.CanvasWidth == 2560 && catalog.OutroCameraBounds.Width == 1464);
     });
 
+    public static async Task Localization()
+    {
+        var catalog = StudioTranslations.LoadDefault();
+        Check(StudioTranslations.Languages.Count == 8);
+        foreach (UiLanguage language in StudioTranslations.Languages)
+        {
+            string path = "synthetic/Screen · Software Demo/Connect\nScreen.mkv";
+            Check(catalog.Text("Video saved: " + path, language.Code).EndsWith(path, StringComparison.Ordinal));
+            Check(catalog.Text(path, language.Code) == path);
+            Check(catalog.Text("Screen zoom · 2.5×", language.Code) == catalog.Text("Screen zoom", language.Code) + " · 2.5×");
+        }
+        Check(catalog.Text("Connect", "it") == "Connetti" && catalog.Text("Connect", "ja") == "接続");
+        Check(catalog.Text("Connect", "unknown") == "Connect");
+        using var invalid = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("{\"strings\":{}}"));
+        await Throws<InvalidDataException>(() => Sync(() => new StudioTranslations(invalid)));
+    }
+
     public static async Task ConnectionSettings()
     {
         Check(new ObsConnectionSettings("::1").Endpoint.IsLoopback);
@@ -130,6 +149,21 @@ internal static class Tests
         await using var client = Client(transport);
         ObsConnectionException exception = await Throws<ObsConnectionException>(() => client.ConnectAsync());
         Check(!exception.RequestSent && transport.Aborts == 1 && transport.Sent.Count == 0);
+    }
+
+    public static async Task CleanupFailure()
+    {
+        var failed = new FakeTransport { FailCleanup = true, OnRequest = (_, _) => throw new IOException("Synthetic partial send") };
+        var recovered = new FakeTransport();
+        int attempts = 0;
+        var reports = new List<string>();
+        await using var client = new ObsClient(new(), () => ++attempts == 1 ? failed : recovered,
+            reportCleanupFailure: reports.Add);
+        ObsConnectionException error = await Throws<ObsConnectionException>(() => client.CallAsync("StartRecord"));
+        Check(error.RequestSent && failed.Disposals == 1 && failed.Sent.Count == 2);
+        Check(reports.SequenceEqual(new[] { "obs.cleanup.abort.IOException", "obs.cleanup.dispose.IOException" }));
+        await client.CallAsync("GetVersion");
+        Check(attempts == 2 && recovered.Sent.Count == 2);
     }
 
     public static async Task AbsoluteDeadline()

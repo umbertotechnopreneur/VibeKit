@@ -34,6 +34,51 @@ class FakeSocket:
         self.closed = True
 
 
+class PrivateErrorTests(unittest.TestCase):
+    def test_arbitrary_server_comment_is_not_copied_into_errors(self):
+        def reject(request):
+            result = response(False)(request)
+            result["d"]["requestStatus"]["comment"] = "synthetic private project text"
+            return result
+
+        obs = OBS()
+        obs.ws = FakeSocket([reject])
+        with self.assertRaises(OBSRequestError) as caught:
+            obs.call("StartRecord")
+        self.assertEqual(caught.exception.code, 600)
+        self.assertIn("600", str(caught.exception))
+        self.assertNotIn("synthetic private", str(caught.exception))
+        self.assertFalse(obs.ws.closed)
+
+    def test_malformed_confirmation_is_uncertain_and_never_exposes_raw_status(self):
+        for field in ("result", "code"):
+
+            def malformed(request, field=field):
+                result = response()(request)
+                result["d"]["requestStatus"][field] = "synthetic private detail"
+                return result
+
+            obs = OBS()
+            connection = FakeSocket([malformed])
+            obs.ws = connection
+            with self.assertRaises(OBSConnectionError) as caught:
+                obs.call("StartRecord")
+            self.assertTrue(caught.exception.request_sent)
+            self.assertTrue(connection.closed)
+            self.assertNotIn("synthetic private detail", str(caught.exception))
+            self.assertEqual(len(connection.sent), 1)
+
+    def test_invalid_port_never_creates_a_socket(self):
+        for port in [0, 65536, True, "4455@synthetic.invalid", 1.5]:
+            obs = OBS()
+            obs.config_path = Mock()
+            obs.config_path.read_text.return_value = json.dumps({"server_port": port})
+            with patch("obs_remote.websocket.create_connection") as create:
+                with self.assertRaises(OBSConnectionError):
+                    obs.connect()
+                create.assert_not_called()
+
+
 def response(ok=True, data=None):
     return lambda request: {
         "op": 7,

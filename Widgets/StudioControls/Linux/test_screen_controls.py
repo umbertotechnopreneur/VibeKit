@@ -92,6 +92,36 @@ class ScreenTests(unittest.TestCase):
         o.frame_screen("Software Demo", 1, 2, 0, 0)
         self.assertFalse(any(kind == "SetSceneItemTransform" for kind, _ in o.calls))
 
+    def test_scene_change_during_item_read_prevents_delayed_crop(self):
+        class ChangingScene(FakeOBS):
+            def call(self, kind, data=None):
+                if kind == "GetSceneItemList":
+                    self.scene_name = "Hardware Demo"
+                return super().call(kind, data)
+
+        obs = ChangingScene()
+        obs.frame_screen("Software Demo", 1, 2, 0, 0)
+        self.assertFalse(any(kind.startswith("Set") for kind, _ in obs.calls))
+
+    def test_invalid_comparison_does_not_send_partial_mutations(self):
+        class Comparison(FakeOBS):
+            def call(self, kind, data=None):
+                if kind == "GetSceneItemList":
+                    self.calls.append((kind, data))
+                    return {"sceneItems": self.items}
+                return super().call(kind, data)
+
+        for count, width in [(1, 1920), (3, 1920), (2, 0)]:
+            with self.subTest(count=count, width=width):
+                obs = Comparison()
+                obs.items = [
+                    dict(obs.item, sceneItemTransform=dict(BASE, sourceWidth=width))
+                    for _ in range(count)
+                ]
+                with self.assertRaises(RuntimeError):
+                    obs.scene("Comparison A-B")
+                self.assertFalse(any(kind.startswith("Set") for kind, _ in obs.calls))
+
     def test_replaced_item_cannot_zoom_another_source(self):
         o = FakeOBS()
         o.item["sourceName"] = "Logitech Brio"

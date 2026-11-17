@@ -19,6 +19,7 @@ from camera_controls import (
     set_one,
 )
 from panel_config import load_screen_presets
+from localization import LANGUAGES, load_language, save_language
 from studio_paths import working_assets
 from panel_theme import SCENE_COLORS, THEMES, load_theme, save_theme, resolve_theme, theme_css
 from diagnostics import configure_diagnostics, export_diagnostics, get_logger
@@ -29,6 +30,8 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("GdkX11", "4.0")
 from gi.repository import Gio, GLib, Gtk, Gdk, Pango  # noqa: E402 — select GI versions before importing
 from window_placement import move_to_side_monitor  # noqa: E402 — imports selected GI types
+
+from gtk_localization import PanelLocalization  # noqa: E402 — GTK versions selected above
 
 logger = get_logger(__name__)
 
@@ -85,6 +88,7 @@ SCENE_SUBTITLES = {
 class BrioPanel(Gtk.Application):
     def __init__(self):
         super().__init__(application_id="biz.jacobi.BrioControls")
+        self.localizer = PanelLocalization(load_language())
         self.window = None
         self.controls = []
         self.pending = {}
@@ -187,12 +191,26 @@ class BrioPanel(Gtk.Application):
         self.build_vignettes(effect_column)
         self.build_recording_controls(scenes_box)
         self.build_screen_controls(screen_column)
+        self.localizer.attach(self.window)
         self.refresh()
         self.poll_obs()
         self.timers.append(GLib.timeout_add_seconds(3, self.refresh))
         self.timers.append(GLib.timeout_add_seconds(2, self.poll_obs))
         self.window.present()
         self.timers.append(GLib.timeout_add(750, self.move))
+
+    def language_changed(self, dropdown, _):
+        if self.closing or dropdown.get_selected() >= len(LANGUAGES):
+            return
+        code = LANGUAGES[dropdown.get_selected()][0]
+        self.localizer.select(code)
+        try:
+            save_language(code)
+        except OSError:
+            logger.warning("Could not save panel language")
+            self.diagnostic_note.set_label(
+                "Language changed for this window; the preference could not be saved."
+            )
 
     def setup_theme(self):
         self.window.add_css_class("umberto-lab")
@@ -218,13 +236,21 @@ class BrioPanel(Gtk.Application):
         # A native client-side header follows the same palette as the controls,
         # including on X11 desktops whose window-manager titlebars use another theme.
         header = Gtk.HeaderBar()
-        self.theme_selector = Gtk.DropDown.new_from_strings(["Light", "Dark", "System"])
+        self.theme_selector = self.localizer.dropdown(["Light", "Dark", "System"])
         self.theme_selector.set_selected(THEMES.index(self.theme_preference))
-        self.theme_selector.update_property([Gtk.AccessibleProperty.LABEL], ["Panel appearance"])
+        self.localizer.accessible(self.theme_selector, "Panel appearance")
         self.theme_selector.set_tooltip_text(
             "Light, Dark or System. Appearance only changes the control panel, not the video."
         )
         self.theme_selector.connect("notify::selected", self.theme_changed)
+        self.language_selector = Gtk.DropDown.new_from_strings([label for _, label in LANGUAGES])
+        self.language_selector.set_selected(
+            [code for code, _ in LANGUAGES].index(self.localizer.language)
+        )
+        self.language_selector.set_tooltip_text("Language")
+        self.localizer.accessible(self.language_selector, "Language")
+        self.language_selector.connect("notify::selected", self.language_changed)
+        header.pack_end(self.language_selector)
         header.pack_end(self.theme_selector)
         self.window.set_titlebar(header)
         self.apply_theme()
@@ -291,7 +317,7 @@ class BrioPanel(Gtk.Application):
             slider.set_value_pos(Gtk.PositionType.RIGHT)
             slider.set_format_value_func(lambda _, v, u=unit, d=digits: f"{v:.{d}f}{u}")
             slider.connect("value-changed", self.queue_change, cid, divisor)
-            slider.update_property([Gtk.AccessibleProperty.LABEL], [label])
+            self.localizer.accessible(slider, label)
             row.append(slider)
             camera_box.append(row)
             self.controls.append((cid, divisor, slider))
@@ -307,7 +333,7 @@ class BrioPanel(Gtk.Application):
             recall = Gtk.Button(label=name)
             recall.connect("clicked", self.recall_preset, name)
             save = Gtk.Button(label="Save preset")
-            save.set_tooltip_text("Save the current zoom, pan and tilt as " + name)
+            save.set_tooltip_text("Save preset · " + name)
             save.connect("clicked", self.save_preset, name)
             grid.attach(recall, col, 0, 1, 1)
             grid.attach(save, col, 1, 1, 1)
@@ -338,7 +364,7 @@ class BrioPanel(Gtk.Application):
         self.blur_slider.set_tooltip_text(
             "1 = light, 20 = strong. Use Background blur ON/OFF to enable or disable the effect."
         )
-        self.blur_slider.update_property([Gtk.AccessibleProperty.LABEL], ["Blur intensity"])
+        self.localizer.accessible(self.blur_slider, "Blur intensity")
         self.blur_slider.connect("value-changed", self.queue_blur_intensity)
         camera_box.append(self.blur_slider)
 
@@ -351,7 +377,7 @@ class BrioPanel(Gtk.Application):
             toggle = Gtk.ToggleButton(label=label + " · OFF")
             toggle.set_size_request(140, -1)
             toggle.set_tooltip_text(
-                "Enable or disable the vignette on " + label.lower() + ", keeping its intensity."
+                "Each vignette stays inside its own video box. OFF keeps the selected intensity."
             )
             toggle.connect("toggled", self.queue_vignette, key)
             intensity = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
@@ -360,11 +386,9 @@ class BrioPanel(Gtk.Application):
             intensity.set_draw_value(True)
             intensity.set_value_pos(Gtk.PositionType.RIGHT)
             intensity.set_format_value_func(lambda _, v: f"{v:.0f}%")
-            intensity.update_property(
-                [Gtk.AccessibleProperty.LABEL], [label + " vignette intensity"]
-            )
+            self.localizer.accessible(intensity, label + " vignette intensity")
             intensity.set_tooltip_text(
-                "Darkens only the edges of the " + label.lower() + ". 0% = clear, 100% = strongest."
+                "Vignette darkens only the edges. 0% = clear, 100% = strongest."
             )
             intensity.connect("value-changed", self.queue_vignette, key)
             row.append(toggle)
@@ -473,7 +497,7 @@ class BrioPanel(Gtk.Application):
                 if label == "Screen zoom"
                 else (lambda _, v: f"{v:+.0f}%")
             )
-            slider.update_property([Gtk.AccessibleProperty.LABEL], [label])
+            self.localizer.accessible(slider, label)
             slider.connect("value-changed", self.queue_screen)
             self.screen_box.append(slider)
             self.screen_controls.append(slider)
@@ -768,9 +792,7 @@ class BrioPanel(Gtk.Application):
             entry.set_placeholder_text(
                 "Link " + str(index + 1) + " · project website, repository, documentation…"
             )
-            entry.update_property(
-                [Gtk.AccessibleProperty.LABEL], ["Project link " + str(index + 1)]
-            )
+            self.localizer.accessible(entry, "Project link " + str(index + 1))
             right.append(entry)
             self.link_entries.append(entry)
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -803,7 +825,7 @@ class BrioPanel(Gtk.Application):
         self.sound_slider.set_value_pos(Gtk.PositionType.RIGHT)
         self.sound_slider.set_format_value_func(lambda _, v: f"{v:.0f}%")
         self.sound_slider.set_value(self.title_values["sound_volume"])
-        self.sound_slider.update_property([Gtk.AccessibleProperty.LABEL], ["Intro sound volume"])
+        self.localizer.accessible(self.sound_slider, "Intro sound volume")
         row.append(self.sound_slider)
         right.append(row)
         self.title_apply_button = Gtk.Button(label="Apply project to scenes")
@@ -820,7 +842,11 @@ class BrioPanel(Gtk.Application):
 
     def choose_logo(self, _):
         dialog = Gtk.FileChooserNative.new(
-            "Choose project logo", self.window, Gtk.FileChooserAction.OPEN, "Choose", "Cancel"
+            self.localizer.text("Choose project logo"),
+            self.window,
+            Gtk.FileChooserAction.OPEN,
+            self.localizer.text("Choose"),
+            self.localizer.text("Cancel"),
         )
         images = Gtk.FileFilter()
         images.set_name("Project logos · PNG, JPEG, WebP")
@@ -907,9 +933,7 @@ class BrioPanel(Gtk.Application):
                     slider.set_value(value)
                 self.update_pan_sensitive()
                 self.screen_note.set_label(
-                    "Only the screen in "
-                    + self.current_scene
-                    + ". Zoom in to move horizontally or vertically."
+                    "Zoom in to move horizontally or vertically. · " + self.current_scene
                 )
             else:
                 self.screen_note.set_label(
@@ -1006,9 +1030,7 @@ class BrioPanel(Gtk.Application):
             if isinstance(error, OBSConnectionError):
                 self.obs_connected = False
             self.set_obs_sensitive(self.obs_connected and not self.action_busy)
-            self.visual_note.set_label(
-                "Adjustment failed: " + str(error) + ". Check OBS and adjust again."
-            )
+            self.visual_note.set_label("Adjustment failed: " + str(error))
         else:
             self.visual_note.set_label(
                 "Adjustments apply to the recorded video. Reset screen returns to the full view."
@@ -1128,7 +1150,11 @@ class BrioPanel(Gtk.Application):
 
     def export_logs(self, _):
         chooser = Gtk.FileChooserNative.new(
-            "Export diagnostic logs", self.window, Gtk.FileChooserAction.SAVE, "Export", "Cancel"
+            self.localizer.text("Export diagnostic logs"),
+            self.window,
+            Gtk.FileChooserAction.SAVE,
+            self.localizer.text("Export"),
+            self.localizer.text("Cancel"),
         )
         chooser.set_current_name("umberto-lab-diagnostics.zip")
 
@@ -1173,6 +1199,8 @@ class BrioPanel(Gtk.Application):
         self.worker.shutdown(wait=False)
         self.renderer.shutdown(wait=False, cancel_futures=True)
         self.camera_worker.shutdown(wait=False, cancel_futures=True)
+        if hasattr(self, "localizer"):
+            self.localizer.close()
         Gtk.Application.do_shutdown(self)
 
 

@@ -9,6 +9,7 @@ public sealed record CameraFraming(int Zoom, int Pan, int Tilt);
 public sealed class PanelSettings
 {
     public string Theme { get; set; } = "Light";
+    public string Language { get; set; } = "en";
     public string Host { get; set; } = "127.0.0.1";
     public int Port { get; set; } = 4455;
     public string ProtectedPassword { get; set; } = "";
@@ -40,6 +41,7 @@ public static class LocalSettings
             var value = JsonSerializer.Deserialize<PanelSettings>(File.ReadAllText(SettingsPath))
                 ?? throw new JsonException("Empty settings");
             if (value.Theme is not ("Light" or "Dark" or "System")) value.Theme = "Light";
+            if (!VibeKit.StudioControls.Core.StudioTranslations.Languages.Any(item => item.Code == value.Language)) value.Language = "en";
             if (value.Port is < 1 or > 65535) value.Port = 4455;
             value.ScreenPresets ??= new PanelSettings().ScreenPresets;
             value.CameraPresets ??= new();

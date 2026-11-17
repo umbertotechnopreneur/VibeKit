@@ -38,7 +38,7 @@ class OBSRequestError(OBSError):
     """OBS received and rejected a request; the connection remains usable."""
 
     def __init__(self, request, code=None, comment="OBS rejected the request"):
-        super().__init__(f"{request}: {comment}")
+        super().__init__(f"{request}: {comment} (code {code if code is not None else 'unknown'})")
         self.request = request
         self.code = code
 
@@ -126,8 +126,11 @@ class OBS:
         deadline = deadline if deadline is not None else time.monotonic() + REQUEST_TIMEOUT
         try:
             config = json.loads(self.config_path.read_text())
+            port = config.get("server_port")
+            if type(port) is not int or not 1 <= port <= 65535:
+                raise ValueError("OBS WebSocket port must be an integer between 1 and 65535")
             self.ws = websocket.create_connection(
-                f"ws://127.0.0.1:{config['server_port']}",
+                f"ws://127.0.0.1:{port}",
                 timeout=self._remaining(deadline),
                 http_no_proxy=["127.0.0.1"],
             )
@@ -174,11 +177,17 @@ class OBS:
                     continue
                 result = message["d"]
                 request_status = result["requestStatus"]
+                if type(request_status.get("result")) is not bool:
+                    raise ValueError("Invalid OBS request status")
+                if (
+                    request_status.get("code") is not None
+                    and type(request_status["code"]) is not int
+                ):
+                    raise ValueError("Invalid OBS request status code")
                 if not request_status["result"]:
                     raise OBSRequestError(
                         kind,
                         request_status.get("code"),
-                        request_status.get("comment", "OBS rejected the request"),
                     )
                 response = result.get("responseData", {})
                 if not isinstance(response, dict):
@@ -313,12 +322,15 @@ class OBS:
             raise OBSRequestError(
                 "Screen framing", comment="The screen source changed; choose the scene again"
             )
+        crop = screen_crop(item["sceneItemTransform"], zoom, x, y)
+        if self.call("GetCurrentProgramScene")["currentProgramSceneName"] != scene:
+            return
         self.call(
             "SetSceneItemTransform",
             {
                 "sceneName": scene,
                 "sceneItemId": item_id,
-                "sceneItemTransform": screen_crop(item["sceneItemTransform"], zoom, x, y),
+                "sceneItemTransform": crop,
             },
         )
 
@@ -385,24 +397,30 @@ class OBS:
                 (item for item in items if item.get("sourceName") == SCREEN_SOURCE),
                 key=lambda item: item["sceneItemTransform"]["positionX"],
             )
-            for index, item in enumerate(screens):
-                width = round(item["sceneItemTransform"].get("sourceWidth", 0))
-                if width > 1:
-                    split = width // 2
-                    crop = {
-                        "cropLeft": 0 if index == 0 else split,
-                        "cropRight": width - split if index == 0 else 0,
-                        "cropTop": 0,
-                        "cropBottom": 0,
-                    }
-                    self.call(
-                        "SetSceneItemTransform",
-                        {
-                            "sceneName": name,
-                            "sceneItemId": item["sceneItemId"],
-                            "sceneItemTransform": crop,
-                        },
-                    )
+            if len(screens) != 2:
+                raise OBSRequestError(
+                    "Comparison", comment="The scene needs exactly two screen items"
+                )
+            widths = [round(item["sceneItemTransform"].get("sourceWidth", 0)) for item in screens]
+            if any(width <= 1 for width in widths):
+                raise OBSRequestError("Comparison", comment="The screen capture is not ready")
+            # Validate both halves before sending any mutation to OBS.
+            for index, (item, width) in enumerate(zip(screens, widths, strict=True)):
+                split = width // 2
+                crop = {
+                    "cropLeft": 0 if index == 0 else split,
+                    "cropRight": width - split if index == 0 else 0,
+                    "cropTop": 0,
+                    "cropBottom": 0,
+                }
+                self.call(
+                    "SetSceneItemTransform",
+                    {
+                        "sceneName": name,
+                        "sceneItemId": item["sceneItemId"],
+                        "sceneItemTransform": crop,
+                    },
+                )
         self.call("SetStudioModeEnabled", {"studioModeEnabled": False})
         self.call("SetCurrentProgramScene", {"sceneName": name})
         return self._after_action("Change scene", {"currentProgramSceneName": name})

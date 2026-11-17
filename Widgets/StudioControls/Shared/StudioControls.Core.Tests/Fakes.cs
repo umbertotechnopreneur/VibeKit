@@ -9,6 +9,8 @@ internal sealed class FakeTransport : IObsTransport
     public int Aborts { get; private set; }
     public int Connects { get; private set; }
     public bool Authentication { get; set; }
+    public bool FailCleanup { get; set; }
+    public int Disposals { get; private set; }
     public string? HelloOverride { get; set; }
     public Func<JsonElement, CancellationToken, Task>? OnRequest { get; set; }
 
@@ -43,8 +45,17 @@ internal sealed class FakeTransport : IObsTransport
         }
     }));
     public Task CloseAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-    public void Abort() { Aborts++; incoming.Writer.TryComplete(new IOException("Fake transport closed.")); }
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    public void Abort()
+    {
+        Aborts++;
+        incoming.Writer.TryComplete(new IOException("Fake transport closed."));
+        if (FailCleanup) throw new IOException("Synthetic abort failure");
+    }
+    public ValueTask DisposeAsync()
+    {
+        Disposals++;
+        return FailCleanup ? ValueTask.FromException(new IOException("Synthetic dispose failure")) : ValueTask.CompletedTask;
+    }
 }
 
 internal sealed class FakeObs : IObsClient

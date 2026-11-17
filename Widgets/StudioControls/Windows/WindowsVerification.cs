@@ -50,11 +50,18 @@ internal static class WindowsVerification
             Require(rejected, "Malformed image was not rejected.");
             foreach (var (path, hash) in hashes)
                 Require(hash.SequenceEqual(SHA256.HashData(File.ReadAllBytes(path))), "Render failure changed an existing card.");
-            Diagnostics.Record("synthetic.verification");
+            Diagnostics.Record("synthetic.verification", new InvalidOperationException("synthetic private detail",
+                new IOException("synthetic private inner detail")));
             string exported = Path.Combine(temporary, "logs.zip");
             Diagnostics.Export(exported);
             using (var archive = System.IO.Compression.ZipFile.OpenRead(exported))
+            {
                 Require(archive.Entries.All(entry => entry.Name == "environment.txt" || entry.Name.StartsWith("studio.log", StringComparison.Ordinal)), "Diagnostics exported configuration.");
+                using var log = new StreamReader(archive.GetEntry("studio.log")!.Open());
+                string text = log.ReadToEnd();
+                Require(text.Contains("caused-by System.IO.IOException", StringComparison.Ordinal), "Diagnostic cause type was lost.");
+                Require(!text.Contains("synthetic private", StringComparison.Ordinal), "Diagnostic messages exposed private details.");
+            }
             File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "windows-verification.txt"), "PASS: isolated DPAPI, settings, six GDI+ cards, transparency, failed-render preservation and diagnostic archive. No devices or OBS contacted.\n");
             return 0;
         }

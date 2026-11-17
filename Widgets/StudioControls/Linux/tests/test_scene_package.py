@@ -182,6 +182,7 @@ class InstallerTests(unittest.TestCase):
         (self.fixture / "Linux/__pycache__/cache.pyc").write_bytes(b"ignore")
         (self.fixture / "Windows/private-test.txt").write_text("exclude platform build")
         (self.fixture / "Shared/scene-catalog.json").write_text('{"scenes": []}')
+        (self.fixture / "Shared/ui-translations.json").write_text('{"languages": []}')
         (self.fixture / "Shared/build-output.dll").write_bytes(b"exclude .NET build")
         self.data = self.root / "user data"
         self.patch_root = patch.object(installer, "PROJECT", self.fixture)
@@ -197,7 +198,8 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue((destination / "Linux/controlli-brio.py").is_file())
         self.assertFalse((destination / "Windows").exists())
         self.assertEqual(
-            [path.name for path in (destination / "Shared").iterdir()], ["scene-catalog.json"]
+            sorted(path.name for path in (destination / "Shared").iterdir()),
+            ["scene-catalog.json", "ui-translations.json"],
         )
         self.assertFalse((destination / "Linux/__pycache__").exists())
         self.assertIn(f'"{destination}/Linux/controlli-brio.py"', launcher.read_text())

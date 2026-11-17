@@ -12,6 +12,7 @@
     <AssemblyName>StudioControls.Core</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="../ui-translations.json" LogicalName="StudioControls.UI.json" />
     <EmbeddedResource Include="../scene-catalog.json" LogicalName="StudioControls.Catalog.json" />
   </ItemGroup>
 </Project>

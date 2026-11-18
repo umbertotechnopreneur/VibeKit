@@ -50,7 +50,7 @@ $imports = & .\Packaging\Prepare-Packaging.ps1
 
 Preparation downloads official NuGet runtime/tool imports and explicitly scans their archives and extracted files with Defender before use. It returns a verification object kept only in the current PowerShell execution. Pass it directly to the builder; never export it to disk. No scan report, antivirus history, hash inventory or persistent verification manifest is written.
 
-Building verifies the transient import state, forces source rebuilds, checks the compiled application version, runs behavioral checks and validates both packages. Builds and installer execution do not start antivirus scans. Generated dependencies, staging and outputs are retained for manual cleanup. No old application binary is reused.
+Building verifies the transient import state, forces source rebuilds, checks the compiled application version, runs behavioral checks and validates both packages. Each combined build writes its MSI and Debian package to a new timestamped directory under `artifacts/installers/`. Builds and installer execution do not start antivirus scans. Generated dependencies, staging and outputs are retained for manual cleanup. No old application binary is reused.
 
 To remove everything generated, including the current installer pair:
 

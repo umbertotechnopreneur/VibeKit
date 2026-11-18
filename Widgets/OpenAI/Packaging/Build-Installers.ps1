@@ -20,12 +20,12 @@ if ($null -eq $Imports -or -not $Imports.Prepared -or $Imports.ProjectRoot -ne $
 }
 Assert-VerifiedImport $packageRoot @($Imports.Packages)
 Assert-VerifiedImport $toolRoot @($Imports.Tools)
-$installerRoot = Join-Path $projectRoot 'artifacts\installers'
-$payloadRoot = Join-Path $projectRoot ('artifacts\packaging\' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))
+$run = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fff')
+$installerRoot = Join-Path $projectRoot "artifacts\installers\$run"
+$payloadRoot = Join-Path $projectRoot "artifacts\packaging\$run"
 $windowsPayload = Join-Path $payloadRoot 'windows-x64'
 $linuxPayload = Join-Path $payloadRoot 'linux-amd64'
 New-Item -ItemType Directory -Path $installerRoot,$windowsPayload,(Join-Path $linuxPayload 'Linux') -Force | Out-Null
-$completed = $false
 Push-Location $projectRoot
 try {
     # Recreate assets offline from the verified import cache, including after a cleanup.
@@ -97,8 +97,14 @@ try {
     $deb = Join-Path $installerRoot "openai-usage_$appVersion-1_amd64.deb"
     & python 'Packaging/package.py' deb $linuxPayload $deb
     if ($LASTEXITCODE -ne 0) { throw 'Ubuntu package construction or verification failed.' }
-    $manifest = @($msi,$deb) | ForEach-Object { [pscustomobject]@{file=[IO.Path]::GetFileName($_); bytes=(Get-Item -LiteralPath $_).Length; sha256=(Get-FileHash -LiteralPath $_).Hash} }
-    $completed = $true
+    $manifest = @($msi,$deb) | ForEach-Object {
+        [pscustomobject]@{
+            file = [IO.Path]::GetFileName($_)
+            path = [IO.Path]::GetRelativePath($projectRoot, $_)
+            bytes = (Get-Item -LiteralPath $_).Length
+            sha256 = (Get-FileHash -LiteralPath $_).Hash
+        }
+    }
     Write-Output ($manifest | ConvertTo-Json -Compress)
 }
 finally {

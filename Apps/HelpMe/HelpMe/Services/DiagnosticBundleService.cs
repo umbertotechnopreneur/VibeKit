@@ -170,7 +170,7 @@ public sealed class DiagnosticBundleService(AppPaths paths, ISensitiveDataRedact
         HelpMe support bundle
 
         This archive was created locally by HelpMe.
-        It contains diagnostics.json and {logFileCount} available diagnostic log file(s).
+        It contains a format manifest, diagnostics.json, and {logFileCount} available diagnostic log file(s).
         Each log is redacted again while the archive is created. Large logs contain only their most recent 4 MiB.
 
         It does not include the HelpMe database, conversations, memories, API keys, environment variables,

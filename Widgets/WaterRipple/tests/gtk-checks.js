@@ -37,7 +37,9 @@ check(controls.preset.model.get_string(controls.preset.selected) === 'Renamed', 
 window.present();
 const loop = new GLib.MainLoop(null, false);
 GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
-    check(controls.jokes.running, 'Visible preferences did not start the optional ticker.');
+    check(!controls.jokes.running, 'Collapsed settings must leave the ticker idle.');
+    controls.settingsSection.expanded = true;
+    check(controls.jokes.running, 'Expanding Settings did not start the optional ticker.');
     const savedSelection = controls.pipelines.selected.id;
     controls.jokes.toggle.active = false;
     check(!settings.get_boolean('show-gpu-jokes') && !controls.jokes.running && !controls.jokes.row.visible,
@@ -53,12 +55,15 @@ GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
     window.close();
     check(!settings.get_boolean('active'), 'Closing preferences did not stop the effect.');
     check(!controls.jokes.running && controls.about.show() === undefined, 'Closing preferences did not dispose ticker and About.');
-    const appWindow = new Adw.ApplicationWindow();
+    const app = new Adw.Application({application_id: 'local.vibeware.RippleGtkChecks', flags: Gio.ApplicationFlags.NON_UNIQUE});
+    app.register(null);
+    const appWindow = new Adw.ApplicationWindow({application: app});
     // The real controller intercepts close while offering Hide / Quit / Cancel.
     appWindow.connect('close-request', () => true);
-    const next = buildControls(appWindow, settings, {}, true, false, null);
+    const next = buildControls(appWindow, settings, app, true, false, null);
     appWindow.set_content(next.page);
     check(next.pipelines.selected?.id === selectedId, 'Selected pipeline did not restore.');
+    next.settingsSection.expanded = true;
     appWindow.present();
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
         check(next.jokes.running, 'Application view did not start the optional ticker.');

@@ -247,5 +247,6 @@ export function buildControls(window, settings, application = null, externalLeas
         enableExtension();
         window.connect('close-request', () => { cancellable.cancel(); return false; });
     }
-    return {page, active, preset, stop, status, pipelines, library, about, aboutRow, aboutSection: aboutSection.row, jokes};
+    return {page, active, preset, stop, status, pipelines, library, about, aboutRow, aboutSection: aboutSection.row,
+        settingsSection: settingsSection.row, jokes};
 }

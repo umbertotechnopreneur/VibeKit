@@ -21,6 +21,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Sentry;
 using Serilog;
+using Serilog.Core;
+using Serilog.Events;
+using Tools.Widgets;
 using WorkTrail.Application;
 
 namespace WorkTrail.Runtime;
@@ -30,12 +33,49 @@ internal static class LoggingBootstrapper
 {
     #region Fields
 
+    internal const string SupportAppId = "WorkTrail";
+
     private const int RetainedFileCount = 7;
     private static readonly TimeSpan RetainedFileTime = TimeSpan.FromDays(7);
     private static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(2);
     private static int _shutdownStarted;
 
     #endregion
+
+    /// <summary>Copies event metadata only, leaving task content and arbitrary messages in local logs.</summary>
+    private sealed class SupportEventSink(Logger logger) : ILogEventSink, IDisposable
+    {
+        /// <summary>Records category, event number and failure type without event payloads.</summary>
+        public void Emit(LogEvent entry)
+        {
+            var category = "WorkTrail";
+            if (entry.Properties.TryGetValue("SourceContext", out var context)
+                && context is ScalarValue { Value: string name }
+                && name.StartsWith("WorkTrail.", StringComparison.Ordinal)
+                && name.Length <= 180
+                && name.All(character => char.IsAsciiLetterOrDigit(character) || character is '.' or '_' or '+'))
+            {
+                category = name;
+            }
+
+            entry.Properties.TryGetValue("EventId", out var eventId);
+            var eventNumber = (eventId as StructureValue)?.Properties
+                .FirstOrDefault(property => property.Name == "Id")?.Value as ScalarValue;
+            var number = eventNumber?.Value is int id ? id : 0;
+            if (entry.Exception is { } error)
+            {
+                logger.Write(entry.Level, "{Category:l} event {EventId} failed with {ErrorType:l} (0x{ErrorCode:X8})",
+                    category, number, error.GetType().Name, error.HResult);
+            }
+            else
+            {
+                logger.Write(entry.Level, "{Category:l} event {EventId}", category, number);
+            }
+        }
+
+        /// <summary>Flushes the separate support feed when the application logger closes.</summary>
+        public void Dispose() => logger.Dispose();
+    }
 
     #region Implementation
 
@@ -60,6 +100,8 @@ internal static class LoggingBootstrapper
                     retainedFileTimeLimit: RetainedFileTime,
                     shared: true,
                     flushToDiskInterval: TimeSpan.FromSeconds(1));
+                var supportLogger = VibeWareDiagnostics.CreateLogger(SupportAppId);
+                configuration.WriteTo.Sink(new SupportEventSink(supportLogger));
                 fileLoggingEnabled = true;
             }
         }

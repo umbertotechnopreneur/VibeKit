@@ -25,6 +25,7 @@ using ThermalrightVibeWare.Contracts;
 using ThermalrightVibeWare.Studio;
 
 using ThermalrightVibeWare.Core;
+using Tools.Widgets;
 
 namespace ThermalrightVibeWare.Photino;
 
@@ -253,6 +254,25 @@ internal static class Program
     {
         public bool CanMinimizeToTray => canMinimize();
         public bool CanRestartAsAdministrator => canRestart();
+        public bool CanEmailDiagnostics => OperatingSystem.IsWindows();
+
+        /// <summary>Archives local support events and hands the message to the user's mail client.</summary>
+        public Task<string> EmailDiagnosticsAsync() => Task.Run(() =>
+        {
+            var archive = VibeWareDiagnostics.CreateSupportArchive(DiagnosticLog.SupportAppId);
+            var result = VibeWareDiagnostics.OpenEmailDraft("TermalRight VibeWare", archive);
+            if (result != SupportEmailResult.Completed)
+            {
+                try { VibeWareDiagnostics.RevealArchive(archive); }
+                catch (System.ComponentModel.Win32Exception) { }
+            }
+            return result switch
+            {
+                SupportEmailResult.Completed => $"Diagnostics ZIP saved to {archive}",
+                SupportEmailResult.ManualAttachment => $"Attach this ZIP to the draft: {archive}",
+                _ => $"No compatible email app was found. Diagnostics ZIP saved to {archive}"
+            };
+        });
 
         /// <summary>Requests a guarded restart with administrator rights.</summary>
         public Task<bool> RestartAsAdministratorAsync() => restart();

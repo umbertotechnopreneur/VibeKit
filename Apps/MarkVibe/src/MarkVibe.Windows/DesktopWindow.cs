@@ -402,6 +402,12 @@ internal sealed partial class DesktopWindow : Window
                     systemLanguage = _systemLanguage,
                     acrylicAvailable = WindowsBackdrop.Supported
                 };
+            case "diagnostics.email":
+                if (_options.SmokeTest)
+                {
+                    throw new WorkspaceException("test-shell-disabled", "Email is unavailable in the isolated verification profile.");
+                }
+                return await Task.Run(DesktopLog.EmailSupport, token);
             case "ui.fonts":
                 return UiFontCatalog.Installed(System.Windows.Media.Fonts.SystemFontFamilies
                     .SelectMany(family => family.FamilyNames.Values.Append(family.Source)));

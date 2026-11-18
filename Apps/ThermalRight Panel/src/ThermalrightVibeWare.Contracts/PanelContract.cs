@@ -121,6 +121,10 @@ public interface IStudioWindowActions
 {
     bool CanMinimizeToTray { get; }
     bool CanRestartAsAdministrator => false;
+    bool CanEmailDiagnostics => false;
+
+    /// <summary>Creates a local ZIP and opens an email draft for the user's review.</summary>
+    Task<string> EmailDiagnosticsAsync() => throw new PlatformNotSupportedException();
 
     /// <summary>Requests a guarded restart with administrator rights.</summary>
     Task<bool> RestartAsAdministratorAsync() => Task.FromResult(false);

@@ -12,7 +12,7 @@ internal sealed class SettingsDialog : ContentDialog
         Title = "Settings";
         CloseButtonText = "Done";
         DefaultButton = ContentDialogButton.Close;
-        RequestedTheme = ElementTheme.Dark;
+        RequestedTheme = (root.Content as FrameworkElement)?.ActualTheme ?? ElementTheme.Default;
         XamlRoot = root;
         var content = new StackPanel { Spacing = 14, MinWidth = 280, MaxWidth = 460 };
         var startup = Ui.Toggle(content, "Start with Windows", model.State, nameof(AppState.StartWithWindows));

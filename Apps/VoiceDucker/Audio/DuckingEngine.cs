@@ -85,6 +85,7 @@ internal sealed class DuckingEngine : IDisposable
             throw new InvalidOperationException("The startup playback volume snapshot could not be captured.");
 
         _ready = true;
+        App.Diagnostics.Information("Playback volume baselines captured.");
         RefreshMicrophones();
         AudioDiagnostics.Write(() => "startup-volume-snapshot capture=off");
     });
@@ -108,12 +109,14 @@ internal sealed class DuckingEngine : IDisposable
             _error = null;
             StartCapture();
             playback.MonitoringEnabled();
+            App.Diagnostics.Information("Microphone monitoring enabled. Resumed after pause: {Resumed}", resumeFromPause);
         }
         else
         {
             StopCapture();
             _playback?.RequestStartupRestoration();
             AudioDiagnostics.Write(() => "monitoring-disabled restoration=requested");
+            App.Diagnostics.Information("Microphone monitoring disabled. Playback restoration requested.");
         }
     });
 
@@ -308,6 +311,7 @@ internal sealed class DuckingEngine : IDisposable
             _playback?.RequestStartupRestoration();
             _error = exception.Message;
             AudioDiagnostics.Write(() => $"capture-error error={exception.Message} restoration=requested");
+            App.Diagnostics.Warning("Capture stopped. Error {ErrorType} ({HResult})", exception.GetType().Name, exception.HResult);
         }
 
         if (_ready && _playback is not null)

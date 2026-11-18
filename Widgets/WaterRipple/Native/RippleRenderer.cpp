@@ -25,11 +25,13 @@
 #include <string>
 #include <vector>
 #include "RippleRenderer.h"
+#include "CrtFrameExport.h"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "windowsapp.lib")
+#pragma comment(lib, "advapi32.lib")
 
 using Microsoft::WRL::ComPtr;
 using Clock = std::chrono::steady_clock;
@@ -288,6 +290,7 @@ namespace
         {
             const auto start = Clock::now();
             stats.Status &= StatusClipped | StatusWaiting | StatusAccessLost | StatusValidCapture | StatusPresentedCapture;
+            if (!captureEnabled) crtExport.Reset();
             HRESULT result = S_OK;
             // A frozen snapshot stays on its current device even if the window moves.
             if (!device || captureEnabled || screenMode)
@@ -367,6 +370,10 @@ namespace
                 ID3D11ShaderResourceView* nullViews[1]{};
                 context->PSSetShaderResources(0, ARRAYSIZE(nullViews), nullViews);
             }
+            if (screenMode && captureEnabled && hasValidCapture &&
+                crtExport.Publish(device.Get(), context.Get(), adapter.Get(), swapChain.Get(), monitor,
+                    outputDescription.DesktopCoordinates))
+                stats.Status |= StatusCrtComposition;
             result = swapChain->Present(0, DXGI_PRESENT_DO_NOT_WAIT);
             if (result == DXGI_ERROR_WAS_STILL_DRAWING)
             {
@@ -393,6 +400,8 @@ namespace
             screenMode = enabled;
             return screenMode && adapter ? ValidateScreenAdapter() : S_OK;
         }
+
+        void SetInteropWindow(HWND window) { crtExport.SetWindow(window); }
 
         HRESULT GetGpuMemory(RippleGpuMemory& memory)
         {
@@ -451,9 +460,11 @@ namespace
         bool screenMode{};
         bool hasValidCapture{};
         int captureX{}, captureY{};
+        water_ripple::CrtFrameExport crtExport;
 
         void InvalidateCapture(bool discardDesktop)
         {
+            crtExport.Reset();
             hasValidCapture = false;
             stats.Status &= ~(StatusValidCapture | StatusPresentedCapture);
             if (discardDesktop)
@@ -472,6 +483,7 @@ namespace
 
         void ResetDevice()
         {
+            crtExport.Reset();
             CloseCapture();
             if (context) context->ClearState();
             if (panel) panel->SetSwapChain(nullptr);
@@ -933,6 +945,11 @@ extern "C" __declspec(dllexport) int32_t __cdecl RippleGetGpuMemory(void* handle
 {
     if (!handle || !memory) return E_POINTER;
     return static_cast<Renderer*>(handle)->GetGpuMemory(*memory);
+}
+
+extern "C" __declspec(dllexport) void __cdecl RippleSetInteropWindow(void* handle, void* window)
+{
+    if (handle) static_cast<Renderer*>(handle)->SetInteropWindow(static_cast<HWND>(window));
 }
 
 

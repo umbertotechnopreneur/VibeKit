@@ -20,6 +20,9 @@
   <ItemGroup>
     <Compile Remove="tests/**/*.cs" />
     <Compile Include="../Shared/WidgetAbout.cs" Link="WidgetAbout.cs" />
+    <Compile Include="../Shared/WidgetFooter.cs" Link="WidgetFooter.cs" />
+    <Compile Include="../Shared/VibeWareDiagnostics.cs" Link="VibeWareDiagnostics.cs" />
+    <Compile Include="../Shared/DiagnosticAboutActions.cs" Link="DiagnosticAboutActions.cs" />
     <EmbeddedResource Include="Shared/pipeline-catalog.json" LogicalName="WaterRipple.pipeline-catalog.json" />
     <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.6.5" />
     <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.6.5" />
@@ -32,7 +35,7 @@
     <Content Include="Assets\WaterRipple.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="BuildNativeRenderer" BeforeTargets="CopyFilesToOutputDirectory"
-          Inputs="Native\RippleRenderer.cpp;Native\RippleRenderer.h;Shaders\Ripple.hlsl;build-native.ps1"
+          Inputs="Native\RippleRenderer.cpp;Native\RippleRenderer.h;Native\CrtFrameExport.h;..\Shared\DesktopEffectInterop.h;Shaders\Ripple.hlsl;build-native.ps1"
           Outputs="$(TargetDir)RippleRenderer.dll;$(TargetDir)Shaders\RippleVS.cso;$(TargetDir)Shaders\RipplePS.cso">
     <Exec Command="powershell.exe -NoProfile -File &quot;$(MSBuildProjectDirectory)\build-native.ps1&quot; -OutputDirectory &quot;$(TargetDir).&quot; -IntermediateDirectory &quot;$(IntermediateOutputPath)Native&quot; -Configuration &quot;$(Configuration)&quot;" />
   </Target>

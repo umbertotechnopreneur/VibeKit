@@ -5,13 +5,12 @@ import Gio from 'gi://Gio';
 import {readLibrary} from './pipelines.js';
 
 // A native library view. The model owns validation, persistence and selection.
-export function pipelineControls(window, model, path, showEffect) {
-    const page = new Adw.PreferencesPage({title: 'Pipelines', icon_name: 'view-list-symbolic'});
+export function pipelineControls(window, model, path, section, showEffect) {
     const heading = new Adw.PreferencesGroup({
         title: 'CRT pipelines',
         description: 'Choose a complete look. Duplicate a built-in to make it yours; personal pipelines save your adjustments automatically.',
     });
-    page.add(heading);
+    section.add(heading);
     const makeButton = (label, callback) => {
         const widget = new Gtk.Button({label});
         widget.connect('clicked', callback);
@@ -75,12 +74,12 @@ export function pipelineControls(window, model, path, showEffect) {
     toolbar.append(create); toolbar.append(importButton); toolbar.append(exportButton);
     heading.add(toolbar); heading.add(editor);
     const list = new Adw.PreferencesGroup();
-    page.add(list);
+    section.add(list);
     const feedback = new Adw.PreferencesGroup();
     const error = new Adw.ActionRow({title_lines: 0, use_markup: false, visible: false});
-    feedback.add(error); page.add(feedback);
+    feedback.add(error); section.add(feedback);
     const location = new Adw.PreferencesGroup({description: `Library: ${path}`});
-    page.add(location);
+    section.add(location);
     // Pipeline items are immutable snapshots. Retain native widgets by stable ID,
     // and resolve the latest item when an action runs after an autosave or rename.
     const rows = new Map();
@@ -165,7 +164,7 @@ export function pipelineControls(window, model, path, showEffect) {
     };
     const unsubscribe = model.subscribe(refresh);
     refresh();
-    return {page, create, name, save, cancel, editor, error, actions, rows, importButton, exportButton,
+    return {section: section.row, create, name, save, cancel, editor, error, actions, rows, importButton, exportButton,
         dispose() {
             if (disposed) return;
             disposed = true;

@@ -38,4 +38,9 @@ VBWR E -->
     <!-- Windows drawing and artist integration stay out of the Linux sensor engine. -->
     <Compile Remove="PanelFrameRenderer.cs;RasterImage.cs;OnlineArtistProvider.cs;WindowsDashboardProviders.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../../../Widgets/Shared/VibeWareDiagnostics.cs" Link="Diagnostics/VibeWareDiagnostics.cs" />
+    <PackageReference Include="Serilog" Version="4.4.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+  </ItemGroup>
 </Project>

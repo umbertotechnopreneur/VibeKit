@@ -12,7 +12,6 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace WaterRipple;
 
@@ -25,16 +24,19 @@ internal static class Ui
         public object ConvertBack(object value, Type targetType, object parameter, string language) => DependencyProperty.UnsetValue;
     }
 
-    // Root-level pointer movement prevents a scrollbar staying visible after a child handles input.
+    // Keep the native scroll range and hit testing; only the bar itself reveals on hover.
     internal static Action HoverScrollBar(ScrollViewer scroll, FrameworkElement region, UIElement eventRoot)
     {
-        scroll.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
+        scroll.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
         ScrollBar? vertical = null;
-        Microsoft.UI.Xaml.Media.Animation.Storyboard? animation = null;
-        bool hovered = false;
+        uint? draggingPointer = null;
+        bool attached = false;
+
         ScrollBar? FindBar(DependencyObject node)
         {
-            if (node is ScrollBar bar && bar.Orientation == Orientation.Vertical) return bar;
+            // Do not accidentally select a scrollbar belonging to nested content.
+            if (node is ScrollViewer nested && !ReferenceEquals(nested, scroll)) return null;
+            if (node is ScrollBar bar && bar.Name == "VerticalScrollBar" && bar.Orientation == Orientation.Vertical) return bar;
             for (int i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
             {
                 var found = FindBar(VisualTreeHelper.GetChild(node, i));
@@ -42,61 +44,59 @@ internal static class Ui
             }
             return null;
         }
-        void Fade(bool inside)
+        bool IsOverBar(Microsoft.UI.Xaml.Input.PointerRoutedEventArgs args)
         {
-            if (inside == hovered) return;
-            hovered = inside;
-            if (vertical is null)
-            {
-                scroll.VerticalScrollBarVisibility = inside ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden;
-                return;
-            }
-            double opacity = vertical.Opacity;
-            animation?.Stop();
-            vertical.Opacity = opacity;
-            vertical.IsHitTestVisible = inside;
-            var fade = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
-            {
-                From = opacity, To = inside ? 1 : 0,
-                Duration = new Duration(TimeSpan.FromMilliseconds(500))
-            };
-            Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(fade, vertical);
-            Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(fade, "Opacity");
-            animation = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
-            animation.Children.Add(fade);
-            animation.Begin();
+            if (vertical is null || scroll.ScrollableHeight <= 0) return false;
+            var point = args.GetCurrentPoint(vertical).Position;
+            return point.X >= 0 && point.Y >= 0 && point.X < vertical.ActualWidth && point.Y < vertical.ActualHeight;
         }
         void Update(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs args)
         {
-            var point = args.GetCurrentPoint(region).Position;
-            Fade(point.X >= 0 && point.Y >= 0 && point.X < region.ActualWidth && point.Y < region.ActualHeight);
+            if (vertical is not null) vertical.Opacity = draggingPointer.HasValue || IsOverBar(args) ? 1 : 0;
+        }
+        void Pressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs args)
+        {
+            if (IsOverBar(args)) draggingPointer = args.Pointer.PointerId;
+            Update(sender, args);
+        }
+        void Released(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs args)
+        {
+            if (draggingPointer == args.Pointer.PointerId) draggingPointer = null;
+            Update(sender, args);
         }
         void Loaded(object sender, RoutedEventArgs args)
         {
-            // Reserve the scrollbar's normal width to keep content steady during the fade.
-            scroll.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+            if (attached) return;
+            attached = true;
             scroll.ApplyTemplate();
             scroll.UpdateLayout();
             vertical = FindBar(scroll);
-            bool wasHovered = hovered;
-            hovered = false;
-            if (vertical is not null) { vertical.Opacity = 0; vertical.IsHitTestVisible = false; }
-            else scroll.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
-            if (wasHovered) Fade(true);
+            // Opacity does not remove the hit target or alter the page width.
+            if (vertical is not null) vertical.Opacity = 0;
+            eventRoot.AddHandler(UIElement.PointerMovedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Update), true);
+            eventRoot.AddHandler(UIElement.PointerEnteredEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Update), true);
+            eventRoot.AddHandler(UIElement.PointerExitedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Update), true);
+            eventRoot.AddHandler(UIElement.PointerPressedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Pressed), true);
+            eventRoot.AddHandler(UIElement.PointerReleasedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Released), true);
+            eventRoot.AddHandler(UIElement.PointerCaptureLostEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Released), true);
+            eventRoot.AddHandler(UIElement.PointerCanceledEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Released), true);
         }
         scroll.Loaded += Loaded;
-        eventRoot.AddHandler(UIElement.PointerMovedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Update), true);
-        eventRoot.AddHandler(UIElement.PointerEnteredEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Update), true);
-        eventRoot.AddHandler(UIElement.PointerExitedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Update), true);
         region.Unloaded += (_, _) =>
         {
-            animation?.Stop();
-            scroll.Loaded -= Loaded;
+            if (!attached) return;
+            attached = false;
+            vertical = null;
+            draggingPointer = null;
             eventRoot.RemoveHandler(UIElement.PointerMovedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Update));
             eventRoot.RemoveHandler(UIElement.PointerEnteredEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Update));
             eventRoot.RemoveHandler(UIElement.PointerExitedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Update));
+            eventRoot.RemoveHandler(UIElement.PointerPressedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Pressed));
+            eventRoot.RemoveHandler(UIElement.PointerReleasedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Released));
+            eventRoot.RemoveHandler(UIElement.PointerCaptureLostEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Released));
+            eventRoot.RemoveHandler(UIElement.PointerCanceledEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Released));
         };
-        return () => Fade(false);
+        return () => { draggingPointer = null; if (vertical is not null) vertical.Opacity = 0; };
     }
 
     internal const string ManifestoUrl = "https://umbertogiacobbi.biz/vibeware/manifesto";
@@ -108,10 +108,7 @@ internal static class Ui
     private static readonly NumberLabelConverter NumberLabel = new();
     private static readonly HexEditorConverter HexEditor = new();
 
-    internal static SolidColorBrush Cream => Brush(243, 233, 218);
-    internal static SolidColorBrush MutedCream => Brush(191, 187, 178);
-    internal static SolidColorBrush Denim => Brush(158, 183, 204);
-    internal static SolidColorBrush Graphite => Brush(25, 28, 32);
+    internal static Style SecondaryTextStyle => (Style)Application.Current.Resources["SecondaryTextStyle"];
 
     internal static void Bind(DependencyObject target, DependencyProperty property, object source,
         string path, BindingMode mode = BindingMode.OneWay, IValueConverter? converter = null, object? parameter = null)
@@ -137,7 +134,7 @@ internal static class Ui
         var words = new StackPanel { Spacing = 5, VerticalAlignment = VerticalAlignment.Center };
         words.Children.Add(Text(title, 28));
         var description = Text(subtitle, 13);
-        description.Foreground = MutedCream;
+        description.Style = SecondaryTextStyle;
         words.Children.Add(description);
         header.Children.Add(words);
 
@@ -158,7 +155,7 @@ internal static class Ui
                     var row = new Grid { ColumnSpacing = 8 };
                     row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                     row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                    var label = Text("", 12); label.Foreground = MutedCream; row.Children.Add(label);
+                    var label = Text("", 12); label.Style = SecondaryTextStyle; row.Children.Add(label);
                     var number = Text("", 12); number.TextAlignment = TextAlignment.Right;
                     Grid.SetColumn(number, 1); row.Children.Add(number);
                     rows.Children.Add(row);
@@ -182,27 +179,35 @@ internal static class Ui
 
     internal static void AttachAppearance(Window window, Grid root, AppSettings settings)
     {
-        root.RequestedTheme = ElementTheme.Dark;
+        root.Style = (Style)Application.Current.Resources["WindowSurfaceStyle"];
         string iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "WaterRipple.ico");
         if (File.Exists(iconPath)) window.AppWindow.SetIcon(iconPath);
-        void Apply()
+        void ApplyTheme() => root.RequestedTheme = settings.ThemeIndex switch
         {
+            1 => ElementTheme.Light,
+            2 => ElementTheme.Dark,
+            _ => ElementTheme.Default
+        };
+        void ApplyBackdrop()
+        {
+            root.ClearValue(Grid.BackgroundProperty);
             try
             {
-                window.SystemBackdrop = settings.UseAcrylic ? new DesktopAcrylicBackdrop() : new MicaBackdrop();
-                root.Background = settings.UseAcrylic ? new SolidColorBrush(Colors.Transparent) : Graphite;
+                window.SystemBackdrop = settings.UseAcrylic ? new DesktopAcrylicBackdrop() : null;
+                if (window.SystemBackdrop is not null) root.Background = new SolidColorBrush(Colors.Transparent);
             }
             catch (COMException)
             {
                 // Let remote/unsupported graphics sessions retain a readable solid surface.
                 window.SystemBackdrop = null;
-                root.Background = Graphite;
             }
         }
         void Changed(object? sender, PropertyChangedEventArgs args)
         {
-            if (string.IsNullOrEmpty(args.PropertyName) || args.PropertyName == nameof(AppSettings.UseAcrylic))
-                Apply();
+            if (args.PropertyName is null or "" or nameof(AppSettings.ThemeIndex))
+                ApplyTheme();
+            if (args.PropertyName is null or "" or nameof(AppSettings.UseAcrylic))
+                ApplyBackdrop();
         }
         void Closed(object sender, WindowEventArgs args)
         {
@@ -210,7 +215,8 @@ internal static class Ui
             window.Closed -= Closed;
             window.SystemBackdrop = null;
         }
-        Apply();
+        ApplyTheme();
+        ApplyBackdrop();
         settings.PropertyChanged += Changed;
         window.Closed += Closed;
     }
@@ -224,7 +230,7 @@ internal static class Ui
         name.Margin = new Thickness(0, 0, 68, 0);
         heading.Children.Add(name);
         var value = Text("", 12);
-        value.Foreground = Denim;
+        value.Style = SecondaryTextStyle;
         value.HorizontalAlignment = HorizontalAlignment.Right;
         Bind(value, TextBlock.TextProperty, settings, property, converter: NumberLabel, parameter: unit);
         heading.Children.Add(value);
@@ -273,61 +279,7 @@ internal static class Ui
     {
         Text = text,
         FontSize = size,
-        Foreground = Cream,
         TextWrapping = TextWrapping.Wrap
-    };
-
-    internal static UIElement Footer(Action? showAbout = null)
-    {
-        var footer = new Grid { Margin = new Thickness(0, 4, 0, 0) };
-        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        UIElement LinkContent(string label, string glyph)
-        {
-            var pair = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-            pair.Children.Add(new FontIcon { Glyph = glyph, FontFamily = new FontFamily("Segoe Fluent Icons"), FontSize = 12, Foreground = Denim });
-            pair.Children.Add(Text(label, 11));
-            return pair;
-        }
-        HyperlinkButton FooterLink(string label, string uri, string glyph)
-        {
-            var link = Link(label, uri);
-            link.Content = LinkContent(label, glyph);
-            AutomationProperties.SetName(link, label);
-            link.FontSize = 11;
-            link.VerticalAlignment = VerticalAlignment.Center;
-            return link;
-        }
-        var navigation = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        var about = new HyperlinkButton { Content = LinkContent("About Water Ripple", "\uE946"), Padding = new Thickness(0),
-            MinWidth = 0, MinHeight = 0, FontSize = 11, Foreground = Denim, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
-        AutomationProperties.SetName(about, "About Water Ripple");
-        about.Click += (_, _) =>
-        {
-            if (showAbout is not null) showAbout();
-            else new AboutWindow().Activate();
-        };
-        navigation.Children.Add(about);
-        navigation.Children.Add(FooterLink("Vibe", ManifestoUrl, "\uE734"));
-        navigation.Children.Add(FooterLink("Terms", TermsUrl, "\uE8A5"));
-        navigation.Children.Add(FooterLink("Privacy", PrivacyUrl, "\uE72E"));
-        footer.Children.Add(navigation);
-        var badge = new HyperlinkButton { NavigateUri = new Uri(ManifestoUrl), HorizontalAlignment = HorizontalAlignment.Right,
-            Padding = new Thickness(0), MinWidth = 0, MinHeight = 0, Content = new Image { Source = new BitmapImage(new Uri("ms-appx:///Assets/VibeWare.png")), Width = 28, Height = 28, Stretch = Stretch.Uniform } };
-        AutomationProperties.SetName(badge, "VibeWare manifesto");
-        Grid.SetColumn(badge, 1);
-        footer.Children.Add(badge);
-        return footer;
-    }
-
-    internal static HyperlinkButton Link(string label, string uri) => new()
-    {
-        Content = label,
-        NavigateUri = new Uri(uri),
-        Foreground = Denim,
-        Padding = new Thickness(0),
-        MinWidth = 0, MinHeight = 0,
-        HorizontalAlignment = HorizontalAlignment.Left
     };
 
     private static TextBlock NavigationLine() => new()
@@ -335,18 +287,18 @@ internal static class Ui
         TextAlignment = TextAlignment.Center,
         TextWrapping = TextWrapping.Wrap,
         FontSize = 11,
-        Foreground = MutedCream
+        Style = SecondaryTextStyle
     };
     private static Hyperlink InlineLink(string text, string? uri = null)
     {
-        var link = new Hyperlink { Foreground = Denim };
+        var link = new Hyperlink();
         link.Inlines.Add(new Run { Text = text });
         if (uri is not null) link.NavigateUri = new Uri(uri);
         AutomationProperties.SetName(link, text);
         return link;
     }
     private static void AddSeparator(TextBlock line) => line.Inlines.Add(new Run { Text = " · " });
-    private static SolidColorBrush Brush(byte r, byte g, byte b) => new(Windows.UI.Color.FromArgb(255, r, g, b));
+    internal static SolidColorBrush Brush(byte r, byte g, byte b) => new(Windows.UI.Color.FromArgb(255, r, g, b));
 
     private sealed class NumberLabelConverter : IValueConverter
     {

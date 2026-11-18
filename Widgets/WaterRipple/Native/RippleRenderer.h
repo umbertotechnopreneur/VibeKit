@@ -19,6 +19,7 @@ enum RippleCaptureStatus : int32_t
     StatusOccluded = 16,
     StatusValidCapture = 32,
     StatusPresentedCapture = 64,
+    StatusCrtComposition = 128,
 };
 
 struct RippleStats
@@ -69,6 +70,7 @@ extern "C"
     __declspec(dllexport) int32_t __cdecl RippleCheckCapabilities(int32_t screenX, int32_t screenY,
         int32_t widthPixels, int32_t heightPixels, RippleCapabilities* capabilities);
     __declspec(dllexport) int32_t __cdecl RippleSetScreenMode(void* handle, int32_t enabled);
+    __declspec(dllexport) void __cdecl RippleSetInteropWindow(void* handle, void* window);
     __declspec(dllexport) int32_t __cdecl RippleGetGpuMemory(void* handle, RippleGpuMemory* memory);
     __declspec(dllexport) void __cdecl RippleDestroy(void* handle);
 }

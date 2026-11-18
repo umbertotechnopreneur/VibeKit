@@ -38,8 +38,29 @@ public sealed partial class MainPage
     public void ShowAbout()
     {
         CloseOverlay.Visibility = Visibility.Collapsed;
+        DiagnosticsAboutPanel.Visibility = windowActions?.CanEmailDiagnostics == true ? Visibility.Visible : Visibility.Collapsed;
         AboutOverlay.Visibility = Visibility.Visible;
         CloseAboutButton.Focus();
+    }
+
+    /// <summary>Exports the local support ZIP through the native host.</summary>
+    private async void EmailDiagnostics_Click(object sender, RoutedEventArgs args)
+    {
+        if (windowActions?.CanEmailDiagnostics != true) { return; }
+        EmailDiagnosticsButton.IsEnabled = false;
+        AboutDiagnosticsStatus.Text = "Preparing the diagnostics ZIP…";
+        try
+        {
+            AboutDiagnosticsStatus.Text = await windowActions.EmailDiagnosticsAsync();
+        }
+        catch (Exception error)
+        {
+            AboutDiagnosticsStatus.Text = "Could not prepare the diagnostics ZIP or email draft. " + error.Message;
+        }
+        finally
+        {
+            EmailDiagnosticsButton.IsEnabled = true;
+        }
     }
 
     /// <summary>Closes the product information overlay.</summary>

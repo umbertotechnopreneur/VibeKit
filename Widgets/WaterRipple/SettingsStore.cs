@@ -280,6 +280,8 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
         public double AnimationFps { get; set; } = 60;
         public double CaptureFps { get; set; } = 30;
         public bool EmergencyShortcutEnabled { get; set; } = true;
+        public bool AutoRecover { get; set; } = true;
+        public int ThemeIndex { get; set; }
         public bool UseAcrylic { get; set; } = true;
         public bool ChromaticEnabled { get; set; } = true;
         public double ChromaticSeparation { get; set; } = 18;
@@ -301,6 +303,8 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
             AnimationFps = AnimationFps,
             CaptureFps = CaptureFps,
             EmergencyShortcutEnabled = EmergencyShortcutEnabled,
+            AutoRecover = AutoRecover,
+            ThemeIndex = ThemeIndex,
             UseAcrylic = UseAcrylic,
             ChromaticEnabled = ChromaticEnabled,
             ChromaticSeparation = ChromaticSeparation,
@@ -323,6 +327,8 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
             AnimationFps = model.AnimationFps,
             CaptureFps = model.CaptureFps,
             EmergencyShortcutEnabled = model.EmergencyShortcutEnabled,
+            AutoRecover = model.AutoRecover,
+            ThemeIndex = model.ThemeIndex,
             UseAcrylic = model.UseAcrylic,
             ChromaticEnabled = model.ChromaticEnabled,
             ChromaticSeparation = model.ChromaticSeparation,

@@ -61,6 +61,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         DesktopLog.Write("info", "application.exit", new { exitCode = e.ApplicationExitCode });
+        DesktopLog.Shutdown();
         base.OnExit(e);
     }
 }

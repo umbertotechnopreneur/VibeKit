@@ -19,6 +19,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../Shared/WidgetAbout.cs" Link="WidgetAbout.cs" />
+    <Compile Include="../../Shared/VibeWareDiagnostics.cs" Link="VibeWareDiagnostics.cs" />
+    <Compile Include="../../Shared/DiagnosticAboutActions.cs" Link="DiagnosticAboutActions.cs" />
+    <PackageReference Include="Serilog" Version="4.4.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <Content Remove="mockup-*.png" />
     <Content Include="../Branding/app-icon.ico" Link="Branding/app-icon.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../Branding/app-icon-512.png" Link="Branding/app-icon-512.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

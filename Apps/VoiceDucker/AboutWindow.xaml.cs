@@ -14,6 +14,7 @@
  * VBWR E */
 
 using Microsoft.UI.Xaml;
+using Tools.Widgets;
 
 namespace VoiceDucker;
 
@@ -53,6 +54,34 @@ public sealed partial class AboutWindow : Window
     /// Closes the About window without affecting the main application.
     /// </summary>
     private void Close_Click(object sender, RoutedEventArgs args) => Close();
+
+    /// <summary>Creates a local diagnostics ZIP and asks the email client to compose a message.</summary>
+    private async void EmailDiagnostics_Click(object sender, RoutedEventArgs args)
+    {
+        EmailDiagnosticsButton.IsEnabled = false;
+        DiagnosticsStatus.Text = "Preparing diagnostics…";
+        string? archive = null;
+        try
+        {
+            archive = await Task.Run(() => VibeWareDiagnostics.CreateSupportArchive(App.DiagnosticsId));
+            var result = await Task.Run(() => VibeWareDiagnostics.OpenEmailDraft("VoiceDucker", archive));
+            DiagnosticsStatus.Text = result switch
+            {
+                SupportEmailResult.Completed => $"Diagnostics ZIP saved to {archive}",
+                SupportEmailResult.ManualAttachment => $"Attach this ZIP to the draft: {archive}",
+                _ => $"No compatible email app was found. Diagnostics ZIP saved to {archive}"
+            };
+        }
+        catch (Exception error)
+        {
+            App.Diagnostics.Warning("Diagnostics preparation failed. Error {ErrorType}", error.GetType().Name);
+            DiagnosticsStatus.Text = archive is null ? "Could not create the diagnostics ZIP." : $"Could not open email. ZIP saved to {archive}";
+        }
+        finally
+        {
+            EmailDiagnosticsButton.IsEnabled = true;
+        }
+    }
 
     #endregion
 }

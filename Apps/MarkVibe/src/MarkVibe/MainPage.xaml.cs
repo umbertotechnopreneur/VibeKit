@@ -1170,7 +1170,7 @@ public partial class MainPage : UserControl
     /// <summary>Opens the canonical VibeWare manifesto when the header badge is activated.</summary>
     private void OpenManifesto(object sender, RoutedEventArgs arguments) => PublicationLinks.Open(PublicationLinks.Manifesto);
     /// <summary>Opens the About dialog.</summary>
-    private void ShowAbout(object sender, RoutedEventArgs arguments) => new AboutWindow().Show();
+    private void ShowAbout(object sender, RoutedEventArgs arguments) => new AboutWindow(_desktop).Show();
     /// <summary>Displays the last-document recovery action when its workspace needs reopening.</summary>
     private void ShowResume()
     {

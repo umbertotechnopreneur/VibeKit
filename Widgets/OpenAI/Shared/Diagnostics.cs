@@ -6,8 +6,17 @@ public static class Diagnostics
 {
     private static readonly object Sync = new();
     public static string DirectoryPath => Path.Combine(new Storage().DirectoryPath, "logs");
+    // Windows supplies a privacy-filtered Serilog writer. The core fallback is used by other hosts.
+    private static Action<string, long?>? recorder;
+    public static void UseRecorder(Action<string, long?> writer) => recorder = writer;
+
     public static void Record(string kind, string message, long? bytes = null)
     {
+        if (recorder is { } write)
+        {
+            write(kind, bytes);
+            return;
+        }
         try
         {
             lock (Sync)

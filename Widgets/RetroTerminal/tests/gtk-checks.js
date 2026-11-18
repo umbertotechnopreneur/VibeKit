@@ -106,6 +106,7 @@ let restoredWindow;
 const steps = [
     [450, () => {
         check(ui.stop.get_mapped(), 'Stop stays accessible above the collapsed controls');
+        ui.effectSection.expanded = true;
         check(!ui.controls.intensity.get_mapped(), 'Collapsed Phosphor hides its controls');
         ui.expanders.phosphor.expanded = true;
     }],
@@ -123,16 +124,16 @@ const steps = [
     }],
     [350, () => {
         check(ui.pipelines.selected.values['scanline-spacing'] === 6 && !ui.pipelines.error, 'Personal edits save after the quiet interval');
-        window.set_visible_page(ui.library.page);
+        ui.library.section.expanded = true;
     }],
     [350, () => {
-        check(!ui.jokes.running, 'Pipelines page does not run the joke timer');
+        check(!ui.jokes.running, 'The Pipelines section does not run the joke timer');
         ui.stop.emit('clicked');
         check(!settings.get_boolean('active') && !ui.tryGlitch.sensitive, 'Stop cancels the effect and disables glitch preview');
-        window.set_visible_page(ui.aboutPage);
+        ui.aboutSection.expanded = true;
     }],
     [400, () => {
-        check(ui.jokes.running, 'Captions run only on the visible About page');
+        check(ui.jokes.running, 'Captions run only on the expanded About section');
         firstCaption = ui.jokes.row.title;
     }],
     [13500, () => {

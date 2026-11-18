@@ -25,7 +25,7 @@ internal sealed class CaptureConsentService(AppState state)
             if (AppCapability.Create("graphicsCaptureWithoutBorder").CheckAccess() == AppCapabilityAccessStatus.Allowed) return;
             var explanation = new ContentDialog
             {
-                XamlRoot = root, RequestedTheme = ElementTheme.Dark,
+                XamlRoot = root, RequestedTheme = (root.Content as FrameworkElement)?.ActualTheme ?? ElementTheme.Default,
                 Title = "Hide the Windows capture border?",
                 Content = "Windows marks screen capture with a colored border. To hide it, Windows may ask for permission next. You can decline and keep using Water Ripple with the border.",
                 PrimaryButtonText = "Ask Windows", CloseButtonText = "Keep border",

@@ -12,30 +12,26 @@
  * VBWR E */
 using System.Diagnostics;
 using System.IO;
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Serilog.Core;
+using Serilog.Events;
+using Tools.Widgets;
 
 namespace MarkVibe.Windows;
 
 /// <summary>Writes bounded local diagnostics without document text, arguments, paths or credentials.</summary>
 internal static class DesktopLog
 {
-    private const long MaximumFileBytes = 1024 * 1024;
-    private const int MaximumFiles = 8;
-    private static readonly object Gate = new();
-    private static readonly string Session = $"{DateTime.UtcNow:yyyyMMddTHHmmssfffZ}-{Environment.ProcessId}";
+    private const string SupportAppId = "MarkVibe";
+    private static Logger? _logger;
     private static string? _directory;
-    private static string? _file;
-    private static int _part;
 
-    /// <summary>Creates the log directory below the chosen application data directory.</summary>
+    /// <summary>Starts seven-day file diagnostics beneath the selected application data directory.</summary>
     internal static void Initialize(string dataDirectory)
     {
-        lock (Gate)
-        {
-            _directory = Path.Combine(dataDirectory, "logs");
-        }
+        _directory = Path.Combine(dataDirectory, "logs");
+        _logger = VibeWareDiagnostics.CreateLogger(SupportAppId, out _, _directory);
         Write("info", "application.start", new
         {
             version = typeof(App).Assembly.GetName().Version?.ToString(),
@@ -44,43 +40,44 @@ internal static class DesktopLog
         });
     }
 
-    /// <summary>Appends one JSON record and rotates only this logger's files; disk failures never stop the app.</summary>
+    /// <summary>Records a safe, bounded diagnostic event in the shared format.</summary>
     internal static void Write(string level, string eventName, object? details = null)
     {
-        lock (Gate)
+        var severity = level switch
         {
-            if (_directory == null)
-            {
-                return;
-            }
-            try
-            {
-                Directory.CreateDirectory(_directory);
-                var record = JsonSerializer.Serialize(new { timestamp = DateTimeOffset.UtcNow, level, eventName, details });
-                if (_file == null || (File.Exists(_file) && new FileInfo(_file).Length + Encoding.UTF8.GetByteCount(record) > MaximumFileBytes))
-                {
-                    _file = Path.Combine(_directory, $"markvibe-{Session}-{_part++}.jsonl");
-                    File.WriteAllText(_file, "");
-                    var ownedFiles = Directory.EnumerateFiles(_directory, "markvibe-*.jsonl")
-                        .Where(path => Regex.IsMatch(Path.GetFileName(path), @"^markvibe-\d{8}T\d{9}Z-\d+-\d+\.jsonl$"))
-                        .Select(path => new FileInfo(path))
-                        .OrderByDescending(file => file.LastWriteTimeUtc)
-                        .ToArray();
-                    foreach (var oldFile in ownedFiles.Skip(MaximumFiles))
-                    {
-                        if (!string.Equals(oldFile.FullName, _file, StringComparison.OrdinalIgnoreCase))
-                        {
-                            oldFile.Delete();
-                        }
-                    }
-                }
-                File.AppendAllText(_file, record + "\n", Encoding.UTF8);
-            }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException)
-            {
-                Debug.WriteLine("MarkVibe local diagnostics could not be written.");
-            }
+            "error" => LogEventLevel.Error,
+            "warning" => LogEventLevel.Warning,
+            _ => LogEventLevel.Information
+        };
+        _logger?.Write(severity, "{Event:l} {Details:l}", eventName,
+            details is null ? "" : JsonSerializer.Serialize(details));
+    }
+
+    /// <summary>Archives local diagnostics and opens an email compose window for the user.</summary>
+    internal static string EmailSupport()
+    {
+        var logs = _directory ?? throw new InvalidOperationException("Diagnostics are not available.");
+        var archive = VibeWareDiagnostics.CreateSupportArchive(SupportAppId, logs,
+            Path.Combine(Path.GetDirectoryName(logs)!, "diagnostics"), DateTimeOffset.UtcNow);
+        var result = VibeWareDiagnostics.OpenEmailDraft("MarkVibe", archive);
+        if (result != SupportEmailResult.Completed)
+        {
+            try { VibeWareDiagnostics.RevealArchive(archive); }
+            catch (System.ComponentModel.Win32Exception) { }
         }
+        return result switch
+        {
+            SupportEmailResult.Completed => $"Diagnostics ZIP saved to {archive}",
+            SupportEmailResult.ManualAttachment => $"Attach this ZIP to the draft: {archive}",
+            _ => $"No compatible email app was found. Diagnostics ZIP saved to {archive}"
+        };
+    }
+
+    /// <summary>Flushes pending diagnostics when the Windows host exits.</summary>
+    internal static void Shutdown()
+    {
+        _logger?.Dispose();
+        _logger = null;
     }
 
     /// <summary>Records exception types and method names, deliberately excluding messages and source file paths.</summary>

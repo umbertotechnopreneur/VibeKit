@@ -4,10 +4,9 @@ import Gtk from 'gi://Gtk?version=4.0';
 import Gio from 'gi://Gio';
 import {readLibrary} from './pipelines.js';
 
-export function pipelineControls(window, model, path, selectEffect) {
-    const page = new Adw.PreferencesPage({title: 'Pipelines', icon_name: 'view-list-symbolic'});
+export function pipelineControls(window, model, path, section, selectEffect) {
     const group = new Adw.PreferencesGroup({description: 'Pipelines are saved sets of ripple and filter settings.'});
-    page.add(group);
+    section.add(group);
     const toolbar = new Gtk.Box({spacing: 8, margin_bottom: 12});
     const button = (label, action) => {
         const b = new Gtk.Button({label}); b.connect('clicked', action); return b;
@@ -46,9 +45,9 @@ export function pipelineControls(window, model, path, selectEffect) {
     toolbar.append(button('Import…', () => transfer(false)));
     toolbar.append(button('Export…', () => transfer(true)));
     group.add(toolbar); group.add(editor);
-    const list = new Adw.PreferencesGroup(); page.add(list);
-    const error = new Adw.PreferencesGroup(); page.add(error);
-    const footer = new Adw.PreferencesGroup({description: `Library: ${path}`}); page.add(footer);
+    const list = new Adw.PreferencesGroup(); section.add(list);
+    const error = new Adw.PreferencesGroup(); section.add(error);
+    const footer = new Adw.PreferencesGroup({description: `Library: ${path}`}); section.add(footer);
     const rows = new Map();
     let order = [];
     const unsubscribe = model.subscribe(() => refresh());
@@ -93,5 +92,5 @@ export function pipelineControls(window, model, path, selectEffect) {
     }
     refresh();
     // Stable row identity preserves focus and open action menus during live edits.
-    return {page, rowFor: id => rows.get(id)?.row, dispose: unsubscribe};
+    return {section: section.row, rowFor: id => rows.get(id)?.row, dispose: unsubscribe};
 }

@@ -44,7 +44,8 @@ public sealed class AboutView(
     IAnsiConsole console,
     ILocalizationService text,
     IConsoleShellView shell,
-    BuildInformation buildInformation) : IAboutView
+    BuildInformation buildInformation,
+    DiagnosticBundleService? diagnostics = null) : IAboutView
 {
 
     #region Fields
@@ -53,6 +54,8 @@ public sealed class AboutView(
     private int _lineCount;
     private int _visibleRows;
     private FullscreenFrame? _lastFrame;
+    private DiagnosticBundleResult? _supportBundle;
+    private string? _supportNotice;
     private readonly FullscreenInput _input = new(console, text);
 
     #endregion
@@ -66,6 +69,8 @@ public sealed class AboutView(
         {
             TerminalTheme.WriteRule(console, text.Text("About.Title"));
             console.Write(CreateContent());
+            if (diagnostics is not null)
+                console.WriteLine(text.Text("About.DiagnosticsCli"));
             console.WriteLine();
             console.WriteLine();
 
@@ -74,6 +79,7 @@ public sealed class AboutView(
 
         _offset = 0;
         _lastFrame = null;
+        _supportNotice = null;
         _input.Reset();
 
         try
@@ -138,6 +144,12 @@ public sealed class AboutView(
                 return;
             }
 
+            if (diagnostics is not null && key.Key is (ConsoleKey.L or ConsoleKey.E))
+            {
+                RunSupportAction(key.Key);
+                continue;
+            }
+
             var maximum = Math.Max(0, _lineCount - _visibleRows);
 
             _offset = key.Key switch
@@ -150,6 +162,32 @@ public sealed class AboutView(
                 ConsoleKey.End => maximum,
                 _ => _offset
             };
+        }
+    }
+
+    /// <summary>Dispatches the selected support action and displays its local result.</summary>
+    private void RunSupportAction(ConsoleKey key)
+    {
+        try
+        {
+            if (key == ConsoleKey.L)
+            {
+                _supportBundle = diagnostics!.PrepareForSupportAsync().GetAwaiter().GetResult();
+                _supportNotice = text.Text("Logs.Prepared", _supportBundle.Path, _supportBundle.LogFileCount);
+            }
+            else if (_supportBundle is null)
+            {
+                _supportNotice = text.Text("About.DiagnosticsPrepareFirst");
+            }
+            else
+            {
+                _supportNotice = text.Text(diagnostics!.OpenSupportEmail(_supportBundle)
+                    ? "About.DiagnosticsEmailOpened" : "About.DiagnosticsEmailUnavailable", _supportBundle.Path);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            _supportNotice = text.Text("About.DiagnosticsFailed");
         }
     }
 
@@ -181,7 +219,9 @@ public sealed class AboutView(
                 TerminalTheme.Warning, Selected: true)
         ]);
         var overflowing = _lineCount > _visibleRows;
-        var notice = overflowing
+        var notice = _supportNotice is not null
+            ? new Text(_supportNotice, Style.Parse(TerminalTheme.Primary))
+            : overflowing
             ? new Text(text.Text("Help.Browse.Range", _offset + 1, Math.Min(_lineCount, _offset + _visibleRows), _lineCount),
                 Style.Parse(TerminalTheme.Primary))
             : Text.Empty;
@@ -192,6 +232,12 @@ public sealed class AboutView(
             hint = text.Text("About.ScrollHintCompact");
         }
 
+        if (diagnostics is not null)
+        {
+            var diagnosticsHint = text.Text("About.DiagnosticsShortcuts");
+            var combinedHint = hint + " | " + diagnosticsHint;
+            hint = new Segment(combinedHint).CellCount() <= width - 4 ? combinedHint : diagnosticsHint;
+        }
         var footer = FullscreenFooter.Create(notice, close, FullscreenFooter.Shortcuts(hint));
         var root = new Layout("about").SplitRows(
             new Layout("header", FullscreenHeader.Create(text.Text("About.Title"), shell.Options)).Size(FullscreenHeader.Height),

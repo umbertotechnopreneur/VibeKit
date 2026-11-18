@@ -1,11 +1,11 @@
 #if DEBUG
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
-using System.Threading;
-using Serilog.Events;
-using Serilog.Parsing;
+using Tools.Widgets;
 
 namespace WaterRipple;
 
@@ -14,17 +14,39 @@ internal static class LoggingChecks
     internal static int Run()
     {
         string root = Path.Combine(Path.GetTempPath(), "WaterRipple-logging-checks-" + Guid.NewGuid().ToString("N"));
+        string logs = Path.Combine(root, "logs");
         try
         {
-            Directory.CreateDirectory(root);
-            Check(WeeklyLogSink.FileNameFor(new DateTimeOffset(2021, 1, 1, 12, 0, 0, TimeSpan.Zero)) == "WaterRipple-2020-W53.log", "ISO previous-year week");
-            Check(WeeklyLogSink.FileNameFor(new DateTimeOffset(2019, 12, 30, 12, 0, 0, TimeSpan.FromHours(7))) == "WaterRipple-2020-W01.log", "ISO next-year week");
-            Check(WeeklyLogSink.FileNameFor(new DateTimeOffset(2024, 12, 30, 12, 0, 0, TimeSpan.Zero)) == "WaterRipple-2025-W01.log", "ISO second next-year boundary");
-            CheckRetention(Path.Combine(root, "retention"));
-            CheckQueue(Path.Combine(root, "queue"));
-            CheckFiles(Path.Combine(root, "files"));
-            Console.WriteLine("PASS weekly ISO rotation, file flush and scoped retention");
-            Console.WriteLine("PASS bounded logging queue and nonblocking overflow");
+            using (var logger = VibeWareDiagnostics.CreateLogger(LoggingService.AppId, out _, logs))
+            {
+                logger.Information("Logging check queued");
+                logger.Warning(new InvalidOperationException("private exception detail"), "Startup failed");
+                logger.Information("Private value {Credential}", "sk-example-private");
+            }
+            var files = Directory.GetFiles(logs, "VibeWare-*.log");
+            Check(files.Length == 1, "daily writer flushes to one file");
+            string current = File.ReadAllText(files[0]);
+            Check(current.Contains("[INF] Logging check queued", StringComparison.Ordinal), "information level and message format");
+            Check(current.Contains("InvalidOperationException", StringComparison.Ordinal) &&
+                !current.Contains("private exception detail", StringComparison.Ordinal), "exception type without private exception text");
+            Check(!current.Contains("sk-example-private", StringComparison.Ordinal), "token redacted");
+
+            var now = DateTimeOffset.UtcNow;
+            var historical = now.AddDays(-8);
+            string old = historical.ToString(VibeWareDiagnostics.TimestampFormat, CultureInfo.InvariantCulture) + " [INF] obsolete";
+            File.AppendAllText(files[0], old + Environment.NewLine);
+            File.WriteAllText(Path.Combine(logs, "WaterRipple-2026-W25.log"), "legacy diagnostics");
+            File.WriteAllText(Path.Combine(logs, "settings.json"), "private configuration");
+            var archive = VibeWareDiagnostics.CreateSupportArchive(LoggingService.AppId, logs, Path.Combine(root, "exports"), now);
+            using var zip = ZipFile.OpenRead(archive);
+            var names = zip.Entries.Select(entry => entry.FullName).ToArray();
+            Check(names.Length == 2 && names.Contains("manifest.json") &&
+                names.Contains("logs/" + Path.GetFileName(files[0])), "archive includes only the common log and manifest");
+            using var reader = new StreamReader(zip.GetEntry("logs/" + Path.GetFileName(files[0]))!.Open());
+            string exported = reader.ReadToEnd();
+            Check(exported.Contains("Logging check queued", StringComparison.Ordinal) &&
+                !exported.Contains("obsolete", StringComparison.Ordinal), "archive uses exactly the last seven days");
+            Console.WriteLine("PASS bounded diagnostics flush, redaction and seven-day ZIP");
             return 0;
         }
         catch (Exception ex)
@@ -44,60 +66,6 @@ internal static class LoggingChecks
             }
         }
     }
-
-    private static void CheckRetention(string directory)
-    {
-        Directory.CreateDirectory(directory);
-        for (int week = 1; week <= 6; week++) File.WriteAllText(Path.Combine(directory, $"WaterRipple-2026-W{week:D2}.log"), "fixture");
-        File.WriteAllText(Path.Combine(directory, "WaterRipple-2026-W99.log"), "unrelated");
-        File.WriteAllText(Path.Combine(directory, "notes.txt"), "unrelated");
-        WeeklyLogSink.PruneWeeklyFiles(directory, "WaterRipple-2026-W06.log");
-        Check(!File.Exists(Path.Combine(directory, "WaterRipple-2026-W01.log")) &&
-              !File.Exists(Path.Combine(directory, "WaterRipple-2026-W02.log")), "oldest weeks removed");
-        for (int week = 3; week <= 6; week++) Check(File.Exists(Path.Combine(directory, $"WaterRipple-2026-W{week:D2}.log")), "retained week");
-        Check(File.ReadAllText(Path.Combine(directory, "notes.txt")) == "unrelated", "unrelated file preserved");
-        Check(File.Exists(Path.Combine(directory, "WaterRipple-2026-W99.log")), "invalid week name preserved");
-    }
-
-    private static void CheckQueue(string directory)
-    {
-        Directory.CreateDirectory(directory);
-        using var entered = new ManualResetEventSlim();
-        using var release = new ManualResetEventSlim();
-        using var sink = new WeeklyLogSink(directory, _ =>
-        {
-            entered.Set();
-            if (!release.Wait(TimeSpan.FromSeconds(2))) throw new TimeoutException("test consumer gate");
-        });
-        try
-        {
-            var entry = Entry(DateTimeOffset.Now);
-            sink.Emit(entry);
-            Check(entered.Wait(TimeSpan.FromSeconds(2)), "logging worker started");
-            var stopwatch = Stopwatch.StartNew();
-            for (int i = 0; i < WeeklyLogSink.QueueCapacity + 8; i++) sink.Emit(entry);
-            Check(stopwatch.Elapsed < TimeSpan.FromSeconds(1), "queue overflow never waits for consumer");
-            Check(sink.DroppedEvents == 8, "queue holds exactly the configured event capacity");
-        }
-        finally { release.Set(); sink.Dispose(); }
-        Check(sink.WorkerStopped, "worker drains and stops on disposal");
-    }
-
-    private static void CheckFiles(string directory)
-    {
-        Directory.CreateDirectory(directory);
-        using var sink = new WeeklyLogSink(directory);
-        sink.Emit(Entry(new DateTimeOffset(2019, 12, 30, 12, 0, 0, TimeSpan.Zero)));
-        sink.Emit(Entry(new DateTimeOffset(2020, 1, 6, 12, 0, 0, TimeSpan.Zero)));
-        sink.Dispose();
-        Check(sink.WorkerStopped, "file worker flushes on disposal");
-        Check(Directory.EnumerateFiles(directory, "*.log").Count() == 2, "two event weeks produce two files");
-        Check(File.ReadAllText(Path.Combine(directory, "WaterRipple-2020-W01.log")).Contains("Logging check", StringComparison.Ordinal), "first week's file is flushed");
-        Check(File.ReadAllText(Path.Combine(directory, "WaterRipple-2020-W02.log")).Contains("Logging check", StringComparison.Ordinal), "second week's file is flushed");
-    }
-
-    private static LogEvent Entry(DateTimeOffset timestamp) => new(timestamp, LogEventLevel.Information, null,
-        new MessageTemplateParser().Parse("Logging check"), Array.Empty<LogEventProperty>());
 
     private static void Check(bool condition, string message)
     {

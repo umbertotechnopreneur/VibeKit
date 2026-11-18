@@ -21,9 +21,12 @@ public sealed partial class MainWindow
         surface.RowDefinitions.Add(new(){Height=new(about?0:44)});surface.RowDefinitions.Add(new(){Height=new(1,GridUnitType.Star)});surface.RowDefinitions.Add(new(){Height=GridLength.Auto});
         var titleBar=new StackPanel {Orientation=Orientation.Horizontal,Spacing=10,Margin=new(20,0,60,0),VerticalAlignment=VerticalAlignment.Center};
         if(!about){titleBar.Children.Add(Logo(22));titleBar.Children.Add(Text(title,16,true));surface.Children.Add(titleBar);}
-        FrameworkElement body = about
-            ? new Viewbox { Child=content, Stretch=Stretch.Uniform, StretchDirection=StretchDirection.DownOnly, Margin=new(16,12,16,8) }
-            : new ScrollViewer { Content=content, Margin=new(24,12,24,16), HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled, VerticalScrollBarVisibility=ScrollBarVisibility.Auto };
+        FrameworkElement body = new ScrollViewer
+        {
+            Content = content, Margin = about ? new(16, 12, 16, 8) : new(24, 12, 24, 16),
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
         Grid.SetRow(body,1);surface.Children.Add(body);
         var buttons=new StackPanel {Orientation=Orientation.Horizontal,Spacing=10,HorizontalAlignment=HorizontalAlignment.Right,Margin=new(24,0,24,20)};
         Grid.SetRow(buttons,2);surface.Children.Add(buttons);
@@ -90,16 +93,19 @@ public sealed partial class MainWindow
             HorizontalAlignment = HorizontalAlignment.Center,
             Content = new TextBlock
             {
-                Text = $"Separate watchdog · 1 GB process-tree limit\nDiagnostic logs: {Diagnostics.DirectoryPath}",
+                Text = "Separate watchdog · 1 GB process-tree limit",
                 FontFamily = MetricFont, TextWrapping = TextWrapping.Wrap
             }
         };
+        var support = new StackPanel { Spacing = 12 };
+        support.Children.Add(details);
+        support.Children.Add(DiagnosticAboutActions.Create(Program.AppId, "OpenAI Usage"));
         var content = WidgetAbout.Create(Logo(100), initiative, "OpenAI Usage",
             $"Version {typeof(App).Assembly.GetName().Version?.ToString(3) ?? "unknown"}",
             "I built OpenAI Usage to see my Codex allowance, tokens and credits at a glance.",
             "https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/OpenAI",
-            "I provide this software independently and as-is, without warranty.", details);
-        content.Width = 590;
+            "I provide this software independently and as-is, without warranty.", support);
+        content.MaxWidth = 590;
         await ShowDialogAsync("About OpenAI Usage", content, width:640, height:620, about:true);
     }
 }

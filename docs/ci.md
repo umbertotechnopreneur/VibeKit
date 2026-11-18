@@ -1,3 +1,7 @@
+> **File name:** `ci.md`<br>
+> **Full path (published document):** `https://github.com/umbertotechnopreneur/VibeKit/blob/main/docs/ci.md`<br>
+> **Relative path (VibeKit repository root):** `docs/ci.md`
+
 # CI and releases
 
 GitHub discovers workflows in the root `.github/workflows/` directory. The copies inside applications document their original configuration; they do not execute.
@@ -8,7 +12,6 @@ GitHub discovers workflows in the root `.github/workflows/` directory. The copie
 
 | Directory | Pipeline |
 | --- | --- |
-| `Apps/AgentInbox/` | Windows Python source checks |
 | `Apps/HelpMe/` | Quality, Windows/Linux build and tests, Debian packages |
 | `Apps/MarkVibe/` | Quick checks on Windows and Linux |
 | `Apps/ThermalRight Panel/` | Windows builds and packages, Linux UI checks and Debian package |
@@ -44,14 +47,13 @@ Versions belong to applications. Tags use an application prefix:
 | WorkTrail | `worktrail/v1.2.3` | `worktrail-release.yml` |
 | VoiceDucker | `voiceducker/v0.2.0-stable` | `voiceducker-release.yml`, manual |
 | UlanziDeck | `ulanzideck/v0.4.0-stable` | `ulanzideck-release.yml`, manual |
-| AgentInbox | `agentinbox/v2.0.0` | Reserved namespace; the existing manual workflow produces Debug MSIX artifacts only |
 | MarkVibe | `markvibe/v0.1.0.2` | Reserved namespace; `markvibe-package-windows.yml` produces manual artifacts |
 | Thermalright | `thermalright/v0.1.24` | Reserved namespace; CI produces artifacts without a release-publishing workflow |
 | Studio Controls | `studio-controls/v0.3.0` | `studio-controls-release.yml`, tag or manual preview release |
 
 Only HelpMe and WorkTrail retain automatic tag-triggered release preparation, scoped to their prefixes. Existing draft defaults, version checks, target architectures and packaging policies remain in effect. VoiceDucker publication is isolated in a manual workflow so its write permission is never required by reusable CI. UlanziDeck's Git tag prefix is removed from archive filenames, preserving the executable/package naming contract. Migrate its previous stable release to preserve release history before preparing a new version. If no published stable `ulanzideck/v*` release exists, the manual workflow can instead create an initial namespaced release: explicitly supply a new tag matching the checked-out `Cargo.toml` version. It will not choose an initial tag automatically. Once a stable release exists, the next-minor-version check applies as before. Existing tags are always rejected, and releases remain drafts by default. Never use the repository-wide `/releases/latest` to determine an application's latest release.
 
-HelpMe's Store workflow and AgentInbox's Debug MSIX workflow remain explicit manual actions. Migrating a workflow does not validate, sign, install or publish a package.
+HelpMe's Store workflow remains an explicit manual action. Migrating a workflow does not validate, sign, install or publish a package.
 
 ## Publishing the consolidation
 
@@ -84,3 +86,7 @@ release assets are never replaced, and the release does not become the monorepo'
 latest release. The normal CI workflow retains read-only repository permissions;
 only the final release job can write release metadata. Manual releases default to
 drafts. Website downloads use an explicit application/version URL.
+
+> **File name:** `ci.md`<br>
+> **Full path (published document):** `https://github.com/umbertotechnopreneur/VibeKit/blob/main/docs/ci.md`<br>
+> **Relative path (VibeKit repository root):** `docs/ci.md`

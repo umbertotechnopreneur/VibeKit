@@ -1,3 +1,7 @@
+> **File name:** `README.md`<br>
+> **Full path (published document):** `https://github.com/umbertotechnopreneur/VibeKit/blob/main/README.md`<br>
+> **Relative path (VibeKit repository root):** `README.md`
+
 <h1 align="center">VibeKit</h1>
 
 <p align="center">
@@ -29,7 +33,6 @@ A little hardware, a few desktop windows, and plenty of curiosity. **[Open the 2
 | --- | --- | --- | --- |
 | [![Cody, the round-screen AI companion](docs/assets/showcase/thumbs/01-cody.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**Cody** | [![Cody showing its QR pairing screen](docs/assets/showcase/thumbs/02-cody-pairing.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**Cody · pairing** | [![VoiceDucker microphone monitoring and application volume controls](docs/assets/showcase/thumbs/03-voiceducker.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**VoiceDucker** | [![VoiceDucker volume timing and restoration controls](docs/assets/showcase/thumbs/04-voice-controls.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**VoiceDucker · controls** |
 | [![UlanziDeck controls for a coding workspace](docs/assets/showcase/thumbs/05-ulanzi-code.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**UlanziDeck · code** | [![UlanziDeck music and playback controls](docs/assets/showcase/thumbs/06-ulanzi-music.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**UlanziDeck · music** | [![ThermalRight Panel with system readings](docs/assets/showcase/thumbs/07-thermal-system.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**ThermalRight · system** | [![ThermalRight Panel with music and album artwork](docs/assets/showcase/thumbs/08-thermal-music.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**ThermalRight · music** |
-| [![AgentInbox connected mailbox accounts](docs/assets/showcase/thumbs/11-inbox-accounts.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**AgentInbox · accounts** | [![AgentInbox connection setup for Codex](docs/assets/showcase/thumbs/12-inbox-connect.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**AgentInbox · connection** |  |  |
 | [![HelpMe terminal command suggestions and explanations](docs/assets/showcase/thumbs/13-helpme-command.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**HelpMe · commands** | [![HelpMe terminal help and command guide](docs/assets/showcase/thumbs/14-helpme-guide.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**HelpMe · guide** | [![WorkTrail world map with the boundary between day and night](docs/assets/showcase/thumbs/15-worktrail-map.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**WorkTrail · day & night** | [![WorkTrail Earth globe desktop view](docs/assets/showcase/thumbs/16-worktrail-globe.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**WorkTrail · globe** |
 | [![MarkVibe Markdown reading workspace design](docs/assets/showcase/thumbs/17-markvibe.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**MarkVibe** | [![Gauge desktop AI usage widget design](docs/assets/showcase/thumbs/18-gauge.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**Gauge** | [![Desktop Ripple water effect over an alpine desktop](docs/assets/showcase/thumbs/19-ripple-alpine.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**Ripple · alpine** | [![Desktop Ripple water effect over a violet desktop](docs/assets/showcase/thumbs/20-ripple-violet.webp)](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)<br>**Ripple · violet** |
 
@@ -64,14 +67,6 @@ Each project has its own setup, maturity and limitations. Start with its README.
 [![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](Apps/ThermalRight%20Panel/LICENSE)
 
 **“That little display could do more.”** Show music, artwork and system readings on supported Thermalright displays.
-
-#### [AgentInbox](Apps/AgentInbox/README.md)
-
-[![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
-![Platform: Windows 11 · Linux](https://img.shields.io/badge/platform-Windows_11_%C2%B7_Linux-0078D4)
-[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](Apps/AgentInbox/LICENSE)
-
-**“My mailboxes are scattered everywhere.”** Connect as many compatible mailboxes as you need—Gmail, Microsoft, iCloud, GoDaddy and other IMAP/POP3 providers—then let an AI agent work across their selected folders through one MCP connection.
 
 #### [HelpMe](Apps/HelpMe/README.md)
 
@@ -191,3 +186,7 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
   </a><br>
   <em>Human intent, AI execution, and plenty of tokens</em>
 </p>
+
+> **File name:** `README.md`<br>
+> **Full path (published document):** `https://github.com/umbertotechnopreneur/VibeKit/blob/main/README.md`<br>
+> **Relative path (VibeKit repository root):** `README.md`

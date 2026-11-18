@@ -8,7 +8,6 @@ import subprocess
 import sys
 
 PROJECTS = {
-    "agentinbox": "Apps/AgentInbox/",
     "helpme": "Apps/HelpMe/",
     "markvibe": "Apps/MarkVibe/",
     "thermalright": "Apps/ThermalRight Panel/",

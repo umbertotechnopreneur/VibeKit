@@ -13,18 +13,18 @@ namespace WaterRipple;
 
 internal sealed class AboutWindow : Window
 {
-    internal AboutWindow()
+    internal AboutWindow(AppSettings settings)
     {
         Title = "About Water Ripple";
         var icon = Path.Combine(AppContext.BaseDirectory, "Assets", "WaterRipple.ico");
         if (File.Exists(icon)) AppWindow.SetIcon(icon);
         FitToWorkArea();
 
-        var root = new Grid { Padding = new Thickness(24), RowSpacing = 10, RequestedTheme = ElementTheme.Dark };
+        var root = new Grid { Padding = new Thickness(24), RowSpacing = 10 };
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         Content = root;
-        Ui.AttachAppearance(this, root, new AppSettings());
+        Ui.AttachAppearance(this, root, settings);
 
         var content = WidgetAbout.Create(
             ImageAsset("WaterRipple.png", 106),
@@ -32,14 +32,17 @@ internal sealed class AboutWindow : Window
             "Water Ripple", VersionText(),
             "A little ripple for every click. Water Ripple brings a touch of movement to your desktop.",
             "https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/WaterRipple",
-            "I provide this software independently and as-is, without warranty.", dark: true);
+            "I provide this software independently and as-is, without warranty.",
+            details: DiagnosticAboutActions.Create(LoggingService.AppId, "Water Ripple"), followTheme: true);
         content.Margin = new Thickness(0, 12, 0, 12);
-        root.Children.Add(new ScrollViewer
+        var scroll = new ScrollViewer
         {
             Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             HorizontalContentAlignment = HorizontalAlignment.Stretch
-        });
+        };
+        root.Children.Add(scroll);
+        Ui.HoverScrollBar(scroll, scroll, root);
 
         var close = new Button { Content = "Close", HorizontalAlignment = HorizontalAlignment.Right, MinWidth = 100 };
         close.Click += (_, _) => Close();

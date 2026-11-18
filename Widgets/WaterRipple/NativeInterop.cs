@@ -14,6 +14,7 @@ internal enum CaptureStatus : int
     Occluded = 16,
     ValidCapture = 32,
     PresentedCapture = 64,
+    CrtComposition = 128,
     VisibleCapture = ValidCapture | PresentedCapture,
 }
 [StructLayout(LayoutKind.Sequential)] internal struct NativeWave
@@ -65,6 +66,7 @@ internal static partial class Native
 {
     [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern int RippleCheckCapabilities(int x, int y, int width, int height, out GpuCapabilities capabilities);
     [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern int RippleSetScreenMode(IntPtr renderer, int enabled);
+    [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern void RippleSetInteropWindow(IntPtr renderer, IntPtr window);
     [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern int RippleGetGpuMemory(IntPtr renderer, out GpuMemory memory);
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)] internal static extern IntPtr GetWindowLongPtr(IntPtr hwnd, int index);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)] internal static extern IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value);

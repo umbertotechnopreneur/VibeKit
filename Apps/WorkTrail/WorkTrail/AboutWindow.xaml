@@ -214,6 +214,12 @@ VBWR E -->
                                     Click="ShareLogButton_Click"
                                     Content="Share log" />
                             </Grid>
+                            <Button
+                                x:Name="EmailDiagnosticsButton"
+                                Tag="About.EmailDiagnostics"
+                                MinHeight="34"
+                                Click="EmailDiagnostics_Click"
+                                Content="Email diagnostics…" />
                             <InfoBar
                                 x:Name="DiagnosticsInfoBar"
                                 IsClosable="True"

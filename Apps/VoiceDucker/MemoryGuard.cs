@@ -91,6 +91,7 @@ internal sealed class MemoryGuard : IDisposable
     private void Recover(long privateBytes)
     {
         var restart = ReserveRestart(out var reason);
+        App.Diagnostics.Warning("Memory limit exceeded. Private bytes {PrivateBytes}. Restart requested: {Restart}", privateBytes, restart);
         WriteLog($"limit-exceeded privateBytes={privateBytes} limitBytes={LimitBytes} restart={restart} reason={reason}");
         var action = restart
             ? "VoiceDucker will restart automatically."
@@ -106,6 +107,7 @@ internal sealed class MemoryGuard : IDisposable
         try { restored = _stopAudio(); }
         catch (Exception exception) { WriteLog($"audio-shutdown-failed error={exception}"); }
         WriteLog($"audio-shutdown restoration={(restored ? "confirmed" : "unconfirmed")}");
+        App.Diagnostics.Information("Playback volume restoration before memory recovery confirmed: {Confirmed}", restored);
         if (_stop.IsSet) return;
 
         if (!restored)

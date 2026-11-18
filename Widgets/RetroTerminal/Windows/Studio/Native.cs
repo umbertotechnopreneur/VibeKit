@@ -1,0 +1,39 @@
+using System.Runtime.InteropServices;
+using System.Text;
+namespace RetroStudio;
+internal static class Native
+{
+    [DllImport("user32.dll")] internal static extern uint GetDpiForWindow(nint window);
+    private const string Library = "RetroEngine.dll";
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern nint RetroCreate(nint owner);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroDestroy(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroStart(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroRunning(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroStop(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroRecoveryPending(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroSetRecovery(nint engine,int enabled,int seconds);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroKeepInTray(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroLeaveTray(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern TrayAction RetroTakeTrayAction(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroSave(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern float RetroGetSetting(nint engine, int index);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroSetSetting(nint engine, int index, float value);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroGetPalette(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroSetPalette(nint engine,int value);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroGetMask(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroSetMask(nint engine,int value);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroGetPersistence(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroSetPersistence(nint engine,int value);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroGetRandom(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroSetRandom(nint engine,int value);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroGetGlitchTypes(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroSetGlitchTypes(nint engine,int value);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern float RetroGetColor(nint engine,int channel);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroSetColor(nint engine,int channel,float value);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroPreset(nint engine,int index);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroSavePreset(nint engine,int index);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroTryGlitch(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl, CharSet=CharSet.Unicode)] internal static extern void RetroStatus(nint engine,StringBuilder buffer,int capacity);
+}
+
+internal enum TrayAction { None, Open, Quit }

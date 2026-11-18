@@ -166,6 +166,48 @@ internal static partial class UiTextCatalog
             German: "Auf/Ab: scrollen | Enter/Esc: schließen",
             Spanish: "Arriba/Abajo: desplazar | Intro/Esc: cerrar",
             Vietnamese: "Lên/Xuống: cuộn | Enter/Esc: đóng"));
+        entries.Add("About.DiagnosticsShortcuts", new(
+            English: "L: Create log ZIP | E: Open email",
+            Italian: "L: Crea ZIP dei log | E: Apri email",
+            French: "L : Créer le ZIP des journaux | E : Ouvrir l’e-mail",
+            German: "L: Protokoll-ZIP erstellen | E: E-Mail öffnen",
+            Spanish: "L: Crear ZIP de registros | E: Abrir correo",
+            Vietnamese: "L: Tạo ZIP nhật ký | E: Mở email"));
+        entries.Add("About.DiagnosticsCli", new(
+            English: "To create a log ZIP, run hm --prepare-logs.",
+            Italian: "Per creare uno ZIP dei log, esegui hm --prepare-logs.",
+            French: "Pour créer un ZIP des journaux, exécutez hm --prepare-logs.",
+            German: "Erstelle ein Protokoll-ZIP mit hm --prepare-logs.",
+            Spanish: "Para crear un ZIP de registros, ejecuta hm --prepare-logs.",
+            Vietnamese: "Chạy hm --prepare-logs để tạo ZIP nhật ký."));
+        entries.Add("About.DiagnosticsPrepareFirst", new(
+            English: "Press L to create a log ZIP first.",
+            Italian: "Premi L per creare prima lo ZIP dei log.",
+            French: "Appuyez sur L pour créer d’abord le ZIP des journaux.",
+            German: "Drücke zuerst L, um ein Protokoll-ZIP zu erstellen.",
+            Spanish: "Primero pulsa L para crear el ZIP de registros.",
+            Vietnamese: "Nhấn L để tạo ZIP nhật ký trước."));
+        entries.Add("About.DiagnosticsEmailOpened", new(
+            English: "Review the draft and ZIP before sending. ZIP: {0}",
+            Italian: "Controlla la bozza e lo ZIP prima di inviare. ZIP: {0}",
+            French: "Vérifiez le brouillon et le ZIP avant l’envoi. ZIP : {0}",
+            German: "Prüfe Entwurf und ZIP vor dem Senden. ZIP: {0}",
+            Spanish: "Revisa el borrador y el ZIP antes de enviar. ZIP: {0}",
+            Vietnamese: "Kiểm tra thư nháp và tệp ZIP trước khi gửi. ZIP: {0}"));
+        entries.Add("About.DiagnosticsEmailUnavailable", new(
+            English: "No email app is available. ZIP: {0}",
+            Italian: "Nessuna app email disponibile. ZIP: {0}",
+            French: "Aucune application de messagerie disponible. ZIP : {0}",
+            German: "Keine E-Mail-App verfügbar. ZIP: {0}",
+            Spanish: "No hay ninguna aplicación de correo disponible. ZIP: {0}",
+            Vietnamese: "Không có ứng dụng email. ZIP: {0}"));
+        entries.Add("About.DiagnosticsFailed", new(
+            English: "The diagnostics action failed.",
+            Italian: "L’operazione sui log non è riuscita.",
+            French: "L’opération sur les journaux a échoué.",
+            German: "Die Diagnoseaktion ist fehlgeschlagen.",
+            Spanish: "No se pudo completar la acción de diagnóstico.",
+            Vietnamese: "Không thể hoàn tất thao tác chẩn đoán."));
         entries.Add("About.TooSmall", new(
             English: "Enlarge the terminal to at least 60 columns and 20 rows. Enter or Esc closes About.",
             Italian: "Allarga il terminale ad almeno 60 colonne e 20 righe. Invio o Esc chiude le informazioni.",

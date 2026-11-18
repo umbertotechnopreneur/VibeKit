@@ -14,6 +14,7 @@ internal sealed class StudioDiagnostics : IDisposable
     private readonly ResourceMonitor monitor;
     private GpuMemory memory;
     private double nextLogSeconds;
+    private bool crtComposition;
     private bool disposed;
 
     internal StudioDiagnostics(AppState state, DispatcherQueue dispatcher)
@@ -33,11 +34,23 @@ internal sealed class StudioDiagnostics : IDisposable
     internal void Observe(ScreenSessionMetrics metrics)
     {
         memory = metrics.Memory;
+        bool composed = (metrics.Native.Status & CaptureStatus.CrtComposition) != 0;
+        if (composed != crtComposition)
+        {
+            crtComposition = composed;
+            Log.Information("CRT composition {CompositionActive}", crtComposition);
+        }
         // These are CPU submission times, not GPU execution times.
-        state.MetricsText = $"Mode\tScreen effect\nPresents\t{metrics.Presents:F1} /s\nDesktop updates\t{metrics.Captures:F1} /s\nCapture submit\t{metrics.Native.LastCaptureMs:F2} ms\nRender submit\t{metrics.Native.LastRenderCpuMs:F2} ms\nCapture size\t{metrics.Native.CaptureWidth} × {metrics.Native.CaptureHeight} px";
+        string mode = crtComposition ? "Composed with CRT" : "Screen effect";
+        state.MetricsText = $"Mode\t{mode}\nPresents\t{metrics.Presents:F1} /s\nDesktop updates\t{metrics.Captures:F1} /s\nCapture submit\t{metrics.Native.LastCaptureMs:F2} ms\nRender submit\t{metrics.Native.LastRenderCpuMs:F2} ms\nCapture size\t{metrics.Native.CaptureWidth} × {metrics.Native.CaptureHeight} px";
     }
 
-    internal void ClearCapture() => memory = default;
+    internal void ClearCapture()
+    {
+        memory = default;
+        if (crtComposition) Log.Information("CRT composition stopped");
+        crtComposition = false;
+    }
 
     private void UpdateResources(DispatcherQueueTimer sender, object args)
     {

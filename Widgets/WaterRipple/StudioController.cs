@@ -35,11 +35,18 @@ internal sealed partial class StudioController : IDisposable
     private bool closeFailureOpen;
     private ScreenEffectSession? screen;
     private bool notifyWhenRestored;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer performanceTimer;
+    private readonly Stopwatch performanceClock = Stopwatch.StartNew();
+    private double lastTick, stableSince = -1, recoveryAt, lastRecovery;
+    private int recoveryFailures, lateTicks;
+    private bool recoveryPending;
+    private ulong previousIdle, previousKernel, previousUser;
+    private bool haveCpuSample;
     private long generation;
     internal ICommand ToggleScreenCommand { get; }
     internal ICommand RestartCommand { get; }
     internal ICommand OpenSettingsCommand { get; }
-    internal ICommand MinimizeToTrayCommand { get; }
+    internal event Action? SettingsRequested;
     internal ICommand InspectScreenCommand { get; }
     internal bool IsInTray => model.State.IsInTray;
 
@@ -75,14 +82,13 @@ internal sealed partial class StudioController : IDisposable
         ToggleScreenCommand = new DelegateCommand(ToggleScreen);
         RestartCommand = new DelegateCommand(CheckCapabilities);
         OpenSettingsCommand = new DelegateCommand(OpenSettings);
-        MinimizeToTrayCommand = new DelegateCommand(() =>
-        {
-            if (!model.State.IsClosing && !model.State.IsSettingsOpen && !model.State.IsCaptureConsentOpen && !model.State.IsClosePromptOpen)
-                MinimizeToTray();
-        });
         InspectScreenCommand = new DelegateCommand(() => screen?.InspectCapture());
 
         diagnostics = new StudioDiagnostics(model.State, window.DispatcherQueue);
+        performanceTimer = window.DispatcherQueue.CreateTimer();
+        performanceTimer.Interval = TimeSpan.FromSeconds(1);
+        performanceTimer.Tick += PerformanceTick;
+        performanceTimer.Start();
         emergencyShortcut = new EmergencyShortcut(model.Settings.EmergencyShortcutEnabled, status =>
             window.DispatcherQueue.TryEnqueue(() => model.State.EmergencyShortcutStatus = status));
         model.Settings.PropertyChanged += EmergencyShortcutChanged;
@@ -120,6 +126,7 @@ internal sealed partial class StudioController : IDisposable
     private async void ToggleScreen()
     {
         if (screen is not null) { StopScreen(); return; }
+        CancelRecovery();
         if (closeSequence.IsPending || model.State.IsClosing || model.State.IsCaptureConsentOpen || model.State.IsSettingsOpen) return;
         await captureConsent.EnsureAsync(((FrameworkElement)window.Content).XamlRoot);
         if (model.State.IsClosing || screen is not null) return;
@@ -182,6 +189,7 @@ internal sealed partial class StudioController : IDisposable
 
     private void StopScreen(string reason = "")
     {
+        CancelRecovery();
         var active = screen; screen = null;
         model.State.IsScreenEffectActive = false;
         model.State.ScreenOverlayVisible = false;
@@ -189,7 +197,7 @@ internal sealed partial class StudioController : IDisposable
         active?.Dispose();
         Native.SetTopmost(hwnd, false);
         diagnostics.ClearCapture();
-        Log.Information("ScreenStopped Generation={Generation} Reason={Reason}", generation, reason);
+        Log.Information("ScreenStopped Generation={Generation} ReportedFailure={ReportedFailure}", generation, reason.Length > 0);
         model.State.StatusMessage = reason.Length > 0 ? reason : "Screen effect stopped.";
         if (active is not null && reason.Length > 0 && reason != "Stopped by global shortcut.")
         {
@@ -204,7 +212,83 @@ internal sealed partial class StudioController : IDisposable
         catch (Exception ex) { Log.Warning(ex, "Ripple notification unavailable"); }
     }
 
-    private void SettingsChanged(object? sender, PropertyChangedEventArgs e) => Log.Debug("Setting changed {Property}", e.PropertyName);
+    private void SettingsChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        Log.Debug("Setting changed {Property}", e.PropertyName);
+        if (e.PropertyName == nameof(AppSettings.AutoRecover) && !model.Settings.AutoRecover && recoveryPending)
+        {
+            CancelRecovery();
+            model.State.StatusMessage = "Automatic recovery cancelled. The effect remains stopped.";
+        }
+    }
+
+    private void CancelRecovery() { recoveryPending = false; stableSince = -1; }
+
+    private void PerformanceTick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
+    {
+        double now = performanceClock.Elapsed.TotalSeconds;
+        double elapsed = lastTick == 0 ? 1 : now - lastTick;
+        lastTick = now;
+        bool healthy = SystemHealthy() && elapsed <= 2;
+        if (screen is not null)
+        {
+            lateTicks = elapsed > 2 ? lateTicks + 1 : 0;
+            if (elapsed > 4 || lateTicks >= 2)
+            {
+                lateTicks = 0;
+                StopScreen();
+                recoveryFailures = now - lastRecovery < 300 && lastRecovery > 0 ? recoveryFailures + 1 : 1;
+                if (model.Settings.AutoRecover)
+                {
+                    recoveryPending = true;
+                    recoveryAt = now + Math.Min(300, 60 * Math.Pow(2, Math.Min(3, recoveryFailures - 1)));
+                    stableSince = -1;
+                }
+                model.State.StatusMessage = recoveryPending ? "Paused for performance; waiting for the system to recover." : "Paused for performance. Start the effect when ready.";
+                NotifyEffect("Ripple paused for performance", model.State.StatusMessage);
+            }
+        }
+        else if (recoveryPending)
+        {
+            if (!healthy) stableSince = -1;
+            else if (stableSince < 0) stableSince = now;
+            if (now >= recoveryAt && stableSince >= 0 && now - stableSince >= 30 && !model.State.IsClosing && !model.State.IsSettingsOpen && !model.State.IsCaptureConsentOpen)
+            {
+                CancelRecovery();
+                lastRecovery = now;
+                notifyWhenRestored = true;
+                StartScreen();
+                if (screen is null) notifyWhenRestored = false;
+            }
+        }
+    }
+
+    private bool SystemHealthy()
+    {
+        var memory = new MemoryStatus { Length = (uint)Marshal.SizeOf<MemoryStatus>() };
+        if (!GetSystemTimes(out long idle, out long kernel, out long user) || !GlobalMemoryStatusEx(ref memory))
+        { haveCpuSample = false; return false; }
+        ulong i = unchecked((ulong)idle), k = unchecked((ulong)kernel), u = unchecked((ulong)user);
+        bool valid = haveCpuSample && k >= previousKernel && u >= previousUser && i >= previousIdle;
+        ulong total = valid ? (k - previousKernel) + (u - previousUser) : 0;
+        ulong idleDelta = valid ? i - previousIdle : 0;
+        previousIdle = i; previousKernel = k; previousUser = u; haveCpuSample = true;
+        return total > 0 && idleDelta <= total && (double)idleDelta / total > .15 &&
+            memory.TotalPhysical > 0 && memory.AvailablePhysical >= Math.Max(memory.TotalPhysical / 10, 512UL * 1024 * 1024);
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct MemoryStatus
+    {
+        internal uint Length, MemoryLoad;
+        internal ulong TotalPhysical, AvailablePhysical, TotalPageFile, AvailablePageFile, TotalVirtual, AvailableVirtual, AvailableExtendedVirtual;
+    }
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GlobalMemoryStatusEx(ref MemoryStatus status);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetSystemTimes(out long idle, out long kernel, out long user);
     private async void OpenSettings()
     {
         if (model.State.IsClosing || model.State.IsSettingsOpen || model.State.IsClosePromptOpen) return;
@@ -213,7 +297,7 @@ internal sealed partial class StudioController : IDisposable
         try
         {
             await startup.RefreshAsync();
-            if (!model.State.IsClosing) await new SettingsDialog(model, ((FrameworkElement)window.Content).XamlRoot).ShowAsync();
+            if (!model.State.IsClosing) SettingsRequested?.Invoke();
         }
         catch (Exception ex) { Fail("Settings could not be opened", ex); }
         finally { model.State.IsSettingsOpen = false; }
@@ -229,13 +313,13 @@ internal sealed partial class StudioController : IDisposable
         {
             var dialog = new ContentDialog
             {
-                Title = "Keep Water Ripple running?",
-                Content = "Minimize to the notification area to keep enabled effects running. Closing the app stops effects and releases its resources.\n\n"
+                Title = "Close Water Ripple?",
+                Content = "Keep running in the notification area, or quit to stop the effect and close the app.\n\n"
                     + (model.Settings.EmergencyShortcutEnabled && model.State.EmergencyShortcutStatus == "Emergency shortcut is active and immediately closes Water Ripple."
                         ? "In an emergency, press Ctrl + Alt + Shift + W to immediately close Water Ripple."
                         : "The emergency shortcut is disabled or unavailable. Check its status in the main window."),
-                PrimaryButtonText = "Minimize to tray", SecondaryButtonText = "Close app", CloseButtonText = "Cancel",
-                DefaultButton = ContentDialogButton.Primary, RequestedTheme = ElementTheme.Dark,
+                PrimaryButtonText = "Keep in tray", SecondaryButtonText = "Quit", CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Primary, RequestedTheme = ((FrameworkElement)window.Content).ActualTheme,
                 XamlRoot = ((FrameworkElement)window.Content).XamlRoot
             };
             var result = await dialog.ShowAsync();
@@ -296,7 +380,7 @@ internal sealed partial class StudioController : IDisposable
                         Title = "Settings could not be saved",
                         Content = "The effect is stopped. You can retry, keep Ripple open, or discard unsaved preferences and close.\n\n" + model.State.PersistenceError,
                         PrimaryButtonText = "Retry", SecondaryButtonText = "Close without saving", CloseButtonText = "Keep open",
-                        DefaultButton = ContentDialogButton.Close, RequestedTheme = ElementTheme.Dark,
+                        DefaultButton = ContentDialogButton.Close, RequestedTheme = ((FrameworkElement)window.Content).ActualTheme,
                         XamlRoot = ((FrameworkElement)window.Content).XamlRoot,
                     }.ShowAsync();
                 }
@@ -415,6 +499,8 @@ internal sealed partial class StudioController : IDisposable
         emergencyShortcut.Dispose();
         tray.Dispose(); startup.Dispose();
         model.Settings.PropertyChanged -= SettingsChanged;
+        performanceTimer.Stop();
+        performanceTimer.Tick -= PerformanceTick;
         diagnostics.Dispose();
         StopScreen(); model.Pipelines.Dispose();
 

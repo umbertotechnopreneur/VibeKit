@@ -81,6 +81,13 @@ VBWR E -->
                 <TextBlock Text="·" VerticalAlignment="Center" />
                 <HyperlinkButton Content="Privacy" NavigateUri="https://umbertogiacobbi.biz/privacy/" Padding="0" FontSize="12" />
             </StackPanel>
+            <StackPanel Spacing="6">
+                <Button x:Name="EmailDiagnosticsButton" Content="Email diagnostics…" Click="EmailDiagnostics_Click" />
+                <TextBlock Text="Creates a ZIP with up to seven days of app diagnostics for you to review and send."
+                           TextWrapping="Wrap" FontSize="12" />
+                <TextBlock x:Name="DiagnosticsStatus" TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                           AutomationProperties.LiveSetting="Polite" />
+            </StackPanel>
             <Button Content="Close" HorizontalAlignment="Right" Click="Close_Click" />
         </StackPanel>
     </ScrollViewer>

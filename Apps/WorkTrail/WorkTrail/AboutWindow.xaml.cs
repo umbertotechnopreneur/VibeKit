@@ -159,6 +159,51 @@ public sealed partial class AboutWindow : Window
             "About.LogShared");
     }
 
+    /// <summary>Offers the week's support diagnostics as a ZIP in the email client.</summary>
+    private async void EmailDiagnostics_Click(object sender, RoutedEventArgs e)
+    {
+        EmailDiagnosticsButton.IsEnabled = false;
+        DiagnosticsInfoBar.IsOpen = false;
+        string? archive = null;
+        try
+        {
+            archive = await Task.Run(() => Tools.Widgets.VibeWareDiagnostics.CreateSupportArchive(
+                Runtime.LoggingBootstrapper.SupportAppId), _lifetimeCancellation.Token);
+            if (_lifetimeCancellation.IsCancellationRequested) return;
+            var result = await Task.Run(() => Tools.Widgets.VibeWareDiagnostics.OpenEmailDraft("WorkTrail", archive),
+                _lifetimeCancellation.Token);
+            if (_lifetimeCancellation.IsCancellationRequested) return;
+            DiagnosticsInfoBar.Title = _strings.Translate("About.DiagnosticsZipReady");
+            DiagnosticsInfoBar.Message = result switch
+            {
+                Tools.Widgets.SupportEmailResult.Completed => _strings.Format("About.DiagnosticsZipSaved", archive),
+                Tools.Widgets.SupportEmailResult.ManualAttachment => _strings.Format("About.DiagnosticsZipAttach", archive),
+                _ => _strings.Format("About.DiagnosticsNoEmailApp", archive)
+            };
+            DiagnosticsInfoBar.Severity = InfoBarSeverity.Informational;
+            DiagnosticsInfoBar.IsOpen = true;
+        }
+        catch (Exception)
+        {
+            if (!_lifetimeCancellation.IsCancellationRequested)
+            {
+                DiagnosticsInfoBar.Title = _strings.Translate("About.DiagnosticsEmailUnavailable");
+                DiagnosticsInfoBar.Message = archive is null
+                    ? _strings.Translate("About.DiagnosticsZipError")
+                    : _strings.Format("About.DiagnosticsZipSaved", archive);
+                DiagnosticsInfoBar.Severity = InfoBarSeverity.Warning;
+                DiagnosticsInfoBar.IsOpen = true;
+            }
+        }
+        finally
+        {
+            if (!_lifetimeCancellation.IsCancellationRequested)
+            {
+                EmailDiagnosticsButton.IsEnabled = true;
+            }
+        }
+    }
+
     /// <summary>Opens the product website through the application link service.</summary>
     private async void WebsiteButton_Click(object sender, RoutedEventArgs e) =>
         await RunProductLinkActionAsync("author");

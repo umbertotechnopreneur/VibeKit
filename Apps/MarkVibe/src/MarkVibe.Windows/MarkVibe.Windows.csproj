@@ -30,6 +30,9 @@ VBWR E -->
     <PublishSingleFile>false</PublishSingleFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../../../Widgets/Shared/VibeWareDiagnostics.cs" Link="Diagnostics/VibeWareDiagnostics.cs" />
+    <PackageReference Include="Serilog" Version="4.4.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="[1.0.4258.31]" />
     <ProjectReference Include="../MarkVibe.Native/MarkVibe.Native.csproj" />
     <ProjectReference Include="../MarkVibe.Browser/MarkVibe.Browser.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="RuntimeIdentifier;RuntimeIdentifiers;SelfContained;PublishSelfContained;PublishSingleFile;PublishReadyToRun" />

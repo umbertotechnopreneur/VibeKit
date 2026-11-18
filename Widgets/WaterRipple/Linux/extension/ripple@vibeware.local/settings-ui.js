@@ -9,43 +9,39 @@ export {SCHEMA} from './schema.js';
 import {loadPipelines} from './pipelines.js';
 import {pipelineControls} from './pipeline-ui.js';
 import {createAbout} from './about.js';
+import {createAccordion, addThemeSetting} from './preferences-layout.js';
 import {createGpuJokes} from './gpu-jokes.js';
 
 export function buildControls(window, settings, application = null, externalLease = false, startEffect = false, extensionConnection = Gio.DBus.session) {
     window.set_title('Ripple');
     window.set_default_size(760, 860);
     const {model: pipelines, path: libraryPath} = loadPipelines(settings);
-    const page = new Adw.PreferencesPage({title: 'Effect', icon_name: 'preferences-desktop-effects-symbolic'});
+    const page = new Adw.PreferencesPage();
+    const group = new Adw.PreferencesGroup();
+    page.add(group);
+    const addSection = createAccordion(page);
+    const effect = addSection('Effect');
+    const pipelineSection = addSection('Pipelines');
+    const settingsSection = addSection('Settings');
+    const aboutSection = addSection('About');
+    addThemeSetting(window, settings, settingsSection, application);
     const about = createAbout(window);
-    const aboutPage = new Adw.PreferencesPage({title: 'About', icon_name: 'help-about-symbolic'});
     const aboutGroup = new Adw.PreferencesGroup({title: 'VibeWare', description: 'Desktop toys by Umberto Giacobbi'});
     const aboutRow = new Adw.ActionRow({title: 'About Ripple', subtitle: 'Version, credits, license and project links', activatable: true});
     aboutRow.add_suffix(new Gtk.Image({icon_name: 'go-next-symbolic'}));
     aboutRow.connect('activated', () => about.show());
     aboutGroup.add(aboutRow);
-    aboutPage.add(aboutGroup);
-    let content = page;
-    let stack = null;
-    const library = pipelineControls(window, pipelines, libraryPath, () => {
-        if (stack) stack.visible_child_name = 'effect';
-        else window.set_visible_page(page);
+    aboutSection.add(aboutGroup);
+    const library = pipelineControls(window, pipelines, libraryPath, pipelineSection, () => {
+        effect.row.expanded = true;
+        effect.row.grab_focus();
     });
     if (!application) {
         window.set_search_enabled(false);
-        window.add(page); window.add(library.page); window.add(aboutPage);
-    } else {
-        stack = new Adw.ViewStack({vexpand: true});
-        stack.add_titled(page, 'effect', 'Effect').icon_name = 'preferences-desktop-effects-symbolic';
-        stack.add_titled(library.page, 'pipelines', 'Pipelines').icon_name = 'view-list-symbolic';
-        stack.add_titled(aboutPage, 'about', 'About').icon_name = 'help-about-symbolic';
-        content = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL});
-        content.append(new Adw.ViewSwitcher({stack, policy: Adw.ViewSwitcherPolicy.WIDE, halign: Gtk.Align.CENTER}));
-        content.append(stack);
+        window.add(page);
     }
-    const group = new Adw.PreferencesGroup();
-    page.add(group);
     const jokes = createGpuJokes(settings);
-    page.add(jokes.group);
+    settingsSection.add(jokes.group);
     const active = new Adw.SwitchRow({title: 'Effect'});
     settings.bind('active', active, 'active', Gio.SettingsBindFlags.DEFAULT);
     group.add(active);
@@ -83,7 +79,7 @@ export function buildControls(window, settings, application = null, externalLeas
     target.connect('notify::selected', () => settings.set_string('target', targets[target.selected]));
     group.add(target);
     const pipelineGroup = new Adw.PreferencesGroup({description: 'Changes apply immediately. Saved pipelines update automatically; duplicate a built-in pipeline to keep your changes.'});
-    page.add(pipelineGroup);
+    effect.add(pipelineGroup);
     const preset = new Adw.ComboRow({title: 'Pipeline'});
     pipelineGroup.add(preset);
     let syncing = false;
@@ -110,7 +106,7 @@ export function buildControls(window, settings, application = null, externalLeas
     const parameters = new Map(pipelines.catalog.parameters.map(p => [p.key, p]));
     const filterUpdates = [];
     for (const spec of pipelines.catalog.groups) {
-        const section = new Adw.PreferencesGroup(); page.add(section);
+        const section = new Adw.PreferencesGroup(); effect.add(section);
         const expander = new Adw.ExpanderRow({title: spec.title, expanded: !spec.enabled}); section.add(expander);
         if (spec.enabled) {
             const row = new Adw.SwitchRow({title: 'Enable'});
@@ -152,7 +148,7 @@ export function buildControls(window, settings, application = null, externalLeas
         if (parameters.has(key)) for (const update of filterUpdates) update();
     });
     const limits = new Adw.PreferencesGroup({title: 'Limits', description: 'Animation follows the monitor frame clock, up to this FPS limit. 60 FPS is recommended for a 60 Hz display.'});
-    page.add(limits);
+    settingsSection.add(limits);
     for (const [key, title, low, high, step] of [
         ['patch-size', 'Area · px', 256, 512, 64],
         ['max-waves', 'Simultaneous waves', 1, 2, 1],
@@ -251,5 +247,6 @@ export function buildControls(window, settings, application = null, externalLeas
         enableExtension();
         window.connect('close-request', () => { cancellable.cancel(); return false; });
     }
-    return {page: content, active, preset, stop, status, pipelines, library, about, aboutRow, aboutPage, jokes};
+    return {page, active, preset, stop, status, pipelines, library, about, aboutRow, aboutSection: aboutSection.row,
+        settingsSection: settingsSection.row, jokes};
 }

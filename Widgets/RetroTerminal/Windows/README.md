@@ -16,10 +16,19 @@ cmake --build build --config Release
 .\build\Release\RetroTerminal.exe
 ```
 
-Keep `Shaders/Retro.hlsl` beside the executable. Windows compiles that shader when
-the effect starts. The MSVC runtime is linked statically. There is no installer,
-autostart entry or elevation requirement. Preferences and three personal preset
-slots live in `HKCU\Software\VibeWare\RetroTerminal`; enabled state is never saved.
+The Windows MSIX package is built from source with `Packaging/Build-MSIX.ps1`.
+Pass `-CertificateThumbprint` for an existing trusted code-signing certificate
+matching the publisher to create a locally installable signed package. The output
+is `dist/RetroTerminal_<version>_x64.msix`. Install it with Windows App Installer
+or `Add-AppxPackage`; the destination must trust the signing certificate. The
+package includes the shader and statically linked MSVC runtime. There is no
+autostart entry or elevation requirement.
+
+Preferences and three personal preset slots use `HKCU\Software\VibeWare\RetroTerminal`.
+MSIX reads existing per-user settings through the merged registry view; writes are
+private to the package and persist across upgrades but are removed on uninstall.
+Enabled state is never saved. Export or otherwise preserve any settings you need
+before removing the package.
 
 ## Controls
 

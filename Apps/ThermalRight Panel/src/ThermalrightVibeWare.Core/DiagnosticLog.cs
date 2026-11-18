@@ -22,6 +22,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using ThermalrightVibeWare.Contracts;
+using Tools.Widgets;
 
 namespace ThermalrightVibeWare.Core;
 
@@ -34,6 +35,8 @@ public static class DiagnosticLog
         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ThermalrightVibeWare", "logs");
     public static string LogPath { get; } = DirectoryPath.Length == 0 ? "" : Path.Combine(DirectoryPath, "engine.log");
     private static readonly string SettingsPath = DirectoryPath.Length == 0 ? "" : Path.Combine(DirectoryPath, "diagnostics.json");
+    public const string SupportAppId = "ThermalrightVibeWare";
+    private static readonly Lazy<Serilog.Core.Logger> SupportLogger = new(CreateSupportLogger);
     private static bool enabled;
     private static bool initialized;
 
@@ -150,6 +153,10 @@ public static class DiagnosticLog
                     files.Append(bytes, MaximumBytes);
                     return;
                 }
+                if (OperatingSystem.IsWindows())
+                {
+                    SupportLogger.Value.Information("{Diagnostic:l}", line.TrimEnd());
+                }
                 Directory.CreateDirectory(DirectoryPath);
                 if (File.Exists(LogPath) && new FileInfo(LogPath).Length + bytes.Length > MaximumBytes)
                 { File.Move(LogPath, LogPath + ".1", overwrite: true); }
@@ -159,6 +166,14 @@ public static class DiagnosticLog
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
         { Console.Error.WriteLine($"TermalRight VibeWare: local diagnostic write unavailable ({error.GetType().Name})."); }
+    }
+
+    /// <summary>Creates the Windows support feed shared by the studio and engine.</summary>
+    private static Serilog.Core.Logger CreateSupportLogger()
+    {
+        var logger = VibeWareDiagnostics.CreateLogger(SupportAppId);
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => logger.Dispose();
+        return logger;
     }
 
     /// <summary>Reads the cached logging preference while the caller owns the log lock.</summary>

@@ -57,4 +57,9 @@ VBWR E -->
     <Copy SourceFiles="$(PatchedPhotinoLibrary)" DestinationFolder="$(PublishDir)" />
     <Copy SourceFiles="$(PatchedPhotinoLibrary)" DestinationFolder="$(PublishDir)runtimes/$(PatchedPhotinoRuntime)/native/" Condition="Exists('$(PublishDir)runtimes/$(PatchedPhotinoRuntime)/native')" />
   </Target>
+  <ItemGroup>
+    <Compile Include="../../../../Widgets/Shared/VibeWareDiagnostics.cs" Link="Diagnostics/VibeWareDiagnostics.cs" />
+    <PackageReference Include="Serilog" Version="4.4.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+  </ItemGroup>
 </Project>

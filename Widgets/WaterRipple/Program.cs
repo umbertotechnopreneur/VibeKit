@@ -200,21 +200,74 @@ internal sealed class MainWindow : Window
         }
         Title = "Water Ripple · VibeWare";
         AppWindow.Resize(new SizeInt32(820, 920));
-        var root = new Grid { RequestedTheme = ElementTheme.Dark, Padding = new Thickness(24, 20, 24, 12) };
+        var root = new Grid { Padding = new Thickness(24, 20, 24, 12) };
         root.DataContext = model;
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         Content = root;
         Ui.AttachAppearance(this, root, model.Settings);
-        root.Children.Add(Ui.BrandHeader("Water Ripple", "A ripple for every click. Changes apply immediately."));
+        var header = Ui.BrandHeader("Water Ripple", "A ripple for every click. Changes apply immediately.");
+        root.Children.Add(header);
         Controller = new StudioController(model, this, root, flushSettings, discardSettings);
         var controls = new RippleView(model, Controller, this);
+        var effectButton = new Button { Command = Controller.ToggleScreenCommand, VerticalAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(14, 8, 14, 8) };
+        var indicator = new Grid { Width = 14, Height = 14, VerticalAlignment = VerticalAlignment.Center };
+        var glow = new Border { Width = 14, Height = 14, Opacity = 0, IsHitTestVisible = false };
+        glow.Loaded += (_, _) =>
+        {
+            var compositor = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(glow).Compositor;
+            var shadow = compositor.CreateDropShadow();
+            shadow.Color = Windows.UI.Color.FromArgb(255, 255, 42, 42);
+            shadow.BlurRadius = 9;
+            shadow.Opacity = 0.8f;
+            var visual = compositor.CreateSpriteVisual();
+            visual.Size = new System.Numerics.Vector2(8, 8);
+            visual.Offset = new System.Numerics.Vector3(3, 3, 0);
+            visual.Brush = compositor.CreateColorBrush(Windows.UI.Color.FromArgb(255, 205, 40, 40));
+            visual.Shadow = shadow;
+            Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.SetElementChildVisual(glow, visual);
+        };
+        var led = new Microsoft.UI.Xaml.Shapes.Ellipse { Width = 8, Height = 8,
+            StrokeThickness = 1, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
+        indicator.Children.Add(glow); indicator.Children.Add(led);
+        var effectLabel = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
+        var effectContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        effectContent.Children.Add(indicator); effectContent.Children.Add(effectLabel); effectButton.Content = effectContent;
+        var pulse = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
+        var animation = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
+        {
+            From = 0.3, To = 0.85, Duration = new Duration(TimeSpan.FromSeconds(1.3)),
+            AutoReverse = true, RepeatBehavior = Microsoft.UI.Xaml.Media.Animation.RepeatBehavior.Forever,
+            EnableDependentAnimation = true
+        };
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(animation, glow);
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(animation, "Opacity");
+        pulse.Children.Add(animation);
+        var accessibility = new Windows.UI.ViewManagement.UISettings();
+        void UpdateEffectButton()
+        {
+            bool active = model.State.IsScreenEffectActive;
+            pulse.Stop();
+            effectLabel.Text = active ? "Effect on" : "Effect off";
+            led.Fill = active ? Ui.Brush(255, 75, 76) : Ui.Brush(65, 58, 60);
+            led.Stroke = active ? Ui.Brush(255, 164, 151) : Ui.Brush(148, 132, 133);
+            glow.Opacity = active ? 0.45 : 0;
+            if (active && accessibility.AnimationsEnabled) pulse.Begin();
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(effectButton, model.State.ApplyButtonText);
+            ToolTipService.SetToolTip(effectButton, model.State.ApplyButtonText);
+        }
+        model.State.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(AppState.IsScreenEffectActive)) UpdateEffectButton(); };
+        Ui.Bind(effectButton, Control.IsEnabledProperty, model.State, nameof(AppState.CanApply));
+        UpdateEffectButton(); Grid.SetColumn(effectButton, 1); header.Children.Add(effectButton);
         Grid.SetRow(controls, 1); root.Children.Add(controls);
-        var footer = Ui.Footer(); Grid.SetRow((FrameworkElement)footer, 2); root.Children.Add(footer);
+        var footer = Tools.Widgets.WidgetFooter.Create("Water Ripple", () => new AboutWindow(model.Settings).Activate());
+        Grid.SetRow(footer, 2);
+        root.Children.Add(footer);
         root.Loaded += (_, _) => DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, Controller.SurfaceLoaded);
         root.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler((_, e) => { e.Handled = Controller.HandleKey(e.Key); }), true);
-        Closed += (_, _) => Controller.Dispose();
+        Closed += (_, _) => { pulse.Stop(); Controller.Dispose(); };
     }
 
     internal void FinishHiddenStartup()

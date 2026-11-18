@@ -55,6 +55,7 @@ internal sealed class ScreenEffectSession : IDisposable
             try { Marshal.ThrowExceptionForHR(Native.RippleCreate(panel, Path.Combine(AppContext.BaseDirectory, "Shaders"), out renderer)); }
             finally { Marshal.Release(panel); }
             Marshal.ThrowExceptionForHR(Native.RippleSetScreenMode(renderer, 1));
+            Native.RippleSetInteropWindow(renderer, window.Handle);
             subclassed = Native.SetWindowSubclass(window.Handle, windowCallback, 1, UIntPtr.Zero);
             if (!subclassed) throw new Win32Exception("Stop command could not be installed.");
             registered = Native.RegisterHotKey(window.Handle, HotkeyId, 0x4003, 0x1B);

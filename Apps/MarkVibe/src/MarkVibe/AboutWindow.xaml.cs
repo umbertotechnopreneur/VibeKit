@@ -31,9 +31,13 @@ public partial class AboutWindow : ChildWindow
     private static readonly FontFamily AboutFont = new("Cascadia Mono, Consolas, monospace");
 
     /// <summary>Initializes the About dialog, local images, version text and language refresh handlers.</summary>
-    public AboutWindow()
+    public AboutWindow() : this(desktop: false) { }
+
+    /// <summary>Shows native diagnostics only when hosted by the Windows desktop app.</summary>
+    internal AboutWindow(bool desktop)
     {
         InitializeComponent();
+        DiagnosticsPanel.Visibility = desktop ? Visibility.Visible : Visibility.Collapsed;
         ProductIcon.Source = IconLabel.Asset("favicon.svg");
         VibeWareLogo.Source = IconLabel.Asset("images/vibeware-logo.png");
         RepositoryLink.Content = new IconLabel("github", "MarkVibe on GitHub");
@@ -93,6 +97,25 @@ public partial class AboutWindow : ChildWindow
 
     /// <summary>Opens the shared privacy page only after the user activates its link.</summary>
     private void Privacy(object sender, RoutedEventArgs arguments) => PublicationLinks.Open(PublicationLinks.Privacy);
+
+    /// <summary>Asks the authenticated desktop host to archive diagnostics and compose email.</summary>
+    private async void EmailDiagnostics(object sender, RoutedEventArgs arguments)
+    {
+        EmailDiagnosticsButton.IsEnabled = false;
+        AppLocalization.SetText(DiagnosticsStatus, "Preparing the diagnostics ZIP…");
+        try
+        {
+            DiagnosticsStatus.Text = await BrowserServices.CallAsync<string>("diagnostics.email");
+        }
+        catch (Exception)
+        {
+            AppLocalization.SetText(DiagnosticsStatus, "Could not create a diagnostics ZIP or open email.");
+        }
+        finally
+        {
+            EmailDiagnosticsButton.IsEnabled = true;
+        }
+    }
 
     /// <summary>Closes the About dialog.</summary>
     private void Dismiss(object sender, RoutedEventArgs arguments) => Close();

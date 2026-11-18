@@ -1,12 +1,24 @@
 using Microsoft.UI.Xaml;
+using Serilog.Events;
+using Tools.Widgets;
 
 namespace OpenAIUsage.Windows;
 
 public static class Program
 {
+    internal const string AppId = "OpenAIUsage";
+
     [STAThread]
     public static int Main(string[] args)
     {
+        using var logger = VibeWareDiagnostics.CreateLogger(AppId);
+        Diagnostics.UseRecorder((kind, bytes) =>
+        {
+            LogEventLevel level = kind.EndsWith(".failed", StringComparison.Ordinal) ||
+                kind.EndsWith(".failure", StringComparison.Ordinal) || kind == "ui.unhandled"
+                ? LogEventLevel.Warning : LogEventLevel.Information;
+            logger.Write(level, "Event {Kind} Bytes={Bytes}", kind, bytes);
+        });
         if (args.FirstOrDefault() == "--memory-guard") return WindowsMemoryGuard.Run(args);
         try
         {
@@ -18,6 +30,7 @@ public static class Program
             const int noPackage = 15700;
             if (GetCurrentPackageFullName(ref packageNameLength, 0) == noPackage)
                 SetCurrentProcessExplicitAppUserModelID("biz.umbertogiacobbi.OpenAIUsage");
+            logger.Information("Application started Version={Version}", typeof(Program).Assembly.GetName().Version);
             using var guard = WindowsMemoryGuard.Start();
             WinRT.ComWrappersSupport.InitializeComWrappers();
             Application.Start(initialization =>

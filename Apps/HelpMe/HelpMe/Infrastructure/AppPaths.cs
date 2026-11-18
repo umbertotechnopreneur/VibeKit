@@ -51,7 +51,7 @@ public sealed record AppPaths(
             dataDirectory,
             Path.Combine(dataDirectory, "helpme.db"),
             logsDirectory,
-            Path.Combine(logsDirectory, "helpme-.log"),
+            Path.Combine(logsDirectory, "VibeWare-.log"),
             Path.Combine(AppContext.BaseDirectory, "prompt"));
     }
 

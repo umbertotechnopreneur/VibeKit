@@ -88,6 +88,14 @@
       "source": "https://api.nuget.org/v3/index.json",
       "sha256": "c8396b8dbab86a2619edfd9158beaf18c21cb86677099b5594950fd8651b9d1a"
     },
+    "Serilog/4.4.0": {
+      "source": "https://api.nuget.org/v3/index.json",
+      "sha256": "b4fe17d3a4e170354be975ed60885d272c67e2e2fd8cb2f4b370d13ba1cd424f"
+    },
+    "Serilog.Sinks.File/7.0.0": {
+      "source": "https://api.nuget.org/v3/index.json",
+      "sha256": "2f165852850f9028c82156ab2629675e7a9088cac5349b68462966cd336d523a"
+    },
     "System.Drawing.Common/10.0.10": {
       "source": "https://api.nuget.org/v3/index.json",
       "sha256": "9072478088456bdf8737cea29fcf58d8d0f1cb90b3febdac48e82e1508572add"

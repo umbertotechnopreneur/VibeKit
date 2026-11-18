@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "Renderer.h"
+#include "RippleFrameInput.h"
 #include <d3d11.h>
 #include <dxgi1_4.h>
 #include <dcomp.h>
@@ -83,6 +84,8 @@ struct Renderer::State
     HWND overlay{};
     UINT width{}, height{};
     bool validFrame = false, presentPending = false;
+    retro_terminal::RippleFrameInput rippleInput;
+    bool usedRippleFrame = false;
     unsigned busyPresents = 0;
     std::wstring adapterName;
     Clock::time_point started = Clock::now();
@@ -266,6 +269,7 @@ void Renderer::Start(HWND overlay, HMONITOR monitor, const std::wstring& shaderP
     // Leave the Windows-owned capture border enabled. No capture permissions are bypassed.
     next->session.StartCapture();
     next->started = Clock::now();
+    next->rippleInput.Start(overlay, monitor, info.rcMonitor);
     state = std::move(next);
 }
 
@@ -299,7 +303,13 @@ bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, b
         s.validFrame = true;
         frame.Close();
     }
-    if (!s.validFrame)
+    const auto ripple = s.rippleInput.Poll(s.device.Get(), s.context.Get(), s.adapter.Get(), now);
+    const bool usingRipple = ripple.view != nullptr;
+    const bool sourceChanged = s.usedRippleFrame != usingRipple;
+    s.usedRippleFrame = usingRipple;
+    if (sourceChanged) s.historyValid = false;
+    newFrame = sourceChanged || (usingRipple ? ripple.updated : newFrame);
+    if (!s.validFrame && !usingRipple)
     {
         if (now - s.started > std::chrono::seconds(3)) Fail(L"No screen frame arrived. The effect stopped.");
         return false;
@@ -339,7 +349,8 @@ bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, b
     s.context->PSSetConstantBuffers(0, 1, &constants);
     ID3D11SamplerState* sampler = s.sampler.Get();
     s.context->PSSetSamplers(0, 1, &sampler);
-    ID3D11ShaderResourceView* views[]{s.desktopView.Get(), persistence ? s.historyViews[s.historyRead].Get() : nullptr};
+    ID3D11ShaderResourceView* views[]{usingRipple ? ripple.view : s.desktopView.Get(),
+        persistence ? s.historyViews[s.historyRead].Get() : nullptr};
     s.context->PSSetShaderResources(0, 2, views);
     s.context->Draw(3, 0);
     ID3D11ShaderResourceView* empty[2]{};
@@ -363,5 +374,7 @@ bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, b
 
 std::wstring Renderer::Description() const
 {
-    return state ? state->adapterName + L" · " + std::to_wstring(state->width) + L" × " + std::to_wstring(state->height) : L"Stopped";
+    if (!state) return L"Stopped";
+    return state->adapterName + L" · " + std::to_wstring(state->width) + L" × " + std::to_wstring(state->height)
+        + (state->rippleInput.UsingRipple() ? L" · Water Ripple input" : L"");
 }

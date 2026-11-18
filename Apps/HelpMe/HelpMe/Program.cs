@@ -24,6 +24,7 @@ using HelpMe.Models;
 using HelpMe.Services;
 using HelpMe.Views;
 using Serilog;
+using Tools.Widgets;
 using Spectre.Console;
 
 namespace HelpMe;
@@ -58,11 +59,13 @@ internal static class Program
             .MinimumLevel.Information()
             .Enrich.FromLogContext()
             .WriteTo.File(
+                new VibeWareDiagnostics.SupportFormatter(),
                 paths.LogFilePattern,
                 rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 14,
-                shared: true,
-                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SessionId}] {SourceContext} {Message:lj}{NewLine}{Exception}")
+                retainedFileCountLimit: 7,
+                retainedFileTimeLimit: TimeSpan.FromDays(7),
+                fileSizeLimitBytes: 2 * 1024 * 1024,
+                shared: true)
             .CreateLogger();
 
         using var logSession = Serilog.Context.LogContext.PushProperty("SessionId", Guid.NewGuid().ToString("N")[..12]);

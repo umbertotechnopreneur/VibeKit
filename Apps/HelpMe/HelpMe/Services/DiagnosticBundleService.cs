@@ -23,6 +23,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using HelpMe.Infrastructure;
+using Tools.Widgets;
 
 namespace HelpMe.Services;
 
@@ -35,12 +36,23 @@ public sealed class DiagnosticBundleService(AppPaths paths, ISensitiveDataRedact
 {
     #region Fields
 
-    private const int MaximumLogFiles = 14;
+    private const int MaximumLogFiles = 7;
     private const int MaximumBytesPerLog = 4 * 1024 * 1024;
 
     #endregion
 
     #region Methods
+
+    /// <summary>Prepares the About export in the local support folder.</summary>
+    public Task<DiagnosticBundleResult> PrepareForSupportAsync()
+    {
+        var destination = Directory.CreateDirectory(Path.Combine(paths.DataDirectory, "diagnostics"));
+        return PrepareAsync(destination.FullName, CancellationToken.None);
+    }
+
+    /// <summary>Opens a support email for the user to review in their own mail client.</summary>
+    public bool OpenSupportEmail(DiagnosticBundleResult bundle) =>
+        VibeWareDiagnostics.OpenEmailDraft("HelpMe", bundle.Path) != SupportEmailResult.NoEmailApp;
 
     /// <summary>Writes machine metadata and recent redacted logs to a new ZIP in the requested directory.</summary>
     public async Task<DiagnosticBundleResult> PrepareAsync(string outputDirectory, CancellationToken cancellationToken)
@@ -52,21 +64,30 @@ public sealed class DiagnosticBundleService(AppPaths paths, ISensitiveDataRedact
             throw new DirectoryNotFoundException("The output directory is unavailable.");
         }
 
+        var now = DateTimeOffset.UtcNow;
+        var since = now.AddDays(-7);
         var logFiles = Directory.Exists(paths.LogsDirectory)
-            ? new DirectoryInfo(paths.LogsDirectory).EnumerateFiles("helpme-*.log", SearchOption.TopDirectoryOnly)
-                .Where(file => (file.Attributes & FileAttributes.ReparsePoint) == 0)
+            ? new DirectoryInfo(paths.LogsDirectory).EnumerateFiles("*.log", SearchOption.TopDirectoryOnly)
+                .Where(file => (file.Attributes & FileAttributes.ReparsePoint) == 0
+                    && file.LastWriteTimeUtc >= since.UtcDateTime && file.LastWriteTimeUtc <= now.UtcDateTime
+                    && (file.Name.StartsWith("VibeWare-", StringComparison.Ordinal) ||
+                        file.Name.StartsWith("helpme-", StringComparison.Ordinal)))
                 .OrderByDescending(file => file.LastWriteTimeUtc)
                 .Take(MaximumLogFiles)
                 .ToArray()
             : [];
-        var zipPath = ReservePath(destination);
+        var stream = OpenArchive(destination, now);
+        var zipPath = stream.Name;
         try
         {
-            await using var stream = new FileStream(zipPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None,
-                bufferSize: 64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            await using var output = stream;
             using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true, Encoding.UTF8))
             {
                 await WriteTextAsync(archive, "README.txt", Readme(logFiles.Length), cancellationToken).ConfigureAwait(false);
+                await WriteTextAsync(archive, "manifest.json", JsonSerializer.Serialize(new
+                {
+                    format = "vibeware-diagnostics-v1", app = "HelpMe", fromUtc = since, createdUtc = now
+                }), cancellationToken).ConfigureAwait(false);
                 await WriteTextAsync(archive, "diagnostics.json", DiagnosticsJson(logFiles.Length), cancellationToken).ConfigureAwait(false);
                 foreach (var log in logFiles)
                 {
@@ -94,18 +115,20 @@ public sealed class DiagnosticBundleService(AppPaths paths, ISensitiveDataRedact
 
     #region Implementation
 
-    /// <summary>Reserves a timestamped filename without replacing an existing support archive.</summary>
-    private static string ReservePath(string directory)
+    /// <summary>Claims a new filename before writing so concurrent exports cannot replace one another.</summary>
+    private static FileStream OpenArchive(string directory, DateTimeOffset now)
     {
-        var timestamp = DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+        var timestamp = now.ToString("yyyyMMdd'T'HHmmssfff'Z'", CultureInfo.InvariantCulture);
         for (var suffix = 0; suffix < 100; suffix++)
         {
             var extra = suffix == 0 ? string.Empty : $"-{suffix}";
-            var candidate = Path.Combine(directory, $"HelpMe-support-{timestamp}{extra}.zip");
-            if (!File.Exists(candidate))
+            var candidate = Path.Combine(directory, $"VibeWare-HelpMe-diagnostics-{timestamp}{extra}.zip");
+            try
             {
-                return candidate;
+                return new FileStream(candidate, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None,
+                    bufferSize: 64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
             }
+            catch (IOException) when (File.Exists(candidate)) { }
         }
         throw new IOException("Could not reserve a unique support archive name.");
     }
@@ -146,8 +169,8 @@ public sealed class DiagnosticBundleService(AppPaths paths, ISensitiveDataRedact
     private static string Readme(int logFileCount) => $"""
         HelpMe support bundle
 
-        This archive was created locally by hm --prepare-logs.
-        It contains diagnostics.json and {logFileCount} available diagnostic log file(s).
+        This archive was created locally by HelpMe.
+        It contains a format manifest, diagnostics.json, and {logFileCount} available diagnostic log file(s).
         Each log is redacted again while the archive is created. Large logs contain only their most recent 4 MiB.
 
         It does not include the HelpMe database, conversations, memories, API keys, environment variables,

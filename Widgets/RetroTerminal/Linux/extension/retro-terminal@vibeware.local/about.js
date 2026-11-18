@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk?version=4.0';
 import GdkPixbuf from 'gi://GdkPixbuf';
 import Gio from 'gi://Gio';
@@ -22,7 +23,7 @@ export function createAbout(parent) {
         if (dialog) { dialog.present(); return dialog; }
         const [, contents] = directory.get_child('metadata.json').load_contents(null);
         const metadata = JSON.parse(new TextDecoder().decode(contents));
-        dialog = new Gtk.Window({title: `About ${metadata.name}`, transient_for: parent,
+        dialog = new Adw.Window({title: `About ${metadata.name}`, transient_for: parent,
             modal: true, destroy_with_parent: true, default_width: 640, default_height: 680,
             icon_name: 'utilities-terminal'});
         dialog.add_css_class('retro-about');
@@ -60,15 +61,14 @@ export function createAbout(parent) {
         const close = new Gtk.Button({label: 'Close', halign: Gtk.Align.CENTER});
         close.connect('clicked', () => dialog?.close());
         body.append(close);
-        dialog.set_child(new Gtk.ScrolledWindow({hscrollbar_policy: Gtk.PolicyType.NEVER,
+        dialog.set_content(new Gtk.ScrolledWindow({hscrollbar_policy: Gtk.PolicyType.NEVER,
             vscrollbar_policy: Gtk.PolicyType.AUTOMATIC, child: body}));
         provider = new Gtk.CssProvider();
         provider.load_from_string(`
-            window.retro-about { background-color: #fff4dc; }
-            .retro-about-body label { color: #232a2f; font-family: monospace; font-size: 15px; }
+            .retro-about-body label { font-family: monospace; font-size: 15px; }
             .retro-about-body .about-heading { font-size: 23px; font-weight: bold; }
-            .retro-about-body .about-note { color: #526573; font-size: 13px; }
-            .retro-about-body button.link label { color: #3a6a96; font-size: 13px; }
+            .retro-about-body .about-note { opacity: .75; font-size: 13px; }
+            .retro-about-body button.link label { font-size: 13px; }
         `);
         display = dialog.get_display();
         Gtk.StyleContext.add_provider_for_display(display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);

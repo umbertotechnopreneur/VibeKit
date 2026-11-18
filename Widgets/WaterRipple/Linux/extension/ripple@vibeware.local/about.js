@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk?version=4.0';
 import GdkPixbuf from 'gi://GdkPixbuf';
 import Gio from 'gi://Gio';
@@ -7,14 +8,10 @@ import Gtk from 'gi://Gtk?version=4.0';
 const directory = Gio.File.new_for_uri(import.meta.url).get_parent();
 
 const aboutStyles = `
-window.widget-about, .widget-about .about-body { background-color: #fff4dc; color: #232a2f; }
 .widget-about .about-body { font-family: monospace; font-size: 15px; }
-.widget-about .about-body label { color: #232a2f; }
 .widget-about .about-body .about-heading { font-size: 23px; font-weight: bold; }
-.widget-about .about-body .about-note { color: #526573; font-size: 13px; }
-.widget-about .about-body .about-link, .widget-about .about-body .about-link label { color: #3a6a96; }
+.widget-about .about-body .about-note { opacity: .75; font-size: 13px; }
 .widget-about .about-body .about-link { padding: 4px; font-size: 13px; }
-.widget-about .about-body .about-link:hover { background-color: alpha(#3a6a96, .10); }
 `;
 
 function aboutText(label, style) {
@@ -51,7 +48,7 @@ export function createAbout(window) {
 
         const [, metadataContents] = directory.get_child('metadata.json').load_contents(null);
         const metadata = JSON.parse(new TextDecoder().decode(metadataContents));
-        const dialog = new Gtk.Window({
+        const dialog = new Adw.Window({
             application: window.get_application(), title: 'About Ripple', transient_for: window, destroy_with_parent: true,
             modal: true, default_width: 640, default_height: 620, icon_name: 'local.vibeware.Ripple',
         });
@@ -101,7 +98,7 @@ export function createAbout(window) {
             hscrollbar_policy: Gtk.PolicyType.NEVER, vscrollbar_policy: Gtk.PolicyType.AUTOMATIC,
             child: content,
         });
-        dialog.set_child(scroll);
+        dialog.set_content(scroll);
 
         provider = new Gtk.CssProvider();
         provider.load_from_string(aboutStyles);

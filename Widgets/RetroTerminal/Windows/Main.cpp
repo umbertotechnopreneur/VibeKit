@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "Renderer.h"
-#include "SettingsStore.h"
+#include "ControllerState.h"
 #include "CloseDialog.h"
 #include <commdlg.h>
 #include <vector>
@@ -24,18 +24,17 @@ namespace
     constexpr UINT_PTR RenderTimer = 1;
     constexpr int EmergencyHotkey = 1;
     using Clock = std::chrono::steady_clock;
-    struct Application
+    struct Application : ControllerState
     {
         HINSTANCE instance{};
-        HWND window{}, overlay{}, toggle{}, palette{}, status{}, tabs{}, color{}, mask{}, persistence{}, randomToggle{}, preset{};
+        HWND window{}, overlay{}, toggle{}, palette{}, status{}, tabs{}, color{}, mask{}, persistence{}, randomToggle{}, preset{}, heading{}, eyebrow{};
         std::array<HWND, 4> typeChecks{};
         std::vector<HWND> sliderLabels, sliders;
         std::array<std::vector<HWND>, 2> pages;
-        EffectSettings settings;
-        GlitchSchedule glitches;
         int currentPage = 0, scrollOffset = 0;
         bool syncing = false;
-        HFONT font{};
+        HFONT font{}, headingFont{};
+        HBRUSH background = CreateSolidBrush(RGB(248, 247, 252));
         UINT currentDpi = 96;
         Renderer renderer;
         bool running = false, hotkeyAvailable = false, dirty = false;
@@ -48,7 +47,7 @@ namespace
         double Time() const { return std::chrono::duration<double>(Clock::now().time_since_epoch()).count(); }
         bool SavePreferences()
         {
-            if (WriteSettings(settings)) return true;
+            if (Save()) return true;
             Status(L"Could not save preferences. Your current values are retained in this panel. Close to retry saving.");
             return false;
         }
@@ -61,8 +60,7 @@ namespace
         }
         void Changed(bool save = true)
         {
-            settings.Clamp();
-            glitches.Cancel(Time(), settings);
+            Change(Time());
             dirty = true;
             if (save) SavePreferences();
         }
@@ -108,51 +106,56 @@ namespace
         }
         void CreateControls()
         {
-            ReadSettings(settings);
+            Load();
             currentDpi = GetDpiForWindow(window);
             LOGFONTW info{};
             info.lfHeight = -Dip(13);
             wcscpy_s(info.lfFaceName, L"Segoe UI");
             font = CreateFontIndirectW(&info);
-            Control(L"STATIC", L"Retro Terminal", SS_LEFT, 20, 16, 300, 26);
-            preset = Control(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL, 20, 50, 340, 200, PresetId);
+            info.lfHeight = -Dip(22);
+            info.lfWeight = FW_SEMIBOLD;
+            headingFont = CreateFontIndirectW(&info);
+            eyebrow = Control(L"STATIC", L"VIBEWARE  /  DESKTOP EFFECTS", SS_LEFT, 20, 12, 600, 19);
+            heading = Control(L"STATIC", L"Retro Terminal", SS_LEFT, 20, 31, 400, 32);
+            SendMessageW(heading, WM_SETFONT, reinterpret_cast<WPARAM>(headingFont), TRUE);
+            preset = Control(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL, 20, 78, 340, 200, PresetId);
             for (auto label : {L"Custom", L"Clean terminal", L"Worn terminal", L"Arcade", L"My preset 1", L"My preset 2", L"My preset 3"})
                 SendMessageW(preset, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label));
             SendMessageW(preset, CB_SETCURSEL, 0, 0);
-            Control(L"BUTTON", L"Save to selected personal preset", BS_PUSHBUTTON | WS_TABSTOP, 375, 48, 290, 28, SavePresetId);
-            tabs = Control(WC_TABCONTROLW, L"", WS_TABSTOP, 15, 92, 660, 510, TabsId);
+            Control(L"BUTTON", L"Save to selected personal preset", BS_PUSHBUTTON | WS_TABSTOP, 375, 76, 290, 28, SavePresetId);
+            tabs = Control(WC_TABCONTROLW, L"", WS_TABSTOP, 15, 120, 660, 510, TabsId);
             TCITEMW tab{}; tab.mask = TCIF_TEXT;
             tab.pszText = const_cast<wchar_t*>(L"Appearance"); TabCtrl_InsertItem(tabs, 0, &tab);
             tab.pszText = const_cast<wchar_t*>(L"Glitches"); TabCtrl_InsertItem(tabs, 1, &tab);
-            palette = PageControl(0, L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP, 30, 128, 305, 180, PaletteId);
+            palette = PageControl(0, L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP, 30, 156, 305, 180, PaletteId);
             for (auto label : {L"Green phosphor", L"Amber terminal", L"Arcade color", L"Custom phosphor color"})
                 SendMessageW(palette, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label));
-            color = PageControl(0, L"BUTTON", L"Choose color…", BS_PUSHBUTTON | WS_TABSTOP, 350, 126, 300, 27, ColorId);
-            mask = PageControl(0, L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP, 30, 164, 305, 150, MaskId);
+            color = PageControl(0, L"BUTTON", L"Choose color…", BS_PUSHBUTTON | WS_TABSTOP, 350, 154, 300, 27, ColorId);
+            mask = PageControl(0, L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP, 30, 192, 305, 150, MaskId);
             for (auto label : {L"Mask: off", L"Mask: RGB stripes", L"Mask: phosphor dots"})
                 SendMessageW(mask, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label));
-            persistence = PageControl(0, L"BUTTON", L"Temporal phosphor afterglow", BS_AUTOCHECKBOX | WS_TABSTOP, 350, 162, 300, 28, PersistenceId);
-            randomToggle = PageControl(1, L"BUTTON", L"Random glitches", BS_AUTOCHECKBOX | WS_TABSTOP, 30, 130, 300, 26, RandomId);
+            persistence = PageControl(0, L"BUTTON", L"Temporal phosphor afterglow", BS_AUTOCHECKBOX | WS_TABSTOP, 350, 190, 300, 28, PersistenceId);
+            randomToggle = PageControl(1, L"BUTTON", L"Random glitches", BS_AUTOCHECKBOX | WS_TABSTOP, 30, 158, 300, 26, RandomId);
             const wchar_t* names[]{L"RGB misalignment", L"Horizontal tear", L"Local line noise", L"Soft scan band"};
             for (unsigned i = 0; i < 4; ++i)
                 typeChecks[i] = PageControl(1, L"BUTTON", names[i], BS_AUTOCHECKBOX | WS_TABSTOP,
-                    30 + int(i % 2) * 320, 170 + int(i / 2) * 32, 300, 28, GlitchTypeBase + int(i));
+                    30 + int(i % 2) * 320, 198 + int(i / 2) * 32, 300, 28, GlitchTypeBase + int(i));
             int row[2]{};
             for (size_t i = 0; i < std::size(FloatControls); ++i) {
                 const auto& spec = FloatControls[i];
-                int y = (spec.page == 0 ? 204 : 255) + row[spec.page]++ * 29;
+                int y = (spec.page == 0 ? 232 : 283) + row[spec.page]++ * 29;
                 sliderLabels.push_back(PageControl(spec.page, L"STATIC", spec.title, SS_LEFT, 30, y + 4, 325, 24));
                 HWND slider = PageControl(spec.page, TRACKBAR_CLASSW, spec.title, TBS_HORZ | WS_TABSTOP,
                     350, y, 300, 27, SliderBase + int(i));
                 SendMessageW(slider, TBM_SETRANGE, TRUE, MAKELPARAM(0, 1000));
                 sliders.push_back(slider);
             }
-            PageControl(1, L"BUTTON", L"Try now", BS_PUSHBUTTON | WS_TABSTOP, 30, 430, 200, 32, TryId);
-            PageControl(1, L"STATIC", L"Try now uses the allowed types, even with random glitches off.\nOne episode at a time; at least two seconds of rest.\nStop cancels all episodes. No full-screen flashes.", SS_LEFT, 30, 480, 600, 80);
-            toggle = Control(L"BUTTON", L"Enable effect", BS_PUSHBUTTON | WS_TABSTOP, 20, 620, 315, 36, ToggleId);
-            Control(L"BUTTON", L"Stop", BS_PUSHBUTTON | WS_TABSTOP, 350, 620, 315, 36, StopId);
-            Control(L"STATIC", L"Ctrl + Alt + F11 stops CRT. Applies to the monitor containing this panel.", SS_LEFT, 20, 670, 645, 22);
-            status = Control(L"STATIC", L"Stopped. Your desktop is unchanged.", SS_LEFT, 20, 704, 645, 54);
+            PageControl(1, L"BUTTON", L"Try now", BS_PUSHBUTTON | WS_TABSTOP, 30, 458, 200, 32, TryId);
+            PageControl(1, L"STATIC", L"Try now uses the allowed types, even with random glitches off.\nOne episode at a time; at least two seconds of rest.\nStop cancels all episodes. No full-screen flashes.", SS_LEFT, 30, 508, 600, 80);
+            toggle = Control(L"BUTTON", L"Enable effect", BS_PUSHBUTTON | WS_TABSTOP, 20, 648, 315, 36, ToggleId);
+            Control(L"BUTTON", L"Stop", BS_PUSHBUTTON | WS_TABSTOP, 350, 648, 315, 36, StopId);
+            Control(L"STATIC", L"Ctrl + Alt + F11 stops CRT. Applies to the monitor containing this panel.", SS_LEFT, 20, 698, 645, 22);
+            status = Control(L"STATIC", L"Stopped. Your desktop is unchanged.", SS_LEFT, 20, 732, 645, 54);
             SyncControls(); ShowPage(); UpdateScroll();
             hotkeyAvailable = RegisterHotKey(window, EmergencyHotkey, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_F11) != FALSE;
             if (!hotkeyAvailable) {
@@ -170,12 +173,10 @@ namespace
             if (index == 0) return;
             if (index <= 3) settings = BuiltInPreset(index - 1);
             else {
-                EffectSettings saved;
-                if (!ReadSettings(saved, std::wstring(SettingsPath) + L"\\Preset" + std::to_wstring(index - 3))) {
+                if (!LoadPersonalPreset(index - 3)) {
                     Status(L"This personal preset is empty. Choose your settings and save to this slot.");
                     return;
                 }
-                settings = saved;
             }
             Changed(); SyncControls();
         }
@@ -183,7 +184,7 @@ namespace
         {
             int index = int(SendMessageW(preset, CB_GETCURSEL, 0, 0));
             if (index < 4) { Status(L"Select My preset 1, 2 or 3 before saving. Existing slot contents will be replaced."); return; }
-            if (WriteSettings(settings, std::wstring(SettingsPath) + L"\\Preset" + std::to_wstring(index - 3)))
+            if (SavePersonalPreset(index - 3))
                 Status(L"Personal preset saved.");
             else Status(L"Could not save the personal preset.");
         }
@@ -205,7 +206,7 @@ namespace
             RECT client{}; GetClientRect(window, &client);
             SCROLLINFO info{sizeof(info)};
             info.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
-            info.nMin = 0; info.nMax = Dip(775) - 1;
+            info.nMin = 0; info.nMax = Dip(803) - 1;
             info.nPage = UINT(client.bottom);
             info.nPos = scrollOffset;
             SetScrollInfo(window, SB_VERT, &info, TRUE);
@@ -214,7 +215,7 @@ namespace
         void ScrollTo(int position)
         {
             RECT client{}; GetClientRect(window, &client);
-            position = std::clamp(position, 0, std::max(0, Dip(775) - int(client.bottom)));
+            position = std::clamp(position, 0, std::max(0, Dip(803) - int(client.bottom)));
             const int delta = scrollOffset - position;
             scrollOffset = position;
             if (delta) ScrollWindowEx(window, 0, delta, nullptr, nullptr, nullptr, nullptr,
@@ -238,6 +239,13 @@ namespace
                 if (nextFont) SendMessageW(child, WM_SETFONT, reinterpret_cast<WPARAM>(nextFont), TRUE);
             }
             if (nextFont) { DeleteObject(font); font = nextFont; }
+            info.lfHeight = -MulDiv(22, int(dpi), 96);
+            info.lfWeight = FW_SEMIBOLD;
+            HFONT nextHeading = CreateFontIndirectW(&info);
+            if (nextHeading) {
+                SendMessageW(heading, WM_SETFONT, reinterpret_cast<WPARAM>(nextHeading), TRUE);
+                DeleteObject(headingFont); headingFont = nextHeading;
+            }
             scrollOffset = MulDiv(scrollOffset, int(dpi), int(currentDpi));
             currentDpi = dpi;
             UpdateScroll();
@@ -357,6 +365,20 @@ namespace
         if (!app) return DefWindowProcW(window, message, wParam, lParam);
         switch (message)
         {
+        case WM_ERASEBKGND:
+        {
+            RECT bounds{}; GetClientRect(window, &bounds);
+            FillRect(reinterpret_cast<HDC>(wParam), &bounds, app->background);
+            return 1;
+        }
+        case WM_CTLCOLORSTATIC:
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            HWND child = reinterpret_cast<HWND>(lParam);
+            SetBkColor(dc, RGB(248, 247, 252));
+            SetTextColor(dc, child == app->eyebrow ? RGB(108, 65, 158) : RGB(35, 30, 48));
+            return reinterpret_cast<LRESULT>(app->background);
+        }
         case WM_COMMAND:
         {
             const int id = LOWORD(wParam);
@@ -498,7 +520,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
         app.instance = instance;
         const DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VSCROLL;
         UINT dpi = GetDpiForSystem();
-        RECT rect{0, 0, MulDiv(690, dpi, 96), MulDiv(775, dpi, 96)};
+        RECT rect{0, 0, MulDiv(690, dpi, 96), MulDiv(803, dpi, 96)};
         AdjustWindowRectExForDpi(&rect, style, FALSE, 0, dpi);
         RECT work{};
         if (SystemParametersInfoW(SPI_GETWORKAREA, 0, &work, 0))
@@ -514,6 +536,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
             if (!IsDialogMessageW(app.window, &message)) { TranslateMessage(&message); DispatchMessageW(&message); }
         app.renderer.Stop();
         if (app.font) DeleteObject(app.font);
+        if (app.headingFont) DeleteObject(app.headingFont);
+        if (app.background) DeleteObject(app.background);
         CloseHandle(singleton);
         return result < 0 ? 1 : 0;
     }

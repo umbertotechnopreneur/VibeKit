@@ -94,7 +94,7 @@ public sealed partial class MainPage
         FiltersPanel.Background = Brush(light ? "#E9F0F5" : "#19232E");
         DisplayDivider.BorderBrush = line;
         foreach (var text in new[] { Heading, SelectedThemeText, LoadingTitle, PositionText, PagePositionText, FontScaleText, SaturationText, HueText, BrightnessText, ContrastText, AboutHeading, AboutAuthor, AboutDisclosureHeading, CodexStatusText }) { text.Foreground = ink; }
-        foreach (var text in new[] { Subtitle, Author, HeaderDot, ThemeNavigationText, PageNavigationText, StatusText, LoadingText, FontLabel, SizeLabel, GeometryLabel, DeviceLabel, RefreshLabel, QualityLabel, SaturationLabel, HueLabel, BrightnessLabel, ContrastLabel, FiltersStatus, ScreensHelpText, CodexEventText, CodexHelpText, FooterDot2, AboutVersion, AboutDisclosure, AboutInitiative, AdministratorHelp }) { text.Foreground = muted; }
+        foreach (var text in new[] { Subtitle, Author, HeaderDot, ThemeNavigationText, PageNavigationText, StatusText, LoadingText, FontLabel, SizeLabel, GeometryLabel, DeviceLabel, RefreshLabel, QualityLabel, SaturationLabel, HueLabel, BrightnessLabel, ContrastLabel, FiltersStatus, ScreensHelpText, CodexEventText, CodexHelpText, FooterDot2, AboutVersion, AboutDiagnosticsStatus, AboutDisclosure, AboutInitiative, AdministratorHelp }) { text.Foreground = muted; }
         foreach (var text in new[] { CategoryText, ScreensHeading, CodexSetupHeading }) { text.Foreground = accent; }
         foreach (var link in new[] { AboutLink, TermsLink, PrivacyLink, AboutManifesto, ProjectLink, InitiativeLink, WebsiteLink, AboutTerms, AboutPrivacy }) { link.Foreground = accent; }
         ThemeDescriptionText.Foreground = muted;
@@ -117,7 +117,7 @@ public sealed partial class MainPage
         SpectrumBox.Foreground = muted;
         FiltersBox.Foreground = ink;
         foreach (var box in new[] { MusicScreenBox, CodexScreenBox, SystemScreenBox }) { box.Foreground = ink; }
-        foreach (var button in new[] { ReloadButton, PreviousButton, NextButton, PagePreviousButton, PageNextButton, ApplyFontButton, FontListButton, ResetColorsButton, SmallerButton, LargerButton, CloseAboutButton, RefreshDevicesButton, StartDisplayButton, StopDisplayButton, CodexRefreshButton, CodexPrepareButton, OpenLogButton, SessionDetailsButton, AdministratorButton })
+        foreach (var button in new[] { ReloadButton, PreviousButton, NextButton, PagePreviousButton, PageNextButton, ApplyFontButton, FontListButton, ResetColorsButton, SmallerButton, LargerButton, CloseAboutButton, EmailDiagnosticsButton, RefreshDevicesButton, StartDisplayButton, StopDisplayButton, CodexRefreshButton, CodexPrepareButton, OpenLogButton, SessionDetailsButton, AdministratorButton })
         { button.Background = transparent; button.Foreground = ink; button.BorderThickness = new Thickness(0); }
         foreach (var button in new[] { ScreensDetailsButton, CodexDetailsButton, SensorDetailsButton, AppearanceDetailsButton, DisplayOptionsButton, DiagnosticsDetailsButton })
         { button.Foreground = ink; }

@@ -1,5 +1,10 @@
 <schemalist>
   <schema id="org.gnome.shell.extensions.vibeware-ripple" path="/org/gnome/shell/extensions/vibeware-ripple/">
+    <key name="window-theme" type="s">
+      <choices><choice value="system"/><choice value="light"/><choice value="dark"/></choices>
+      <default>'system'</default>
+      <summary>Preferences window theme</summary>
+    </key>
     <key name="show-gpu-jokes" type="b">
       <default>true</default>
       <summary>Show rotating GPU jokes in the preferences panel</summary>

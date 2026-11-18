@@ -25,6 +25,7 @@ $cache = Join-Path $env:USERPROFILE '.nuget\packages'
 & dotnet publish (Join-Path $project 'WaterRipple.csproj') -c Release -r win-x64 --self-contained true "-p:Version=$Version" -p:TargetLatestRuntimePatch=true -p:NuGetAudit=false -p:DebugType=None --source $cache -o $stage
 if ($LASTEXITCODE -ne 0) { throw 'Source publish failed.' }
 $nativeOutput = Join-Path $project 'bin\Release\net10.0-windows10.0.26100.0\win-x64'
+Copy-Item -LiteralPath (Join-Path $nativeOutput 'WaterRipple.pri') -Destination (Join-Path $stage 'resources.pri')
 Copy-Item -LiteralPath (Join-Path $nativeOutput 'RippleRenderer.dll') -Destination $stage
 New-Item -ItemType Directory -Path (Join-Path $stage 'Shaders') -Force | Out-Null
 foreach ($shader in @('RippleVS.cso','RipplePS.cso')) { Copy-Item -LiteralPath (Join-Path $nativeOutput "Shaders\$shader") -Destination (Join-Path $stage 'Shaders') }

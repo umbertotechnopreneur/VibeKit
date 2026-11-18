@@ -1,1 +1,11 @@
 /build/
+
+/build-msix-*/
+/msix-stage-*/
+
+/studio-stage-*/
+/studio-test-msix-stage-*/
+/Studio/bin/
+/Studio/obj/
+
+/build-layout-debug/

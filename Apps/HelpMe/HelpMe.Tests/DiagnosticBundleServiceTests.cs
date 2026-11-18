@@ -19,6 +19,7 @@
 
 using System.IO.Compression;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using HelpMe.Services;
 
@@ -48,8 +49,10 @@ public sealed class DiagnosticBundleServiceTests
         Assert.True(File.Exists(result.Path));
         Assert.Equal(1, result.LogFileCount);
         using var archive = ZipFile.OpenRead(result.Path);
-        Assert.Equal(["README.txt", "diagnostics.json", "logs/helpme-20260924.log"],
+        Assert.Equal(["README.txt", "diagnostics.json", "logs/helpme-20260924.log", "manifest.json"],
             archive.Entries.Select(entry => entry.FullName).Order(StringComparer.Ordinal));
+        using var manifest = JsonDocument.Parse(await ReadEntryAsync(archive, "manifest.json"));
+        Assert.Equal("vibeware-diagnostics-v1", manifest.RootElement.GetProperty("format").GetString());
         var log = await ReadEntryAsync(archive, "logs/helpme-20260924.log");
         Assert.DoesNotContain(key, log, StringComparison.Ordinal);
         Assert.DoesNotContain(profile, log, StringComparison.OrdinalIgnoreCase);

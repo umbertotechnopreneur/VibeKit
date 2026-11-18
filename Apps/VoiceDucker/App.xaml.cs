@@ -26,6 +26,9 @@ public partial class App : Application
     private SingleInstanceService? _singleInstance;
     private MainWindow? _window;
     private MemoryGuard? _memoryGuard;
+    private static Serilog.Core.Logger? _diagnostics;
+    internal const string DiagnosticsId = "VoiceDucker";
+    internal static Serilog.ILogger Diagnostics => _diagnostics ?? Serilog.Log.Logger;
 
     #endregion
 
@@ -86,6 +89,11 @@ public partial class App : Application
             return;
         }
 
+        _diagnostics = Tools.Widgets.VibeWareDiagnostics.CreateLogger(DiagnosticsId);
+        Diagnostics.Information("VoiceDucker started. Version {Version}", ReadDisplayVersion());
+        UnhandledException += (_, error) =>
+            Diagnostics.Error("Unhandled application error {ErrorType} ({HResult})",
+                error.Exception.GetType().Name, error.Exception.HResult);
         _window = new MainWindow();
         _window.Closed += (_, _) =>
         {
@@ -99,6 +107,9 @@ public partial class App : Application
             finally
             {
                 _singleInstance = null;
+                Diagnostics.Information("VoiceDucker closed.");
+                _diagnostics?.Dispose();
+                _diagnostics = null;
                 Exit();
             }
         };

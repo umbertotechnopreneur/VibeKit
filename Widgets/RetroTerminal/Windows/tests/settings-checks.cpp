@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "../EffectSettings.h"
+#include "../PerformanceRecovery.h"
 #include <cassert>
 #include <limits>
 #include <iostream>
@@ -48,5 +49,27 @@ int main()
     s.glitchIntensity = .25f;
     assert(schedule.Trigger(1002, s));
     assert(BuiltInPreset(1).randomGlitches && BuiltInPreset(2).mask == PhosphorMask::RgbStripes);
-    std::cout << "PASS Windows settings bounds, presets, allowed types, rest and cancellation\n";
+    using namespace std::chrono_literals;
+    PerformanceRecovery recovery;
+    auto now = PerformanceRecovery::TimePoint{} + 1s;
+    assert(recovery.Pause(now));
+    for (int elapsed = 1; elapsed <= 60; ++elapsed)
+        assert(!recovery.Ready(now + std::chrono::seconds(elapsed), elapsed != 48));
+    assert(!recovery.Ready(now + 79s, true)); // A dispatcher stall breaks the stable window.
+    for (int elapsed = 80; elapsed < 110; ++elapsed)
+        assert(!recovery.Ready(now + std::chrono::seconds(elapsed), true));
+    assert(recovery.Ready(now + 110s, true));
+    recovery.Resume();
+    now += 111s;
+    assert(recovery.Pause(now));
+    for (int elapsed = 1; elapsed < 120; ++elapsed)
+        assert(!recovery.Ready(now + std::chrono::seconds(elapsed), true));
+    assert(recovery.Ready(now + 120s, true));
+    recovery.Resume();
+    assert(!recovery.Pause(now + 121s));
+    recovery.Reset();
+    assert(recovery.Pause(now));
+    assert(recovery.Configure(false, 30) && !recovery.Pending());
+    assert(!recovery.Pause(now));
+    std::cout << "PASS Windows settings bounds, presets, glitches and performance recovery\n";
 }

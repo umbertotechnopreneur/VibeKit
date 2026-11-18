@@ -26,11 +26,12 @@ public sealed class AppSettings : ObservableModel
 {
     private bool useAcrylic = true, chromaticEnabled = true, emergencyShortcutEnabled = true;
     private bool crestEnabled, ripplesEnabled, liquidEnabled;
+    private bool autoRecover = true;
     private double strength = 9, waveSize = 100, speed = 150, duration = 1.5;
     private double animationFps = 60, captureFps = 30;
     private double chromaticSeparation = 18, chromaticBlend = 45;
     private double crestIntensity = 50, ripplesIntensity = 50, liquidIntensity = 50;
-    private int presetIndex = 1;
+    private int presetIndex = 1, themeIndex;
     public static IReadOnlyList<string> PresetNames { get; } = Array.AsReadOnly(new[]
     {
         "Gentle", "Water drop", "Deep water", "Shockwave", "Dew", "Pond", "Raindrop", "Glass", "Jelly", "Echo"
@@ -43,6 +44,8 @@ public sealed class AppSettings : ObservableModel
     public double AnimationFps { get => animationFps; set => SetProperty(ref animationFps, Number(value, 15, 120, 60)); }
     public double CaptureFps { get => captureFps; set => SetProperty(ref captureFps, Number(value, 5, 60, 30)); }
     public bool EmergencyShortcutEnabled { get => emergencyShortcutEnabled; set => SetProperty(ref emergencyShortcutEnabled, value); }
+    public bool AutoRecover { get => autoRecover; set => SetProperty(ref autoRecover, value); }
+    public int ThemeIndex { get => themeIndex; set => SetProperty(ref themeIndex, value is >= 0 and <= 2 ? value : 0); }
     public bool UseAcrylic { get => useAcrylic; set => SetProperty(ref useAcrylic, value); }
     public bool ChromaticEnabled { get => chromaticEnabled; set => SetProperty(ref chromaticEnabled, value); }
     public double ChromaticSeparation { get => chromaticSeparation; set => SetProperty(ref chromaticSeparation, Number(value, 0, 100, 18)); }

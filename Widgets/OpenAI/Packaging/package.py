@@ -141,7 +141,7 @@ Description: Native OpenAI allowance and token-history widget
     md5sums = "".join(hashlib.md5(data).hexdigest()+"  "+name+"\n" for name, (data, _) in sorted(files.items())).encode()
     control_archive = gzip.compress(tar_bytes([("control", control, 0o644), ("md5sums", md5sums, 0o644)]), mtime=EPOCH)
     data_path = output.with_suffix(".data.tar.xz")
-    with tarfile.open(data_path, "w:xz", format=tarfile.USTAR_FORMAT) as archive:
+    with tarfile.open(data_path, "x:xz", format=tarfile.USTAR_FORMAT) as archive:
         directories = set()
         for name in files:
             directories.update(p.as_posix() for p in Path(name).parents if p.as_posix() != ".")
@@ -155,7 +155,7 @@ Description: Native OpenAI allowance and token-history widget
             info.size, info.mode, info.mtime = len(data), mode, EPOCH
             info.uname = info.gname = "root"
             archive.addfile(info, io.BytesIO(data))
-    with output.open("wb") as out:
+    with output.open("xb") as out:
         out.write(b"!<arch>\n")
         for name, content in (("debian-binary", b"2.0\n"), ("control.tar.gz", control_archive), ("data.tar.xz", data_path.read_bytes())):
             header = f"{name+'/':<16}{EPOCH:<12}{0:<6}{0:<6}{'100644':<8}{len(content):<10}`\n".encode("ascii")
@@ -163,7 +163,6 @@ Description: Native OpenAI allowance and token-history widget
             out.write(header); out.write(content)
             if len(content)%2:
                 out.write(b"\n")
-    data_path.unlink()
     return len(files)
 
 

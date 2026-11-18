@@ -52,7 +52,7 @@ try {
     [IO.Directory]::Move($staged, $output)
 }
 finally {
-    if (Test-Path -LiteralPath $staged) { Remove-Item -LiteralPath $staged -Recurse -Force }
+    if (Test-Path -LiteralPath $staged) { Write-Output "Build staging retained: $staged" }
 }
 Write-Output "Windows output: $output"
 if ($Package) {

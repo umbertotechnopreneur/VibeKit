@@ -85,6 +85,20 @@ Extract the complete ZIP before starting the executable. It includes the .NET
 and WinUI runtimes, generic assets, the sanitized scene template and licences.
 No Python installation is required on Windows.
 
+An optional per-user Windows Installer package can be generated from the same
+fresh publish directory using WiX Toolset 5 and Python 3:
+
+```powershell
+python scripts/create-wix.py ./artifacts/windows-x64 ./artifacts/StudioControls.wxs
+dotnet <path-to-wix-5>/wix.dll build ./artifacts/StudioControls.wxs -arch x64 -o ./artifacts/StudioControls-0.3.1-windows-x64.msi -pdbtype none
+```
+
+The MSI installs under the current user's local Programs directory, adds a Start
+menu shortcut and supports major upgrades. Preferences and generated project data
+remain in LocalAppData on uninstall. Local packages are unsigned.
+Increase the project version for each installer update: rebuilding an MSI with
+the same version does not make it a major upgrade of an installed package.
+
 CI can run the isolated native `--ui-smoke` check after publishing, then package
 the same verified output without starting the app again:
 

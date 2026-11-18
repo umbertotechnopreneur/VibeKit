@@ -54,12 +54,12 @@ try {
     Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $package 'package-manifest.json')
     [IO.Compression.ZipFile]::CreateFromDirectory($package, $temporaryZip, [IO.Compression.CompressionLevel]::Optimal, $true)
     $destinationZip = Join-Path $output ($name + '.zip')
-    [IO.File]::Move($temporaryZip, $destinationZip, $true)
+    [IO.File]::Move($temporaryZip, $destinationZip, $false)
     $hash = (Get-FileHash -LiteralPath $destinationZip -Algorithm SHA256).Hash.ToLowerInvariant()
     "$hash  $name.zip" | Set-Content -LiteralPath ($destinationZip + '.sha256') -Encoding utf8NoBOM
     Write-Output "Windows ZIP: $destinationZip"
     Write-Output "SHA-256: $hash"
 }
 finally {
-    if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Recurse -Force }
+    if (Test-Path -LiteralPath $temporary) { Write-Output "Package staging retained: $temporary" }
 }

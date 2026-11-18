@@ -36,65 +36,78 @@ check(controls.library.rowFor(selectedId).title.includes('Renamed'), 'Stable row
 check(controls.preset.model.get_string(controls.preset.selected) === 'Renamed', 'Selector did not reflect rename.');
 window.present();
 
-async function waitFor(condition, message) {
-    const deadline = GLib.get_monotonic_time() + 5 * GLib.USEC_PER_SEC;
-    while (!condition()) {
-        check(GLib.get_monotonic_time() < deadline, message);
-        await new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
-            resolve();
-            return GLib.SOURCE_REMOVE;
-        }));
-    }
-}
-
-async function verifyWindows() {
-    await waitFor(() => window.get_mapped(), 'Preferences window did not map.');
-    check(!controls.jokes.running, 'Collapsed settings must leave the ticker idle.');
-    controls.settingsSection.expanded = true;
-    await waitFor(() => controls.jokes.running, 'Expanding Settings did not start the optional ticker.');
-    const savedSelection = controls.pipelines.selected.id;
-    controls.jokes.toggle.active = false;
-    check(!settings.get_boolean('show-gpu-jokes') && !controls.jokes.running && !controls.jokes.row.visible,
-        'Disabling GPU jokes must hide copy and cancel the timer.');
-    check(controls.pipelines.selected.id === savedSelection, 'GPU jokes changed the pipeline selection.');
-    settings.set_boolean('show-gpu-jokes', true);
-    await waitFor(() => controls.jokes.running, 'The GPU jokes setting did not restart the mapped ticker.');
-    const about = controls.about.show();
-    check(about.title === 'About Ripple' && about.has_css_class('widget-about'), 'About branding was not available in preferences.');
-    check(controls.about.show() === about, 'Repeated About actions opened duplicate windows.');
-    about.close();
-    controls.about.show();
-    window.close();
-    check(!settings.get_boolean('active'), 'Closing preferences did not stop the effect.');
-    check(!controls.jokes.running && controls.about.show() === undefined, 'Closing preferences did not dispose ticker and About.');
-    const app = new Adw.Application({application_id: 'local.vibeware.RippleGtkChecks', flags: Gio.ApplicationFlags.NON_UNIQUE});
-    app.register(null);
-    const appWindow = new Adw.ApplicationWindow({application: app});
-    // The real controller intercepts close while offering Hide / Quit / Cancel.
-    appWindow.connect('close-request', () => true);
-    const next = buildControls(appWindow, settings, app, true, false, null);
-    appWindow.set_content(next.page);
-    check(next.pipelines.selected?.id === selectedId, 'Selected pipeline did not restore.');
-    next.settingsSection.expanded = true;
-    appWindow.present();
-    await waitFor(() => next.jokes.running, 'Application view did not start the optional ticker.');
-    appWindow.close();
-    check(next.jokes.running, 'Intercepted close disposed a panel that remains open.');
-    appWindow.hide();
-    check(!next.jokes.running, 'Hiding the application did not pause the ticker.');
-    appWindow.present();
-    await waitFor(() => next.jokes.running, 'Restoring the panel did not resume the ticker.');
-    next.aboutRow.emit('activated');
-    check(next.about.show()?.title === 'About Ripple', 'Application About action failed.');
-    appWindow.destroy();
-    check(!next.jokes.running && next.about.show() === undefined, 'Direct application destruction left branding resources active.');
-    print('PASS GTK preferences and application views: settings, pipelines, branded About, optional ticker and cleanup');
-}
+let appWindow;
+let next;
+const steps = [
+    [() => window.get_mapped(), 'Preferences window did not map.', () => {
+        check(!controls.jokes.running, 'Collapsed settings must leave the ticker idle.');
+        controls.settingsSection.expanded = true;
+    }],
+    [() => controls.jokes.running, 'Expanding Settings did not start the optional ticker.', () => {
+        const savedSelection = controls.pipelines.selected.id;
+        controls.jokes.toggle.active = false;
+        check(!settings.get_boolean('show-gpu-jokes') && !controls.jokes.running && !controls.jokes.row.visible,
+            'Disabling GPU jokes must hide copy and cancel the timer.');
+        check(controls.pipelines.selected.id === savedSelection, 'GPU jokes changed the pipeline selection.');
+        settings.set_boolean('show-gpu-jokes', true);
+    }],
+    [() => controls.jokes.running, 'The GPU jokes setting did not restart the mapped ticker.', () => {
+        const about = controls.about.show();
+        check(about.title === 'About Ripple' && about.has_css_class('widget-about'), 'About branding was not available in preferences.');
+        check(controls.about.show() === about, 'Repeated About actions opened duplicate windows.');
+        about.close();
+        controls.about.show();
+        window.close();
+        check(!settings.get_boolean('active'), 'Closing preferences did not stop the effect.');
+        check(!controls.jokes.running && controls.about.show() === undefined, 'Closing preferences did not dispose ticker and About.');
+        const app = new Adw.Application({application_id: 'local.vibeware.RippleGtkChecks', flags: Gio.ApplicationFlags.NON_UNIQUE});
+        app.register(null);
+        appWindow = new Adw.ApplicationWindow({application: app});
+        // The real controller intercepts close while offering Hide / Quit / Cancel.
+        appWindow.connect('close-request', () => true);
+        next = buildControls(appWindow, settings, app, true, false, null);
+        appWindow.set_content(next.page);
+        check(next.pipelines.selected?.id === selectedId, 'Selected pipeline did not restore.');
+        next.settingsSection.expanded = true;
+        appWindow.present();
+    }],
+    [() => next.jokes.running, 'Application view did not start the optional ticker.', () => {
+        appWindow.close();
+        check(next.jokes.running, 'Intercepted close disposed a panel that remains open.');
+        appWindow.hide();
+        check(!next.jokes.running, 'Hiding the application did not pause the ticker.');
+        appWindow.present();
+    }],
+    [() => next.jokes.running, 'Restoring the panel did not resume the ticker.', () => {
+        next.aboutRow.emit('activated');
+        check(next.about.show()?.title === 'About Ripple', 'Application About action failed.');
+        appWindow.destroy();
+        check(!next.jokes.running && next.about.show() === undefined, 'Direct application destruction left branding resources active.');
+        print('PASS GTK preferences and application views: settings, pipelines, branded About, optional ticker and cleanup');
+    }],
+];
 
 const loop = new GLib.MainLoop(null, false);
 let failure;
-GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-    verifyWindows().catch(error => { failure = error; }).finally(() => loop.quit());
+const stepTimeout = 5_000_000;
+let deadline = GLib.get_monotonic_time() + stepTimeout;
+GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
+    try {
+        const [ready, message, action] = steps[0];
+        if (!ready()) {
+            check(GLib.get_monotonic_time() < deadline, message);
+            return GLib.SOURCE_CONTINUE;
+        }
+        action();
+        steps.shift();
+        if (steps.length) {
+            deadline = GLib.get_monotonic_time() + stepTimeout;
+            return GLib.SOURCE_CONTINUE;
+        }
+    } catch (error) {
+        failure = error;
+    }
+    loop.quit();
     return GLib.SOURCE_REMOVE;
 });
 loop.run();

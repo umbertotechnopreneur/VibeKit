@@ -1,9 +1,9 @@
 # Explicit preparation only. Builds and tests never invoke antivirus scans.
 [CmdletBinding()]
-param([psobject]$PreviousImports)
+param([psobject]$PreviousImports, [switch]$WindowsOnly)
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
-$context = & (Join-Path $projectRoot 'Prepare-Imports.ps1') -PreviousImports $PreviousImports -ForPackaging
+$context = & (Join-Path $projectRoot 'Prepare-Imports.ps1') -PreviousImports $PreviousImports -ForPackaging -WindowsOnly:$WindowsOnly
 $toolRoot = Join-Path $projectRoot '.imports\wix-5.0.2'
 $oldTools = @()
 if ($null -ne $PreviousImports -and $PreviousImports.ToolRoot -eq $toolRoot) { $oldTools = @($PreviousImports.Tools) }
@@ -16,8 +16,9 @@ if ($reuse) {
     }
 }
 if (-not $reuse) {
+    # Use a new staging directory when prior imports exist; never overwrite them.
     if ((Test-Path -LiteralPath $toolRoot) -and @(Get-ChildItem -LiteralPath $toolRoot -Force).Count) {
-        throw 'The WiX staging directory has no valid in-memory preparation context. Clean generated outputs before preparing it again.'
+        $toolRoot = Join-Path $projectRoot ('.imports\wix-5.0.2-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fff'))
     }
     New-Item -ItemType Directory -Path $toolRoot -Force | Out-Null
     foreach ($id in @('wix','wixtoolset.ui.wixext')) {

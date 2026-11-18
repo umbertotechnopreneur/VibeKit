@@ -4,11 +4,12 @@ Source/package target: **0.4.3**. Architecture: Windows x64 / Ubuntu amd64. Pack
 
 ## Windows
 
-Open `../artifacts/installers/OpenAIUsage-0.4.3-windows-x64.msi`, then launch **OpenAI Usage** from Start.
+Build the Windows distributions with the commands below. Open the generated MSI and launch **OpenAI Usage** from Start, or extract the complete portable ZIP to a folder and run `OpenAIUsage.Windows.exe` from there. Both use the same per-user settings and history.
 
 - Per-user installation in `%LOCALAPPDATA%/Programs/OpenAI Usage`.
 - Includes the app's private .NET runtime and Windows App SDK components.
 - Uses standard Windows Installer progress, Add/Remove Programs and major-upgrade handling.
+- MSI major upgrades require a newer product version. A second build with the same 0.4.3 version does not upgrade an existing 0.4.3 installation; uninstalling it first preserves the personal settings and history described below.
 - Does not add autostart or a background service. It does not install or sign in to Codex.
 - Private settings/history remain in `%LOCALAPPDATA%/OpenAIUsage` after uninstall.
 - **OpenAI Usage · Preferences** is a flat native acrylic form in a window owned by the widget. It stays above its owner and is excluded from the taskbar and Alt+Tab; the form is rendered directly on the window surface.
@@ -31,7 +32,16 @@ Launch **OpenAI Usage** from the application menu or run `openai-usage`.
 
 ## Rebuild
 
-From the project root in PowerShell:
+For Windows, from the project root in PowerShell:
+
+```powershell
+$imports = & .\Packaging\Prepare-Packaging.ps1 -WindowsOnly
+& .\Packaging\Build-WindowsDistribution.ps1 -Imports $imports
+```
+
+Both packages come from the same current source publish. Output filenames include a build timestamp so prior packages are preserved. The portable ZIP includes the private runtimes and dependency notices, excluding debug symbols. Build staging and imports are retained for manual cleanup. This Windows-only packaging command checks the MSI requirements but does not run the behavioral test suite.
+
+The older combined Windows and Ubuntu packaging workflow is:
 
 ```powershell
 $imports = & .\Packaging\Prepare-Packaging.ps1
@@ -40,7 +50,7 @@ $imports = & .\Packaging\Prepare-Packaging.ps1
 
 Preparation downloads official NuGet runtime/tool imports and explicitly scans their archives and extracted files with Defender before use. It returns a verification object kept only in the current PowerShell execution. Pass it directly to the builder; never export it to disk. No scan report, antivirus history, hash inventory or persistent verification manifest is written.
 
-Building verifies the transient import state, forces **clean source rebuilds**, checks the compiled application version, runs behavioral checks and validates both packages. Builds and installer execution do not start antivirus scans. Successful packaging removes temporary imported dependencies, staging payloads, bin/obj and Python caches, retaining only the current MSI/DEB until installation or hand-off. It does not keep a release history or a dependency cache for later runs. No old application binary is reused.
+Building verifies the transient import state, forces source rebuilds, checks the compiled application version, runs behavioral checks and validates both packages. Each combined build writes its MSI and Debian package to a new timestamped directory under `artifacts/installers/`. Builds and installer execution do not start antivirus scans. Generated dependencies, staging and outputs are retained for manual cleanup. No old application binary is reused.
 
 To remove everything generated, including the current installer pair:
 
@@ -48,7 +58,7 @@ To remove everything generated, including the current installer pair:
 & .\Packaging\Clean-BuildOutputs.ps1
 ```
 
-Use `-WhatIf` to inspect that cleanup first. The builder uses `-KeepDeliverables` only while the current packages are needed for installation or hand-off. A later build requires a fresh explicit preparation session.
+Use `-WhatIf` to inspect that explicit cleanup first.
 
 The WiX compiler is staged temporarily as version 5.0.2; no global compiler installation or WiX 7 license settings are modified. Windows installers use deterministic component identities and a stable upgrade code. Debian packages use the documented ar/ustar format and include file checksums, dependency metadata and Unix file modes.
 

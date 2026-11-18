@@ -54,8 +54,8 @@ Token quantities use decimal prefixes **K, M, G, T, P, E** (powers of 1,000). Th
 Installer targets for **0.4.3**, generated on demand from the current source. These paths exist only until cleanup:
 
 - Signed Windows 11 x64 MSIX: per-user installation with a Start menu entry and optional startup at sign-in. Includes .NET and Windows App SDK runtime files. It uses the same local data directory as the MSI.
-- `artifacts/installers/OpenAIUsage-0.4.3-windows-x64.msi`: per-user Windows x64 installation under `%LOCALAPPDATA%/Programs/OpenAI Usage`, Start menu shortcut and standard Windows uninstall/upgrade support. Includes .NET and Windows App SDK runtime files.
-- `artifacts/installers/openai-usage_0.4.3-1_amd64.deb`: Ubuntu amd64 package with a self-contained Linux .NET backend, launcher and desktop entry. GTK/Python/system-library prerequisites are declared as APT dependencies. Targets Ubuntu 24.04+; runtime execution on Ubuntu is not verified here.
+- `OpenAIUsage-0.4.3-windows-x64.msi`: per-user Windows x64 installation under `%LOCALAPPDATA%/Programs/OpenAI Usage`, Start menu shortcut and standard Windows uninstall/upgrade support. Includes .NET and Windows App SDK runtime files.
+- `openai-usage_0.4.3-1_amd64.deb`: Ubuntu amd64 package with a self-contained Linux .NET backend, launcher and desktop entry. GTK/Python/system-library prerequisites are declared as APT dependencies. Targets Ubuntu 24.04+; runtime execution on Ubuntu is not verified here.
 
 All packages require a separately installed Codex CLI and your own ChatGPT sign-in. The installers contain no credentials and do not install or sign in to Codex. The local MSI and DEB are unsigned. Package validation, Windows installation/startup and native GTK runtime validation are separate checks; report their results in the current task rather than retaining a historical report.
 
@@ -141,7 +141,7 @@ $imports = & .\Packaging\Prepare-Packaging.ps1
 & .\Packaging\Build-Installers.ps1 -Imports $imports
 ```
 
-The packaging workflow forces clean source rebuilds, checks the compiled version, runs behavioral checks and validates the MSI/DEB packages. WiX 5.0.2 is obtained from official NuGet as a temporary tool dependency; no global tool installation or WiX 7 license settings are changed. Success cleanup uses `-KeepDeliverables` to retain only the current MSI/DEB until installation or hand-off. A default explicit clean removes those too:
+The packaging workflow forces source rebuilds, checks the compiled version, runs behavioral checks and validates the MSI and Debian packages. WiX 5.0.2 is staged from NuGet. Each build puts its packages in a timestamped directory under `artifacts/installers/` and preserves earlier outputs. An explicit clean removes all generated files:
 
 ```powershell
 & .\Packaging\Clean-BuildOutputs.ps1

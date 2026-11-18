@@ -13,18 +13,19 @@ function Assert-VerifiedImport([string]$Root,[object[]]$Entries) {
     if (@(Get-ChildItem -LiteralPath $Root -Recurse -File).Count -ne $Entries.Count) { throw "New unverified files in $Root" }
 }
 $packageRoot = Join-Path $projectRoot '.imports\packages'
-$toolRoot = Join-Path $projectRoot '.imports\wix-5.0.2'
-if ($null -eq $Imports -or -not $Imports.Prepared -or $Imports.ProjectRoot -ne $projectRoot -or $Imports.PackageRoot -ne $packageRoot -or $Imports.ToolRoot -ne $toolRoot) {
+$toolBase = Join-Path $projectRoot '.imports\wix-5.0.2'
+$toolRoot = if ($null -ne $Imports -and $Imports.ToolRoot) { [IO.Path]::GetFullPath($Imports.ToolRoot) } else { '' }
+if ($null -eq $Imports -or -not $Imports.Prepared -or $Imports.ProjectRoot -ne $projectRoot -or $Imports.PackageRoot -ne $packageRoot -or ($toolRoot -ne $toolBase -and -not $toolRoot.StartsWith($toolBase + '-', [StringComparison]::OrdinalIgnoreCase))) {
     throw 'Run $imports = & ./Packaging/Prepare-Packaging.ps1, then & ./Packaging/Build-Installers.ps1 -Imports $imports in the same PowerShell session.'
 }
 Assert-VerifiedImport $packageRoot @($Imports.Packages)
 Assert-VerifiedImport $toolRoot @($Imports.Tools)
-$installerRoot = Join-Path $projectRoot 'artifacts\installers'
-$payloadRoot = Join-Path $projectRoot ('artifacts\packaging\' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))
+$run = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fff')
+$installerRoot = Join-Path $projectRoot "artifacts\installers\$run"
+$payloadRoot = Join-Path $projectRoot "artifacts\packaging\$run"
 $windowsPayload = Join-Path $payloadRoot 'windows-x64'
 $linuxPayload = Join-Path $payloadRoot 'linux-amd64'
 New-Item -ItemType Directory -Path $installerRoot,$windowsPayload,(Join-Path $linuxPayload 'Linux') -Force | Out-Null
-$completed = $false
 Push-Location $projectRoot
 try {
     # Recreate assets offline from the verified import cache, including after a cleanup.
@@ -90,24 +91,23 @@ try {
     & python 'Packaging/package.py' wix $windowsPayload $wxs
     if ($LASTEXITCODE -ne 0) { throw 'WiX source generation failed.' }
     $msi = Join-Path $installerRoot "OpenAIUsage-$appVersion-windows-x64.msi"
-    & dotnet '.imports/wix-5.0.2/wix/tools/net6.0/any/wix.dll' build $wxs -arch x64 -o $msi -pdbtype none -intermediatefolder (Join-Path $payloadRoot 'wix-intermediate')
+    & dotnet (Join-Path $toolRoot 'wix/tools/net6.0/any/wix.dll') build $wxs -arch x64 -o $msi -pdbtype none -intermediatefolder (Join-Path $payloadRoot 'wix-intermediate')
     if ($LASTEXITCODE -ne 0) { throw 'Windows installer compilation or validation failed.' }
     & (Join-Path $PSScriptRoot 'Verify-WindowsRequirement.ps1') -PackagePath $msi
     $deb = Join-Path $installerRoot "openai-usage_$appVersion-1_amd64.deb"
     & python 'Packaging/package.py' deb $linuxPayload $deb
     if ($LASTEXITCODE -ne 0) { throw 'Ubuntu package construction or verification failed.' }
-    $manifest = @($msi,$deb) | ForEach-Object { [pscustomobject]@{file=[IO.Path]::GetFileName($_); bytes=(Get-Item -LiteralPath $_).Length; sha256=(Get-FileHash -LiteralPath $_).Hash} }
-    $completed = $true
+    $manifest = @($msi,$deb) | ForEach-Object {
+        [pscustomobject]@{
+            file = [IO.Path]::GetFileName($_)
+            path = [IO.Path]::GetRelativePath($projectRoot, $_)
+            bytes = (Get-Item -LiteralPath $_).Length
+            sha256 = (Get-FileHash -LiteralPath $_).Hash
+        }
+    }
     Write-Output ($manifest | ConvertTo-Json -Compress)
 }
 finally {
     Pop-Location
-    try {
-        & (Join-Path $PSScriptRoot 'Clean-BuildOutputs.ps1') -KeepDeliverables:$completed
-    }
-    finally {
-        $Imports.Prepared = $false
-        $Imports.Packages = @()
-        $Imports.Tools = @()
-    }
+    # Preserve all generated files and imported dependencies for manual cleanup.
 }

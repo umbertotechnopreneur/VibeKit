@@ -36,15 +36,7 @@ internal sealed partial class StudioController : IDisposable
     private ScreenEffectSession? screen;
     private bool notifyWhenRestored;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer performanceTimer, gpuJokeTimer;
-    private static readonly string[] GpuJokes =
-    [
-        "Family time won. Gaming time lost. The GPU makes ripples now.",
-        "Imagine a $1,000 GPU. Now give it ripples.",
-        "Built for gaming. Promoted to desktop decoration.",
-        "No time for one more level. Always time for one more ripple.",
-        "A very serious use of a gaming GPU.",
-    ];
-    private int nextGpuJoke;
+
     private readonly Stopwatch performanceClock = Stopwatch.StartNew();
     private double lastTick, stableSince = -1, recoveryAt, lastRecovery;
     private int recoveryFailures, lateTicks;
@@ -100,12 +92,16 @@ internal sealed partial class StudioController : IDisposable
         performanceTimer.Start();
         emergencyShortcut = new EmergencyShortcut(model.Settings.EmergencyShortcutEnabled, status =>
             window.DispatcherQueue.TryEnqueue(() => model.State.EmergencyShortcutStatus = status));
-        model.Settings.PropertyChanged += EmergencyShortcutChanged;
-        model.Settings.PropertyChanged += SettingsChanged;
         gpuJokeTimer = window.DispatcherQueue.CreateTimer();
         gpuJokeTimer.IsRepeating = false;
         gpuJokeTimer.Tick += ShowGpuJoke;
-        SyncGpuJokes();
+        if (model.Settings.ShowGpuJokes)
+        {
+            gpuJokeTimer.Interval = TimeSpan.FromSeconds(Random.Shared.Next(120, 241));
+            gpuJokeTimer.Start();
+        }
+        model.Settings.PropertyChanged += EmergencyShortcutChanged;
+        model.Settings.PropertyChanged += SettingsChanged;
     }
 
     private bool initialized;
@@ -228,7 +224,7 @@ internal sealed partial class StudioController : IDisposable
     private void SettingsChanged(object? sender, PropertyChangedEventArgs e)
     {
         Log.Debug("Setting changed {Property}", e.PropertyName);
-        if (e.PropertyName == nameof(AppSettings.ShowGpuJokes)) SyncGpuJokes();
+        if (e.PropertyName == nameof(AppSettings.ShowGpuJokes) && !model.Settings.ShowGpuJokes) gpuJokeTimer.Stop();
         if (e.PropertyName == nameof(AppSettings.AutoRecover) && !model.Settings.AutoRecover && recoveryPending)
         {
             CancelRecovery();
@@ -236,23 +232,10 @@ internal sealed partial class StudioController : IDisposable
         }
     }
 
-    private void SyncGpuJokes()
-    {
-        gpuJokeTimer.Stop();
-        if (!model.Settings.ShowGpuJokes) return;
-        gpuJokeTimer.Interval = TimeSpan.FromSeconds(10);
-        gpuJokeTimer.Start();
-    }
-
     private void ShowGpuJoke(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
     {
-        if (model.State.IsClosing || !model.Settings.ShowGpuJokes) return;
-        string joke = GpuJokes[nextGpuJoke];
-        nextGpuJoke = (nextGpuJoke + Random.Shared.Next(1, GpuJokes.Length)) % GpuJokes.Length;
-        sender.Interval = TimeSpan.FromSeconds(Random.Shared.Next(60, 121));
-        sender.Start();
-        if (closeSequence.IsPending) return;
-        try { tray.Notify("Water Ripple · That's a joke", joke, silent: true); }
+        if (model.State.IsClosing || closeSequence.IsPending || !model.Settings.ShowGpuJokes) return;
+        try { tray.Notify("Water Ripple · That's a joke", GpuJokes.Captions[0], silent: true); }
         catch (Win32Exception ex) { Log.Debug(ex, "GPU joke notification unavailable"); }
     }
 

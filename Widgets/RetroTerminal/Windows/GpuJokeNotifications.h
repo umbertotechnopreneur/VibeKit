@@ -23,13 +23,18 @@ public:
             REG_DWORD, &value, sizeof(value)) == ERROR_SUCCESS;
     }
 
-    void SetEnabled(HWND window, bool enabled)
+    static const wchar_t* Caption(unsigned index) { return jokes[index % jokes.size()]; }
+
+    void Start(HWND window)
     {
-        if (enabled) Schedule(window, 10'000);
-        else {
-            KillTimer(window, TimerId);
-            due = 0;
-        }
+        std::minstd_rand random{static_cast<unsigned>(GetTickCount64() ^ GetCurrentProcessId())};
+        Schedule(window, std::uniform_int_distribution<UINT>(120'000, 240'000)(random));
+    }
+
+    void Cancel(HWND window)
+    {
+        KillTimer(window, TimerId);
+        due = 0;
     }
 
     void Tick(HWND window, TrayIcon& tray)
@@ -41,10 +46,8 @@ public:
             Schedule(window, static_cast<UINT>(due - now));
             return;
         }
-        const auto* joke = jokes[nextJoke];
-        nextJoke = (nextJoke + std::uniform_int_distribution<size_t>(1, jokes.size() - 1)(random)) % jokes.size();
-        Schedule(window, std::uniform_int_distribution<UINT>(60'000, 120'000)(random));
-        tray.Notify(L"Retro Terminal · That's a joke", joke, true);
+        Cancel(window);
+        tray.Notify(L"Retro Terminal · That's a joke", Caption(0), true);
     }
 
 private:
@@ -55,8 +58,6 @@ private:
         L"All this graphics power, just to bring back scanlines.",
         L"No time to game. Plenty of time to adjust the phosphor.",
     };
-    std::minstd_rand random{static_cast<unsigned>(GetTickCount64() ^ GetCurrentProcessId())};
-    size_t nextJoke{};
     ULONGLONG due{};
 
     void Schedule(HWND window, UINT delay)

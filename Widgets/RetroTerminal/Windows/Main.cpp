@@ -21,8 +21,9 @@ namespace
     constexpr wchar_t OverlayClass[] = L"VibeWareRetroTerminalOverlay";
     constexpr int ToggleId = 100, PaletteId = 101, StopId = 103, TabsId = 104,
         ColorId = 105, MaskId = 106, PersistenceId = 107, RandomId = 108,
-        TryId = 109, PresetId = 110, SavePresetId = 111, GpuJokesId = 112, SliderBase = 200, GlitchTypeBase = 300;
+        TryId = 109, PresetId = 110, SavePresetId = 111, GpuJokesId = 112, NextJokeId = 113, SliderBase = 200, GlitchTypeBase = 300;
     constexpr UINT_PTR RenderTimer = 1;
+    constexpr int PanelHeight = 833;
     constexpr int EmergencyHotkey = 1;
     using Clock = std::chrono::steady_clock;
     struct Application : ControllerState
@@ -40,6 +41,8 @@ namespace
         Renderer renderer;
         TrayIcon tray;
         GpuJokeNotifications gpuJokes;
+        HWND jokeCaption{};
+        unsigned jokeIndex{};
         bool running = false, hotkeyAvailable = false, dirty = false;
         int slowFrames = 0, frames = 0;
         float cpuTotal = 0;
@@ -158,13 +161,15 @@ namespace
             toggle = Control(L"BUTTON", L"Enable effect", BS_PUSHBUTTON | WS_TABSTOP, 20, 648, 315, 36, ToggleId);
             Control(L"BUTTON", L"Stop", BS_PUSHBUTTON | WS_TABSTOP, 350, 648, 315, 36, StopId);
             Control(L"STATIC", L"Ctrl + Alt + F11 stops CRT. Applies to the monitor containing this panel.", SS_LEFT, 20, 693, 645, 20);
-            HWND jokesToggle = Control(L"BUTTON", L"GPU joke notifications", BS_AUTOCHECKBOX | WS_TABSTOP,
+            HWND jokesToggle = Control(L"BUTTON", L"GPU joke notification at startup", BS_AUTOCHECKBOX | WS_TABSTOP,
                 20, 714, 645, 22, GpuJokesId);
             const bool jokesEnabled = GpuJokeNotifications::ReadPreference();
             SendMessageW(jokesToggle, BM_SETCHECK, jokesEnabled ? BST_CHECKED : BST_UNCHECKED, 0);
             tray.Initialize(window, window);
-            gpuJokes.SetEnabled(window, jokesEnabled);
-            status = Control(L"STATIC", L"Stopped. Your desktop is unchanged.", SS_LEFT, 20, 743, 645, 49);
+            if (jokesEnabled) gpuJokes.Start(window);
+            jokeCaption = Control(L"STATIC", GpuJokeNotifications::Caption(jokeIndex), SS_LEFT, 20, 742, 530, 26);
+            Control(L"BUTTON", L"Next joke", BS_PUSHBUTTON | WS_TABSTOP, 550, 738, 115, 24, NextJokeId);
+            status = Control(L"STATIC", L"Stopped. Your desktop is unchanged.", SS_LEFT, 20, 772, 645, 49);
             SyncControls(); ShowPage(); UpdateScroll();
             hotkeyAvailable = RegisterHotKey(window, EmergencyHotkey, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_F11) != FALSE;
             if (!hotkeyAvailable) {
@@ -215,7 +220,7 @@ namespace
             RECT client{}; GetClientRect(window, &client);
             SCROLLINFO info{sizeof(info)};
             info.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
-            info.nMin = 0; info.nMax = Dip(803) - 1;
+            info.nMin = 0; info.nMax = Dip(PanelHeight) - 1;
             info.nPage = UINT(client.bottom);
             info.nPos = scrollOffset;
             SetScrollInfo(window, SB_VERT, &info, TRUE);
@@ -224,7 +229,7 @@ namespace
         void ScrollTo(int position)
         {
             RECT client{}; GetClientRect(window, &client);
-            position = std::clamp(position, 0, std::max(0, Dip(803) - int(client.bottom)));
+            position = std::clamp(position, 0, std::max(0, Dip(PanelHeight) - int(client.bottom)));
             const int delta = scrollOffset - position;
             scrollOffset = position;
             if (delta) ScrollWindowEx(window, 0, delta, nullptr, nullptr, nullptr, nullptr,
@@ -411,8 +416,12 @@ namespace
             else if (id == StopId) app->Stop(L"Stopped by you.");
             else if (id == GpuJokesId && HIWORD(wParam) == BN_CLICKED) {
                 const bool enabled = SendMessageW(reinterpret_cast<HWND>(lParam), BM_GETCHECK, 0, 0) == BST_CHECKED;
-                app->gpuJokes.SetEnabled(window, enabled);
+                if (!enabled) app->gpuJokes.Cancel(window);
                 if (!GpuJokeNotifications::SavePreference(enabled)) app->Status(L"Could not save the GPU jokes preference.");
+            }
+            else if (id == NextJokeId && HIWORD(wParam) == BN_CLICKED) {
+                ++app->jokeIndex;
+                SetWindowTextW(app->jokeCaption, GpuJokeNotifications::Caption(app->jokeIndex));
             }
             else if (id == ColorId) app->PickColor();
             else if (id == SavePresetId) app->SavePreset();
@@ -509,7 +518,7 @@ namespace
             if (app->RequestClose()) DestroyWindow(window);
             return 0;
         case WM_DESTROY:
-            app->gpuJokes.SetEnabled(window, false);
+            app->gpuJokes.Cancel(window);
             app->tray.Remove();
             UnregisterHotKey(window, EmergencyHotkey);
             WTSUnRegisterSessionNotification(window);
@@ -553,7 +562,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
         app.instance = instance;
         const DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VSCROLL;
         UINT dpi = GetDpiForSystem();
-        RECT rect{0, 0, MulDiv(690, dpi, 96), MulDiv(803, dpi, 96)};
+        RECT rect{0, 0, MulDiv(690, dpi, 96), MulDiv(PanelHeight, dpi, 96)};
         AdjustWindowRectExForDpi(&rect, style, FALSE, 0, dpi);
         RECT work{};
         if (SystemParametersInfoW(SPI_GETWORKAREA, 0, &work, 0))

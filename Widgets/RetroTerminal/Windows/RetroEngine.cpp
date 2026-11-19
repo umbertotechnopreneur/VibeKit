@@ -212,20 +212,21 @@ API void* __cdecl RetroCreate(HWND owner) {
     e->model.Load(); e->hotkey=RegisterHotKey(e->window,1,MOD_CONTROL|MOD_ALT|MOD_NOREPEAT,VK_F11)!=FALSE;
     if(!e->hotkey) e->status=L"Ctrl + Alt + F11 is already in use. Effect cannot start safely.";
     if(!WTSRegisterSessionNotification(e->window,NOTIFY_FOR_THIS_SESSION)) { e->hotkey=false; e->status=L"Session notifications unavailable. Effect cannot start safely."; }
-    e->gpuJokes.SetEnabled(e->window, GpuJokeNotifications::ReadPreference());
+    if (GpuJokeNotifications::ReadPreference()) e->gpuJokes.Start(e->window);
     return e.release();
  } catch(...) { return nullptr; }
 }
-API void __cdecl RetroDestroy(void* p) { if(!p) return; auto* e=E(p); e->Stop(L"Stopped"); e->gpuJokes.SetEnabled(e->window, false); e->tray.Remove(); if(e->owner) RemoveWindowSubclass(e->owner,OwnerSubclass,1); UnregisterHotKey(e->window,1); WTSUnRegisterSessionNotification(e->window); DestroyWindow(e->window); delete e; }
+API void __cdecl RetroDestroy(void* p) { if(!p) return; auto* e=E(p); e->Stop(L"Stopped"); e->gpuJokes.Cancel(e->window); e->tray.Remove(); if(e->owner) RemoveWindowSubclass(e->owner,OwnerSubclass,1); UnregisterHotKey(e->window,1); WTSUnRegisterSessionNotification(e->window); DestroyWindow(e->window); delete e; }
 API int __cdecl RetroSave(void* p) { return p&&E(p)->model.Save(); }
 API int __cdecl RetroStart(void* p) { if(!p) return 0; E(p)->Start(); return E(p)->running; }
 API void __cdecl RetroStop(void* p) { if(p) E(p)->Stop(L"Stopped by you."); }
 API int __cdecl RetroRunning(void* p) { return p&&E(p)->running; }
 API int __cdecl RetroRecoveryPending(void* p) { return p && E(p)->recovery.Pending(); }
 API void __cdecl RetroSetRecovery(void* p, int enabled, int seconds) { if (p) E(p)->SetRecovery(enabled != 0, seconds); }
+API const wchar_t* __cdecl RetroGpuJoke(unsigned index) { return GpuJokeNotifications::Caption(index); }
 API int __cdecl RetroSetGpuJokes(void* p, int enabled) {
     if (!p) return 0;
-    E(p)->gpuJokes.SetEnabled(E(p)->window, enabled != 0);
+    if (!enabled) E(p)->gpuJokes.Cancel(E(p)->window);
     return GpuJokeNotifications::SavePreference(enabled != 0);
 }
 API int __cdecl RetroKeepInTray(void* p) { return p && E(p)->tray.Keep(); }

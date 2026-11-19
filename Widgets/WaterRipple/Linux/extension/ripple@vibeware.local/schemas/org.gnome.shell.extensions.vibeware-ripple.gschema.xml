@@ -7,7 +7,7 @@
     </key>
     <key name="show-gpu-jokes" type="b">
       <default>true</default>
-      <summary>Show GPU captions and occasional joke notifications</summary>
+      <summary>Show GPU captions and a startup joke notification</summary>
     </key>
     <key name="strength" type="d">
       <range min="0.0" max="28.0" />

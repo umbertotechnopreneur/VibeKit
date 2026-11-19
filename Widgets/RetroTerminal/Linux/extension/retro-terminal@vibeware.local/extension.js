@@ -12,7 +12,7 @@ import {DelayGuard, surfaceAllowed} from './guard.js';
 import {PhosphorPersistence} from './persistence.js';
 import {GlitchSequence} from './glitches.js';
 import {DEFAULTS, readValues} from './settings-model.js';
-import {scheduleGpuJokeNotifications} from './gpu-joke-notifications.js';
+import {scheduleStartupGpuJoke} from './gpu-joke-notifications.js';
 
 const now = () => GLib.get_monotonic_time() / 1e6;
 export default class RetroTerminal extends Extension {
@@ -80,7 +80,7 @@ export default class RetroTerminal extends Extension {
             if (!this._userSession())
                 this._stop('Session changed; enable again to resume');
         });
-        this._cancelGpuJokes = scheduleGpuJokeNotifications(this._settings, joke => {
+        this._cancelGpuJokes = scheduleStartupGpuJoke(this._settings, joke => {
             if (this._userSession()) Main.notify("Retro Terminal · That's a joke", joke);
         });
     }

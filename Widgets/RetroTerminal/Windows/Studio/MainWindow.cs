@@ -216,7 +216,7 @@ internal sealed class MainWindow : Window
         settings.Children.Add(theme);
         var gpuJokes = new ToggleSwitch
         {
-            Header = "GPU joke notifications",
+            Header = "GPU joke notification at startup",
             IsOn = ReadPreference("ShowGpuJokes", 1, 0, 1) == 1
         };
         gpuJokes.Toggled += (_, _) =>
@@ -224,7 +224,14 @@ internal sealed class MainWindow : Window
             if (Native.RetroSetGpuJokes(engine, gpuJokes.IsOn ? 1 : 0) == 0)
                 Notice("Could not save the GPU jokes preference.");
         };
-        settings.Children.Add(gpuJokes);
+        var jokes = Stack(8);
+        jokes.Children.Add(gpuJokes);
+        uint jokeIndex = 0;
+        var joke = Text(Native.GpuJoke(jokeIndex), 13, secondary: true);
+        var nextJoke = new Button { Content = "Next joke" };
+        nextJoke.Click += (_, _) => joke.Text = Native.GpuJoke(++jokeIndex);
+        jokes.Children.Add(Columns(joke, nextJoke));
+        settings.Children.Add(Card(jokes));
         var behavior=Stack(8); behavior.Children.Add(Text("Startup & stopping",16)); behavior.Children.Add(Text("CRT starts off. Turn it on from this window when you need it. Closing the app stops capture and releases the effect.",13,secondary:true)); settings.Children.Add(Card(behavior));
         var protection = Stack(8);
         protection.Children.Add(Text("Performance protection", 16));

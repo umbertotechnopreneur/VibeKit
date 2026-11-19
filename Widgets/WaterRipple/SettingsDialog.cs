@@ -21,7 +21,17 @@ internal sealed class SettingsDialog : ContentDialog
         Ui.Bind(status, TextBlock.TextProperty, model.State, nameof(AppState.StartupStatus));
         content.Children.Add(status);
         Ui.Toggle(content, "Acrylic background", model.Settings, nameof(AppSettings.UseAcrylic));
-        Ui.Toggle(content, "GPU joke notifications", model.Settings, nameof(AppSettings.ShowGpuJokes));
+        Ui.Toggle(content, "GPU joke notification at startup", model.Settings, nameof(AppSettings.ShowGpuJokes));
+        int jokeIndex = 0;
+        var joke = new TextBlock { Text = GpuJokes.Captions[jokeIndex], TextWrapping = TextWrapping.Wrap };
+        var nextJoke = new Button { Content = "Next joke" };
+        nextJoke.Click += (_, _) =>
+        {
+            jokeIndex = (jokeIndex + 1) % GpuJokes.Captions.Length;
+            joke.Text = GpuJokes.Captions[jokeIndex];
+        };
+        content.Children.Add(joke);
+        content.Children.Add(nextJoke);
         Ui.Slider(content, "Animation limit", model.Settings, nameof(AppSettings.AnimationFps), 15, 120, 1, "fps");
         Ui.Slider(content, "Capture limit", model.Settings, nameof(AppSettings.CaptureFps), 5, 60, 1, "fps");
         content.Children.Add(new TextBlock { Text = "Changes are saved immediately. Windows manages the startup preference.", TextWrapping = TextWrapping.Wrap, FontSize = 12 });

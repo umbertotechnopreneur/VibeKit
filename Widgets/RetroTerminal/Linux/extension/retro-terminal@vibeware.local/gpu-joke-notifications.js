@@ -9,32 +9,24 @@ export const GPU_JOKES = [
     'No time to game. Plenty of time to adjust the phosphor.',
 ];
 
-export function scheduleGpuJokeNotifications(settings, show) {
-    let source = 0;
-    let index = 0;
+export function scheduleStartupGpuJoke(settings, show) {
+    if (!settings.get_boolean('show-gpu-jokes')) return () => {};
+
+    let signal = 0;
+    const delay = GLib.random_int_range(120, 241);
+    let source = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, delay, () => {
+        source = 0;
+        cancel();
+        if (settings.get_boolean('show-gpu-jokes')) show(GPU_JOKES[0]);
+        return GLib.SOURCE_REMOVE;
+    });
     const cancel = () => {
         if (source) GLib.source_remove(source);
-        source = 0;
+        if (signal) settings.disconnect(signal);
+        source = signal = 0;
     };
-    const schedule = seconds => {
-        source = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, seconds, () => {
-            source = 0;
-            if (!settings.get_boolean('show-gpu-jokes')) return GLib.SOURCE_REMOVE;
-            const joke = GPU_JOKES[index];
-            index = (index + GLib.random_int_range(1, GPU_JOKES.length)) % GPU_JOKES.length;
-            schedule(GLib.random_int_range(60, 121));
-            show(joke);
-            return GLib.SOURCE_REMOVE;
-        });
-    };
-    const sync = () => {
-        cancel();
-        if (settings.get_boolean('show-gpu-jokes')) schedule(10);
-    };
-    const signal = settings.connect('changed::show-gpu-jokes', sync);
-    sync();
-    return () => {
-        settings.disconnect(signal);
-        cancel();
-    };
+    signal = settings.connect('changed::show-gpu-jokes', () => {
+        if (!settings.get_boolean('show-gpu-jokes')) cancel();
+    });
+    return cancel;
 }

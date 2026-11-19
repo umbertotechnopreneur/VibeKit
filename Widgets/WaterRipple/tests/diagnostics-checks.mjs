@@ -11,6 +11,7 @@ const source = name => readFileSync(new URL(`../Linux/extension/ripple@vibeware.
     .replace(/^import .*;\n/gm, '');
 const timers = new Map();
 let lastDelay = 0;
+let useLatestDelay = true;
 const logs = [];
 const notifications = [];
 let nextTimer = 0;
@@ -27,15 +28,15 @@ const GLib = {
         timers.set(++nextTimer, callback);
         return nextTimer;
     },
-    random_int_range: (_start, end) => end - 1,
+    random_int_range: (start, end) => useLatestDelay ? end - 1 : start,
     source_remove: id => timers.delete(id),
 };
-const scheduleGpuJokeNotifications = vm.runInNewContext(
-    source('gpu-joke-notifications.js').replace(/^export /gm, '') + '\nscheduleGpuJokeNotifications;',
+const scheduleStartupGpuJoke = vm.runInNewContext(
+    source('gpu-joke-notifications.js').replace(/^export /gm, '') + '\nscheduleStartupGpuJoke;',
     {GLib});
 const Extension = vm.runInNewContext(source('extension.js')
     .replace('export default class RippleExtension', 'class RippleExtension') + '\nRippleExtension;', {
-    GLib, Extension: class {}, RecoveryPolicy, readResourceSample, retryDelay, FramePacer, scheduleGpuJokeNotifications, TextDecoder,
+    GLib, Extension: class {}, RecoveryPolicy, readResourceSample, retryDelay, FramePacer, scheduleStartupGpuJoke, TextDecoder,
     Clutter: {ModifierType: {BUTTON1_MASK: 1}},
     console: {log: message => logs.push(JSON.parse(message.slice('Ripple: '.length)))},
     Main: {wm: {removeKeybinding() {}}, overview: {}, layoutManager: {}, sessionMode: {},
@@ -150,26 +151,36 @@ assert.equal(timers.size, 0, 'Recovery timers are cleaned up');
 
 settingsChanged = undefined;
 const jokes = [];
+const showJoke = joke => jokes.push(joke);
 values['show-gpu-jokes'] = true;
-const cancelGpuJokes = scheduleGpuJokeNotifications(settings, joke => jokes.push(joke));
-assert.equal(lastDelay, 10);
-function fireGpuJoke() {
-    assert.equal(timers.size, 1, 'GPU jokes should have only one pending timer');
-    const [id, callback] = timers.entries().next().value;
-    timers.delete(id);
-    callback();
-}
-fireGpuJoke();
-assert.equal(jokes[0], 'Family time won. Gaming time lost. The GPU makes ripples now.');
-assert.equal(lastDelay, 120, 'Random wait includes the two-minute endpoint');
-fireGpuJoke();
-assert.notEqual(jokes[0], jokes[1], 'Two consecutive notifications cannot repeat the same joke');
+const cancelGpuJokes = scheduleStartupGpuJoke(settings, showJoke);
+assert.equal(lastDelay, 240, 'The random delay includes four minutes');
+assert.equal(timers.size, 1, 'Startup schedules a single joke timer');
+const [jokeTimer, notifyJoke] = timers.entries().next().value;
+timers.delete(jokeTimer);
+notifyJoke();
+assert.deepEqual(jokes, ['Family time won. Gaming time lost. The GPU makes ripples now.']);
+assert.equal(timers.size, 0, 'The startup joke must never schedule a follow-up');
+assert.equal(gpuJokesChanged, undefined);
 settings.set_boolean('show-gpu-jokes', false);
-assert.equal(timers.size, 0, 'Opting out cancels the next joke');
 settings.set_boolean('show-gpu-jokes', true);
-assert.equal(lastDelay, 10);
+assert.equal(timers.size, 0, 'Re-enabling jokes after delivery cannot create a timer');
 cancelGpuJokes();
-assert.equal(timers.size, 0, 'Extension shutdown cancels the joke timer');
+
+useLatestDelay = false;
+const cancelBeforeDelivery = scheduleStartupGpuJoke(settings, showJoke);
+assert.equal(lastDelay, 120, 'The random delay includes two minutes');
+settings.set_boolean('show-gpu-jokes', false);
+assert.equal(timers.size, 0, 'Opting out cancels the pending startup joke');
+const cancelWhileDisabled = scheduleStartupGpuJoke(settings, showJoke);
+settings.set_boolean('show-gpu-jokes', true);
+assert.equal(timers.size, 0, 'Opting back in applies at the next startup');
+cancelBeforeDelivery();
+cancelWhileDisabled();
+const cancelOnShutdown = scheduleStartupGpuJoke(settings, showJoke);
+assert.equal(timers.size, 1);
+cancelOnShutdown();
+assert.equal(timers.size, 0, 'Extension shutdown cancels the startup timer');
 assert.equal(gpuJokesChanged, undefined);
 
 function checkStartup(autostart) {

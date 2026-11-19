@@ -6,7 +6,7 @@ import {GPU_JOKES} from './gpu-joke-notifications.js';
 
 export function createGpuJokes(settings) {
     const group = new Adw.PreferencesGroup({title: 'GPU excuses', description: "That's a joke."});
-    const toggle = new Adw.SwitchRow({title: 'Show GPU jokes', subtitle: 'Captions and occasional system notifications'});
+    const toggle = new Adw.SwitchRow({title: 'Show GPU jokes', subtitle: 'Captions and one notification at startup'});
     const row = new Adw.ActionRow({title: GPU_JOKES[0], title_lines: 0, use_markup: false});
     settings.bind('show-gpu-jokes', toggle, 'active', Gio.SettingsBindFlags.DEFAULT);
     settings.bind('show-gpu-jokes', row, 'visible', Gio.SettingsBindFlags.GET);

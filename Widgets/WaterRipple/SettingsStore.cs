@@ -281,6 +281,7 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
         public double CaptureFps { get; set; } = 30;
         public bool EmergencyShortcutEnabled { get; set; } = true;
         public bool AutoRecover { get; set; } = true;
+        public bool ShowGpuJokes { get; set; } = true;
         public int ThemeIndex { get; set; }
         public bool UseAcrylic { get; set; } = true;
         public bool ChromaticEnabled { get; set; } = true;
@@ -304,6 +305,7 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
             CaptureFps = CaptureFps,
             EmergencyShortcutEnabled = EmergencyShortcutEnabled,
             AutoRecover = AutoRecover,
+            ShowGpuJokes = ShowGpuJokes,
             ThemeIndex = ThemeIndex,
             UseAcrylic = UseAcrylic,
             ChromaticEnabled = ChromaticEnabled,
@@ -328,6 +330,7 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
             CaptureFps = model.CaptureFps,
             EmergencyShortcutEnabled = model.EmergencyShortcutEnabled,
             AutoRecover = model.AutoRecover,
+            ShowGpuJokes = model.ShowGpuJokes,
             ThemeIndex = model.ThemeIndex,
             UseAcrylic = model.UseAcrylic,
             ChromaticEnabled = model.ChromaticEnabled,

@@ -10,6 +10,7 @@ const {FramePacer} = await import(`data:text/javascript;base64,${Buffer.from(pac
 const source = name => readFileSync(new URL(`../Linux/extension/ripple@vibeware.local/${name}`, import.meta.url), 'utf8')
     .replace(/^import .*;\n/gm, '');
 const timers = new Map();
+let lastDelay = 0;
 const logs = [];
 const notifications = [];
 let nextTimer = 0;
@@ -21,12 +22,20 @@ const GLib = {
         ? `cpu ${cpu} 0 0 ${cpu * 3} 0 0 0 0\n`
         : 'MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n')],
     timeout_add: (_priority, _delay, callback) => { timers.set(++nextTimer, callback); return nextTimer; },
-    timeout_add_seconds: (_priority, _delay, callback) => { timers.set(++nextTimer, callback); return nextTimer; },
+    timeout_add_seconds: (_priority, delay, callback) => {
+        lastDelay = delay;
+        timers.set(++nextTimer, callback);
+        return nextTimer;
+    },
+    random_int_range: (_start, end) => end - 1,
     source_remove: id => timers.delete(id),
 };
+const scheduleGpuJokeNotifications = vm.runInNewContext(
+    source('gpu-joke-notifications.js').replace(/^export /gm, '') + '\nscheduleGpuJokeNotifications;',
+    {GLib});
 const Extension = vm.runInNewContext(source('extension.js')
     .replace('export default class RippleExtension', 'class RippleExtension') + '\nRippleExtension;', {
-    GLib, Extension: class {}, RecoveryPolicy, readResourceSample, retryDelay, FramePacer, TextDecoder,
+    GLib, Extension: class {}, RecoveryPolicy, readResourceSample, retryDelay, FramePacer, scheduleGpuJokeNotifications, TextDecoder,
     Clutter: {ModifierType: {BUTTON1_MASK: 1}},
     console: {log: message => logs.push(JSON.parse(message.slice('Ripple: '.length)))},
     Main: {wm: {removeKeybinding() {}}, overview: {}, layoutManager: {}, sessionMode: {},
@@ -34,13 +43,23 @@ const Extension = vm.runInNewContext(source('extension.js')
     global: {stage: {}, get_pointer: () => [0, 0, 0]},
 });
 const values = {active: true, status: 'Active', target: 'both', fps: 30, 'lease-until': 107.5};
-let settingsChanged;
+let settingsChanged, gpuJokesChanged;
 const settings = {
     get_boolean: key => values[key] ?? false,
     get_double: key => values[key] ?? 0,
     get_int: key => values[key] ?? 0,
     get_value: key => ({deep_unpack: () => values[key] ?? 0}),
-    set_boolean(key, value) { values[key] = value; settingsChanged?.(this, key); },
+    connect(signal, callback) {
+        assert.equal(signal, 'changed::show-gpu-jokes');
+        gpuJokesChanged = callback;
+        return 1;
+    },
+    disconnect(id) { assert.equal(id, 1); gpuJokesChanged = undefined; },
+    set_boolean(key, value) {
+        values[key] = value;
+        settingsChanged?.(this, key);
+        if (key === 'show-gpu-jokes') gpuJokesChanged?.();
+    },
     set_string(key, value) { values[key] = value; settingsChanged?.(this, key); },
 };
 const extension = new Extension();
@@ -129,6 +148,30 @@ assert.equal(values['recovery-pending'], false, 'Expired heartbeat prevents reco
 extension.disable();
 assert.equal(timers.size, 0, 'Recovery timers are cleaned up');
 
+settingsChanged = undefined;
+const jokes = [];
+values['show-gpu-jokes'] = true;
+const cancelGpuJokes = scheduleGpuJokeNotifications(settings, joke => jokes.push(joke));
+assert.equal(lastDelay, 10);
+function fireGpuJoke() {
+    assert.equal(timers.size, 1, 'GPU jokes should have only one pending timer');
+    const [id, callback] = timers.entries().next().value;
+    timers.delete(id);
+    callback();
+}
+fireGpuJoke();
+assert.equal(jokes[0], 'Family time won. Gaming time lost. The GPU makes ripples now.');
+assert.equal(lastDelay, 120, 'Random wait includes the two-minute endpoint');
+fireGpuJoke();
+assert.notEqual(jokes[0], jokes[1], 'Two consecutive notifications cannot repeat the same joke');
+settings.set_boolean('show-gpu-jokes', false);
+assert.equal(timers.size, 0, 'Opting out cancels the next joke');
+settings.set_boolean('show-gpu-jokes', true);
+assert.equal(lastDelay, 10);
+cancelGpuJokes();
+assert.equal(timers.size, 0, 'Extension shutdown cancels the joke timer');
+assert.equal(gpuJokesChanged, undefined);
+
 function checkStartup(autostart) {
     let window, availability, actions;
     const handlers = {};
@@ -173,4 +216,4 @@ function checkStartup(autostart) {
 }
 checkStartup(true);
 checkStartup(false);
-console.log('PASS compact diagnostics, heartbeat silence, stop context, cleanup and hidden autostart');
+console.log('PASS compact diagnostics, heartbeat silence, stop context, cleanup, hidden autostart and GPU joke scheduling');

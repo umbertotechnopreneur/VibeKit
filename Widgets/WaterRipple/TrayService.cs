@@ -17,7 +17,7 @@ internal sealed class TrayService : IDisposable
     private readonly SubclassCallback callback;
     private readonly uint taskbarCreated;
     private IntPtr icon;
-    private bool ownsIcon, visible, versionFour, disposed;
+    private bool ownsIcon, visible, kept, versionFour, disposed;
 
     internal TrayService(IntPtr hwnd, string iconPath, Action show, Action settings, Action exit)
     {
@@ -51,6 +51,12 @@ internal sealed class TrayService : IDisposable
 
     internal void Show()
     {
+        EnsureVisible();
+        kept = true;
+    }
+
+    private void EnsureVisible()
+    {
         ObjectDisposedException.ThrowIf(disposed, this);
         if (visible) return;
         var data = Data();
@@ -63,6 +69,7 @@ internal sealed class TrayService : IDisposable
 
     internal void Hide()
     {
+        kept = false;
         if (!visible) return;
         var data = Data();
         ShellNotifyIcon(2, ref data);
@@ -70,16 +77,17 @@ internal sealed class TrayService : IDisposable
         versionFour = false;
     }
 
-    internal void Notify(string title, string message)
+    internal void Notify(string title, string message, bool silent = false)
     {
-        ObjectDisposedException.ThrowIf(disposed, this);
-        if (!visible) Show();
+        EnsureVisible();
         var data = Data();
         data.Flags = 0x10; // NIF_INFO
         data.InfoTitle = title.Length > 63 ? title[..63] : title;
         data.Info = message.Length > 255 ? message[..255] : message;
-        data.InfoFlags = 0x1; // NIIF_INFO
-        if (!ShellNotifyIcon(1, ref data)) throw new Win32Exception("The notification could not be shown.");
+        data.InfoFlags = silent ? 0x11u : 0x1u; // NIIF_INFO with optional NIIF_NOSOUND
+        if (ShellNotifyIcon(1, ref data)) return;
+        if (!kept) Hide();
+        throw new Win32Exception("The notification could not be shown.");
     }
 
     private NotifyIconData Data() => new()
@@ -103,8 +111,11 @@ internal sealed class TrayService : IDisposable
                 // Explorer discarded its icon list. Re-register without growing resources.
                 visible = false;
                 versionFour = false;
-                try { Show(); }
-                catch (Win32Exception) { Dispatch(show); }
+                if (kept)
+                {
+                    try { EnsureVisible(); }
+                    catch (Win32Exception) { Dispatch(show); }
+                }
                 return IntPtr.Zero;
             }
             if (!disposed && message == CallbackMessage)
@@ -115,7 +126,13 @@ internal sealed class TrayService : IDisposable
                     if ((notification >> 16) != IconId) return IntPtr.Zero;
                     notification &= 0xFFFF;
                 }
-                if (notification is 0x400 or 0x401 || (!versionFour && notification == 0x0202))
+                // NIN_BALLOONHIDE, NIN_BALLOONTIMEOUT and NIN_BALLOONUSERCLICK.
+                if (notification is 0x403 or 0x404 or 0x405)
+                {
+                    if (!kept) Hide();
+                    if (notification == 0x405) Dispatch(show);
+                }
+                else if (notification is 0x400 or 0x401 || (!versionFour && notification == 0x0202))
                     Dispatch(show);
                 else if (notification == 0x007B || (!versionFour && notification == 0x0205))
                     ShowMenu(wParam);

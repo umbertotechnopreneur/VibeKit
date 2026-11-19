@@ -12,6 +12,7 @@ internal static class Native
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroStop(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroRecoveryPending(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroSetRecovery(nint engine,int enabled,int seconds);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroSetGpuJokes(nint engine, int enabled);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroKeepInTray(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroLeaveTray(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern TrayAction RetroTakeTrayAction(nint engine);

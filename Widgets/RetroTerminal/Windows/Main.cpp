@@ -2,6 +2,7 @@
 #include "Renderer.h"
 #include "ControllerState.h"
 #include "CloseDialog.h"
+#include "GpuJokeNotifications.h"
 #include <commdlg.h>
 #include <vector>
 #include <iterator>
@@ -20,7 +21,7 @@ namespace
     constexpr wchar_t OverlayClass[] = L"VibeWareRetroTerminalOverlay";
     constexpr int ToggleId = 100, PaletteId = 101, StopId = 103, TabsId = 104,
         ColorId = 105, MaskId = 106, PersistenceId = 107, RandomId = 108,
-        TryId = 109, PresetId = 110, SavePresetId = 111, SliderBase = 200, GlitchTypeBase = 300;
+        TryId = 109, PresetId = 110, SavePresetId = 111, GpuJokesId = 112, SliderBase = 200, GlitchTypeBase = 300;
     constexpr UINT_PTR RenderTimer = 1;
     constexpr int EmergencyHotkey = 1;
     using Clock = std::chrono::steady_clock;
@@ -37,6 +38,8 @@ namespace
         HBRUSH background = CreateSolidBrush(RGB(248, 247, 252));
         UINT currentDpi = 96;
         Renderer renderer;
+        TrayIcon tray;
+        GpuJokeNotifications gpuJokes;
         bool running = false, hotkeyAvailable = false, dirty = false;
         int slowFrames = 0, frames = 0;
         float cpuTotal = 0;
@@ -154,8 +157,14 @@ namespace
             PageControl(1, L"STATIC", L"Try now uses the allowed types, even with random glitches off.\nOne episode at a time; at least two seconds of rest.\nStop cancels all episodes. No full-screen flashes.", SS_LEFT, 30, 508, 600, 80);
             toggle = Control(L"BUTTON", L"Enable effect", BS_PUSHBUTTON | WS_TABSTOP, 20, 648, 315, 36, ToggleId);
             Control(L"BUTTON", L"Stop", BS_PUSHBUTTON | WS_TABSTOP, 350, 648, 315, 36, StopId);
-            Control(L"STATIC", L"Ctrl + Alt + F11 stops CRT. Applies to the monitor containing this panel.", SS_LEFT, 20, 698, 645, 22);
-            status = Control(L"STATIC", L"Stopped. Your desktop is unchanged.", SS_LEFT, 20, 732, 645, 54);
+            Control(L"STATIC", L"Ctrl + Alt + F11 stops CRT. Applies to the monitor containing this panel.", SS_LEFT, 20, 693, 645, 20);
+            HWND jokesToggle = Control(L"BUTTON", L"GPU joke notifications", BS_AUTOCHECKBOX | WS_TABSTOP,
+                20, 714, 645, 22, GpuJokesId);
+            const bool jokesEnabled = GpuJokeNotifications::ReadPreference();
+            SendMessageW(jokesToggle, BM_SETCHECK, jokesEnabled ? BST_CHECKED : BST_UNCHECKED, 0);
+            tray.Initialize(window, window);
+            gpuJokes.SetEnabled(window, jokesEnabled);
+            status = Control(L"STATIC", L"Stopped. Your desktop is unchanged.", SS_LEFT, 20, 743, 645, 49);
             SyncControls(); ShowPage(); UpdateScroll();
             hotkeyAvailable = RegisterHotKey(window, EmergencyHotkey, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_F11) != FALSE;
             if (!hotkeyAvailable) {
@@ -363,6 +372,22 @@ namespace
             SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(app));
         }
         if (!app) return DefWindowProcW(window, message, wParam, lParam);
+        if (app->tray.HandleMessage(message, wParam, lParam))
+        {
+            switch (app->tray.TakeAction())
+            {
+            case TrayIcon::Action::Open:
+                ShowWindow(window, SW_RESTORE);
+                SetForegroundWindow(window);
+                break;
+            case TrayIcon::Action::Quit:
+                PostMessageW(window, WM_CLOSE, 0, 0);
+                break;
+            case TrayIcon::Action::None:
+                break;
+            }
+            return 0;
+        }
         switch (message)
         {
         case WM_ERASEBKGND:
@@ -384,6 +409,11 @@ namespace
             const int id = LOWORD(wParam);
             if (id == ToggleId) { if (app->running) app->Stop(L"Stopped by you."); else app->Start(); }
             else if (id == StopId) app->Stop(L"Stopped by you.");
+            else if (id == GpuJokesId && HIWORD(wParam) == BN_CLICKED) {
+                const bool enabled = SendMessageW(reinterpret_cast<HWND>(lParam), BM_GETCHECK, 0, 0) == BST_CHECKED;
+                app->gpuJokes.SetEnabled(window, enabled);
+                if (!GpuJokeNotifications::SavePreference(enabled)) app->Status(L"Could not save the GPU jokes preference.");
+            }
             else if (id == ColorId) app->PickColor();
             else if (id == SavePresetId) app->SavePreset();
             else if (id == PresetId && HIWORD(wParam) == CBN_SELCHANGE) app->SelectPreset();
@@ -452,6 +482,7 @@ namespace
             return 0;
         case WM_TIMER:
             if (wParam == RenderTimer) app->Tick();
+            else if (wParam == GpuJokeNotifications::TimerId) app->gpuJokes.Tick(window, app->tray);
             return 0;
         case WM_HOTKEY:
             if (wParam == EmergencyHotkey) app->Stop(L"Emergency stop · Ctrl + Alt + F11. Enable manually to resume.");
@@ -478,6 +509,8 @@ namespace
             if (app->RequestClose()) DestroyWindow(window);
             return 0;
         case WM_DESTROY:
+            app->gpuJokes.SetEnabled(window, false);
+            app->tray.Remove();
             UnregisterHotKey(window, EmergencyHotkey);
             WTSUnRegisterSessionNotification(window);
             PostQuitMessage(0);

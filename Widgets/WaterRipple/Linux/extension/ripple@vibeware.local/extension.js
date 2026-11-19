@@ -9,6 +9,7 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {RippleEffect} from './effect.js';
 import {RecoveryPolicy, readResourceSample, retryDelay} from './recovery.js';
 import {FramePacer} from './frame-pacing.js';
+import {scheduleGpuJokeNotifications} from './gpu-joke-notifications.js';
 
 const NUMBERS = ['strength', 'speed', 'wavelength', 'rings', 'lifetime',
     'damping', 'light', 'radius', 'aspect', 'chromatic-separation', 'chromatic-blend',
@@ -94,6 +95,9 @@ export default class RippleExtension extends Extension {
             if (this._settings.get_boolean('active') && !this._leaseValid())
                 this._stop('Controller heartbeat expired or invalid');
             return GLib.SOURCE_CONTINUE;
+        });
+        this._cancelGpuJokes = scheduleGpuJokeNotifications(this._settings, joke => {
+            if (!Main.sessionMode.isLocked) this._notify("Water Ripple · That's a joke", joke);
         });
     }
 
@@ -449,6 +453,8 @@ export default class RippleExtension extends Extension {
     }
 
     disable() {
+        this._cancelGpuJokes?.();
+        this._cancelGpuJokes = null;
         this._cancelRecovery();
         this._stopPointerPolling();
         this._clear();

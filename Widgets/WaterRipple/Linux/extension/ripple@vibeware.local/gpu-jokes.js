@@ -2,20 +2,13 @@
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import {GPU_JOKES} from './gpu-joke-notifications.js';
 
-const JOKES = [
-    'Family time won. Gaming time lost. The GPU makes ripples now.',
-    'Imagine a $1,000 GPU. Now give it ripples.',
-    'Built for gaming. Promoted to desktop decoration.',
-    'No time for one more level. Always time for one more ripple.',
-    'A very serious use of a gaming GPU.',
-];
-
-// This is UI copy, not telemetry. There is no background work when hidden.
+// The preferences caption rotates only while the panel is visible.
 export function createGpuJokes(settings) {
-    const group = new Adw.PreferencesGroup({title: 'GPU excuses', description: 'Just for fun · not telemetry'});
-    const toggle = new Adw.SwitchRow({title: 'Rotate GPU jokes'});
-    const row = new Adw.ActionRow({title: JOKES[0], use_markup: false, title_lines: 0});
+    const group = new Adw.PreferencesGroup({title: 'GPU excuses', description: "That's a joke."});
+    const toggle = new Adw.SwitchRow({title: 'Show GPU jokes', subtitle: 'Captions and occasional system notifications'});
+    const row = new Adw.ActionRow({title: GPU_JOKES[0], use_markup: false, title_lines: 0});
     settings.bind('show-gpu-jokes', toggle, 'active', Gio.SettingsBindFlags.DEFAULT);
     settings.bind('show-gpu-jokes', row, 'visible', Gio.SettingsBindFlags.GET);
     group.add(toggle);
@@ -35,8 +28,8 @@ export function createGpuJokes(settings) {
                 timeout = 0;
                 return GLib.SOURCE_REMOVE;
             }
-            index = (index + 1) % JOKES.length;
-            row.title = JOKES[index];
+            index = (index + 1) % GPU_JOKES.length;
+            row.title = GPU_JOKES[index];
             return GLib.SOURCE_CONTINUE;
         });
     };

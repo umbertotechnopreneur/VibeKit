@@ -29,12 +29,12 @@ public:
         Hide();
     }
 
-    void Notify(const wchar_t* title, const wchar_t* detail)
+    void Notify(const wchar_t* title, const wchar_t* detail, bool silent = false)
     {
         if (!Show()) return;
         auto data = Data();
         data.uFlags = NIF_INFO;
-        data.dwInfoFlags = NIIF_INFO;
+        data.dwInfoFlags = NIIF_INFO | (silent ? NIIF_NOSOUND : 0);
         wcsncpy_s(data.szInfoTitle, title, _TRUNCATE);
         wcsncpy_s(data.szInfo, detail, _TRUNCATE);
         if (!Shell_NotifyIconW(NIM_MODIFY, &data) && !kept) Hide();
@@ -54,9 +54,11 @@ public:
         if (versionFour && HIWORD(value) != 1) return true;
         const UINT event = versionFour ? LOWORD(value) : UINT(value);
         switch (event) {
+        case NIN_BALLOONUSERCLICK:
+            if (!kept) Hide();
+            [[fallthrough]];
         case NIN_SELECT:
         case NIN_KEYSELECT:
-        case NIN_BALLOONUSERCLICK:
         case WM_LBUTTONUP:
             action = Action::Open;
             break;

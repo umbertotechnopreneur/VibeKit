@@ -12,6 +12,7 @@ import {DelayGuard, surfaceAllowed} from './guard.js';
 import {PhosphorPersistence} from './persistence.js';
 import {GlitchSequence} from './glitches.js';
 import {DEFAULTS, readValues} from './settings-model.js';
+import {scheduleGpuJokeNotifications} from './gpu-joke-notifications.js';
 
 const now = () => GLib.get_monotonic_time() / 1e6;
 export default class RetroTerminal extends Extension {
@@ -78,6 +79,9 @@ export default class RetroTerminal extends Extension {
         this._connect(Main.sessionMode, 'updated', () => {
             if (!this._userSession())
                 this._stop('Session changed; enable again to resume');
+        });
+        this._cancelGpuJokes = scheduleGpuJokeNotifications(this._settings, joke => {
+            if (this._userSession()) Main.notify("Retro Terminal · That's a joke", joke);
         });
     }
 
@@ -234,6 +238,8 @@ export default class RetroTerminal extends Extension {
         this._settings.set_string('status', reason);
     }
     disable() {
+        this._cancelGpuJokes?.();
+        this._cancelGpuJokes = null;
         this._stop('Extension disabled');
         for (const [object, id] of this._signals) object.disconnect(id);
         this._signals = [];

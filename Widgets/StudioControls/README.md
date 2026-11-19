@@ -83,10 +83,9 @@ for the current user with DPAPI; they are not portable plaintext files.
 
 The build uses locked dependencies and a fresh publish folder. Choose a new or
 empty `-OutputDirectory` for another build; existing files are never mixed into
-the release. `-Package` produces
-`artifacts/StudioControls-0.3.1-windows-x64.zip` and its `.zip.sha256` checksum.
-Extract the complete ZIP before starting the executable. It includes the .NET
-and WinUI runtimes, generic assets, the sanitized scene template and licences.
+the release. `-Package` produces `artifacts/StudioControls-0.3.1-windows-x64.msi`.
+Run the MSI, then open Studio Controls from Start. The installer includes the
+.NET and WinUI runtimes, generic assets, the sanitized scene template and licences.
 No Python installation is required on Windows.
 
 The package command stages an unsigned per-user MSI with WiX 5.0.2 and Python 3.

@@ -1,3 +1,7 @@
+> - **File name** `README.md`
+> - **Full path** `E:\vibekit\Widgets\OpenAI\README.md`
+> - **Path relative to the VibeKit repository root** `Widgets/OpenAI/README.md`
+
 # OpenAI Usage
 
 [![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
@@ -53,7 +57,6 @@ Token quantities use decimal prefixes **K, M, G, T, P, E** (powers of 1,000). Th
 
 Installer targets for **0.4.3**, generated on demand from the current source. These paths exist only until cleanup:
 
-- Signed Windows 11 x64 MSIX: per-user installation with a Start menu entry and optional startup at sign-in. Includes .NET and Windows App SDK runtime files. It uses the same local data directory as the MSI.
 - `OpenAIUsage-0.4.3-windows-x64.msi`: per-user Windows x64 installation under `%LOCALAPPDATA%/Programs/OpenAI Usage`, Start menu shortcut and standard Windows uninstall/upgrade support. Includes .NET and Windows App SDK runtime files.
 - `openai-usage_0.4.3-1_amd64.deb`: Ubuntu amd64 package with a self-contained Linux .NET backend, launcher and desktop entry. GTK/Python/system-library prerequisites are declared as APT dependencies. Targets Ubuntu 24.04+; runtime execution on Ubuntu is not verified here.
 
@@ -63,7 +66,7 @@ All packages require a separately installed Codex CLI and your own ChatGPT sign-
 sudo apt install ./openai-usage_0.4.3-1_amd64.deb
 ```
 
-On Windows, open the MSI to install, then launch **OpenAI Usage** from Start. Use Settings > Apps to uninstall; private observation history is outside the installation directory. The installer builder forces clean source rebuilds and checks the compiled version. Successful packaging keeps only the current MSI/DEB until installation or hand-off, while removing imported dependencies, staging payloads, bin/obj and Python caches. Run `Packaging/Clean-BuildOutputs.ps1` to remove all generated material, including the latest installers. No release history, antivirus report, scan hash inventory or persistent import cache is kept.
+On Windows, open the MSI to install, then launch **OpenAI Usage** from Start. Use Settings > Apps to uninstall; private observation history is outside the installation directory. The installer builder forces clean source rebuilds and checks the compiled version. Packaging preserves generated installers, dependencies and build output for manual cleanup. Run `Packaging/Clean-BuildOutputs.ps1` to remove all generated material, including the latest installers. No release history, antivirus report, scan hash inventory or persistent import cache is kept.
 
 ## Real data
 
@@ -124,15 +127,14 @@ $imports = & .\Prepare-Imports.ps1
 
 Preparation downloads official dependencies and explicitly scans the imported archives and extracted files. It returns an in-memory verification object for the current build; do not serialize or export it. Build scripts validate this transient object and the unchanged staged files before using them. Builds and tests never start antivirus scans. Cleanup removes generated outputs and local dependency caches; a later build starts a fresh preparation session.
 
-To build the Windows-only MSIX, use the Windows SDK 10.0.26100.0 and a code-signing certificate in `CurrentUser\My` with subject `CN=VibeWare`. The certificate must already be trusted by the installation machine. Use a new output path outside the widget directory.
+Build only the unsigned Windows MSI with the following commands.
 
 ```powershell
-$imports = & .\Prepare-Imports.ps1 -ForPackaging -WindowsOnly
-& .\Build.ps1 -Imports $imports -Configuration Release -MsixPath $msixPath -CertificateThumbprint $thumbprint
-Add-AppxPackage -Path $msixPath
+$imports = & .\Packaging\Prepare-Packaging.ps1 -WindowsOnly
+& .\Packaging\Build-WindowsDistribution.ps1 -Imports $imports
 ```
 
-The MSIX build compiles only the Windows widget and skips the behavioral checks. Delete the temporary MSIX after installing it unless it is needed for handoff.
+On Linux use `bash Packaging/Build-Debian.sh` to build the Debian package.
 
 For self-contained Release installers:
 
@@ -203,3 +205,7 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
   </a><br>
   <em>Human intent, AI execution, and plenty of tokens</em>
 </p>
+
+> - **File name** `README.md`
+> - **Full path** `E:\vibekit\Widgets\OpenAI\README.md`
+> - **Path relative to the VibeKit repository root** `Widgets/OpenAI/README.md`

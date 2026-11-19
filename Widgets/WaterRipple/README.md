@@ -20,7 +20,7 @@ Ripple opens a control panel and starts click ripples on the current monitor whe
 
 The **Pipelines** tab lists saved effect combinations with a summary and an actions menu. **New pipeline** saves the current settings under a name. Saved pipelines update automatically as you edit them. Built-in pipelines remain unchanged; use **Duplicate** to customize one, then rename or delete your copies. Editing a built-in directly switches to **Custom** until you save it as a new pipeline. **Import** and **Export** exchange JSON libraries with the Linux edition.
 
-Expandable sections retain **RGB refraction**, **Crest reflections**, **Multiple ripples**, and **Glass / liquid**, with independent enable switches, described filter presets and numeric controls. **Settings** contains capture/animation limits, Acrylic and **Start with Windows**. Startup uses the packaged Windows `StartupTask` API. Existing Windows startup choices and policy are respected; unpackaged builds explain that an MSIX installation is needed.
+Expandable sections retain **RGB refraction**, **Crest reflections**, **Multiple ripples**, and **Glass / liquid**, with independent enable switches, described filter presets and numeric controls. **Settings** contains capture/animation limits, Acrylic and **Start with Windows**. Existing MSIX installations use the Windows `StartupTask` API and respect Windows startup choices and policy. In MSI installations, open Water Ripple manually from Start.
 
 Closing offers tray minimization, exit or cancel. Tray mode keeps an enabled effect running. The overlay stays hidden until capture and presentation are valid and hides before GPU resources are released. Only the screen overlay is excluded from capture to prevent feedback.
 

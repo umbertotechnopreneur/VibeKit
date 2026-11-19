@@ -5,7 +5,7 @@ import GLib from 'gi://GLib';
 import Gdk from 'gi://Gdk?version=4.0';
 const directory = Gio.File.new_for_path(ARGV[0]);
 const {buildControls} = await import(directory.get_child('settings-ui.js').get_uri());
-const {DEFAULTS} = await import(directory.get_child('settings-model.js').get_uri());
+const {DEFAULTS, readValues} = await import(directory.get_child('settings-model.js').get_uri());
 Adw.init();
 const source = Gio.SettingsSchemaSource.new_from_directory(directory.get_child('schemas').get_path(), Gio.SettingsSchemaSource.get_default(), false);
 const settings = Gio.Settings.new_full(source.lookup('org.gnome.shell.extensions.vibeware-retro-terminal', true), null, null);
@@ -16,6 +16,19 @@ const legacy = settings.get_string('saved-presets');
 const window = new Adw.PreferencesWindow();
 const ui = buildControls(window, settings);
 check(!ui.active.active, 'Must start disabled');
+check(ui.pipeline.enable_search && ui.pipeline.expression, 'The pipeline selector exposes native search');
+for (const name of ['Apple IIc Green Raster', 'Classic Mac Platinum Paper']) {
+    const index = ui.pipelines.items.findIndex(item => item.name === name);
+    check(index >= 0 && ui.pipeline.model.get_string(index + 1) === name, `${name} is selectable`);
+    ui.pipeline.selected = index + 1;
+    const applied = readValues(settings);
+    check(ui.pipelines.selected?.name === name &&
+        Object.entries(ui.pipelines.selected.values).every(([key, value]) => applied[key] === value),
+        `${name} applies all its monitor settings`);
+    check(!ui.active.active, 'Choosing a look leaves CRT power under user control');
+}
+ui.pipeline.selected = 0;
+for (const key of Object.keys(DEFAULTS)) settings.reset(key);
 check(Object.values(ui.expanders).length === 4 && Object.values(ui.expanders).every(row => !row.expanded),
     'All four control sections start collapsed');
 check(ui.pipelines.items.some(item => item.name === 'Previous look') && settings.get_string('saved-presets') === legacy,

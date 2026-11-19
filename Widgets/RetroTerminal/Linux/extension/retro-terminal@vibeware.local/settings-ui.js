@@ -40,7 +40,11 @@ export function buildControls(window, settings) {
     signals.push(settings.connect('changed::status', () => status.title = settings.get_string('status')));
 
     const selection = group('', 'Adjust a personal pipeline to save it automatically. Duplicate a built-in in Pipelines to keep your changes.');
-    const pipeline = new Adw.ComboRow({title: 'Pipeline'});
+    const pipeline = new Adw.ComboRow({
+        title: 'Pipeline',
+        enable_search: true,
+        expression: Gtk.PropertyExpression.new(Gtk.StringObject.$gtype, null, 'string'),
+    });
     selection.add(pipeline);
     const pipelineError = new Adw.ActionRow({use_markup: false, title_lines: 0, visible: false});
     selection.add(pipelineError);

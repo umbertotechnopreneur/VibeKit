@@ -3,6 +3,10 @@ import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/ex
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import {buildControls} from './settings-ui.js';
+
+// Advance this when preferences require changes to the Shell renderer.
+const MINIMUM_RENDERER_VERSION = 4;
+
 export default class RetroPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const ui = buildControls(window, this.getSettings());
@@ -23,7 +27,7 @@ export default class RetroPreferences extends ExtensionPreferences {
                 try {
                     const [info] = connection.call_finish(result).deep_unpack();
                     const running = info.version?.deep_unpack();
-                    if (Number.isFinite(running) && running < installed.version) {
+                    if (Number.isFinite(running) && running < MINIMUM_RENDERER_VERSION) {
                         ui.status.title = 'New CRT renderer installed';
                         ui.status.subtitle = 'Update installed. Sign out and back in to load the new CRT renderer. Your session is still using an earlier version.';
                         ui.active.sensitive = false;

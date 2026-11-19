@@ -82,17 +82,27 @@ jobs:
           $report = Join-Path '${{ runner.temp }}/studio-controls-windows' 'ui-smoke.txt'
           if (-not (Test-Path -LiteralPath $report)) { throw 'No native UI smoke report was produced.' }
           Get-Content -LiteralPath $report
-      - name: Verify archive exclusions and package the Windows application
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '6.0.x'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Stage WiX 5
+        shell: pwsh
+        run: |
+          dotnet tool install wix --version 5.0.2 --tool-path "$env:RUNNER_TEMP/widget-wix"
+          if ($LASTEXITCODE -ne 0) { throw 'WiX installation failed.' }
+      - name: Verify installer exclusions and build unsigned MSI
         shell: pwsh
         run: |
           ./scripts/Test-WindowsPackage.ps1
-          ./scripts/Package-Windows.ps1 -PublishDirectory '${{ runner.temp }}/studio-controls-windows' -OutputDirectory '${{ runner.temp }}/studio-controls-release'
-          [xml]$project = Get-Content Windows/StudioControls.Windows.csproj
-          $version = @($project.Project.PropertyGroup.Version | Where-Object { $_ })[0]
-          $archive = Join-Path '${{ runner.temp }}/studio-controls-release' "StudioControls-$version-windows-x64.zip"
-          Copy-Item -LiteralPath $archive -Destination '${{ runner.temp }}/studio-controls-release/StudioControls-windows-x64.zip'
+          ./scripts/Package-Windows.ps1 -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe" -PublishDirectory "$env:RUNNER_TEMP/studio-controls-windows" -OutputDirectory "$env:RUNNER_TEMP/studio-controls-release"
+          $installer = @(Get-ChildItem -LiteralPath "$env:RUNNER_TEMP/studio-controls-release" -Filter '*.msi' -File)
+          if ($installer.Count -ne 1) { throw 'Expected one Studio Controls installer.' }
+          Rename-Item -LiteralPath $installer[0].FullName -NewName 'StudioControls-windows-x64.msi'
       - uses: actions/upload-artifact@v6
         with:
           name: studio-controls-windows-x64
-          path: ${{ runner.temp }}/studio-controls-release/StudioControls-windows-x64.zip
+          path: ${{ runner.temp }}/studio-controls-release/StudioControls-windows-x64.msi
           if-no-files-found: error

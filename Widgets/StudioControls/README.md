@@ -1,3 +1,7 @@
+> - **File name** `README.md`
+> - **Full path** `E:\vibekit\Widgets\StudioControls\README.md`
+> - **Path relative to the VibeKit repository root** `Widgets/StudioControls/README.md`
+
 # Studio Controls
 
 A native control desk for local OBS Studio demonstrations: scenes, recording,
@@ -70,7 +74,7 @@ Existing flat installations remain compatible. Configuration uses the existing
 Install the .NET 10 SDK and Windows SDK. From PowerShell 7:
 
 ```powershell
-./scripts/Build-Windows.ps1 -Configuration Release -Verify -Package
+./scripts/Build-Windows.ps1 -Configuration Release -Verify -Package -WixPath <path-to-wix.exe-or-wix.dll>
 ```
 
 Run `artifacts/windows-x64/StudioControls.Windows.exe`. Configure OBS's local
@@ -85,40 +89,22 @@ Extract the complete ZIP before starting the executable. It includes the .NET
 and WinUI runtimes, generic assets, the sanitized scene template and licences.
 No Python installation is required on Windows.
 
-An optional per-user Windows Installer package can be generated from the same
-fresh publish directory using WiX Toolset 5 and Python 3:
+The package command stages an unsigned per-user MSI with WiX 5.0.2 and Python 3.
+The installer adds a Start menu shortcut and supports major upgrades. Preferences
+and generated project data remain in LocalAppData on uninstall. Increase the
+project version for each installer update.
 
-```powershell
-python scripts/create-wix.py ./artifacts/windows-x64 ./artifacts/StudioControls.wxs
-dotnet <path-to-wix-5>/wix.dll build ./artifacts/StudioControls.wxs -arch x64 -o ./artifacts/StudioControls-0.3.1-windows-x64.msi -pdbtype none
-```
-
-The MSI installs under the current user's local Programs directory, adds a Start
-menu shortcut and supports major upgrades. Preferences and generated project data
-remain in LocalAppData on uninstall. Local packages are unsigned.
-Increase the project version for each installer update: rebuilding an MSI with
-the same version does not make it a major upgrade of an installed package.
-
-CI can run the isolated native `--ui-smoke` check after publishing, then package
-the same verified output without starting the app again:
+CI runs the isolated native `--ui-smoke` check after publishing and packages the
+verified output.
 
 ```powershell
 ./scripts/Test-WindowsPackage.ps1
-./scripts/Package-Windows.ps1 -PublishDirectory ./artifacts/windows-x64 -OutputDirectory ./artifacts
+./scripts/Package-Windows.ps1 -WixPath <path-to-wix.exe-or-wix.dll> -PublishDirectory ./artifacts/windows-x64 -OutputDirectory ./artifacts
 ```
 
-Packaging validates the clean-build hash manifest and refuses changed or extra
-files. Preferences, generated project data, logs, PDBs and CI verification
-reports are excluded. The ZIP has a versioned top-level folder and includes a
-relative-path integrity manifest and dependency licence notices.
+The packager validates the clean-build hash manifest and rejects changed or extra
+files. It excludes preferences, project data, logs, symbols and verification reports.
 
-The `--verify` mode exits before constructing the control window or any camera
-controller. It uses only synthetic project data, temporary preferences and local
-rendered images. It does not enumerate devices, capture media or contact OBS.
-
-Opening camera hardware controls is an explicit action. Camera support and
-ranges depend on the actual driver. Windows camera/monitor selection and an
-interactive recording check must be performed on the target Windows machine.
 
 ## Import the scene package
 
@@ -183,3 +169,7 @@ protocol/models/service and fake-only checks; `Windows/` native integration;
 Original code/artwork/cue: MIT, © 2026 Umberto Giacobbi. Third-party assets retain
 their licenses. Keep the CRT footage attribution in the overlay and package;
 see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+> - **File name** `README.md`
+> - **Full path** `E:\vibekit\Widgets\StudioControls\README.md`
+> - **Path relative to the VibeKit repository root** `Widgets/StudioControls/README.md`

@@ -1,3 +1,7 @@
+> - **File name** `README.md`
+> - **Full path** `E:\vibekit\Widgets\RetroTerminal\Windows\README.md`
+> - **Path relative to the VibeKit repository root** `Widgets/RetroTerminal/Windows/README.md`
+
 # Retro Terminal for Windows (prototype)
 
 Native Win32 controls and a Direct3D 11 / DirectComposition desktop CRT effect,
@@ -16,19 +20,24 @@ cmake --build build --config Release
 .\build\Release\RetroTerminal.exe
 ```
 
-The Windows MSIX package is built from source with `Packaging/Build-MSIX.ps1`.
-Pass `-CertificateThumbprint` for an existing trusted code-signing certificate
-matching the publisher to create a locally installable signed package. The output
-is `dist/RetroTerminal_<version>_x64.msix`. Install it with Windows App Installer
-or `Add-AppxPackage`; the destination must trust the signing certificate. The
-package includes the shader and statically linked MSVC runtime. There is no
-autostart entry or elevation requirement.
+## Windows installer
 
-Preferences and three personal preset slots use `HKCU\Software\VibeWare\RetroTerminal`.
-MSIX reads existing per-user settings through the merged registry view; writes are
-private to the package and persist across upgrades but are removed on uninstall.
-Enabled state is never saved. Export or otherwise preserve any settings you need
-before removing the package.
+Use PowerShell, Python 3 and WiX 5.0.2 to build the unsigned per-user x64 MSI.
+
+```powershell
+.\Packaging\Build-MSI.ps1 -WixPath <path-to-wix.exe-or-wix.dll>
+```
+
+The installer is under the application `dist/` directory. It adds Retro Terminal
+to Start and installs the WinUI studio, native engine, shader and private
+runtimes. Use `msiexec /i <path-to-msi> /quiet /norestart` for automation.
+
+The original native panel stores preferences under `HKCU\Software\VibeWare\RetroTerminal`.
+The WinUI studio stores preferences in the user's LocalAppData directory. Before
+removing a previously installed MSIX, export or copy any settings you want to
+keep from its private storage. Windows Installer leaves user settings in place
+when uninstalling the new package.
+
 
 ## Controls
 
@@ -151,3 +160,7 @@ motion, glitches and persistence separately on that host.
 - [Multiple render targets](https://learn.microsoft.com/windows/win32/direct3d11/d3d10-graphics-programming-guide-output-merger-stage)
 
 Original MIT-licensed code; no third-party shader collection is copied.
+
+> - **File name** `README.md`
+> - **Full path** `E:\vibekit\Widgets\RetroTerminal\Windows\README.md`
+> - **Path relative to the VibeKit repository root** `Widgets/RetroTerminal/Windows/README.md`

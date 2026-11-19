@@ -19,7 +19,6 @@ $stage = Join-Path $root "artifacts\windows-distribution-$run"
 $payload = Join-Path $stage "OpenAIUsage-$version-windows-x64"
 $output = Join-Path $root 'artifacts\installers'
 $msi = Join-Path $output "OpenAIUsage-$version-windows-x64-$run.msi"
-$zip = Join-Path $output "OpenAIUsage-$version-windows-x64-portable-$run.zip"
 New-Item -ItemType Directory -Path $payload,$output -Force | Out-Null
 Push-Location $root
 try {
@@ -40,14 +39,5 @@ try {
     & dotnet (Join-Path $tools 'wix\tools\net6.0\any\wix.dll') build $wxs -arch x64 -o $msi -pdbtype none -intermediatefolder (Join-Path $stage 'wix-intermediate')
     if ($LASTEXITCODE -ne 0) { throw 'MSI build failed.' }
     & (Join-Path $PSScriptRoot 'Verify-WindowsRequirement.ps1') -PackagePath $msi
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $archive = [IO.Compression.ZipFile]::Open($zip, [IO.Compression.ZipArchiveMode]::Create)
-    try {
-        foreach ($file in Get-ChildItem -LiteralPath $payload -Recurse -File | Where-Object { $_.Extension -ine '.pdb' }) {
-            $relative = [IO.Path]::GetRelativePath($stage, $file.FullName).Replace('\','/')
-            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file.FullName, $relative, [IO.Compression.CompressionLevel]::Optimal) | Out-Null
-        }
-    } finally { $archive.Dispose() }
     Write-Output "MSI: $msi"
-    Write-Output "Portable ZIP: $zip"
 } finally { Pop-Location }

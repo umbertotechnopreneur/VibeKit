@@ -55,8 +55,36 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
-      - name: Prepare imports and compile native Windows UI
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '6.0.x'
+      - name: Prepare imports and build unsigned MSI
         shell: pwsh
         run: |
-          $imports = & ./Widgets/OpenAI/Prepare-Imports.ps1
-          & ./Widgets/OpenAI/Build.ps1 -Imports $imports -Configuration Release
+          $imports = & ./Widgets/OpenAI/Packaging/Prepare-Packaging.ps1 -WindowsOnly
+          & ./Widgets/OpenAI/Packaging/Build-WindowsDistribution.ps1 -Imports $imports
+      - uses: actions/upload-artifact@v6
+        with:
+          name: openai-usage-windows-x64
+          path: Widgets/OpenAI/artifacts/installers/*.msi
+          if-no-files-found: error
+  debian:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: Widgets/OpenAI
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: Widgets/OpenAI/global.json
+      - name: Build and inspect Debian package
+        run: |
+          bash Packaging/Build-Debian.sh "$RUNNER_TEMP/openai-usage-deb"
+          dpkg-deb --info "$RUNNER_TEMP"/openai-usage-deb/*.deb
+      - uses: actions/upload-artifact@v6
+        with:
+          name: openai-usage-linux-amd64
+          path: ${{ runner.temp }}/openai-usage-deb/*.deb
+          if-no-files-found: error

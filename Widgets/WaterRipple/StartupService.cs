@@ -48,7 +48,7 @@ internal sealed class StartupService : IDisposable
             {
                 state.StartWithWindows = false;
                 state.CanManageStartup = false;
-                state.StartupStatus = "Install the MSIX package to manage Windows startup.";
+                state.StartupStatus = "Windows startup integration is unavailable for this installation.";
             }
             Log.Warning(ex, "Windows startup task is unavailable");
         }

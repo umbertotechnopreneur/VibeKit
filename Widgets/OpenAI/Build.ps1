@@ -1,19 +1,9 @@
-[CmdletBinding(DefaultParameterSetName='Default')]
+[CmdletBinding()]
 param(
     [ValidateSet('Debug','Release')][string]$Configuration = 'Debug',
-    [psobject]$Imports,
-    [Parameter(Mandatory, ParameterSetName='MSIX')][string]$MsixPath,
-    [Parameter(Mandatory, ParameterSetName='MSIX')][string]$CertificateThumbprint
+    [psobject]$Imports
 )
 $ErrorActionPreference = 'Stop'
-if ($MsixPath) {
-    $MsixPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($MsixPath)
-    if ([IO.Path]::GetExtension($MsixPath) -ne '.msix' -or
-        $MsixPath.StartsWith($PSScriptRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
-        throw 'Choose an .msix output path outside the widget directory.'
-    }
-    if (Test-Path -LiteralPath $MsixPath) { throw "MSIX output already exists: $MsixPath" }
-}
 $packageRoot = Join-Path $PSScriptRoot '.imports\packages'
 if ($null -eq $Imports -or -not $Imports.Prepared -or $Imports.ProjectRoot -ne $PSScriptRoot -or $Imports.PackageRoot -ne $packageRoot) {
     throw 'Run $imports = & ./Prepare-Imports.ps1, then & ./Build.ps1 -Imports $imports in the same PowerShell session.'
@@ -32,37 +22,6 @@ if (@(Get-ChildItem -LiteralPath $packageRoot -Recurse -File).Count -ne $records
 $completed = $false
 Push-Location $PSScriptRoot
 try {
-    if ($MsixPath) {
-        $sdkBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\10.0.26100.0\x64'
-        $payload = Join-Path $PSScriptRoot '.imports\msix-payload'
-        & dotnet publish 'Windows/OpenAIUsage.Windows.csproj' -c $Configuration -r win-x64 --self-contained true `
-            -p:WindowsAppSDKSelfContained=true --no-restore -o $payload
-        if ($LASTEXITCODE -ne 0) { throw 'Windows MSIX source publish failed.' }
-
-        [xml]$manifest = Get-Content -LiteralPath 'Packaging/AppxManifest.xml' -Raw
-        $manifest.Package.Identity.Version = [Reflection.AssemblyName]::GetAssemblyName(
-            (Join-Path $payload 'OpenAIUsage.Windows.dll')).Version.ToString()
-        $manifest.Save((Join-Path $payload 'AppxManifest.xml'))
-
-        Add-Type -AssemblyName System.Drawing.Common
-        $icon = [Drawing.Bitmap]::new((Join-Path $PSScriptRoot 'Branding\app-icon-512.png'))
-        try {
-            foreach ($size in @(44, 50, 150)) {
-                $logo = [Drawing.Bitmap]::new($icon, $size, $size)
-                try { $logo.Save((Join-Path $payload "Branding\msix-logo-$size.png"), [Drawing.Imaging.ImageFormat]::Png) }
-                finally { $logo.Dispose() }
-            }
-        }
-        finally { $icon.Dispose() }
-
-        & (Join-Path $sdkBin 'makeappx.exe') pack /d $payload /p $MsixPath /h SHA256
-        if ($LASTEXITCODE -ne 0) { throw 'MSIX packaging failed.' }
-        & (Join-Path $sdkBin 'signtool.exe') sign /fd SHA256 /sha1 $CertificateThumbprint $MsixPath
-        if ($LASTEXITCODE -ne 0) { throw 'MSIX signing failed.' }
-        Write-Output "Source-built MSIX: $MsixPath"
-        return
-    }
-
     foreach ($project in @('Windows/OpenAIUsage.Windows.csproj','Backend/OpenAIUsage.Backend.csproj','Tests/OpenAIUsage.Tests.csproj')) {
         & dotnet build $project -c $Configuration --no-restore
         if ($LASTEXITCODE -ne 0) { throw "Build failed: $project" }

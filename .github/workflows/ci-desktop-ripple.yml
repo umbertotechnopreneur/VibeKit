@@ -1,4 +1,4 @@
-name: Desktop Ripple Linux
+name: Desktop Ripple checks
 
 on:
   workflow_call:
@@ -41,7 +41,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-ripple-linux
-          path: artifacts/desktop-ripple/
+          path: artifacts/desktop-ripple/*.deb
           if-no-files-found: error
   windows:
     runs-on: windows-latest
@@ -51,8 +51,22 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
-      - name: Compile WinUI, native renderer and production shaders
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '6.0.x'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Stage WiX 5
         shell: pwsh
         run: |
-          dotnet build Widgets/WaterRipple/WaterRipple.csproj -c Release -p:Platform=x64 --artifacts-path "$env:RUNNER_TEMP/ripple-build" -p:NuGetAudit=false
-          if ($LASTEXITCODE -ne 0) { throw 'Windows application build failed.' }
+          dotnet tool install wix --version 5.0.2 --tool-path "$env:RUNNER_TEMP/widget-wix"
+          if ($LASTEXITCODE -ne 0) { throw 'WiX installation failed.' }
+      - name: Build unsigned MSI from source
+        shell: pwsh
+        run: ./Widgets/WaterRipple/Packaging/Build-MSI.ps1 -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe" -OutputDirectory "$env:RUNNER_TEMP/ripple-msi"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: desktop-ripple-windows-x64
+          path: ${{ runner.temp }}/ripple-msi/*.msi
+          if-no-files-found: error

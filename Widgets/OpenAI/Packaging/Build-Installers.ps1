@@ -60,7 +60,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Python syntax checks failed.' }
     & python -B -m unittest discover -s Tests -p 'test_*.py'
     if ($LASTEXITCODE -ne 0) { throw 'Linux watchdog and settings lifecycle checks failed.' }
-    foreach ($file in @('openai_usage.py','watchdog.py','tray.py','run.sh','openai-usage.desktop')) {
+    foreach ($file in @('openai_usage.py','watchdog.py','tray.py','backend.py','settings_ui.py','ui_helpers.py','run.sh','openai-usage.desktop')) {
         Copy-Item -LiteralPath (Join-Path $projectRoot "Linux\$file") -Destination (Join-Path $linuxPayload "Linux\$file")
     }
     Copy-Item -LiteralPath (Join-Path $projectRoot 'Branding') -Destination (Join-Path $linuxPayload 'Branding') -Recurse

@@ -1,10 +1,14 @@
+> - **File name** `README.md`
+> - **Full path** `E:\vibekit\Widgets\OpenAI\Packaging\README.md`
+> - **Path relative to the VibeKit repository root** `Widgets/OpenAI/Packaging/README.md`
+
 # Local installers
 
 Source/package target: **0.4.3**. Architecture: Windows x64 / Ubuntu amd64. Packages are generated on demand and removed by an explicit clean.
 
 ## Windows
 
-Build the Windows distributions with the commands below. Open the generated MSI and launch **OpenAI Usage** from Start, or extract the complete portable ZIP to a folder and run `OpenAIUsage.Windows.exe` from there. Both use the same per-user settings and history.
+Build the Windows installer using the commands below. Open the generated MSI and launch **OpenAI Usage** from Start.
 
 - Per-user installation in `%LOCALAPPDATA%/Programs/OpenAI Usage`.
 - Includes the app's private .NET runtime and Windows App SDK components.
@@ -39,9 +43,11 @@ $imports = & .\Packaging\Prepare-Packaging.ps1 -WindowsOnly
 & .\Packaging\Build-WindowsDistribution.ps1 -Imports $imports
 ```
 
-Both packages come from the same current source publish. Output filenames include a build timestamp so prior packages are preserved. The portable ZIP includes the private runtimes and dependency notices, excluding debug symbols. Build staging and imports are retained for manual cleanup. This Windows-only packaging command checks the MSI requirements but does not run the behavioral test suite.
+The MSI comes from a current source publish and includes the private runtimes and dependency notices. Output filenames include a build timestamp so prior packages are preserved. Build staging and imports are retained for manual cleanup. This Windows-only packaging command checks the MSI requirements but does not run the behavioral test suite.
 
-The older combined Windows and Ubuntu packaging workflow is:
+On Linux, build only the Debian package with `bash Packaging/Build-Debian.sh`.
+
+The combined Windows and Ubuntu packaging workflow uses these PowerShell commands.
 
 ```powershell
 $imports = & .\Packaging\Prepare-Packaging.ps1
@@ -63,3 +69,7 @@ Use `-WhatIf` to inspect that explicit cleanup first.
 The WiX compiler is staged temporarily as version 5.0.2; no global compiler installation or WiX 7 license settings are modified. Windows installers use deterministic component identities and a stable upgrade code. Debian packages use the documented ar/ustar format and include file checksums, dependency metadata and Unix file modes.
 
 The packages are local unsigned builds. Report package creation, Windows installation and native Ubuntu execution separately in the current task; do not retain historical validation or scan files. No native Ubuntu installation is claimed here.
+
+> - **File name** `README.md`
+> - **Full path** `E:\vibekit\Widgets\OpenAI\Packaging\README.md`
+> - **Path relative to the VibeKit repository root** `Widgets/OpenAI/Packaging/README.md`

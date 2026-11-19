@@ -1,3 +1,7 @@
+> - **File name** `README.md`
+> - **Full path** `E:\vibekit\Widgets\WaterRipple\README.md`
+> - **Path relative to the VibeKit repository root** `Widgets/WaterRipple/README.md`
+
 # Water Ripple
 
 [![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
@@ -16,7 +20,7 @@ Ripple opens a control panel and starts click ripples on the current monitor whe
 
 The **Pipelines** tab lists saved effect combinations with a summary and an actions menu. **New pipeline** saves the current settings under a name. Saved pipelines update automatically as you edit them. Built-in pipelines remain unchanged; use **Duplicate** to customize one, then rename or delete your copies. Editing a built-in directly switches to **Custom** until you save it as a new pipeline. **Import** and **Export** exchange JSON libraries with the Linux edition.
 
-Expandable sections retain **RGB refraction**, **Crest reflections**, **Multiple ripples**, and **Glass / liquid**, with independent enable switches, described filter presets and numeric controls. **Settings** contains capture/animation limits, Acrylic and **Start with Windows**. Startup uses the packaged Windows `StartupTask` API. Existing Windows startup choices and policy are respected; unpackaged builds explain that an MSIX installation is needed.
+Expandable sections retain **RGB refraction**, **Crest reflections**, **Multiple ripples**, and **Glass / liquid**, with independent enable switches, described filter presets and numeric controls. **Settings** contains capture/animation limits, Acrylic and **Start with Windows**. Existing MSIX installations use the Windows `StartupTask` API and respect Windows startup choices and policy. In MSI installations, open Water Ripple manually from Start.
 
 Closing offers tray minimization, exit or cancel. Tray mode keeps an enabled effect running. The overlay stays hidden until capture and presentation are valid and hides before GPU resources are released. Only the screen overlay is excluded from capture to prevent feedback.
 
@@ -67,19 +71,24 @@ Build with `dotnet build -p:Platform=x64`. Launch the resulting `bin/Debug/net10
 
 Debug checks: `--check-settings`, `--check-resource-guard`, `--check-logging` and `--exercise-overlay`. The overlay exercise checks three Apply/Stop cycles and tray release/restore, then exits. **Pause capture for screenshot** pauses capture for 20 seconds before making the overlay capturable, then restores capture exclusion before resuming.
 
-## MSIX installer and Microsoft Store preparation
+## Windows installer
 
-`Packaging/Build-MSIX.ps1` publishes the current source as Release x64, includes .NET and Windows App SDK, generates package logo sizes from the app artwork and validates the manifest with the installed Windows SDK MakeAppx tool. Restore uses only the pre-staged local NuGet cache; stage and scan any missing imports before running it. The installed Microsoft Visual C++ UWP Desktop framework is a declared package dependency.
+Use PowerShell, Python 3 and WiX 5.0.2 to build the unsigned per-user x64 MSI.
 
-For a local signed test package, pass `-CertificateThumbprint` for an existing code-signing certificate in CurrentUser/My whose subject matches `-Publisher`. Signing uses the certificate store directly, without exporting its private key. Install the resulting `dist/WaterRipple_<version>_x64.msix` using Windows App Installer or `Add-AppxPackage`. Test certificates must already be trusted on the destination machine. The build does not install certificates or change trust/security settings.
+```powershell
+.\Packaging\Build-MSI.ps1 -WixPath <path-to-wix.exe-or-wix.dll>
+```
 
-The manifest initially uses the **local test identity** `VibeWare.WaterRipple` / `CN=VibeWare`. Before Store submission, reserve the product in Partner Center and use its exact Package/Identity/Name and Publisher values via `-PackageName` and `-Publisher`. Omit the test signing parameter for Store packaging; the Store signs accepted submissions. The `runFullTrust` desktop capability needs an accurate justification, and listing assets, privacy information and certification checks still need completion. No Store submission or approval is implied by a successful local install.
+The installer is under `dist/`. It adds Water Ripple to Start and includes the
+private .NET and WinUI runtimes, native renderer and compiled shaders.
+Use `msiexec /i <path-to-msi> /quiet /norestart` for automation.
 
-New MSIX installations register startup as enabled by default. Launch the installed app once to register the task; **Settings** can disable or re-enable it. Updates respect an existing user or administrator decision in Windows. When enabled, the task starts Ripple in the notification area at sign-in and applies click ripples if capture and a supported GPU are available. Studio stays accessible as a window if the notification area is unavailable. A regular launch opens Studio. Windows redirects packaged application data under the package's LocalCache; the unpackaged version's preferences are preserved separately by Windows virtualization.
+Preferences stay in LocalAppData on MSI uninstall. To retain settings from an
+older MSIX, copy its redirected LocalCache data before removing that package.
+The MSI edition opens manually from Start and uses the standard Windows capture
+border. The package-specific sign-in task and borderless permission are available
+to existing MSIX installations.
 
-Packaging staging is under `obj/msix-stage-<version>` and final installers under `dist`. Clean staging after handoff and before another package build, retaining only the requested installer. Cleanup never builds, downloads or scans anything, and no validation/scan journals are written.
-
-References: [Windows startup integration](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/desktop-to-uwp-extensions#start-an-executable-file-when-users-log-into-windows), [MSIX signing](https://learn.microsoft.com/en-us/windows/msix/package/sign-msix-package-guide).
 
 ## Branding
 
@@ -87,9 +96,7 @@ The app icon was generated with ImageGen. The approved VibeWare badge is unchang
 
 ## Capture border
 
-Windows owns the colored capture border. The package declares `graphicsCaptureWithoutBorder`, and Ripple can set `GraphicsCaptureSession.IsBorderRequired(false)` when permitted. Starting Ripple automatically leaves the border visible when Windows requires it. Manually enabling the effect offers **Ask Windows** or **Keep border** when permission is needed. Another capturing app can also require the border. See [Microsoft's IsBorderRequired documentation](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.graphicscapturesession.isborderrequired).
-
-The MSIX execution alias is `waterripple.exe`, exposed at `%LOCALAPPDATA%\Microsoft\WindowsApps\waterripple.exe`. Startup uses the Windows-managed task and does not depend on a versioned installation path.
+Windows marks active display capture with a colored border in the MSI edition.
 
 ## Model checks
 
@@ -123,3 +130,7 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
   </a><br>
   <em>Human intent, AI execution, and plenty of tokens</em>
 </p>
+
+> - **File name** `README.md`
+> - **Full path** `E:\vibekit\Widgets\WaterRipple\README.md`
+> - **Path relative to the VibeKit repository root** `Widgets/WaterRipple/README.md`

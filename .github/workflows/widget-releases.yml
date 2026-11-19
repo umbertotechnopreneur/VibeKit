@@ -1,0 +1,80 @@
+name: Widget releases
+
+on:
+  push:
+    tags:
+      - 'openai-usage/v*'
+      - 'desktop-ripple/v*'
+      - 'retro-terminal/v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: widget-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  openai-usage:
+    if: startsWith(github.ref_name, 'openai-usage/v')
+    uses: ./.github/workflows/ci-openai-usage.yml
+  desktop-ripple:
+    if: startsWith(github.ref_name, 'desktop-ripple/v')
+    uses: ./.github/workflows/ci-desktop-ripple.yml
+  retro-terminal:
+    if: startsWith(github.ref_name, 'retro-terminal/v')
+    uses: ./.github/workflows/ci-retro-terminal.yml
+
+  release:
+    needs: [openai-usage, desktop-ripple, retro-terminal]
+    if: |
+      always() && !cancelled() &&
+      (needs.openai-usage.result == 'success' ||
+       needs.desktop-ripple.result == 'success' ||
+       needs.retro-terminal.result == 'success')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: release
+          merge-multiple: true
+      - name: Publish the verified MSI and Debian package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import re
+          import subprocess
+
+          tag = os.environ['RELEASE_TAG']
+          widget, version = tag.split('/v', 1)
+          names = {
+              'openai-usage': 'OpenAIUsage',
+              'desktop-ripple': 'WaterRipple',
+              'retro-terminal': 'RetroTerminal',
+          }
+          if not re.fullmatch(r'\d+\.\d+\.\d+', version):
+              raise SystemExit('Use the MSI product version in the release tag.')
+          installers = list(Path('release').glob('*.msi'))
+          packages = list(Path('release').glob('*.deb'))
+          if len(installers) != 1 or len(packages) != 1:
+              raise SystemExit('Expected one Windows MSI and one Debian package.')
+          installer, = installers
+          package, = packages
+          if not re.fullmatch(fr'{names[widget]}-{re.escape(version)}-windows-x64(?:-\d{{8}}-\d{{6}}-\d{{3}})?\.msi', installer.name):
+              raise SystemExit('The tag does not match the Windows package version.')
+          if not installer.stat().st_size or not package.stat().st_size:
+              raise SystemExit('Both distribution packages must be non-empty.')
+          subprocess.run(
+              ['gh', 'release', 'create', tag, str(installer), str(package),
+               '--verify-tag', '--title', f'{names[widget]} {version}',
+               '--notes', 'Windows x64 per-user MSI and Debian package.'],
+              check=True,
+          )
+          PY

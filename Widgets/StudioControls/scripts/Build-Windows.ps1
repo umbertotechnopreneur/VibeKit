@@ -3,7 +3,8 @@ param(
     [ValidateSet('Debug','Release')][string]$Configuration = 'Release',
     [string]$OutputDirectory = (Join-Path $PSScriptRoot '../artifacts/windows-x64'),
     [switch]$Verify,
-    [switch]$Package
+    [switch]$Package,
+    [string]$WixPath
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -12,6 +13,7 @@ $root = Split-Path $PSScriptRoot -Parent
 $project = Join-Path $root 'Windows/StudioControls.Windows.csproj'
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 if (-not $IsWindows) { throw 'The native WinUI build requires Windows 11 and its Windows SDK.' }
+if ($Package -and -not $WixPath) { throw 'Supply -WixPath when building an MSI.' }
 if (Test-Path -LiteralPath $output) {
     if (-not (Test-Path -LiteralPath $output -PathType Container) -or @(Get-ChildItem -LiteralPath $output -Force).Count) {
         throw 'Choose a new or empty OutputDirectory. Build output is never mixed with older files or user data.'
@@ -56,5 +58,5 @@ finally {
 }
 Write-Output "Windows output: $output"
 if ($Package) {
-    & (Join-Path $PSScriptRoot 'Package-Windows.ps1') -PublishDirectory $output -OutputDirectory $parent
+    & (Join-Path $PSScriptRoot 'Package-Windows.ps1') -WixPath $WixPath -PublishDirectory $output -OutputDirectory $parent
 }

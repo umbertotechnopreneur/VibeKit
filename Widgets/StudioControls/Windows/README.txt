@@ -1,9 +1,9 @@
-STUDIO CONTROLS 0.3.0 — WINDOWS 11 x64
+STUDIO CONTROLS — WINDOWS 11 x64
 
-Extract the whole ZIP into a new folder, then open StudioControls.Windows.exe.
-Keep all DLLs, Assets, Scenes and Licenses beside the application. The .NET and
-WinUI runtimes are included; Python is not required. OBS Studio is installed
-separately. Do not run individual files directly from inside the ZIP viewer.
+Open the MSI and then choose Studio Controls in Start. The installer includes
+the .NET and WinUI runtimes, assets, scene template and licences. Install OBS
+Studio separately. The installed utility runs without Python.
+
 
 FIRST USE
 1. Open OBS and enable its WebSocket server with password authentication.
@@ -23,8 +23,8 @@ the controller does not stop OBS. Check OBS itself if the connection is lost.
 SETTINGS AND UPDATES
 Preferences, DPAPI-protected passwords, generated cards and bounded diagnostics
 are kept under the current user's LocalAppData\VibeKit\StudioControls folder.
-They are not stored in this distribution. Extract updates into a new folder;
-do not copy your settings, logs or generated project cards into a release ZIP.
+Run the newer version of the MSI to update. The installer keeps preferences,
+logs and generated project cards in the existing per-user location.
 Your OBS recordings and existing scene collections remain managed by OBS.
 
 VALIDATION

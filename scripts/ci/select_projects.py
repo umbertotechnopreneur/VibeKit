@@ -30,6 +30,12 @@ def select_paths(paths):
             path.startswith(("scripts/", ".github/actions/"))
         ):
             return list(PROJECTS)
+        if path in {"Widgets/Shared/Build-WindowsMsi.ps1", "Widgets/Shared/create-widget-wix.py"}:
+            selected.update({"desktop-ripple", "retro-terminal", "studio-controls"})
+            continue
+        if path == ".github/workflows/widget-releases.yml":
+            selected.update({"openai-usage", "desktop-ripple", "retro-terminal"})
+            continue
         if path.startswith("Widgets/Shared/"):
             selected.update({"openai-usage", "desktop-ripple"})
             continue

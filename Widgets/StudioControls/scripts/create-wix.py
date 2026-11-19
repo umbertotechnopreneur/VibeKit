@@ -56,14 +56,14 @@ def wix_source(payload, output):
                     Version=VERSION, Language="1033", UpgradeCode=str(NAMESPACE), Scope="perUser",
                     InstallerVersion="500", Compressed="yes")
     child(package, "MajorUpgrade", DowngradeErrorMessage="A newer version of Studio Controls is installed.")
-    child(package, "MediaTemplate", EmbedCab="yes", CompressionLevel="high")
+    child(package, "MediaTemplate", EmbedCab="yes", CompressionLevel="medium")
     # Windows Installer's legacy WindowsBuild value can report 9600 on modern Windows.
     # AppSearch reads the actual build from the native registry view before LaunchConditions.
-    os_build = child(package, "Property", Id="OPENAI_OS_BUILD", Secure="yes")
+    os_build = child(package, "Property", Id="STUDIO_OS_BUILD", Secure="yes")
     child(os_build, "RegistrySearch", Id="ReadActualWindowsBuild", Root="HKLM",
           Key="SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", Name="CurrentBuildNumber",
           Type="raw", Bitness="always64")
-    child(package, "Launch", Condition="Installed OR (VersionNT64 AND OPENAI_OS_BUILD >= 22000)",
+    child(package, "Launch", Condition="Installed OR (VersionNT64 AND STUDIO_OS_BUILD >= 22000)",
           Message="Studio Controls requires 64-bit Windows 11 or newer.")
     child(package, "Property", Id="ARPCOMMENTS", Value="Native OBS Studio control desk.")
     child(package, "Property", Id="ARPNOMODIFY", Value="1")

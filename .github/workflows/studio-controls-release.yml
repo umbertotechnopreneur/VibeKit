@@ -80,7 +80,7 @@ jobs:
           from pathlib import Path
           import subprocess
           import json
-          names = ['StudioControls-windows-x64.zip', 'StudioControls-linux-all.deb']
+          names = ['StudioControls-windows-x64.msi', 'StudioControls-linux-all.deb']
           files = [Path('release') / name for name in names]
           if any(not file.is_file() or file.stat().st_size == 0 for file in files):
               raise SystemExit('Both verified platform packages are required.')

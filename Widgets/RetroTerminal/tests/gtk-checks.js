@@ -27,7 +27,7 @@ settings.reset('glow');
 check(ui.controls['scanline-spacing'].sensitive && ui.controls['scanline-width'].sensitive &&
     ui.controls['glow-radius'].sensitive, 'Fine controls return when their effects are active');
 check(ui.pipeline.enable_search && ui.pipeline.expression, 'The pipeline selector exposes native search');
-for (const name of ['Apple IIc Green Raster', 'Classic Mac Platinum Paper']) {
+for (const name of ['Commodore 1702 Composite', 'Trinitron Aperture Grille']) {
     const index = ui.pipelines.items.findIndex(item => item.name === name);
     check(index >= 0 && ui.pipeline.model.get_string(index + 1) === name, `${name} is selectable`);
     ui.pipeline.selected = index + 1;

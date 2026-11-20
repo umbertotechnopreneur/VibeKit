@@ -3,6 +3,7 @@
 // must run on the same UI thread. The window owns safety notifications and timers.
 #include "Renderer.h"
 #include "ControllerState.h"
+#include "BuiltInPresets.h"
 #include "PerformanceRecovery.h"
 #include "GpuJokeNotifications.h"
 #include <windows.h>
@@ -242,7 +243,26 @@ GETSET(Random,randomGlitches,bool)
 GETSET(GlitchTypes,glitchTypes,unsigned)
 API float __cdecl RetroGetColor(void* p,int i) { return p&&i>=0&&i<3?E(p)->model.settings.color[i]:0; }
 API void __cdecl RetroSetColor(void* p,int i,float v) { if(p&&i>=0&&i<3) { E(p)->model.settings.color[i]=v; E(p)->Change(); } }
-API int __cdecl RetroPreset(void* p,int i) { if(!p||i<1||i>6) return 0; auto& m=E(p)->model; if(i<=3) m.settings=BuiltInPreset(i-1); else if(!m.LoadPersonalPreset(i-3)) return 0; E(p)->Change(); return 1; }
+API int __cdecl RetroBuiltInPresetCount() { return BuiltInPresetCount; }
+API const wchar_t* __cdecl RetroBuiltInPresetName(int index)
+{
+    return index >= 0 && index < BuiltInPresetCount ? BuiltInPresets[index].name : nullptr;
+}
+API int __cdecl RetroApplyBuiltInPreset(void* p, int index)
+{
+    if (!p || index < 0 || index >= BuiltInPresetCount) return 0;
+    E(p)->model.settings = BuiltInPresets[index].settings;
+    E(p)->Change();
+    return 1;
+}
+API int __cdecl RetroPreset(void* p, int index)
+{
+    if (!p || index < 1 || index > 6) return 0;
+    if (index <= 3) return RetroApplyBuiltInPreset(p, index - 1);
+    if (!E(p)->model.LoadPersonalPreset(index - 3)) return 0;
+    E(p)->Change();
+    return 1;
+}
 API int __cdecl RetroSavePreset(void* p,int i) { return p&&i>=1&&i<=3&&E(p)->model.SavePersonalPreset(i); }
 API int __cdecl RetroTryGlitch(void* p) { return p&&E(p)->running&&E(p)->model.glitches.Trigger(E(p)->Time(),E(p)->model.settings); }
 API void __cdecl RetroStatus(void* p,wchar_t* buffer,int capacity) { if(buffer&&capacity>0) { buffer[0]=0; if(p) wcsncpy_s(buffer,size_t(capacity),E(p)->status.c_str(),_TRUNCATE); } }

@@ -17,6 +17,7 @@ using Windows.UI;
 namespace RetroStudio;
 internal sealed class MainWindow : Window
 {
+    private readonly int builtInPresetCount = Native.RetroBuiltInPresetCount();
     private readonly nint engine;
     private readonly Expander settingsSection;
     private readonly Grid root = new();
@@ -157,11 +158,13 @@ internal sealed class MainWindow : Window
         Grid.SetRow(scroll,2);
         root.Children.Add(scroll);
         preset.Header="Preset"; preset.HorizontalAlignment=HorizontalAlignment.Stretch;
-        foreach(var name in new[]{"Custom","Clean terminal","Worn terminal","Arcade","My preset 1","My preset 2","My preset 3"}) preset.Items.Add(name);
+        preset.Items.Add("Custom");
+        for (int index = 0; index < builtInPresetCount; index++) preset.Items.Add(Native.BuiltInPresetName(index));
+        for (int slot = 1; slot <= 3; slot++) preset.Items.Add($"My preset {slot}");
         preset.SelectedIndex=0;
         preset.SelectionChanged+=(_,_)=> {
             if(syncing || preset.SelectedIndex<=0) return;
-            if(Native.RetroPreset(engine,preset.SelectedIndex)==0) { Notice("This personal preset is empty. Save it in Presets first."); SetCustom(); }
+            if(!TryApplyPreset(preset.SelectedIndex)) { Notice("This personal preset is empty. Save it in Presets first."); SetCustom(); }
             else { Refresh(); Save(); }
         };
         effect.Children.Add(preset); effect.Children.Add(Text("Changes apply immediately. Save a personal preset to keep a favorite combination.",12,secondary:true));
@@ -200,12 +203,18 @@ internal sealed class MainWindow : Window
         effect.Children.Add(Section("Automatic glitches","Random playback and timing",timing,random));
 
         presets.Children.Add(Text("Built-in looks",18)); presets.Children.Add(Text("Apply a starting point, then adjust it in Effect.",13,secondary:true));
-        for(int i=1;i<=3;i++) { int index=i; var apply=new Button { Content="Apply", VerticalAlignment=VerticalAlignment.Center }; apply.Click+=(_,_)=>ApplyPreset(index,effectSection); presets.Children.Add(Card(Columns(Text(new[]{"Clean terminal","Worn terminal","Arcade"}[i-1],15),apply))); }
+        for (int index = 1; index <= builtInPresetCount; index++)
+        {
+            int menuIndex = index;
+            var apply = new Button { Content = "Apply", VerticalAlignment = VerticalAlignment.Center };
+            apply.Click += (_, _) => ApplyPreset(menuIndex, effectSection);
+            presets.Children.Add(Card(Columns(Text(Native.BuiltInPresetName(index - 1), 15), apply)));
+        }
         presets.Children.Add(Text("Personal presets",18)); presets.Children.Add(Text("Save stores the current settings in that slot, replacing its previous look.",13,secondary:true));
         for(int i=1;i<=3;i++) {
             int slot=i; var actions=new StackPanel { Orientation=Orientation.Horizontal, Spacing=8 };
-            var apply=new Button { Content="Apply" }; apply.Click+=(_,_)=>ApplyPreset(slot+3,effectSection);
-            var save=new Button { Content="Save current" }; save.Click+=(_,_)=> { if(Native.RetroSavePreset(engine,slot)==0) Notice("Could not save the personal preset."); else { syncing=true; preset.SelectedIndex=slot+3; syncing=false; Notice("Saved to My preset "+slot+"."); } };
+            var apply=new Button { Content="Apply" }; apply.Click+=(_,_)=>ApplyPreset(builtInPresetCount + slot, effectSection);
+            var save=new Button { Content="Save current" }; save.Click+=(_,_)=> { if(Native.RetroSavePreset(engine,slot)==0) Notice("Could not save the personal preset."); else { syncing=true; preset.SelectedIndex=builtInPresetCount + slot; syncing=false; Notice("Saved to My preset "+slot+"."); } };
             actions.Children.Add(apply); actions.Children.Add(save); presets.Children.Add(Card(Columns(Text("My preset "+slot,15),actions)));
         }
         var theme = new ComboBox { Header = "Theme", ItemsSource = new[] { "System", "Light", "Dark" }, SelectedIndex = initialTheme };
@@ -362,9 +371,13 @@ internal sealed class MainWindow : Window
     private void SetPersistence() { if(syncing)return; Native.RetroSetPersistence(engine,persistence.IsOn?1:0); Changed(); }
     private void SetRandom() { if(syncing)return; Native.RetroSetRandom(engine,random.IsOn?1:0); Changed(); }
     private void SetTypes() { if(syncing)return; int bits=0; for(int i=0;i<4;i++) if(types[i].IsChecked==true)bits|=1<<i; Native.RetroSetGlitchTypes(engine,bits); Changed(); }
+    private bool TryApplyPreset(int menuIndex) => menuIndex <= builtInPresetCount
+        ? Native.RetroApplyBuiltInPreset(engine, menuIndex - 1) != 0
+        : Native.RetroPreset(engine, menuIndex - builtInPresetCount + 3) != 0;
+
     private void ApplyPreset(int index,Expander effectSection)
     {
-        if(Native.RetroPreset(engine,index)==0) { Notice("This personal preset is empty. Save the current settings to it first."); return; }
+        if(!TryApplyPreset(index)) { Notice("This personal preset is empty. Save the current settings to it first."); return; }
         syncing=true; preset.SelectedIndex=index; syncing=false; Refresh(); Save();
         effectSection.IsExpanded = true;
         effectSection.StartBringIntoView();

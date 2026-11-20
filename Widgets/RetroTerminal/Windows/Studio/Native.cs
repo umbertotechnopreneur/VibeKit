@@ -34,6 +34,10 @@ internal static class Native
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern float RetroGetColor(nint engine,int channel);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroSetColor(nint engine,int channel,float value);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroPreset(nint engine,int index);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroBuiltInPresetCount();
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] private static extern nint RetroBuiltInPresetName(int index);
+    internal static string BuiltInPresetName(int index) => Marshal.PtrToStringUni(RetroBuiltInPresetName(index)) ?? string.Empty;
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroApplyBuiltInPreset(nint engine, int index);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroSavePreset(nint engine,int index);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroTryGlitch(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl, CharSet=CharSet.Unicode)] internal static extern void RetroStatus(nint engine,StringBuilder buffer,int capacity);

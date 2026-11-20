@@ -1,11 +1,26 @@
 // SPDX-License-Identifier: MIT
 import GObject from 'gi://GObject';
+import Clutter from 'gi://Clutter';
 import Shell from 'gi://Shell';
 import Cogl from 'gi://Cogl';
 import {DECLARATIONS, CODE} from './shader.js';
 
 export const CrtEffect = GObject.registerClass({GTypeName: 'VibewareRetroTerminalEffect'},
 class CrtEffect extends Shell.GLSLEffect {
+    vfunc_paint(node, context, flags) {
+        // Mutter can cull windows to this paint's damage region before updating
+        // the offscreen texture. A different view or capture needs its own paint.
+        const framebuffer = context.get_framebuffer();
+        const clip = context.get_redraw_clip();
+        const sameClip = clip ? this._paintClip?.equal(clip) : !this._paintClip;
+        if (framebuffer !== this._paintFramebuffer?.deref() || !sameClip) {
+            this._paintFramebuffer = new WeakRef(framebuffer);
+            this._paintClip = clip?.copy() ?? null;
+            flags |= Clutter.EffectPaintFlags.ACTOR_DIRTY;
+        }
+        super.vfunc_paint(node, context, flags);
+    }
+
     vfunc_build_pipeline() {
         this.add_glsl_snippet(Cogl.SnippetHook.FRAGMENT, DECLARATIONS, CODE, true);
     }

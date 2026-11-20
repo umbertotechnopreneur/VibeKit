@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import {BUILTINS, DEFAULTS, readLibrary as readLegacyLooks, validateValues} from './settings-model.js';
+import {BUILTINS, DEFAULTS, PhosphorMask, readLibrary as readLegacyLooks, validateValues} from './settings-model.js';
 
 export const LIBRARY_LIMIT = 64;
 export const LIBRARY_BYTES = 512 * 1024;
@@ -54,7 +54,7 @@ export class PipelineModel {
         this._source = null;
         this._selectedId = null;
         this._contents = null;
-        this._builtins = BUILTINS.map((entry, index) => immutable({...entry, id: `builtin:${index}`}));
+        this._builtins = BUILTINS.map(immutable);
         this.items = [...this._builtins];
         try {
             this._contents = storage.read();
@@ -88,7 +88,11 @@ export class PipelineModel {
     summary(item) {
         const values = item.values;
         const color = values['custom-color'] ? values['phosphor-color'] : ['Green phosphor', 'Amber terminal', 'Arcade color'][values.preset];
-        return [color, values.scanlines > 0 ? 'Scanlines' : null, values.glow > 0 ? 'Glow' : null,
+        const mask = values['mask-strength'] > 0
+            ? {[PhosphorMask.RGB_STRIPES]: 'RGB grille', [PhosphorMask.DOTS]: 'Dot mask'}[values.mask]
+            : null;
+        return [color, values.scanlines > 0 ? 'Scanlines' : null, mask,
+            values.vignette > 0 ? 'Vignette' : null, values.glow > 0 ? 'Glow' : null,
             values['persistence-enabled'] ? 'Afterglow' : null,
             values['glitches-enabled'] ? 'Random glitches' : null].filter(Boolean).join(' · ');
     }

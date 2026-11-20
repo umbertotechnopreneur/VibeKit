@@ -24,6 +24,7 @@ export default class RetroTerminal extends Extension {
         this._previewTimer = 0;
         this._settingsUpdate = 0;
         this._effect = null;
+        this._unredirectInhibited = false;
         this._persistence = null;
         this._glitchTimer = 0;
         this._glitchWake = 0;
@@ -225,6 +226,9 @@ export default class RetroTerminal extends Extension {
             return;
         }
         try {
+            // Fullscreen surfaces must pass through the compositor while CRT is active.
+            global.compositor.disable_unredirect();
+            this._unredirectInhibited = true;
             this._effect = new CrtEffect();
             this._configure();
             // The base CRT pass transforms uiGroup once, without clones or input grabs.
@@ -266,6 +270,10 @@ export default class RetroTerminal extends Extension {
         this._settings.set_string('glitch-status', 'Stopped');
         if (this._effect) Main.layoutManager.uiGroup.remove_effect(this._effect);
         this._effect = null;
+        if (this._unredirectInhibited) {
+            global.compositor.enable_unredirect();
+            this._unredirectInhibited = false;
+        }
     }
     _stop(reason) {
         this._settings.set_boolean('active', false);

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
-#include "../EffectSettings.h"
+#include "../BuiltInPresets.h"
 #include "../PerformanceRecovery.h"
 #include <cassert>
 #include <limits>
 #include <iostream>
+#include <string_view>
 int main()
 {
     EffectSettings s;
@@ -48,7 +49,19 @@ int main()
     assert(schedule.Sample(1002, s).type == GlitchType::None);
     s.glitchIntensity = .25f;
     assert(schedule.Trigger(1002, s));
-    assert(BuiltInPreset(1).randomGlitches && BuiltInPreset(2).mask == PhosphorMask::RgbStripes);
+    for (const auto family : {L"Commodore ", L"Amiga ", L"TV ", L"Trinitron "}) {
+        int familyPresets = 0;
+        for (const auto& [name, settings] : BuiltInPresets) {
+            if (!std::wstring_view(name).starts_with(family)) continue;
+            assert(settings.intensity >= .55f && settings.scanStrength >= .18f);
+            assert(!settings.randomGlitches && !settings.persistence);
+            if (std::wstring_view(family) == L"TV ") assert(settings.vignette >= .4f);
+            if (std::wstring_view(family) == L"Trinitron ") assert(settings.mask == PhosphorMask::RgbStripes);
+            ++familyPresets;
+        }
+        assert(familyPresets == 3);
+    }
+    assert(BuiltInPresetCount == 12);
     using namespace std::chrono_literals;
     PerformanceRecovery recovery;
     auto now = PerformanceRecovery::TimePoint{} + 1s;

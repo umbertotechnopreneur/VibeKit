@@ -32,10 +32,9 @@ export const DEFAULTS = Object.freeze({
     ...Object.fromEntries(BOOLEAN), preset: Palette.GREEN, mask: PhosphorMask.NONE, 'phosphor-color': '#33ff6b',
 });
 
-// A low-mix, static starting point keeps the desktop's original colors dominant.
-// Each named look changes only the finish it needs; animation stays opt-in.
-function subtleLook(name, overrides) {
-    return {name, values: {...DEFAULTS,
+// Static looks share neutral optics and leave animation opt-in.
+function displayLook(id, name, overrides) {
+    return {id: `builtin:${id}`, name, values: {...DEFAULTS,
         preset: Palette.ARCADE, intensity: 0.25, scanlines: 0, glow: 0,
         'glow-radius': 0.75, mask: PhosphorMask.NONE, 'mask-strength': 0,
         vignette: 0, grain: 0, contrast: 1, 'black-level': 0,
@@ -44,88 +43,47 @@ function subtleLook(name, overrides) {
     }};
 }
 
+// Monitor-inspired looks use stronger optics and more of the processed signal.
 export const BUILTINS = [
-    {name: 'Clean green', values: {...DEFAULTS, scanlines: 0.12, glow: 0.18, grain: 0}},
-    {name: 'Worn terminal', values: {...DEFAULTS, preset: Palette.AMBER, scanlines: 0.25,
-        'glitches-enabled': true, 'glitch-intensity': 0.2, 'glitch-band': false}},
-    {name: 'Arcade', values: {...DEFAULTS, preset: Palette.ARCADE, mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.18, glow: 0.4}},
-    {name: 'Long phosphor', values: {...DEFAULTS, 'persistence-enabled': true,
-        'persistence-duration': 0.3, 'persistence-strength': 0.45}},
-    // Append new entries: saved built-in IDs use the original array indices.
-    subtleLook('Almost clear', {intensity: 0.15, scanlines: 0.02}),
-    subtleLook('Fine raster', {intensity: 0.3, scanlines: 0.06,
-        'scanline-spacing': 2, 'scanline-width': 0.5}),
-    subtleLook('Wide raster', {intensity: 0.25, scanlines: 0.08,
-        'scanline-spacing': 6, 'scanline-width': 0.5}),
-    subtleLook('Quiet RGB', {intensity: 0.25, mask: PhosphorMask.RGB_STRIPES,
-        'mask-strength': 0.04}),
-    subtleLook('Quiet dots', {intensity: 0.25, mask: PhosphorMask.DOTS,
-        'mask-strength': 0.04}),
-    subtleLook('Soft glass', {intensity: 0.25, glow: 0.04, 'glow-radius': 0.5}),
-    subtleLook('Edge shade', {intensity: 0.25, vignette: 0.08}),
-    subtleLook('Paper grain', {intensity: 0.3, grain: 0.005}),
-    subtleLook('Lifted shadows', {intensity: 0.3, 'black-level': 0.02}),
-    subtleLook('Gentle contrast', {intensity: 0.3, contrast: 1.05}),
-    subtleLook('Green whisper', {preset: Palette.GREEN, intensity: 0.12}),
-    subtleLook('Green glass', {preset: Palette.GREEN, intensity: 0.18,
-        glow: 0.03, vignette: 0.03}),
-    subtleLook('Sage tint', {'custom-color': true, 'phosphor-color': '#b8d9bc',
-        intensity: 0.16}),
-    subtleLook('Mint raster', {'custom-color': true, 'phosphor-color': '#b5e5d0',
-        intensity: 0.18, scanlines: 0.04}),
-    subtleLook('Amber whisper', {preset: Palette.AMBER, intensity: 0.12}),
-    subtleLook('Warm glass', {preset: Palette.AMBER, intensity: 0.18,
-        glow: 0.03, vignette: 0.03}),
-    subtleLook('Ivory phosphor', {'custom-color': true, 'phosphor-color': '#f5ecd8',
-        intensity: 0.16}),
-    subtleLook('Peach tint', {'custom-color': true, 'phosphor-color': '#f2c8ae',
-        intensity: 0.14}),
-    subtleLook('Ice phosphor', {'custom-color': true, 'phosphor-color': '#c4e1f2',
-        intensity: 0.16, scanlines: 0.03}),
-    subtleLook('Lavender dusk', {'custom-color': true, 'phosphor-color': '#d5c9eb',
-        intensity: 0.14, vignette: 0.04}),
-
-    subtleLook('Apple IIc Green Phosphor', {preset: Palette.GREEN, intensity: 0.16,
-        'black-level': -0.025, contrast: 1.08}),
-    subtleLook('Apple IIc Green Raster', {preset: Palette.GREEN, intensity: 0.2,
-        scanlines: 0.15, 'scanline-spacing': 4, 'scanline-width': 0.75}),
-    subtleLook('Apple IIc Green Glass', {'custom-color': true, 'phosphor-color': '#84ed9b',
-        intensity: 0.22, glow: 0.1, 'glow-radius': 1.25, vignette: 0.12}),
-    subtleLook('Apple IIc Amber Phosphor', {preset: Palette.AMBER, intensity: 0.18,
-        'black-level': -0.02, contrast: 1.1}),
-    subtleLook('Apple IIc Amber Raster', {'custom-color': true, 'phosphor-color': '#ffd28a',
-        intensity: 0.22, scanlines: 0.14, 'scanline-spacing': 5, 'scanline-width': 1.25}),
-    subtleLook('Apple IIc White Phosphor', {'custom-color': true, 'phosphor-color': '#e3eef3',
-        intensity: 0.22, scanlines: 0.07, 'black-level': -0.03, contrast: 1.08}),
-    subtleLook('Apple IIc Composite Color', {intensity: 0.24, scanlines: 0.15,
-        'scanline-spacing': 5, 'scanline-width': 1.25, grain: 0.02}),
-    subtleLook('Apple IIc Composite Soft', {intensity: 0.24, glow: 0.14,
-        'glow-radius': 1.75, contrast: 0.9, vignette: 0.08}),
-    subtleLook('Apple IIc Color Stripes', {intensity: 0.24, scanlines: 0.08,
-        mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.15, 'black-level': -0.02}),
-    subtleLook('Apple IIc Color Dots', {intensity: 0.24, mask: PhosphorMask.DOTS,
-        'mask-strength': 0.2, grain: 0.015, vignette: 0.1}),
-
-    subtleLook('Classic Mac Compact Gray', {'custom-color': true, 'phosphor-color': '#eeeeee',
-        intensity: 0.24, 'black-level': -0.035, contrast: 1.15}),
-    subtleLook('Classic Mac Platinum Paper', {'custom-color': true, 'phosphor-color': '#f4eee2',
-        intensity: 0.24, 'black-level': 0.055, contrast: 0.95}),
-    subtleLook('Classic Mac Blue Gray', {'custom-color': true, 'phosphor-color': '#c5d7ef',
-        intensity: 0.24, 'black-level': 0.02}),
-    subtleLook('Classic Mac Crisp Mono', {'custom-color': true, 'phosphor-color': '#ffffff',
-        intensity: 0.22, 'black-level': -0.05, contrast: 1.32}),
-    subtleLook('Classic Mac Soft Mono', {'custom-color': true, 'phosphor-color': '#e5e5e5',
-        intensity: 0.24, contrast: 0.82, vignette: 0.06}),
-    subtleLook('Classic Mac Fine Raster', {'custom-color': true, 'phosphor-color': '#f5f5f5',
-        intensity: 0.22, scanlines: 0.14, 'scanline-spacing': 2, 'scanline-width': 0.75}),
-    subtleLook('Classic Mac Color Grille', {intensity: 0.24, mask: PhosphorMask.RGB_STRIPES,
-        'mask-strength': 0.2, contrast: 1.13}),
-    subtleLook('Classic Mac Shadow Mask', {intensity: 0.24, mask: PhosphorMask.DOTS,
-        'mask-strength': 0.25, scanlines: 0.09, 'scanline-width': 0.75}),
-    subtleLook('Classic Mac Cool Glass', {'custom-color': true, 'phosphor-color': '#cee9f2',
-        intensity: 0.22, glow: 0.12, 'glow-radius': 1, vignette: 0.06}),
-    subtleLook('Classic Mac Color Desktop', {intensity: 0.24, contrast: 1.08,
-        'black-level': 0.04, vignette: 0.05}),
+    displayLook('commodore-1702-composite', 'Commodore 1702 Composite', {
+        intensity: 0.75, scanlines: 0.42, 'scanline-spacing': 5, 'scanline-width': 1.5, glow: 0.18,
+        'glow-radius': 2, vignette: 0.38, mask: PhosphorMask.DOTS, 'mask-strength': 0.18, contrast: 1.07}),
+    displayLook('commodore-1902-rgbi', 'Commodore 1902 RGBI', {
+        intensity: 0.7, scanlines: 0.25, 'scanline-spacing': 3, 'scanline-width': 0.75, vignette: 0.06,
+        mask: PhosphorMask.DOTS, 'mask-strength': 0.23, 'black-level': -0.025, contrast: 1.22}),
+    displayLook('commodore-pet-green', 'Commodore PET Green', {
+        intensity: 0.66, scanlines: 0.31, 'scanline-spacing': 4, 'scanline-width': 1.25, preset: Palette.GREEN,
+        glow: 0.15, 'glow-radius': 1.75, vignette: 0.27, contrast: 1.16}),
+    displayLook('amiga-1084s-rgb', 'Amiga 1084S RGB', {
+        intensity: 0.74, scanlines: 0.4, 'scanline-spacing': 4, 'scanline-width': 1.25, glow: 0.1,
+        'glow-radius': 1.5, vignette: 0.15, mask: PhosphorMask.DOTS, 'mask-strength': 0.24, contrast: 1.18}),
+    displayLook('amiga-workbench-blue', 'Amiga Workbench Blue', {
+        intensity: 0.58, scanlines: 0.23, 'scanline-spacing': 3, 'scanline-width': 1, 'custom-color': true,
+        'phosphor-color': '#889dff', glow: 0.07, 'glow-radius': 1.25, vignette: 0.08, 'black-level': 0.025,
+        contrast: 1.06}),
+    displayLook('amiga-500-pal', 'Amiga 500 PAL', {
+        intensity: 0.7, scanlines: 0.43, 'scanline-spacing': 6, 'scanline-width': 1.75, glow: 0.25,
+        'glow-radius': 2.5, vignette: 0.26, grain: 0.018, 'black-level': 0.015, contrast: 0.96}),
+    displayLook('tv-composite-pal', 'TV Composite PAL', {
+        intensity: 0.82, scanlines: 0.47, 'scanline-spacing': 6, 'scanline-width': 2, glow: 0.28,
+        'glow-radius': 2.75, vignette: 0.48, grain: 0.03, mask: PhosphorMask.DOTS, 'mask-strength': 0.19,
+        'black-level': -0.025, contrast: 1.09}),
+    displayLook('tv-black-and-white', 'TV Black and White', {
+        intensity: 0.82, scanlines: 0.27, 'scanline-spacing': 4, 'scanline-width': 1.25, 'custom-color': true,
+        'phosphor-color': '#e5edf7', glow: 0.16, 'glow-radius': 2, vignette: 0.42, grain: 0.019,
+        contrast: 1.24}),
+    displayLook('tv-rf-soft-focus', 'TV RF Soft Focus', {
+        intensity: 0.76, scanlines: 0.32, 'scanline-spacing': 5, 'scanline-width': 1.25, glow: 0.35,
+        'glow-radius': 3.25, vignette: 0.58, grain: 0.065, 'black-level': 0.035, contrast: 0.84}),
+    displayLook('trinitron-aperture-grille', 'Trinitron Aperture Grille', {
+        intensity: 0.8, scanlines: 0.33, 'scanline-spacing': 4, 'scanline-width': 1.25, vignette: 0.1,
+        mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.4, contrast: 1.12}),
+    displayLook('trinitron-fine-pitch', 'Trinitron Fine Pitch', {
+        intensity: 0.67, scanlines: 0.18, 'scanline-spacing': 2, 'scanline-width': 0.75, vignette: 0.03,
+        mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.29, 'black-level': -0.01, contrast: 1.1}),
+    displayLook('trinitron-broadcast-rgb', 'Trinitron Broadcast RGB', {
+        intensity: 0.74, scanlines: 0.5, 'scanline-spacing': 5, 'scanline-width': 1.75, vignette: 0.07,
+        mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.31, 'black-level': -0.035, contrast: 1.24}),
 ];
 
 export function validateValues(values) {

@@ -1,5 +1,5 @@
 > - **File name** `README.md`
-> - **Full path** `E:\vibekit\Widgets\RetroTerminal\Windows\README.md`
+> - **Published file** [README.md](https://github.com/umbertotechnopreneur/VibeKit/blob/main/Widgets/RetroTerminal/Windows/README.md)
 > - **Path relative to the VibeKit repository root** `Widgets/RetroTerminal/Windows/README.md`
 
 # Retro Terminal for Windows (prototype)
@@ -41,6 +41,8 @@ when uninstalling the new package.
 
 ## Controls
 
+Enable **Start with Windows** under **Settings** to open the MSI edition in the notification area at sign-in with the CRT effect off. The option is off by default.
+
 Place the panel on the target monitor and choose **Enable effect**. **Disable
 effect**, **Stop**, **Ctrl+Alt+F11**, closing the panel, or an unsafe display/session
 change removes the overlay and releases capture and history resources. Startup is
@@ -56,7 +58,9 @@ Appearance controls include:
 - Phosphor mask off, RGB stripes or dots, with adjustable strength.
 - Optional real temporal phosphor afterglow, half-life 40–500 ms and mix 0–0.6.
 
-**Clean terminal**, **Worn terminal** and **Arcade** are built-in starting points.
+Pick one of twelve CRT looks under **Effect → Preset** or in **Presets**.
+The catalog includes Commodore and Amiga monitors, analog TVs and Trinitron
+displays.
 Select **My preset 1**, **2** or **3**, then choose **Save to selected personal
 preset** to save current settings. Saving replaces that selected personal slot.
 Preset changes apply immediately and cancel an active glitch.
@@ -162,5 +166,5 @@ motion, glitches and persistence separately on that host.
 Original MIT-licensed code; no third-party shader collection is copied.
 
 > - **File name** `README.md`
-> - **Full path** `E:\vibekit\Widgets\RetroTerminal\Windows\README.md`
+> - **Published file** [README.md](https://github.com/umbertotechnopreneur/VibeKit/blob/main/Widgets/RetroTerminal/Windows/README.md)
 > - **Path relative to the VibeKit repository root** `Widgets/RetroTerminal/Windows/README.md`

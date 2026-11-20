@@ -1,3 +1,7 @@
+> - **File name** `README.md`
+> - **Published file** [README.md](https://github.com/umbertotechnopreneur/VibeKit/blob/main/Widgets/RetroTerminal/README.md)
+> - **Path relative to the VibeKit repository root** `Widgets/RetroTerminal/README.md`
+
 # Retro Terminal
 
 [![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
@@ -47,23 +51,12 @@ available above the sections. Preferences expose:
 - Four individually allowed glitches: local RGB separation, horizontal tear,
   line interference and a soft scanning band.
 
-**Pipelines** includes 20 subtle looks alongside the original Clean green,
-Worn terminal, Arcade and Long phosphor. The new looks use a 12–30% effect mix,
-with random glitches and temporal afterglow disabled. They keep the original
-desktop colors dominant, with light raster, glass, texture or phosphor tints.
-
-| Finish | Subtle pipelines |
-| --- | --- |
-| Original colors | Almost clear, Fine raster, Wide raster, Quiet RGB, Quiet dots |
-| Glass and texture | Soft glass, Edge shade, Paper grain, Lifted shadows, Gentle contrast |
-| Green and mint | Green whisper, Green glass, Sage tint, Mint raster |
-| Warm | Amber whisper, Warm glass, Ivory phosphor, Peach tint |
-| Cool | Ice phosphor, Lavender dusk |
-
-Start with **Almost clear** for a faint raster or **Green whisper** for a light
-green tint. These presets are available in the GNOME preferences; the Windows
-edition has its own controls. Adding presets does not change the current look
-or turn the effect on.
+**Pipelines** includes twelve CRT looks inspired by Commodore, Amiga, analog
+television and Trinitron displays. Try **Commodore PET Green** for green phosphor,
+**Amiga Workbench Blue** for cool tints, **TV Composite PAL** for bold scanlines
+and darkened corners, or **Trinitron Aperture Grille** for vertical RGB stripes.
+The built-ins keep random glitches and temporal afterglow disabled. Choosing a
+preset changes the appearance without turning the effect on.
 
 Select a pipeline from the Effect page or the library. Built-ins are protected;
 duplicate one to keep your changes. Personal pipelines update automatically as
@@ -233,3 +226,7 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
   </a><br>
   <em>Human intent, AI execution, and plenty of tokens</em>
 </p>
+
+> - **File name** `README.md`
+> - **Published file** [README.md](https://github.com/umbertotechnopreneur/VibeKit/blob/main/Widgets/RetroTerminal/README.md)
+> - **Path relative to the VibeKit repository root** `Widgets/RetroTerminal/README.md`

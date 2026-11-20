@@ -46,7 +46,7 @@ assert.equal(a.model.selected, builtin);
 a.model.delete(builtin);
 assert.equal(a.model.items.length, BUILTINS.length);
 a.model.duplicate(builtin);
-assert.equal(a.model.selected.name, 'Clean green copy');
+assert.equal(a.model.selected.name, `${builtin.name} copy`);
 assert(!a.model.builtIn(a.model.selected));
 const selectedId = a.model.selected.id;
 const writeStart = h.shared.writes;

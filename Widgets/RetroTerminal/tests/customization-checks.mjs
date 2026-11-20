@@ -3,17 +3,23 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const moduleAt = async name => import(`data:text/javascript;base64,${Buffer.from(readFileSync(
     new URL(`../Linux/extension/retro-terminal@vibeware.local/${name}.js`, import.meta.url), 'utf8')).toString('base64')}`);
-const {DEFAULTS, BUILTINS, readLibrary, savePreset, validateValues} = await moduleAt('settings-model');
+const {DEFAULTS, BUILTINS, PhosphorMask, readLibrary, savePreset, validateValues} = await moduleAt('settings-model');
 const {GlitchSequence} = await moduleAt('glitches');
 for (const preset of BUILTINS) assert.deepEqual(validateValues(preset.values), preset.values);
-const vintageLooks = BUILTINS.filter(({name}) => /^(Apple IIc|Classic Mac) /.test(name));
-assert.equal(vintageLooks.filter(({name}) => name.startsWith('Apple IIc ')).length, 10);
-assert.equal(vintageLooks.filter(({name}) => name.startsWith('Classic Mac ')).length, 10);
-assert.equal(new Set(vintageLooks.map(({name}) => name)).size, vintageLooks.length);
-assert.equal(new Set(vintageLooks.map(({values}) => JSON.stringify(values))).size, vintageLooks.length);
-for (const {name, values} of vintageLooks) {
-    assert(values.intensity > 0 && values.intensity <= 0.25, name);
-    assert(!values['glitches-enabled'] && !values['persistence-enabled'], name);
+assert.equal(BUILTINS.length, 12);
+assert.equal(new Set(BUILTINS.map(({id}) => id)).size, BUILTINS.length);
+assert.equal(new Set(BUILTINS.map(({name}) => name)).size, BUILTINS.length);
+for (const family of ['Commodore', 'Amiga', 'TV', 'Trinitron']) {
+    const looks = BUILTINS.filter(({name}) => name.startsWith(family + ' '));
+    assert.equal(looks.length, 3);
+    for (const {name, values} of looks) {
+        assert(values.intensity >= 0.55 && values.scanlines >= 0.18, name);
+        assert(!values['glitches-enabled'] && !values['persistence-enabled'], name);
+        if (family === 'Trinitron')
+            assert.equal(values.mask, PhosphorMask.RGB_STRIPES, name);
+        if (family === 'TV')
+            assert(values.vignette >= 0.4, name);
+    }
 }
 const serialized = savePreset('[]', 'My amber', {...DEFAULTS, preset: 1, 'phosphor-color': '#ffc030'});
 assert.equal(readLibrary(serialized)[0].name, 'My amber');

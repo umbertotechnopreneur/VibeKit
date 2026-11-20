@@ -6,6 +6,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Windows.Storage.Pickers;
+using Tools.Widgets;
+using static Tools.Widgets.EffectStudioLayout;
 
 namespace WaterRipple;
 
@@ -23,89 +25,29 @@ internal sealed class RippleView : Grid
     private Pipeline? renaming;
     private bool refreshing;
 
-    internal RippleView(StudioModel model, StudioController controller, Window window)
+    internal RippleView(StudioModel model, StudioController controller, Window window, Grid root, ToggleSwitch effectSwitch)
     {
         pipelines = model.Pipelines;
-        Margin = new Thickness(0, 14, 0, 8);
-        RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        var layout = new Grid { RowSpacing = 12 };
-        layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        Children.Add(layout);
-        var emergency = new Grid { ColumnSpacing = 12, Padding = new Thickness(0, 8, 0, 8) };
-        emergency.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        emergency.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var emergencyText = new StackPanel { Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
-        emergencyText.Children.Add(Ui.Text("Emergency exit · Ctrl + Alt + Shift + W", 14));
-        var emergencyStatus = Ui.Text("", 12); Ui.Bind(emergencyStatus, TextBlock.TextProperty, model.State, nameof(AppState.EmergencyShortcutStatus));
-        emergencyText.Children.Add(emergencyStatus); emergency.Children.Add(emergencyText);
-        var emergencyToggle = new ToggleSwitch { OffContent = null, OnContent = null, MinWidth = 0, Width = 44, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(emergencyToggle, "Emergency exit shortcut");
-        Ui.Bind(emergencyToggle, ToggleSwitch.IsOnProperty, model.Settings, nameof(AppSettings.EmergencyShortcutEnabled), BindingMode.TwoWay);
-        SetColumn(emergencyToggle, 1); emergency.Children.Add(emergencyToggle);
-        layout.Children.Add(emergency);
-        var settings = new StackPanel { Spacing = 12 };
+        var displayPicker = new DisplayTargetPicker(() => model.Settings.TargetDisplay,
+            device => model.Settings.TargetDisplay = device, compact: true);
+        var settings = BuildSettings(model, displayPicker, effectSwitch);
         var diagnostics = new StackPanel { Spacing = 12 };
-        var sections = new StackPanel { Spacing = 10 };
-        Expander AddSection(string title, UIElement content)
-        {
-            var section = new Expander
+        var pages = new StudioPages(
+            new StudioPage("Pipeline", "\uE9D9", effects),
+            new StudioPage("Presets", "\uE81E", library),
+            new StudioPage("Settings", "\uE713", settings, () =>
             {
-                Header = title, Content = content, HorizontalAlignment = HorizontalAlignment.Stretch,
-                HorizontalContentAlignment = HorizontalAlignment.Stretch
-            };
-            sections.Children.Add(section);
-            return section;
-        }
-        var effectSection = AddSection("Effect", effects);
-        AddSection("Pipelines", library);
-        var settingsSection = AddSection("Settings", settings);
-        AddSection("Diagnostics", diagnostics);
-        var scroll = new ScrollViewer
-        {
-            Content = sections, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-        };
-        SetRow(scroll, 1);
-        layout.Children.Add(scroll);
-        Ui.HoverScrollBar(scroll, scroll, this);
-        foreach (Expander section in sections.Children)
-        {
-            section.Expanding += (_, _) =>
-            {
-                foreach (Expander other in sections.Children)
-                    if (other != section) other.IsExpanded = false;
-            };
-        }
-        settingsSection.Expanding += (_, _) => controller.OpenSettingsCommand.Execute(null);
-        controller.SettingsRequested += () =>
-        {
-            settingsSection.IsExpanded = true;
-            settingsSection.StartBringIntoView();
-        };
-        var effectIntro = Ui.Text("Shape the ripple and adjust its filters.", 13); effectIntro.Style = Ui.SecondaryTextStyle; effects.Children.Add(effectIntro);
-        var settingsIntro = Ui.Text("Choose startup, appearance and capture limits.", 13); settingsIntro.Style = Ui.SecondaryTextStyle; settings.Children.Add(settingsIntro);
-        var appearance = new StackPanel { Spacing = 8 };
-        var theme = new ComboBox { Header = "Theme", ItemsSource = new[] { "System", "Light", "Dark" } };
-        Ui.Bind(theme, ComboBox.SelectedIndexProperty, model.Settings, nameof(AppSettings.ThemeIndex), BindingMode.TwoWay);
-        appearance.Children.Add(theme);
-        Ui.Toggle(appearance, "Acrylic background", model.Settings, nameof(AppSettings.UseAcrylic));
-        settings.Children.Add(new Expander { Header = "Appearance", Content = appearance, IsExpanded = true, HorizontalContentAlignment = HorizontalAlignment.Stretch, HorizontalAlignment = HorizontalAlignment.Stretch });
-        var startupGroup = new StackPanel { Spacing = 8 };
-        var startup = Ui.Toggle(startupGroup, "Start with Windows", model.State, nameof(AppState.StartWithWindows));
-        Ui.Bind(startup, Control.IsEnabledProperty, model.State, nameof(AppState.CanManageStartup));
-        var startupStatus = Ui.Text("", 12); Ui.Bind(startupStatus, TextBlock.TextProperty, model.State, nameof(AppState.StartupStatus)); startupGroup.Children.Add(startupStatus);
-        settings.Children.Add(new Expander { Header = "Startup", Content = startupGroup, IsExpanded = true, HorizontalAlignment = HorizontalAlignment.Stretch });
-        var protection = new StackPanel { Spacing = 8 };
-        Ui.Toggle(protection, "Automatically resume after a performance pause", model.Settings, nameof(AppSettings.AutoRecover));
-        protection.Children.Add(Ui.Text("After a performance pause, wait at least one minute and resume only when the system is stable.", 12));
-        settings.Children.Add(new Expander { Header = "Performance protection", Content = protection, IsExpanded = true, HorizontalAlignment = HorizontalAlignment.Stretch });
-        var limits = new StackPanel { Spacing = 8 };
-        Ui.Slider(limits, "Animation limit", model.Settings, nameof(AppSettings.AnimationFps), 15, 120, 1, "fps");
-        Ui.Slider(limits, "Capture limit", model.Settings, nameof(AppSettings.CaptureFps), 5, 60, 1, "fps");
-        settings.Children.Add(new Expander { Header = "Performance limits", Content = limits, HorizontalAlignment = HorizontalAlignment.Stretch });
-        settings.Children.Add(Ui.Text("Changes are saved immediately. Windows manages the startup preference.", 12));
-        settings.Children.Add(Ui.Text("Windows may ask permission to hide its colored screen-capture border. You can decline and keep using the app with the border.", 12));
+                displayPicker.Refresh();
+                controller.OpenSettingsCommand.Execute(null);
+            }),
+            new StudioPage("Diagnostics", "\uE9D9", diagnostics));
+        Children.Add(pages);
+        foreach (var scroll in pages.Scrollers) Ui.HoverScrollBar(scroll, scroll, root);
+        controller.SettingsRequested += () => pages.Select("Settings");
+        pages.Select("Settings");
+        var target = ApplyToPicker();
+        Ui.Bind(target, ComboBox.SelectedIndexProperty, model.Settings, nameof(AppSettings.TargetIndex), BindingMode.TwoWay);
+        effects.Children.Add(target);
         choice.ItemsSource = pipelines.Items;
         choice.SelectionChanged += (_, _) => { if (!refreshing && choice.SelectedItem is Pipeline p) pipelines.Select(p); };
         effects.Children.Add(choice);
@@ -173,14 +115,16 @@ internal sealed class RippleView : Grid
             }
             effects.Children.Add(expander);
         }
-        foreach (string property in new[] { nameof(AppState.StatusMessage), nameof(AppState.PersistenceError) })
-        {
-            var text = Ui.Text("", 12); Ui.Bind(text, TextBlock.TextProperty, model.State, property); effects.Children.Add(text);
-        }
+        var persistenceError = Ui.Text("", 12);
+        Ui.Bind(persistenceError, TextBlock.TextProperty, model.State, nameof(AppState.PersistenceError));
+        effects.Children.Add(persistenceError);
         var capability = Ui.Text("", 12); Ui.Bind(capability, TextBlock.TextProperty, model.State, nameof(AppState.CapabilityText)); diagnostics.Children.Add(capability);
         diagnostics.Children.Add(Ui.DiagnosticRows(model.State, nameof(AppState.MetricsText)));
         diagnostics.Children.Add(Ui.DiagnosticRows(model.State, nameof(AppState.ResourcesText)));
         diagnostics.Children.Add(new Button { Content = "Recheck GPU", Command = controller.RestartCommand });
+        diagnostics.Children.Add(JokeSection(window, model.Settings.ShowGpuJokes,
+            enabled => model.Settings.ShowGpuJokes = enabled, GpuJokes.Caption));
+        diagnostics.Children.Add(SettingsHint("If Windows asks to hide the colored capture border, you can keep the border visible."));
 
 
         var libraryIntro = Ui.Text("Pipelines are saved sets of ripple and filter settings.", 13); libraryIntro.Style = Ui.SecondaryTextStyle; library.Children.Add(libraryIntro);
@@ -249,7 +193,8 @@ internal sealed class RippleView : Grid
                         Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
                         BorderBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
                         Padding = new Thickness(4, 9, 4, 9) };
-                    open.Click += (_, _) => { pipelines.Select(pipeline); effectSection.IsExpanded = true; effectSection.StartBringIntoView(); };
+                    // Applying a pipeline keeps its library row, focus and viewport in place.
+                    open.Click += (_, _) => pipelines.Select(pipeline);
                     row.Children.Add(open);
                     var menu = new MenuFlyout();
                     MenuFlyoutItem Action(string actionTitle, Action action)
@@ -287,6 +232,54 @@ internal sealed class RippleView : Grid
         Unloaded += (_, _) => pipelines.PropertyChanged -= Changed;
         Refresh();
     }
+    private static FrameworkElement BuildSettings(StudioModel model, DisplayTargetPicker displayPicker, ToggleSwitch effectSwitch)
+    {
+        var theme = new ComboBox { ItemsSource = new[] { "System", "Light", "Dark" } };
+        Ui.Bind(theme, ComboBox.SelectedIndexProperty, model.Settings, nameof(AppSettings.ThemeIndex), BindingMode.TwoWay);
+        var acrylic = new ToggleSwitch();
+        Ui.Bind(acrylic, ToggleSwitch.IsOnProperty, model.Settings, nameof(AppSettings.UseAcrylic), BindingMode.TwoWay);
+
+        var startup = new ToggleSwitch();
+        Ui.Bind(startup, ToggleSwitch.IsOnProperty, model.State, nameof(AppState.StartWithWindows), BindingMode.TwoWay);
+        Ui.Bind(startup, Control.IsEnabledProperty, model.State, nameof(AppState.CanManageStartup));
+        var startupStatus = SettingsHint("");
+        Ui.Bind(startupStatus, TextBlock.TextProperty, model.State, nameof(AppState.StartupStatus), converter: new StartupDescriptionConverter());
+
+        var recovery = new ToggleSwitch();
+        Ui.Bind(recovery, ToggleSwitch.IsOnProperty, model.Settings, nameof(AppSettings.AutoRecover), BindingMode.TwoWay);
+        var recoveryTiming = SettingsHint("At least 1 min delay · 30 s stable");
+        recoveryTiming.TextAlignment = TextAlignment.Right;
+
+        var settings = SettingsPage();
+        settings.Children.Add(RowGroup("Display & appearance",
+            PreferenceRow("Effect", "Enable or disable the water ripple effect.", effectSwitch),
+            PreferenceRow("Theme", "App theme.", theme),
+            PreferenceRow("Target display", "Display used for the effect.", displayPicker),
+            PreferenceRow("Acrylic background", "Use a translucent background for this window.", acrylic)));
+        settings.Children.Add(RowGroup("Startup",
+            PreferenceRow("Start with Windows", startupStatus, startup),
+            PreferenceRow("Resume automatically", "Resume after a temporary performance pause.", recovery)));
+        settings.Children.Add(RowGroup("Performance protection",
+            Ui.PreferenceSlider("Animation limit", "Maximum animation frame rate for the effect.",
+                model.Settings, nameof(AppSettings.AnimationFps), 15, 120, 1, "fps"),
+            Ui.PreferenceSlider("Capture limit", "Maximum screen capture frame rate.",
+                model.Settings, nameof(AppSettings.CaptureFps), 5, 60, 1, "fps"),
+            PreferenceRow("Recovery", "Resume only after the system becomes stable again.", recoveryTiming)));
+        return settings;
+    }
+
+    private sealed class StartupDescriptionConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language) => value switch
+        {
+            "Water Ripple will start in the notification area and apply click ripples when you sign in." => "Apply click ripples at sign-in.",
+            "Water Ripple will open only when you launch it." => "Open only when you launch it.",
+            _ => value
+        };
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => DependencyProperty.UnsetValue;
+    }
+
     private static Button MakeButton(string title, Action action)
     { var button = new Button { Content = title }; button.Click += (_, _) => action(); return button; }
     private static Button MakeActionButton(string title, string glyph, Action action)

@@ -29,17 +29,23 @@ internal static class SettingsPersistenceChecks
         }
         Check(writes == 2 && Strength(path) == 7, "Async disposal did not flush the final snapshot.");
 
-        string jokeSettingsPath = Path.Combine(directory, "gpu-joke-settings.json");
-        File.WriteAllText(jokeSettingsPath, """{"Version":1,"Settings":{}}""");
-        using (var store = new SettingsStore(jokeSettingsPath))
+        string preferencesPath = Path.Combine(directory, "legacy-settings.json");
+        File.WriteAllText(preferencesPath, """{"Version":1,"Settings":{}}""");
+        using (var store = new SettingsStore(preferencesPath))
         {
             var preferences = store.Load();
             Check(preferences.ShowGpuJokes, "Older settings must load the default for GPU jokes.");
+            Check(preferences.TargetIndex == 0, "Older settings must keep applying ripples to wallpaper and windows.");
             store.Attach(preferences);
             preferences.ShowGpuJokes = false;
+            preferences.TargetIndex = 2;
         }
-        using (var store = new SettingsStore(jokeSettingsPath))
-            Check(!store.Load().ShowGpuJokes, "GPU joke opt-out must survive a restart.");
+        using (var store = new SettingsStore(preferencesPath))
+        {
+            var preferences = store.Load();
+            Check(!preferences.ShowGpuJokes, "GPU joke opt-out must survive a restart.");
+            Check(preferences.TargetIndex == 2, "The ripple target must survive a restart.");
+        }
 
         // Hold the worker after its first commit while the UI delivers more edits.
         using var firstWrite = new ManualResetEventSlim();

@@ -67,12 +67,13 @@ internal static partial class Native
     [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern int RippleCheckCapabilities(int x, int y, int width, int height, out GpuCapabilities capabilities);
     [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern int RippleSetScreenMode(IntPtr renderer, int enabled);
     [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern void RippleSetInteropWindow(IntPtr renderer, IntPtr window);
+    [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern void RippleSetTarget(IntPtr renderer, int target);
     [DllImport("RippleRenderer.dll", CallingConvention = CallingConvention.Cdecl)] internal static extern int RippleGetGpuMemory(IntPtr renderer, out GpuMemory memory);
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)] internal static extern IntPtr GetWindowLongPtr(IntPtr hwnd, int index);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)] internal static extern IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value);
     [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint color, byte alpha, uint flags);
     [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int width, int height, uint flags);
-    internal static void SetTopmost(IntPtr hwnd, bool enabled) => SetWindowPos(hwnd, new IntPtr(enabled ? -1 : -2), 0, 0, 0, 0, 0x0013);
+    internal static void SetOverlayTopmost(IntPtr hwnd) => SetWindowPos(hwnd, new IntPtr(-1), 0, 0, 0, 0, 0x0013);
     internal delegate IntPtr HookProc(int code, IntPtr message, IntPtr data);
     internal delegate IntPtr SubclassProc(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam, UIntPtr id, UIntPtr data);
     [StructLayout(LayoutKind.Sequential)] internal struct MouseData { public NativePoint Point; public uint MouseDataValue, Flags, Time; public UIntPtr ExtraInfo; }

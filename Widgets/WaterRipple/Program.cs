@@ -3,12 +3,15 @@ using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Threading;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.Windows.AppLifecycle;
-using Windows.Graphics;
 using Serilog;
+using Tools.Widgets;
 using VirtualKey = Windows.System.VirtualKey;
 
 namespace WaterRipple;
@@ -23,8 +26,13 @@ public partial class App : Application
     [STAThread]
     private static void Main()
     {
-#if DEBUG
         string[] arguments = Environment.GetCommandLineArgs();
+        if (Array.IndexOf(arguments, WindowsSignIn.RemoveArgument) >= 0)
+        {
+            StartupService.SignIn.Remove();
+            return;
+        }
+#if DEBUG
         if (Array.IndexOf(arguments, "--check-resource-guard") >= 0) { Environment.ExitCode = ResourceChecks.Run(); return; }
         if (Array.IndexOf(arguments, "--check-settings") >= 0) { Environment.ExitCode = SettingsChecks.Run(); return; }
         if (Array.IndexOf(arguments, "--check-logging") >= 0) { Environment.ExitCode = LoggingChecks.Run(); return; }
@@ -36,7 +44,8 @@ public partial class App : Application
         }
 #endif
         WinRT.ComWrappersSupport.InitializeComWrappers();
-        bool startAtSignIn = AppInstance.GetCurrent().GetActivatedEventArgs().Kind == ExtendedActivationKind.StartupTask;
+        bool startAtSignIn = Array.IndexOf(arguments, WindowsSignIn.StartArgument) >= 0
+            || AppInstance.GetCurrent().GetActivatedEventArgs().Kind == ExtendedActivationKind.StartupTask;
 #if DEBUG
         startAtSignIn |= Array.IndexOf(arguments, "--check-hidden-startup") >= 0;
 #endif
@@ -106,6 +115,9 @@ public partial class App : Application
         try { CreateMainWindow(); }
         catch (Exception ex)
         {
+#if DEBUG
+            Console.Error.WriteLine(ex);
+#endif
             Log.Fatal(ex, "Main window construction or activation failed HRESULT={HResult:X8}", ex.HResult);
             LoggingService.Shutdown();
             throw;
@@ -198,85 +210,127 @@ internal sealed class MainWindow : Window
                 throw new System.ComponentModel.Win32Exception(Marshal.GetLastPInvokeError());
             startupTransparent = true;
         }
-        Title = "Water Ripple · VibeWare";
-        AppWindow.Resize(new SizeInt32(820, 920));
-        var root = new Grid { Padding = new Thickness(24, 20, 24, 12) };
-        root.DataContext = model;
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        Content = root;
-        Ui.AttachAppearance(this, root, model.Settings);
-        var header = Ui.BrandHeader("Water Ripple", "A ripple for every click. Changes apply immediately.");
-        root.Children.Add(header);
-        Controller = new StudioController(model, this, root, flushSettings, discardSettings);
-        var controls = new RippleView(model, Controller, this);
-        var effectButton = new Button { Command = Controller.ToggleScreenCommand, VerticalAlignment = VerticalAlignment.Center,
-            Padding = new Thickness(14, 8, 14, 8) };
-        var indicator = new Grid { Width = 14, Height = 14, VerticalAlignment = VerticalAlignment.Center };
-        var glow = new Border { Width = 14, Height = 14, Opacity = 0, IsHitTestVisible = false };
-        glow.Loaded += (_, _) =>
+        Title = "VibeWare – Water Ripple";
+        var root = new Grid { DataContext = model };
+        EffectStudioLayout.Initialize(this, root, "Water Ripple", "A ripple for every click.");
+        (int X, int Y, int Width, int Height)? startupBounds = null;
+        if (startHidden)
         {
-            var compositor = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(glow).Compositor;
-            var shadow = compositor.CreateDropShadow();
-            shadow.Color = Windows.UI.Color.FromArgb(255, 255, 42, 42);
-            shadow.BlurRadius = 9;
-            shadow.Opacity = 0.8f;
-            var visual = compositor.CreateSpriteVisual();
-            visual.Size = new System.Numerics.Vector2(8, 8);
-            visual.Offset = new System.Numerics.Vector3(3, 3, 0);
-            visual.Brush = compositor.CreateColorBrush(Windows.UI.Color.FromArgb(255, 205, 40, 40));
-            visual.Shadow = shadow;
-            Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.SetElementChildVisual(glow, visual);
-        };
-        var led = new Microsoft.UI.Xaml.Shapes.Ellipse { Width = 8, Height = 8,
-            StrokeThickness = 1, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
-        indicator.Children.Add(glow); indicator.Children.Add(led);
-        var effectLabel = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
-        var effectContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        effectContent.Children.Add(indicator); effectContent.Children.Add(effectLabel); effectButton.Content = effectContent;
-        var pulse = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
-        var animation = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
-        {
-            From = 0.3, To = 0.85, Duration = new Duration(TimeSpan.FromSeconds(1.3)),
-            AutoReverse = true, RepeatBehavior = Microsoft.UI.Xaml.Media.Animation.RepeatBehavior.Forever,
-            EnableDependentAnimation = true
-        };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(animation, glow);
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(animation, "Opacity");
-        pulse.Children.Add(animation);
-        var accessibility = new Windows.UI.ViewManagement.UISettings();
-        void UpdateEffectButton()
-        {
-            bool active = model.State.IsScreenEffectActive;
-            pulse.Stop();
-            effectLabel.Text = active ? "Effect on" : "Effect off";
-            led.Fill = active ? Ui.Brush(255, 75, 76) : Ui.Brush(65, 58, 60);
-            led.Stroke = active ? Ui.Brush(255, 164, 151) : Ui.Brush(148, 132, 133);
-            glow.Opacity = active ? 0.45 : 0;
-            if (active && accessibility.AnimationsEnabled) pulse.Begin();
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(effectButton, model.State.ApplyButtonText);
-            ToolTipService.SetToolTip(effectButton, model.State.ApplyButtonText);
+            // Capture the restore rectangle before minimizing: minimized HWND coordinates
+            // are not a valid monitor-selection hint for the desktop effect.
+            startupBounds = (AppWindow.Position.X, AppWindow.Position.Y, AppWindow.Size.Width, AppWindow.Size.Height);
+            if (AppWindow.Presenter is not OverlappedPresenter presenter)
+                throw new InvalidOperationException("The startup window requires an overlapped presenter.");
+            // Establish the native startup show state while the transparency guard is
+            // still in place, before constructing services or starting capture.
+            AppWindow.Show(false);
+            presenter.Minimize(false);
+            Log.Information("Startup main window initially minimized Visible={Visible} Minimized={Minimized} Foreground={Foreground}",
+                Native.IsWindowVisible(startupHandle), Native.IsIconic(startupHandle), Native.GetForegroundWindow() == startupHandle);
+#if DEBUG
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--check-hidden-startup") >= 0)
+            {
+                if (!Native.IsIconic(startupHandle) || Native.GetForegroundWindow() == startupHandle)
+                    throw new InvalidOperationException("Sign-in startup did not minimize without taking focus before service initialization.");
+                Console.WriteLine("PASS sign-in Studio is minimized without focus before services and capture initialize");
+            }
+#endif
         }
-        model.State.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(AppState.IsScreenEffectActive)) UpdateEffectButton(); };
-        Ui.Bind(effectButton, Control.IsEnabledProperty, model.State, nameof(AppState.CanApply));
-        UpdateEffectButton(); Grid.SetColumn(effectButton, 1); header.Children.Add(effectButton);
-        Grid.SetRow(controls, 1); root.Children.Add(controls);
-        var footer = Tools.Widgets.WidgetFooter.Create("Water Ripple", () => new AboutWindow(model.Settings).Activate());
+        Ui.AttachAppearance(this, root, model.Settings);
+        Controller = new StudioController(model, this, root, flushSettings, discardSettings, startupBounds);
+        var effectSwitch = new ToggleSwitch();
+        var effectStatus = Ui.Text("Checking the display GPU…", 13);
+        var emergencyLabel = Ui.Text("Emergency shortcut: Ctrl + Alt + Shift + W", 12);
+        var emergencyStatus = Ui.Text("", 12);
+        emergencyStatus.Style = Ui.SecondaryTextStyle;
+        var emergencyHeading = new Grid { ColumnSpacing = 8 };
+        emergencyHeading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        emergencyHeading.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        emergencyHeading.Children.Add(new FontIcon { Glyph = "\uE765", FontSize = 14, VerticalAlignment = VerticalAlignment.Center });
+        Grid.SetColumn(emergencyLabel, 1);
+        emergencyHeading.Children.Add(emergencyLabel);
+        var emergencyText = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        emergencyText.Children.Add(emergencyHeading);
+        emergencyText.Children.Add(emergencyStatus);
+        var emergencyToggle = new ToggleSwitch
+        {
+            MinWidth = 0, Width = 40, OffContent = null, OnContent = null,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        AutomationProperties.SetName(emergencyToggle, "Emergency exit shortcut");
+        Ui.Bind(emergencyToggle, ToggleSwitch.IsOnProperty, model.Settings,
+            nameof(AppSettings.EmergencyShortcutEnabled), BindingMode.TwoWay);
+        var emergency = EffectStudioLayout.Columns(emergencyText, emergencyToggle);
+        var statusBar = EffectStudioLayout.StatusBar(effectStatus, effectSwitch);
+        Grid.SetRow(statusBar, 0);
+        root.Children.Add(statusBar);
+
+        bool syncingEffect = false, changingEffect = false;
+        void RefreshEffectSwitch()
+        {
+            syncingEffect = true;
+            effectSwitch.IsOn = model.State.IsScreenEffectActive;
+            effectSwitch.IsEnabled = !changingEffect && (model.State.IsScreenEffectActive || model.State.CanApply);
+            syncingEffect = false;
+        }
+        void RefreshEmergencyStatus()
+        {
+            string status = model.State.EmergencyShortcutStatus;
+            emergencyStatus.Text = status;
+            emergencyStatus.Visibility = status == EmergencyShortcut.RegisteredStatus ? Visibility.Collapsed : Visibility.Visible;
+            AutomationProperties.SetHelpText(emergencyToggle, status);
+            ToolTipService.SetToolTip(emergencyToggle, status);
+        }
+        void EffectStateChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName is nameof(AppState.IsScreenEffectActive) or nameof(AppState.CanApply))
+                RefreshEffectSwitch();
+            if (e.PropertyName == nameof(AppState.StatusMessage)) effectStatus.Text = model.State.StatusMessage;
+            if (e.PropertyName == nameof(AppState.EmergencyShortcutStatus)) RefreshEmergencyStatus();
+        }
+        effectSwitch.Toggled += async (_, _) =>
+        {
+            if (syncingEffect || changingEffect || effectSwitch.IsOn == model.State.IsScreenEffectActive) return;
+            changingEffect = true;
+            effectSwitch.IsEnabled = false;
+            try { await Controller.ToggleScreenAsync(); }
+            finally
+            {
+                changingEffect = false;
+                RefreshEffectSwitch();
+            }
+        };
+        model.State.PropertyChanged += EffectStateChanged;
+        RefreshEffectSwitch();
+        RefreshEmergencyStatus();
+        var controls = new RippleView(model, Controller, this, root, effectSwitch);
+        Grid.SetRow(controls, 1);
+        root.Children.Add(controls);
+        var footer = EffectStudioLayout.FooterBar(emergency,
+            WidgetFooter.CreateCompact("Water Ripple", () => new AboutWindow(model.Settings).Activate()));
         Grid.SetRow(footer, 2);
         root.Children.Add(footer);
         root.Loaded += (_, _) => DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, Controller.SurfaceLoaded);
         root.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler((_, e) => { e.Handled = Controller.HandleKey(e.Key); }), true);
-        Closed += (_, _) => { pulse.Stop(); Controller.Dispose(); };
+        Closed += (_, _) =>
+        {
+            model.State.PropertyChanged -= EffectStateChanged;
+            Controller.Dispose();
+        };
     }
 
     internal void FinishHiddenStartup()
     {
         if (!startupTransparent) return;
-        // Keep the window hidden while restoring its ordinary appearance. If tray
-        // setup failed, reveal it again so the app remains reachable.
+        // Successful tray startup stays hidden. If the shell rejects the tray icon,
+        // leave a minimized taskbar entry instead of opening the full control window.
         bool inTray = Controller.IsInTray;
-        if (inTray) Native.ShowWindow(startupHandle, 0);
+        if (inTray) AppWindow.Hide();
+        else
+        {
+            AppWindow.Show(false);
+            if (AppWindow.Presenter is OverlappedPresenter presenter) presenter.Minimize(false);
+        }
         if (!Native.SetLayeredWindowAttributes(startupHandle, 0, 255, 2))
             throw new System.ComponentModel.Win32Exception(Marshal.GetLastPInvokeError());
         if (!startupWasLayered)
@@ -288,6 +342,7 @@ internal sealed class MainWindow : Window
                 throw new System.ComponentModel.Win32Exception(Marshal.GetLastPInvokeError());
         }
         startupTransparent = false;
-        if (!inTray) Activate();
+        Log.Information("Startup main window presentation ready InTray={InTray} Visible={Visible} Minimized={Minimized}",
+            inTray, Native.IsWindowVisible(startupHandle), Native.IsIconic(startupHandle));
     }
 }

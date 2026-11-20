@@ -9,6 +9,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Serilog;
+using Tools.Widgets;
 using VirtualKey = Windows.System.VirtualKey;
 
 namespace WaterRipple;
@@ -26,6 +27,7 @@ internal sealed partial class StudioController : IDisposable
     private readonly Window window;
     private readonly FrameworkElement surface;
     private readonly IntPtr hwnd;
+    private (int X, int Y, int Width, int Height)? startupBounds;
     private readonly StudioDiagnostics diagnostics;
     private readonly TrayService tray;
     private readonly StartupService startup;
@@ -34,7 +36,6 @@ internal sealed partial class StudioController : IDisposable
     private readonly CloseSequence closeSequence;
     private bool closeFailureOpen;
     private ScreenEffectSession? screen;
-    private bool notifyWhenRestored;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer performanceTimer, gpuJokeTimer;
 
     private readonly Stopwatch performanceClock = Stopwatch.StartNew();
@@ -44,7 +45,6 @@ internal sealed partial class StudioController : IDisposable
     private ulong previousIdle, previousKernel, previousUser;
     private bool haveCpuSample;
     private long generation;
-    internal ICommand ToggleScreenCommand { get; }
     internal ICommand RestartCommand { get; }
     internal ICommand OpenSettingsCommand { get; }
     internal event Action? SettingsRequested;
@@ -52,9 +52,10 @@ internal sealed partial class StudioController : IDisposable
     internal bool IsInTray => model.State.IsInTray;
 
     internal StudioController(StudioModel model, Window window, FrameworkElement surface,
-        Func<Task<bool>> flushSettings, Func<Task> discardSettings)
+        Func<Task<bool>> flushSettings, Func<Task> discardSettings, (int X, int Y, int Width, int Height)? startupBounds = null)
     {
         this.model = model; this.window = window; this.surface = surface;
+        this.startupBounds = startupBounds;
         closeSequence = new CloseSequence(
             stop: () =>
             {
@@ -80,7 +81,7 @@ internal sealed partial class StudioController : IDisposable
         hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
         tray = new TrayService(hwnd, Path.Combine(AppContext.BaseDirectory, "Assets", "WaterRipple.ico"), ShowFromTray, OpenSettings, ExitApp);
         window.AppWindow.Closing += MainWindowClosing;
-        ToggleScreenCommand = new DelegateCommand(ToggleScreen);
+        window.Activated += MainWindowActivated;
         RestartCommand = new DelegateCommand(CheckCapabilities);
         OpenSettingsCommand = new DelegateCommand(OpenSettings);
         InspectScreenCommand = new DelegateCommand(() => screen?.InspectCapture());
@@ -97,7 +98,7 @@ internal sealed partial class StudioController : IDisposable
         gpuJokeTimer.Tick += ShowGpuJoke;
         if (model.Settings.ShowGpuJokes)
         {
-            gpuJokeTimer.Interval = TimeSpan.FromSeconds(Random.Shared.Next(120, 241));
+            gpuJokeTimer.Interval = TimeSpan.FromMinutes(2);
             gpuJokeTimer.Start();
         }
         model.Settings.PropertyChanged += EmergencyShortcutChanged;
@@ -122,7 +123,7 @@ internal sealed partial class StudioController : IDisposable
         try
         {
             model.State.CaptureAllowed = Native.SetWindowDisplayAffinity(hwnd, 0);
-            var b = Bounds();
+            var b = DisplayTarget.Resolve(model.Settings.TargetDisplay)?.Bounds ?? Bounds();
             int hr = Native.RippleCheckCapabilities(b.X, b.Y, b.Width, b.Height, out var caps);
             model.State.GpuName = caps.AdapterName ?? "Display GPU";
             model.State.DedicatedVramBytes = caps.DedicatedVideoMemory;
@@ -132,7 +133,7 @@ internal sealed partial class StudioController : IDisposable
         catch (Exception ex) { model.State.CanApply = false; Fail("GPU check failed", ex); }
     }
 
-    private async void ToggleScreen()
+    internal async Task ToggleScreenAsync()
     {
         if (screen is not null) { StopScreen(); return; }
         CancelRecovery();
@@ -144,11 +145,14 @@ internal sealed partial class StudioController : IDisposable
 
     internal void StartAtSignIn()
     {
+        // Startup owns the first capture attempt; Loaded must not retry it on restore.
+        initialized = true;
         MinimizeToTray();
+        if (!model.State.IsInTray)
+            Log.Warning("Startup tray unavailable; the main window remains minimized in the taskbar");
         model.State.CaptureAllowed = Native.SetWindowDisplayAffinity(hwnd, 0);
         // The optional borderless-capture prompt belongs to the interactive Apply action.
         StartScreen(atSignIn: true);
-        if (!model.State.IsInTray) window.Activate();
     }
 
     private void StartScreen(bool atSignIn = false)
@@ -157,8 +161,8 @@ internal sealed partial class StudioController : IDisposable
         generation++;
         try
         {
-            var b = atSignIn ? (window.AppWindow.Position.X, window.AppWindow.Position.Y,
-                window.AppWindow.Size.Width, window.AppWindow.Size.Height) : Bounds();
+            var b = DisplayTarget.Resolve(model.Settings.TargetDisplay)?.Bounds ??
+                (atSignIn ? startupBounds ?? Bounds() : Bounds());
             Log.Information("Checking screen effect GPU Generation={Generation} StartupTask={StartupTask} Width={Width} Height={Height} CaptureAllowed={CaptureAllowed}",
                 generation, atSignIn, b.Width, b.Height, model.State.CaptureAllowed);
             int hr = Native.RippleCheckCapabilities(b.X, b.Y, b.Width, b.Height, out var caps);
@@ -170,24 +174,21 @@ internal sealed partial class StudioController : IDisposable
                 model.State.StatusMessage = model.State.CaptureAllowed ? Describe(caps, hr) : "Desktop capture is unavailable.";
                 return;
             }
+            bool firstFrame = true;
             var session = new ScreenEffectSession(model, caps, metrics =>
             {
                 diagnostics.Observe(metrics);
-                if (notifyWhenRestored && model.State.IsCaptureValid)
+                if (firstFrame && model.State.IsCaptureValid)
                 {
-                    notifyWhenRestored = false;
-                    NotifyEffect("Ripple resumed", "The screen effect is active again.");
+                    firstFrame = false;
+                    NotifyEffect("Ripple effect on", "The screen effect is active.");
                 }
             }, (closed, reason) => { if (ReferenceEquals(screen, closed)) StopScreen(reason); });
             screen = session;
             model.State.IsScreenEffectActive = true; model.State.CanApply = true;
-            model.State.StatusMessage = "Changes apply immediately to the screen effect.";
+            model.State.StatusMessage = "Water Ripple effect is active.";
             Log.Information("Starting screen effect session Generation={Generation}", generation);
             session.Start();
-            if (ReferenceEquals(screen, session) && !model.State.IsInTray)
-            {
-                Native.SetTopmost(hwnd, true);
-            }
         }
         catch (Exception ex)
         {
@@ -204,15 +205,10 @@ internal sealed partial class StudioController : IDisposable
         model.State.ScreenOverlayVisible = false;
         model.State.IsCaptureValid = false;
         active?.Dispose();
-        Native.SetTopmost(hwnd, false);
         diagnostics.ClearCapture();
         Log.Information("ScreenStopped Generation={Generation} ReportedFailure={ReportedFailure}", generation, reason.Length > 0);
         model.State.StatusMessage = reason.Length > 0 ? reason : "Screen effect stopped.";
-        if (active is not null && reason.Length > 0 && reason != "Stopped by global shortcut.")
-        {
-            notifyWhenRestored = true;
-            NotifyEffect("Ripple stopped", reason);
-        }
+        if (active is not null) NotifyEffect("Ripple effect off", model.State.StatusMessage);
     }
 
     private void NotifyEffect(string title, string message)
@@ -235,7 +231,7 @@ internal sealed partial class StudioController : IDisposable
     private void ShowGpuJoke(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
     {
         if (model.State.IsClosing || closeSequence.IsPending || !model.Settings.ShowGpuJokes) return;
-        try { tray.Notify("Water Ripple · That's a joke", GpuJokes.Captions[0], silent: true); }
+        try { tray.Notify("Water Ripple · That's a joke", GpuJokes.Caption(0), silent: true); }
         catch (Win32Exception ex) { Log.Debug(ex, "GPU joke notification unavailable"); }
     }
 
@@ -253,16 +249,16 @@ internal sealed partial class StudioController : IDisposable
             if (elapsed > 4 || lateTicks >= 2)
             {
                 lateTicks = 0;
-                StopScreen();
+                bool autoRecover = model.Settings.AutoRecover;
+                StopScreen(autoRecover ? "Paused for performance. Waiting for the system to recover." :
+                    "Paused for performance. Start the effect when ready.");
                 recoveryFailures = now - lastRecovery < 300 && lastRecovery > 0 ? recoveryFailures + 1 : 1;
-                if (model.Settings.AutoRecover)
+                if (autoRecover)
                 {
                     recoveryPending = true;
                     recoveryAt = now + Math.Min(300, 60 * Math.Pow(2, Math.Min(3, recoveryFailures - 1)));
                     stableSince = -1;
                 }
-                model.State.StatusMessage = recoveryPending ? "Paused for performance; waiting for the system to recover." : "Paused for performance. Start the effect when ready.";
-                NotifyEffect("Ripple paused for performance", model.State.StatusMessage);
             }
         }
         else if (recoveryPending)
@@ -273,9 +269,7 @@ internal sealed partial class StudioController : IDisposable
             {
                 CancelRecovery();
                 lastRecovery = now;
-                notifyWhenRestored = true;
                 StartScreen();
-                if (screen is null) notifyWhenRestored = false;
             }
         }
     }
@@ -306,14 +300,14 @@ internal sealed partial class StudioController : IDisposable
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetSystemTimes(out long idle, out long kernel, out long user);
-    private async void OpenSettings()
+    private void OpenSettings()
     {
         if (model.State.IsClosing || model.State.IsSettingsOpen || model.State.IsClosePromptOpen) return;
         if (model.State.IsInTray) ShowFromTray();
         model.State.IsSettingsOpen = true;
         try
         {
-            await startup.RefreshAsync();
+            startup.Refresh();
             if (!model.State.IsClosing) SettingsRequested?.Invoke();
         }
         catch (Exception ex) { Fail("Settings could not be opened", ex); }
@@ -332,7 +326,7 @@ internal sealed partial class StudioController : IDisposable
             {
                 Title = "Close Water Ripple?",
                 Content = "Keep running in the notification area, or quit to stop the effect and close the app.\n\n"
-                    + (model.Settings.EmergencyShortcutEnabled && model.State.EmergencyShortcutStatus == "Emergency shortcut is active and immediately closes Water Ripple."
+                    + (model.Settings.EmergencyShortcutEnabled && model.State.EmergencyShortcutStatus == EmergencyShortcut.RegisteredStatus
                         ? "In an emergency, press Ctrl + Alt + Shift + W to immediately close Water Ripple."
                         : "The emergency shortcut is disabled or unavailable. Check its status in the main window."),
                 PrimaryButtonText = "Keep in tray", SecondaryButtonText = "Quit", CloseButtonText = "Cancel",
@@ -359,6 +353,13 @@ internal sealed partial class StudioController : IDisposable
         }
         catch (Exception ex) { model.State.IsInTray = false; Fail("Could not minimize to tray", ex); }
     }
+    private void MainWindowActivated(object sender, WindowActivatedEventArgs args)
+    {
+        // Also cover a user restoring the minimized taskbar fallback directly.
+        if (args.WindowActivationState != WindowActivationState.Deactivated && !Native.IsIconic(hwnd))
+            startupBounds = null;
+    }
+
     internal void ActivateExistingInstance()
     {
         if (model.State.IsClosing) return;
@@ -369,16 +370,19 @@ internal sealed partial class StudioController : IDisposable
         }
         if (Native.IsIconic(hwnd)) Native.ShowWindow(hwnd, 9); // SW_RESTORE
         window.Activate();
+        startupBounds = null;
     }
 
     private void ShowFromTray()
     {
         model.State.IsInTray = false;
         tray.Hide();
-        // Use WinUI activation directly: a startup-task window may never have
-        // been activated before this point.
+        // A sign-in window starts genuinely minimized. Restore it only in response
+        // to this explicit user action, then activate its WinUI content.
+        if (Native.IsIconic(hwnd) && window.AppWindow.Presenter is OverlappedPresenter presenter)
+            presenter.Restore(false);
         window.Activate();
-        if (screen is not null) Native.SetTopmost(hwnd, true);
+        startupBounds = null;
         Log.Information("Main window restored from tray");
     }
     private async void ExitApp()
@@ -419,16 +423,23 @@ internal sealed partial class StudioController : IDisposable
         try
         {
             for (int i = 0; i < 80 && !model.State.ScreenOverlayVisible; i++) await Task.Delay(50);
-            if (!model.State.IsInTray || !tray.IsVisible || Native.IsWindowVisible(hwnd))
-                throw new InvalidOperationException("Startup did not keep Studio hidden in the notification area.");
+            if (!model.State.IsInTray || !tray.IsVisible || Native.IsWindowVisible(hwnd) || !Native.IsIconic(hwnd))
+                throw new InvalidOperationException("Startup did not keep Studio minimized and hidden in the notification area.");
             if (!model.State.IsScreenEffectActive || !model.State.ScreenOverlayVisible || !model.State.IsCaptureValid)
                 throw new InvalidOperationException("Startup did not present the screen effect: " + model.State.StatusMessage);
             Console.WriteLine("PASS startup keeps Studio hidden while the screen effect runs");
             ShowFromTray();
             for (int i = 0; i < 80 && !surface.IsLoaded; i++) await Task.Delay(50);
-            if (model.State.IsInTray || !Native.IsWindowVisible(hwnd) || !surface.IsLoaded)
+            if (model.State.IsInTray || !Native.IsWindowVisible(hwnd) || Native.IsIconic(hwnd) || !surface.IsLoaded)
                 throw new InvalidOperationException("Studio could not be restored from its first hidden startup.");
-            Console.WriteLine("PASS Studio restores with its XAML content loaded");
+            var loadedWorkProcessed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            if (!window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+                () => loadedWorkProcessed.TrySetResult(true)))
+                throw new InvalidOperationException("The dispatcher could not finish the startup restore check.");
+            await loadedWorkProcessed.Task;
+            if (generation != 1)
+                throw new InvalidOperationException($"Startup restore initiated another capture attempt (generation {generation}).");
+            Console.WriteLine("PASS Studio restores with its XAML content loaded without another capture attempt");
         }
         catch (Exception ex) { Environment.ExitCode = 1; Console.Error.WriteLine(ex); Log.Error(ex, "Hidden startup check failed"); }
         finally { ExitApp(); }
@@ -471,7 +482,7 @@ internal sealed partial class StudioController : IDisposable
     {
         switch (key)
         {
-            case VirtualKey.F7: ToggleScreen(); return true;
+            case VirtualKey.F7: _ = ToggleScreenAsync(); return true;
             case VirtualKey.F8: OpenSettings(); return true;
             case VirtualKey.Escape: if (screen is not null) StopScreen(); else window.Close(); return true;
             default: return false;
@@ -479,6 +490,7 @@ internal sealed partial class StudioController : IDisposable
     }
     private (int X, int Y, int Width, int Height) Bounds()
     {
+        if (startupBounds is { } initial && Native.IsIconic(hwnd)) return initial;
         return (window.AppWindow.Position.X, window.AppWindow.Position.Y,
             Math.Max(2, window.AppWindow.Size.Width), Math.Max(2, window.AppWindow.Size.Height));
     }
@@ -512,6 +524,7 @@ internal sealed partial class StudioController : IDisposable
         if (model.State.IsClosing) return;
         model.State.IsClosing = true;
         window.AppWindow.Closing -= MainWindowClosing;
+        window.Activated -= MainWindowActivated;
         model.Settings.PropertyChanged -= EmergencyShortcutChanged;
         emergencyShortcut.Dispose();
         gpuJokeTimer.Stop();

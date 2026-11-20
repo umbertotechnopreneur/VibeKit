@@ -126,21 +126,6 @@ internal static class Ui
         });
     }
 
-    internal static Grid BrandHeader(string title, string subtitle)
-    {
-        var header = new Grid { ColumnSpacing = 18 };
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var words = new StackPanel { Spacing = 5, VerticalAlignment = VerticalAlignment.Center };
-        words.Children.Add(Text(title, 28));
-        var description = Text(subtitle, 13);
-        description.Style = SecondaryTextStyle;
-        words.Children.Add(description);
-        header.Children.Add(words);
-
-        return header;
-    }
-
     internal static FrameworkElement DiagnosticRows(AppState state, string property)
     {
         var rows = new StackPanel { Spacing = 4 };
@@ -248,6 +233,24 @@ internal static class Ui
         group.Children.Add(slider);
         parent.Children.Add(group);
         return slider;
+    }
+
+    internal static Grid PreferenceSlider(string label, string description, AppSettings settings, string property,
+        double minimum, double maximum, double step, string unit)
+    {
+        var slider = new Slider
+        {
+            Minimum = minimum,
+            Maximum = maximum,
+            StepFrequency = step,
+            MinHeight = 28,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        AutomationProperties.SetName(slider, label);
+        Bind(slider, RangeBase.ValueProperty, settings, property, BindingMode.TwoWay);
+        var value = Text("", 12);
+        Bind(value, TextBlock.TextProperty, settings, property, converter: NumberLabel, parameter: unit);
+        return Tools.Widgets.EffectStudioLayout.SliderRow(label, description, slider, value);
     }
 
     internal static ToggleSwitch Toggle(Panel parent, string label, object source, string property)

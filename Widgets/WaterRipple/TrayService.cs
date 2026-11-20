@@ -13,18 +13,19 @@ internal sealed class TrayService : IDisposable
     private static readonly UIntPtr SubclassId = new(0x57525452);
     private readonly IntPtr hwnd;
     private readonly DispatcherQueue dispatcher;
-    private readonly Action show, settings, exit;
+    private readonly Action show, settings, about, exit;
     private readonly SubclassCallback callback;
     private readonly uint taskbarCreated;
     private IntPtr icon;
     private bool ownsIcon, visible, kept, versionFour, disposed;
 
-    internal TrayService(IntPtr hwnd, string iconPath, Action show, Action settings, Action exit)
+    internal TrayService(IntPtr hwnd, string iconPath, Action show, Action settings, Action about, Action exit)
     {
         if (hwnd == IntPtr.Zero) throw new ArgumentException("A window handle is required.", nameof(hwnd));
         this.hwnd = hwnd;
         this.show = show ?? throw new ArgumentNullException(nameof(show));
         this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        this.about = about ?? throw new ArgumentNullException(nameof(about));
         this.exit = exit ?? throw new ArgumentNullException(nameof(exit));
         dispatcher = DispatcherQueue.GetForCurrentThread() ??
             throw new InvalidOperationException("The tray service must be created on the window's UI thread.");
@@ -153,10 +154,14 @@ internal sealed class TrayService : IDisposable
         if (menu == IntPtr.Zero) return;
         try
         {
-            if (!AppendMenu(menu, 0, 1, "Show Water Ripple") ||
-                !AppendMenu(menu, 0, 2, "Ripple settings") ||
-                !AppendMenu(menu, 0x800, 0, null) ||
-                !AppendMenu(menu, 0, 3, "Exit")) return;
+            const uint separator = 0x800;
+            if (!AppendMenu(menu, 0, 2, "Preferences") ||
+                !AppendMenu(menu, 0, 1, "Open Water Ripple") ||
+                !AppendMenu(menu, separator, 0, null) ||
+                !AppendMenu(menu, 0, 3, "Quit") ||
+                !AppendMenu(menu, separator, 0, null) ||
+                !AppendMenu(menu, 0, 5, "Mini Utilities") ||
+                !AppendMenu(menu, 0, 4, "About Water Ripple")) return;
             var point = new Point();
             if (versionFour)
             {
@@ -171,8 +176,20 @@ internal sealed class TrayService : IDisposable
             if (command == 1) Dispatch(show);
             else if (command == 2) Dispatch(settings);
             else if (command == 3) Dispatch(exit);
+            else if (command == 4) Dispatch(about);
+            else if (command == 5) Dispatch(OpenMiniUtilities);
         }
         finally { DestroyMenu(menu); }
+    }
+
+    private static void OpenMiniUtilities()
+    {
+        try
+        {
+            using var browser = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                "https://umbertogiacobbi.biz/mini-utilities/") { UseShellExecute = true });
+        }
+        catch (Win32Exception error) { Serilog.Log.Warning(error, "Could not open Mini Utilities"); }
     }
 
     private void Dispatch(Action action)

@@ -5,6 +5,7 @@ import Gio from 'gi://Gio';
 import St from 'gi://St';
 import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import ProductionExtension from './production-extension.js';
 
 const delay = ms => new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
@@ -45,6 +46,11 @@ export default class SmokeTest extends ProductionExtension {
         const oversized = GLib.getenv('RETRO_TEST_OVERSIZED') === '1';
         if (oversized) await setFractionalTestScale();
         Main.overview.hide();
+        const trayItems = this._button.menu._getMenuItems();
+        if (trayItems[0].label.text !== 'Preferences' || trayItems.at(-1).label.text !== 'About' ||
+            trayItems.at(-2).label.text !== 'Mini Utilities' ||
+            trayItems.filter(item => item instanceof PopupMenu.PopupSeparatorMenuItem).length !== 3)
+            throw Error('The tray menu must group controls between Preferences and About');
         const demo = new St.BoxLayout({vertical: true, x: 160, y: 170, width: 960, height: 420,
             style: 'background-color: #101827; padding: 40px; border-radius: 14px; border: 1px solid #6d7b8f;'});
         demo.add_child(new St.Label({text: 'RETRO TERMINAL / GNOME GPU TEST',
@@ -101,6 +107,12 @@ export default class SmokeTest extends ProductionExtension {
                 this._settings.set_int('preset', index);
                 await shot(`gnome-${name}`);
             }
+            let configurations = 0;
+            const configure = this._effect.configure.bind(this._effect);
+            this._effect.configure = (...args) => {
+                configurations++;
+                configure(...args);
+            };
             this._settings.set_boolean('custom-color', true);
             this._settings.set_string('phosphor-color', '#5bd8ff');
             this._settings.set_int('mask', 2);
@@ -108,10 +120,21 @@ export default class SmokeTest extends ProductionExtension {
             this._settings.set_double('scanline-width', 1.5);
             this._settings.set_double('glow-radius', 5);
             await shot('gnome-custom-cyan');
+            if (configurations !== 1) throw Error(`Expected one shader update for six settings, got ${configurations}`);
+            const paletteMenu = trayItems.find(item => item.label?.text === 'Palette').menu;
+            paletteMenu._getMenuItems().find(item => item.label.text === 'Amber terminal').activate(null);
+            await shot('gnome-tray-amber');
+            if (this._settings.get_boolean('custom-color') || configurations !== 2)
+                throw Error('Tray palette must override custom color in one shader update');
+            this._settings.set_boolean('custom-color', true);
+            await delay(60);
+            configurations = 0;
             this._settings.set_boolean('glitches-enabled', false);
             this._settings.set_double('glitch-duration-min', 400);
             this._settings.set_double('glitch-duration-max', 400);
             this._settings.set_double('glitch-intensity', 0.7);
+            await delay(60);
+            if (configurations) throw Error('Glitch timing must not reconfigure the base shader');
             let lastGlitch = 0;
             const setGlitch = this._effect.setGlitch.bind(this._effect);
             this._effect.setGlitch = (type, ...args) => { lastGlitch = type; setGlitch(type, ...args); };
@@ -150,11 +173,11 @@ export default class SmokeTest extends ProductionExtension {
             this._settings.set_boolean('persistence-enabled', true);
             // The same public settings path used by the native Stop button.
             this._settings.set_boolean('active', false);
-            if (this._effect || this._timer || this._previewTimer || this._glitchTimer || this._glitchWake || this._persistence)
+            if (this._effect || this._timer || this._settingsUpdate || this._previewTimer || this._glitchTimer || this._glitchWake || this._persistence)
                 throw Error('Stop retained resources');
             await delay(200);
             if (this._settings.get_boolean('active')) throw Error('Stop must not restart');
-            console.log('RETRO_SMOKE_PASS: palettes, custom optics, all glitches/reset, real history, random cancellation and complete stop');
+            console.log('RETRO_SMOKE_PASS: palettes, batched shader updates, custom optics, all glitches/reset, real history, random cancellation and complete stop');
         } finally {
             this._stop('Smoke test finished');
             demo.destroy();

@@ -39,4 +39,4 @@ internal static class Native
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl, CharSet=CharSet.Unicode)] internal static extern void RetroStatus(nint engine,StringBuilder buffer,int capacity);
 }
 
-internal enum TrayAction { None, Open, Quit }
+internal enum TrayAction { None, Open, Quit, Preferences, About }

@@ -65,14 +65,33 @@ public sealed class TrayIcon : IDisposable
         if(menu==0) return;
         try
         {
-            AppendMenu(menu,0,1,"Open"); AppendMenu(menu,0x800,0,null);
-            AppendMenu(menu,0,3,"About OpenAI Usage"); AppendMenu(menu,0,4,"Settings");
-            AppendMenu(menu,0,5,"Website"); AppendMenu(menu,0,6,"VibeWare manifesto");
-            AppendMenu(menu,0x800,0,null); AppendMenu(menu,0,7,"Exit");
+            const uint separator = 0x800;
+            if (!AppendMenu(menu, 0, 4, "Preferences") ||
+                !AppendMenu(menu, 0, 1, "Open") ||
+                !AppendMenu(menu, separator, 0, null) ||
+                !AppendMenu(menu, 0, 5, "Website") ||
+                !AppendMenu(menu, 0, 6, "VibeWare manifesto") ||
+                !AppendMenu(menu, separator, 0, null) ||
+                !AppendMenu(menu, 0, 7, "Quit") ||
+                !AppendMenu(menu, separator, 0, null) ||
+                !AppendMenu(menu, 0, 8, "Mini Utilities") ||
+                !AppendMenu(menu, 0, 3, "About OpenAI Usage")) return;
             GetCursorPos(out var point); SetForegroundWindow(window);
             uint command=TrackPopupMenuEx(menu,0x100|2,point.X,point.Y,window,0);
             PostMessage(window,0,0,0);
-            switch(command) { case 1:show();break; case 3:about();break; case 4:settings();break; case 5:website();break; case 6:manifesto();break; case 7:exit();break; }
+            switch (command)
+            {
+                case 1: show(); break;
+                case 3: about(); break;
+                case 4: settings(); break;
+                case 5: website(); break;
+                case 6: manifesto(); break;
+                case 7: exit(); break;
+                case 8:
+                    using (System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                        "https://umbertogiacobbi.biz/mini-utilities/") { UseShellExecute = true })) { }
+                    break;
+            }
         }
         catch(Exception error) { Diagnostics.Record("tray.command.failed",error.GetType().Name+": "+error.Message); }
         finally { DestroyMenu(menu); }

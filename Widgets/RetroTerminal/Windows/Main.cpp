@@ -382,8 +382,13 @@ namespace
             switch (app->tray.TakeAction())
             {
             case TrayIcon::Action::Open:
+            case TrayIcon::Action::Preferences:
                 ShowWindow(window, SW_RESTORE);
                 SetForegroundWindow(window);
+                break;
+            case TrayIcon::Action::About:
+                MessageBoxW(window, L"Retro Terminal · VibeWare\nA CRT effect for your desktop.\nMIT License",
+                    L"About Retro Terminal", MB_OK | MB_ICONINFORMATION);
                 break;
             case TrayIcon::Action::Quit:
                 PostMessageW(window, WM_CLOSE, 0, 0);

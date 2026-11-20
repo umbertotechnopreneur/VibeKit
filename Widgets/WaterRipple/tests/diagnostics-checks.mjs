@@ -185,6 +185,7 @@ assert.equal(gpuJokesChanged, undefined);
 
 function checkStartup(autostart) {
     let window, availability, actions;
+    const settingsSection = {expanded: false};
     const handlers = {};
     class Application {
         connect(signal, callback) { handlers[signal] = callback; }
@@ -209,7 +210,7 @@ function checkStartup(autostart) {
         Adw: {Application, ApplicationWindow: Window,
             HeaderBar: class {pack_end() {}}, ToolbarView: class {add_top_bar() {}}},
         Gtk: {Button},
-        buildControls: () => ({page: {}, active: {connect() {}, active: true, sensitive: true}}),
+        buildControls: () => ({page: {}, settingsSection, active: {connect() {}, active: true, sensitive: true}}),
         TrayIndicator: class {
             constructor(callbacks, callback) { actions = callbacks; availability = callback; }
             setEffect() {}
@@ -221,6 +222,10 @@ function checkStartup(autostart) {
     assert.equal(window.visible, !autostart, 'Tray startup must not reveal the panel');
     actions.show();
     assert.equal(window.visible, true, 'Explicit Open must restore the panel');
+    window.hide();
+    actions.preferences();
+    assert.equal(window.visible, true, 'Preferences must restore the panel');
+    assert.equal(settingsSection.expanded, true);
     window.hide();
     availability(false);
     assert.equal(window.visible, true, 'Tray loss after manual use must preserve access');

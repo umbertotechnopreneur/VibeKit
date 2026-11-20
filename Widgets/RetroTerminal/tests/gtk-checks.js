@@ -2,6 +2,7 @@
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Gtk from 'gi://Gtk?version=4.0';
 import Gdk from 'gi://Gdk?version=4.0';
 const directory = Gio.File.new_for_path(ARGV[0]);
 const {buildControls} = await import(directory.get_child('settings-ui.js').get_uri());
@@ -16,6 +17,15 @@ const legacy = settings.get_string('saved-presets');
 const window = new Adw.PreferencesWindow();
 const ui = buildControls(window, settings);
 check(!ui.active.active, 'Must start disabled');
+check(!ui.controls['mask-strength'].sensitive, 'Mask strength is inactive with no mask');
+settings.set_double('scanlines', 0);
+settings.set_double('glow', 0);
+check(!ui.controls['scanline-spacing'].sensitive && !ui.controls['scanline-width'].sensitive &&
+    !ui.controls['glow-radius'].sensitive, 'Fine controls are inactive when their effects are zero');
+settings.reset('scanlines');
+settings.reset('glow');
+check(ui.controls['scanline-spacing'].sensitive && ui.controls['scanline-width'].sensitive &&
+    ui.controls['glow-radius'].sensitive, 'Fine controls return when their effects are active');
 check(ui.pipeline.enable_search && ui.pipeline.expression, 'The pipeline selector exposes native search');
 for (const name of ['Apple IIc Green Raster', 'Classic Mac Platinum Paper']) {
     const index = ui.pipelines.items.findIndex(item => item.name === name);
@@ -52,7 +62,7 @@ for (const [key, value] of [
     check(Math.abs(settings.get_double(key) - value) < 0.001, `${key} binding`);
 }
 ui.controls.mask.selected = 2;
-check(settings.get_int('mask') === 2, 'Mask selector binding');
+check(settings.get_int('mask') === 2 && ui.controls['mask-strength'].sensitive, 'Mask selection enables strength');
 ui.controls['custom-color'].active = true;
 const color = new Gdk.RGBA();
 color.parse('#12abef');
@@ -160,13 +170,24 @@ const steps = [
         window.present();
     }],
     [250, () => {
-        ui.aboutButton.emit('clicked');
-        const about = ui.about.show();
-        check(about.get_title() === 'About Retro Terminal' && about.get_visible(), 'Branded About opens');
+        settings.set_int64('about-request', GLib.get_monotonic_time() - 20 * GLib.USEC_PER_SEC);
+        const windows = Gtk.Window.get_toplevels();
+        const findAbout = () => {
+            for (let i = 0; i < windows.get_n_items(); i++) {
+                const candidate = windows.get_item(i);
+                if (candidate.get_title() === 'About Retro Terminal' && candidate.get_visible()) return candidate;
+            }
+            return null;
+        };
+        check(findAbout() === null, 'Stale tray requests do not open About');
+        settings.set_int64('about-request', GLib.get_monotonic_time());
+        const about = findAbout();
+        check(about && settings.get_int64('about-request') === 0, 'A tray request opens branded About exactly once');
         about.close();
         check(ui.about.show() !== about, 'About reopens after closing');
         window.destroy();
         check(!ui.jokes.running && ui.about.show() === null, 'Destroying preferences disposes About and ticker');
+        settings.set_int64('about-request', GLib.get_monotonic_time());
         restoredWindow = new Adw.PreferencesWindow();
         const restored = buildControls(restoredWindow, settings);
         check(restored.pipelines.selected?.id === selectedId && settings.get_double('scanline-spacing') === 6,
@@ -174,6 +195,7 @@ const steps = [
         restoredWindow.present();
     }],
     [100, () => {
+        check(settings.get_int64('about-request') === 0, 'A request also opens About when preferences were closed');
         restoredWindow.close();
         check(settings.get_string('saved-presets') === legacy, 'Legacy data remains preserved after pipeline edits');
         print('PASS GTK expanders, native controls, pipeline create/duplicate/rename/autosave/delete/restore, Stop, About and visible-only captions');

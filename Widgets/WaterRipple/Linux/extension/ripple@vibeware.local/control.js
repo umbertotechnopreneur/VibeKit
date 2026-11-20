@@ -102,7 +102,7 @@ function activate(startMinimized) {
             console.warn('Ripple lease helper failed to start', error.message);
         }
     }
-    const {page, active, about} = buildControls(window, settings, app, Boolean(leaseProcess), startMinimized);
+    const {page, active, about, settingsSection} = buildControls(window, settings, app, Boolean(leaseProcess), startMinimized);
     const toolbar = new Adw.ToolbarView({content: page});
     toolbar.add_top_bar(header);
     window.set_content(toolbar);
@@ -110,6 +110,7 @@ function activate(startMinimized) {
     if (!smokeTest) {
         tray = new TrayIndicator({
             show: showPanel,
+            preferences: () => { showPanel(); settingsSection.expanded = true; },
             toggleEffect: () => {
                 if (active.sensitive)
                     active.active = !active.active;

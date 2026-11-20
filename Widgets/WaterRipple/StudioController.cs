@@ -78,7 +78,7 @@ internal sealed partial class StudioController : IDisposable
         startup = new StartupService(model.State);
         captureConsent = new CaptureConsentService(model.State);
         hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
-        tray = new TrayService(hwnd, Path.Combine(AppContext.BaseDirectory, "Assets", "WaterRipple.ico"), ShowFromTray, OpenSettings, ExitApp);
+        tray = new TrayService(hwnd, Path.Combine(AppContext.BaseDirectory, "Assets", "WaterRipple.ico"), ShowFromTray, OpenSettings, () => new AboutWindow(model.Settings).Activate(), ExitApp);
         window.AppWindow.Closing += MainWindowClosing;
         ToggleScreenCommand = new DelegateCommand(ToggleScreen);
         RestartCommand = new DelegateCommand(CheckCapabilities);

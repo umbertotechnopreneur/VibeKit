@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
@@ -21,6 +22,7 @@ export default class RetroTerminal extends Extension {
         this._signals = [];
         this._timer = 0;
         this._previewTimer = 0;
+        this._settingsUpdate = 0;
         this._effect = null;
         this._persistence = null;
         this._glitchTimer = 0;
@@ -31,6 +33,8 @@ export default class RetroTerminal extends Extension {
         this._settings.set_string('status', 'Stopped');
         this._button = new PanelMenu.Button(0.0, 'Retro Terminal');
         this._button.add_child(new St.Icon({icon_name: 'utilities-terminal-symbolic', style_class: 'system-status-icon'}));
+        this._button.menu.addAction('Preferences', () => this.openPreferences());
+        this._button.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this._toggle = new PopupMenu.PopupSwitchMenuItem('CRT desktop', false);
         this._toggle.connect('toggled', (_item, state) => this._settings.set_boolean('active', state));
         this._button.menu.addMenuItem(this._toggle);
@@ -45,15 +49,24 @@ export default class RetroTerminal extends Extension {
                 });
             }
         });
-        this._button.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        const palette = new PopupMenu.PopupSubMenuMenuItem('Palette');
         ['Green phosphor', 'Amber terminal', 'Arcade color'].forEach((name, index) => {
-            this._button.menu.addAction(name, () => this._settings.set_int('preset', index));
+            palette.menu.addAction(name, () => this._selectPalette(index));
         });
-        this._button.menu.addAction('Preferences', () => this.openPreferences());
+        this._button.menu.addMenuItem(palette);
+        this._button.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this._button.menu.addAction('Try a glitch now', () => this._startGlitch(true));
         this._button.menu.addAction('Stop · Super+Shift+F12', () => this._stop('Stopped manually'));
         this._status = new PopupMenu.PopupMenuItem('Stopped', {reactive: false});
         this._button.menu.addMenuItem(this._status);
+        this._button.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        this._button.menu.addAction('Mini Utilities', () => {
+            Gio.AppInfo.launch_default_for_uri('https://umbertogiacobbi.biz/mini-utilities/', global.create_app_launch_context(0, -1));
+        });
+        this._button.menu.addAction('About', () => {
+            this._settings.set_int64('about-request', GLib.get_monotonic_time());
+            this.openPreferences();
+        });
         Main.panel.addToStatusArea(this.uuid, this._button);
         this._panic = Main.wm.addKeybinding('retro-terminal-panic', this._settings, Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
             Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW | Shell.ActionMode.POPUP | Shell.ActionMode.SYSTEM_MODAL,
@@ -64,9 +77,11 @@ export default class RetroTerminal extends Extension {
             else if (key === 'glitch-request') this._startGlitch(true);
             else if (Object.hasOwn(DEFAULTS, key) && this._effect) {
                 try {
-                    this._configure();
-                    if (key.startsWith('glitch') || key === 'intensity') this._configureGlitches();
-                    if (!key.startsWith('glitch')) this._configurePersistence();
+                    const glitch = key.startsWith('glitch');
+                    const persistence = key.startsWith('persistence-');
+                    if (glitch || key === 'intensity') this._configureGlitches();
+                    if (persistence || key === 'intensity') this._configurePersistence();
+                    if (!glitch && !persistence && this._effect) this._queueConfigure();
                 } catch (error) {
                     console.error('Retro Terminal:', error);
                     this._stop(`Could not apply settings: ${error.message}. Enable CRT again to retry.`);
@@ -93,6 +108,24 @@ export default class RetroTerminal extends Extension {
     _dimensions() {
         const scale = Math.max(1, St.ThemeContext.get_for_stage(global.stage).scale_factor);
         return [global.stage.width, global.stage.height, scale];
+    }
+    _selectPalette(index) {
+        this._settings.set_int('preset', index);
+        this._settings.set_boolean('custom-color', false);
+    }
+    _queueConfigure() {
+        if (this._settingsUpdate) return;
+        this._settingsUpdate = GLib.idle_add(GLib.PRIORITY_HIGH_IDLE, () => {
+            this._settingsUpdate = 0;
+            if (!this._effect) return GLib.SOURCE_REMOVE;
+            try {
+                this._configure();
+            } catch (error) {
+                console.error('Retro Terminal:', error);
+                this._stop(`Could not apply settings: ${error.message}. Enable CRT again to retry.`);
+            }
+            return GLib.SOURCE_REMOVE;
+        });
     }
     _configure() {
         const [width, height, scale] = this._dimensions();
@@ -209,7 +242,8 @@ export default class RetroTerminal extends Extension {
             this._timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
                 if (guard.sample(now())) {
                     this._timer = 0;
-                    this._stop('Stopped after a desktop delay; restart manually');
+                    const delay = Math.round(guard.lastDelay * 1000);
+                    this._stop(`Stopped after a desktop delay (${delay} ms). Turn on CRT to resume.`);
                     Main.notify('Retro Terminal stopped', 'The desktop slowed down. The CRT effect remains off until you enable it again.');
                     return GLib.SOURCE_REMOVE;
                 }
@@ -223,7 +257,8 @@ export default class RetroTerminal extends Extension {
     _clear() {
         if (this._previewTimer) GLib.source_remove(this._previewTimer);
         if (this._timer) GLib.source_remove(this._timer);
-        this._previewTimer = this._timer = 0;
+        if (this._settingsUpdate) GLib.source_remove(this._settingsUpdate);
+        this._previewTimer = this._timer = this._settingsUpdate = 0;
         this._cancelGlitchTimers();
         this._glitchSequence.cancel(now());
         this._persistence?.stop();

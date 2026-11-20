@@ -8,7 +8,7 @@ class TrayIcon final
 {
 public:
     static constexpr UINT CallbackMessage = WM_APP + 17;
-    enum class Action { None, Open, Quit };
+    enum class Action { None, Open, Quit, Preferences, About };
 
     void Initialize(HWND messageWindow, HWND appWindow)
     {
@@ -123,16 +123,28 @@ private:
 
     void ShowMenu(WPARAM anchor)
     {
+        constexpr int miniUtilitiesCommand = 100;
         const auto menu = CreatePopupMenu();
         if (!menu) return;
         POINT point{static_cast<short>(LOWORD(anchor)), static_cast<short>(HIWORD(anchor))};
         if (!versionFour || (point.x == -1 && point.y == -1)) GetCursorPos(&point);
-        AppendMenuW(menu, MF_STRING, UINT_PTR(Action::Open), L"Open Retro Terminal");
-        AppendMenuW(menu, MF_STRING, UINT_PTR(Action::Quit), L"Quit");
+        if (!AppendMenuW(menu, MF_STRING, UINT_PTR(Action::Preferences), L"Preferences") ||
+            (owner != window && !AppendMenuW(menu, MF_STRING, UINT_PTR(Action::Open), L"Open Retro Terminal")) ||
+            !AppendMenuW(menu, MF_SEPARATOR, 0, nullptr) ||
+            !AppendMenuW(menu, MF_STRING, UINT_PTR(Action::Quit), L"Quit") ||
+            !AppendMenuW(menu, MF_SEPARATOR, 0, nullptr) ||
+            !AppendMenuW(menu, MF_STRING, miniUtilitiesCommand, L"Mini Utilities") ||
+            !AppendMenuW(menu, MF_STRING, UINT_PTR(Action::About), L"About Retro Terminal")) {
+            DestroyMenu(menu);
+            return;
+        }
         SetForegroundWindow(window);
         const auto result = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY,
             point.x, point.y, 0, window, nullptr);
-        if (result) action = static_cast<Action>(result);
+        if (result == miniUtilitiesCommand)
+            ShellExecuteW(owner, L"open", L"https://umbertogiacobbi.biz/mini-utilities/", nullptr, nullptr, SW_SHOWNORMAL);
+        else if (result)
+            action = static_cast<Action>(result);
         PostMessageW(window, WM_NULL, 0, 0);
         DestroyMenu(menu);
     }

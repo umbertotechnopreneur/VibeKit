@@ -13,7 +13,7 @@ import shutil
 import re
 import subprocess
 import tempfile
-from PIL import Image
+from PIL import Image, ImageStat
 
 
 def main():
@@ -52,6 +52,11 @@ def main():
         runner = stage / 'run.sh'
         runner.write_text('''#!/bin/sh
 set -eu
+if gsettings list-keys org.freedesktop.Tracker3.Miner.Files >/dev/null 2>&1; then
+    gsettings set org.freedesktop.Tracker3.Miner.Files index-recursive-directories '[]'
+    gsettings set org.freedesktop.Tracker3.Miner.Files index-single-directories '[]'
+    gsettings set org.freedesktop.Tracker3.Miner.Files enable-monitors false
+fi
 gsettings set org.gnome.shell enabled-extensions "['retro-terminal@vibeware.local']"
 gsettings set org.gnome.shell disable-user-extensions false
 gsettings set org.gnome.shell welcome-dialog-last-shown-version '50'
@@ -89,6 +94,16 @@ exec gnome-shell --headless --wayland --no-x11 --virtual-monitor="$RETRO_TEST_MO
             if residual <= 10:
                 raise SystemExit(f'Temporal check failed: old marker at {x},{y} has no retained afterglow')
             print(f'PASS retained afterglow at {x},{y}: background-adjusted RGB-sum difference {residual:.1f}')
+        if not args.oversized_capture:
+            def marker_color(name):
+                with Image.open(output / f'gnome-{name}.png') as image:
+                    marker = image.convert('RGB').crop((270, 660, 330, 680))
+                return tuple(round(channel, 1) for channel in ImageStat.Stat(marker).mean)
+            green, amber, cyan, tray_amber = (marker_color(name) for name in ('green', 'amber', 'custom-cyan', 'tray-amber'))
+            if not (green[1] > green[0] + 30 and amber[0] > amber[1] + 30 and
+                    cyan[2] > cyan[0] + 30 and tray_amber[0] > tray_amber[1] + 30):
+                raise SystemExit(f'Palette pixels did not match their settings: {green}, {amber}, {cyan}, {tray_amber}')
+            print(f'PASS live palettes on the synthetic white marker: green={green}, amber={amber}, cyan={cyan}, tray amber={tray_amber}')
         if info:
             print(f"PASS native capture {info['nativeWidth']}×{info['nativeHeight']} reduced to {info['width']}×{info['height']}")
         checks = 'oversized capture, scaled history, stop and cleanup' if args.oversized_capture else 'custom controls, glitches, history, stop and cleanup'

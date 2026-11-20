@@ -18,6 +18,7 @@ namespace RetroStudio;
 internal sealed class MainWindow : Window
 {
     private readonly nint engine;
+    private readonly Expander settingsSection;
     private readonly Grid root = new();
     private readonly Button effectButton = new(), tryButton = new();
     private readonly TextBlock status = new() { TextWrapping = TextWrapping.Wrap };
@@ -141,7 +142,8 @@ internal sealed class MainWindow : Window
         var effectSection = Section("Effect", "Palette, monitor surface and glitches", effect);
         sections.Children.Add(effectSection);
         sections.Children.Add(Section("Presets", "Built-in looks and personal presets", presets));
-        sections.Children.Add(Section("Settings", "Appearance and behavior", settings));
+        settingsSection = Section("Settings", "Appearance and behavior", settings);
+        sections.Children.Add(settingsSection);
         sections.Children.Add(Section("Diagnostics", "Live renderer status", diagnostics));
         foreach (Expander section in sections.Children)
         {
@@ -426,8 +428,23 @@ internal sealed class MainWindow : Window
         switch (Native.RetroTakeTrayAction(engine))
         {
             case TrayAction.Open: RestoreWindow(); break;
+            case TrayAction.Preferences:
+                settingsSection.IsExpanded = true;
+                RestoreWindow();
+                break;
+            case TrayAction.About:
+                RestoreWindow();
+                if (root.XamlRoot is not null) await ShowAboutAsync();
+                else root.Loaded += ShowAboutWhenLoaded;
+                break;
             case TrayAction.Quit: await CloseOrHideAsync(fromTray: true); break;
         }
+    }
+
+    private async void ShowAboutWhenLoaded(object sender, RoutedEventArgs args)
+    {
+        root.Loaded -= ShowAboutWhenLoaded;
+        await ShowAboutAsync();
     }
 
     internal void RestoreWindow()

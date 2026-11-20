@@ -69,8 +69,31 @@ export default class SmokeTest extends ProductionExtension {
                 await delay(settle);
                 const file = Gio.File.new_for_path(`${GLib.getenv('RETRO_TEST_OUTPUT')}/${name}.png`);
                 const stream = file.replace(null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
-                try { await new Shell.Screenshot().screenshot(false, stream); }
-                finally { stream.close(null); }
+                try {
+                    await new Promise((resolve, reject) => {
+                        let timer;
+                        const paintId = global.stage.connect('after-paint', (_stage, view) => {
+                            global.stage.disconnect(paintId);
+                            GLib.source_remove(timer);
+                            try {
+                                // Read the presented frame. An offscreen stage screenshot
+                                // can reuse a partially updated effect texture.
+                                const texture = view.get_framebuffer().get_texture();
+                                Shell.Screenshot.composite_to_stream(texture, 0, 0,
+                                    texture.get_width(), texture.get_height(), 1, null, 0, 0, 1, stream)
+                                    .then(resolve, reject);
+                            } catch (error) {
+                                reject(error);
+                            }
+                        });
+                        timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
+                            global.stage.disconnect(paintId);
+                            reject(Error('No compositor frame was painted'));
+                            return GLib.SOURCE_REMOVE;
+                        });
+                        global.stage.queue_redraw();
+                    });
+                } finally { stream.close(null); }
             };
             await shot('gnome-original');
             this._settings.set_boolean('active', true);

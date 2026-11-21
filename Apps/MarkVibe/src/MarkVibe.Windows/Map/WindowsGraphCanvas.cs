@@ -36,6 +36,7 @@ namespace MarkVibe.Windows;
 /// <summary>Draws the visible map on a single Win2D surface and owns pointer previews and camera geometry.</summary>
 internal sealed class WindowsGraphCanvas : Grid, IDisposable
 {
+    private readonly MapPerformanceProbe? _performance = MapPerformanceProbe.Create();
     private static readonly Color Black = Color.FromArgb(255, 0, 0, 0);
     private static readonly Color Accent = Color.FromArgb(255, 110, 203, 255);
     private static readonly Color CardText = Color.FromArgb(255, 246, 248, 252);
@@ -361,6 +362,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     /// <summary>Detaches the displayed map and releases its text and gesture resources.</summary>
     public void Clear()
     {
+        _performance?.Flush();
         _deferredModel = null;
         SuspendInteractions();
         CancelCamera();
@@ -652,6 +654,8 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         {
             return;
         }
+        var measuredAt = _performance == null ? 0 : Stopwatch.GetTimestamp();
+        var allocatedBefore = _performance == null ? 0 : GC.GetAllocatedBytesForCurrentThread();
         var bounds = GraphBounds();
         var viewport = Viewport;
         ApplyDeferredCamera(bounds, viewport);
@@ -705,6 +709,8 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
             drawing.DrawRectangle(selection, Accent, 1);
         }
         ViewportDrawn?.Invoke();
+        _performance?.Record(_gesture == Gesture.Pan ? "pan" : _wheelGestureAt != 0 ? "zoom" : "other",
+            measuredAt, allocatedBefore, _cards.Count, _edges.Count);
     }
 
     /// <summary>Paints folder tint, boundary and the expanded or collapsed island heading.</summary>

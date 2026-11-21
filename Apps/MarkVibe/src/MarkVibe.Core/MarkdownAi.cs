@@ -54,7 +54,7 @@ public sealed record MarkdownAiUsage(
 /// <summary>A bounded Markdown edit or review; incomplete/refused replies cannot become document drafts.</summary>
 public sealed record MarkdownAiResult(string Kind, string Markdown, string Summary, bool Complete, MarkdownAiUsage Usage);
 
-/// <summary>Owns the API contract shared by WebAssembly and Windows, including the fixed system instructions.</summary>
+/// <summary>Owns the API contract used by native AI clients, including the fixed system instructions.</summary>
 public static class MarkdownAi
 {
     public const int PromptCharacters = 16000;

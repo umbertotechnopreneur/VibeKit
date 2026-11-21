@@ -35,8 +35,7 @@ On Windows, Tab moves between native controls, including the graph and the
 selected card's **Read here** button. With the graph focused, **Page Up/Down**
 cycles through cards. Add Shift to move through the focused card's links or Ctrl
 to move through folder islands. **R** focuses the resize grip and **M** focuses
-the minimap. **Home** fits the graph. The web edition exposes individual graph
-elements in its Tab order.
+the minimap. **Home** fits the graph.
 
 Hover a connection to illuminate its curve and both endpoint cards. Its invisible
 hit area stays 14 screen pixels wide while zooming. Connection endpoints follow
@@ -291,14 +290,8 @@ flowchart TB
 
 - **Windows local folders:** card moves and appearance changes autosave through
   contained, revision-checked atomic writes in `MarkVibe.Native`.
-- **Connected browser folders:** folders still open with read access. Choose
-  **Save layout** once to grant write access from that explicit click. Subsequent
-  changes autosave while that permission remains granted. Reopening queries
-  permission without requesting it during startup.
-- **Imported folders, selected files, ZIPs and the sample workspace:** changes stay
-  in memory until **Download layout** exports a copy. Keep it in the top-level
-  folder and include it when reopening or importing. Windows uses its save dialog
-  for this export.
+- **Sample workspace:** changes stay in memory until the native save action
+  exports a separate layout copy. Source documents remain unchanged.
 
 The managed state serializes edits and the pointer adapter keeps unacknowledged
 previews until C# accepts them. Navigation waits for pending edits. Unsaved changes
@@ -316,15 +309,15 @@ copy of your changes, then use **Discard changes** to reload the folder's layout
 Downloads for writable folders are backups and do not mark a failed autosave as
 successful.
 
-Revision checks detect external changes optimistically; neither provider implements
-cross-process compare-and-swap. Browser downloads report that the download started,
-not that the user completed the save dialog.
+Revision checks detect external changes optimistically; native writes do not
+implement cross-process compare-and-swap. A completed native save is reported
+only after the destination commit.
 
 ## Inspector sizing
 
 The document inspector uses a splitter whenever the canvas and preview fit side
 by side. Its preferred width (220–600 px, initially 290 px) is saved in
-the desktop layout model or the web edition's `markvibe.layout` and restored on
+the desktop layout model and restored on
 restart. Window resizing constrains the visible
 width without overwriting that preference. Narrow windows use the preview overlay.
 

@@ -85,7 +85,7 @@ public sealed class GraphWorkspace
         _layout.Move(path, x, y);
     }
 
-    /// <summary>Includes per-document attention facts for the visible catalog projection, as in the OpenSilver map.</summary>
+    /// <summary>Includes per-document attention facts for the visible catalog projection, as in the document map.</summary>
     private MapSnapshot Project(string path)
     {
         var map = _catalog.Map(path, neighborhood: false, focusDepth: Layout.Atlas?.FocusDepth ?? 0,

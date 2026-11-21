@@ -1,11 +1,11 @@
 > **File name** `README.md`<br>
 > **Full path** `E:\vibekit\Apps\MarkVibe\README.md`<br>
-> **Path relative to the VibeKit repository** `Apps\MarkVibe\README.md`
+> **Path relative to the MarkVibe application root** `README.md`
 
 # MarkVibe
 
 [![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
-![Platform: Windows 11 and WebAssembly](https://img.shields.io/badge/platform-Windows_11_%C2%B7_WebAssembly-0078D4)
+![Platform: Windows 11](https://img.shields.io/badge/platform-Windows_11-0078D4)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](LICENSE)
 
 **A local Markdown reader with a document map, optional AI editing and HTML/PDF export.**
@@ -30,7 +30,7 @@ I want a reader that respects your computer as well as your documents. I review 
 ## What it does
 
 - Opens local Markdown files and folders with relative links, images and Mermaid
-  diagrams. The web edition also opens documentation ZIPs.
+  diagrams.
 - Offers Read, read-only Source, Split and Map views, with themes and saved layout.
 - Exports the current page as HTML or PDF with its images and diagrams.
 - Optionally revises Markdown through OpenAI API or the installed Codex CLI,
@@ -74,13 +74,12 @@ Development-signed MSIX packages include their own installation instructions.
 
 The desktop window, toolbars and dialogs use WinUI 3. Win2D draws the document
 map. WebView2 renders Markdown, Mermaid and the Monaco source view, and generates
-PDF output. The separate web edition runs through WebAssembly. Linux users can
-use the web edition.
+PDF output. The supported application frontend is Windows WinUI 3.
 
 > [!NOTE]
 > **A Mac reader needs a Mac maintainer**
 >
-> The desktop app is built for Windows; the shared browser version uses WebAssembly. Neither is a promise of macOS support. I have no Mac to develop and test a native edition.
+> The desktop app is built for Windows; other platforms require a contributor willing to maintain them. This is not a promise of macOS support. I have no Mac to develop and test a native edition.
 >
 > Interested in owning that work? [Open an issue](https://github.com/umbertotechnopreneur/VibeKit/issues/new?title=%5BMarkVibe%5D%20) about native file access, document navigation or PDF export. Those are useful places to start.
 
@@ -90,11 +89,10 @@ In a VibeKit checkout, run the commands below from `Apps/MarkVibe`.
 
 I use **.NET 10 / C# / WinUI 3** for Windows, **Win2D** for the desktop map,
 **Markdig** for Markdown, **Monaco** for source and **Mermaid** for diagrams.
-The web edition uses OpenSilver XAML with a Blazor WebAssembly host.
 
 With .NET SDK **10.0.402** and Node **22.12 or later**:
 
-Open `MarkVibe.sln` in Visual Studio and choose the Desktop or Browser launch
+Open `MarkVibe.sln` in Visual Studio and choose the Desktop launch
 profile to debug. The [Visual Studio guide](docs/visual-studio.md) explains setup,
 the equivalent `.slnx` solution and the shared build/debug paths.
 
@@ -107,8 +105,7 @@ dotnet build src/MarkVibe.Windows --no-restore -c Release
 dotnet run --project src/MarkVibe.Windows --no-build -c Release
 ```
 
-The desktop build bundles its renderer modules automatically. Run `npm run bundle`
-before building the web edition or the whole solution from the command line.
+The desktop build bundles its renderer modules automatically. The standalone browser edition has been retired.
 
 See [architecture](docs/architecture.md), [packaging](docs/windows-packaging.md)
 and [contributing](CONTRIBUTING.md) for development and delivery rules.
@@ -147,11 +144,11 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
 
 <p align="right">
   <a href="https://umbertogiacobbi.biz/vibeware/manifesto">
-    <img src="src/MarkVibe.Browser/wwwroot/images/vibeware-logo.png" alt="VibeWare floppy logo — read the manifesto" width="160">
+    <img src="src/MarkVibe.Windows/Rendering/web/images/vibeware-logo.png" alt="VibeWare floppy logo — read the manifesto" width="160">
   </a><br>
   <em>Human intent, AI execution, and plenty of tokens</em>
 </p>
 
 > **File name** `README.md`<br>
 > **Full path** `E:\vibekit\Apps\MarkVibe\README.md`<br>
-> **Path relative to the VibeKit repository** `Apps\MarkVibe\README.md`
+> **Path relative to the MarkVibe application root** `README.md`

@@ -136,7 +136,8 @@ $signTool = if (-not $Unsigned) {
 
     Find-SdkTool 'signtool.exe'
 }
-$nodeVersion = (& node --version).TrimStart('v')
+$selectedNode = @(Get-Command node -CommandType Application -ErrorAction Stop)[0].Source
+$nodeVersion = (& $selectedNode --version).TrimStart('v')
 if ($LASTEXITCODE -ne 0 -or [version]$nodeVersion -lt [version]'22.12.0') {
 
     throw 'Use an existing Node >=22.12 in this PowerShell session.'
@@ -211,7 +212,7 @@ try {
             '-r',
             $runtimeIdentifier,
             '--self-contained',
-            'true',
+            'false',
             '--no-restore',
             '-o',
             $payload,
@@ -219,6 +220,7 @@ try {
             "-p:FileVersion=$Version",
             "-p:InformationalVersion=$Version-$channel",
             "-p:MarkVibeBuildTime=$builtAt",
+            "-p:MarkVibeNodeExe=$selectedNode",
             "-p:ApplicationIcon=$(Join-Path $icons 'MarkVibe.ico')")
         foreach ($file in @('MarkVibe.Windows.exe', 'MarkVibe.Windows.pri', 'App.xbf', 'Microsoft.WinUI.dll',
                 'Microsoft.Web.WebView2.Core.dll', 'app/index.html', 'app/js/markvibe.js',
@@ -226,6 +228,12 @@ try {
             if (-not (Test-Path -LiteralPath (Join-Path $payload $file) -PathType Leaf)) {
                 throw "The WinUI publish output is missing $file."
             }
+        }
+        $runtimeConfig = Get-Content -LiteralPath (Join-Path $payload 'MarkVibe.Windows.runtimeconfig.json') -Raw | ConvertFrom-Json
+        if ($runtimeConfig.runtimeOptions.framework.name -ne 'Microsoft.NETCore.App' -or
+            $runtimeConfig.runtimeOptions.framework.version -notmatch '^10\.0\.' -or
+            (Test-Path -LiteralPath (Join-Path $payload 'coreclr.dll'))) {
+            throw 'Publish must use the separately installed .NET Runtime 10.0; bundled .NET runtime files are not permitted.'
         }
         # The splash reads build-host facts before the managed application loads.
         # Preserve the build host's local formatting, offset and zone, rather than
@@ -286,7 +294,8 @@ try {
             $archive = [System.IO.Compression.ZipFile]::Open($portablePath, [System.IO.Compression.ZipArchiveMode]::Update)
             try {
                 Add-PortableText $archive 'portable.flag' 'Keep settings and WebView2 data beside this executable.'
-                Add-PortableText $archive 'PORTABLE-README.txt' "MarkVibe $Version ($Configuration, $architecture)`nExtract the entire ZIP to a writable folder, then open MarkVibe.Windows.exe.`n.NET and Windows App SDK are included. Windows 11 and Microsoft Edge WebView2 Runtime are required.`nSettings and last document stay in the data folder. Source documents and previous sidecars are left untouched.`nhttps://github.com/umbertotechnopreneur/MarkVibe`nCopyright (c) 2026 Umberto Giacobbi. MIT. VibeWare."
+                Add-PortableText $archive 'PORTABLE-README.txt' "MarkVibe $Version ($Configuration, $architecture)`nExtract the entire ZIP to a writable folder, then open MarkVibe.Windows.exe.`n.NET and Windows App SDK are included. Windows 11, Microsoft .NET Runtime 10.0 (matching architecture) and Microsoft Edge WebView2 Runtime are required.
+Install .NET from https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime`nSettings and last document stay in the data folder. Source documents and previous sidecars are left untouched.`nhttps://github.com/umbertotechnopreneur/MarkVibe`nCopyright (c) 2026 Umberto Giacobbi. MIT. VibeWare."
             } finally {
                 $archive.Dispose()
             }
@@ -364,7 +373,9 @@ try {
 
         msiProductVersion=$msiProductVersion
 
-        selfContained=$true
+        selfContained=$false
+
+        requiredDotNetRuntime='Microsoft.NETCore.App 10.0 (matching architecture)'
 
         signed=(-not $Unsigned)
 
@@ -385,8 +396,9 @@ try {
 @"
 MarkVibe $Version - $Configuration
 
-The MSIX bundle contains $($Architectures -join ', ') and includes .NET and Windows App SDK.
-Windows 11 and Microsoft Edge WebView2 Runtime are required.
+The MSIX bundle contains $($Architectures -join ', ') and includes Windows App SDK application libraries.
+Windows 11, Microsoft .NET Runtime 10.0 (matching architecture) and Microsoft Edge WebView2 Runtime are required.
+Install .NET from https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime
 
 For the development-signed bundle, open PowerShell as administrator and run
 .\Install-MarkVibe.ps1 -TrustDevelopmentCertificate, then open MarkVibe from Start.
@@ -421,7 +433,8 @@ The response is remembered across updates. Portable copies do not register file 
 PORTABLE: choose the matching ZIP, extract everything to a writable folder,
 and open MarkVibe.Windows.exe. Profile/settings stay in its data folder.
 
-All formats include .NET and Windows App SDK. Microsoft Edge WebView2 Runtime and Windows 11 are required.
+All formats include Windows App SDK application libraries. Microsoft .NET Runtime 10.0 (matching architecture), Microsoft Edge WebView2 Runtime and Windows 11 are required.
+Install .NET from https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime
 Packaging does not install the app/certificate or run tests. BUILD-INFO.json records this.
 Unsigned MSIX builds are intended for later signing/Store preparation, not double-click installation.
 
@@ -430,7 +443,11 @@ https://github.com/umbertotechnopreneur/MarkVibe
 https://umbertogiacobbi.biz/vibeware/manifesto
 "@
     }
-    Set-Content -LiteralPath (Join-Path $artifactsRoot 'README.txt') -Value $readme -Encoding utf8NoBOM
+    $readmeFile = Join-Path $artifactsRoot 'README.txt'
+    $readmeRelativePath = [IO.Path]::GetRelativePath($repositoryRoot, $readmeFile)
+    $readmeLocation = "File name: README.txt`nFull path: $readmeFile`nPath relative to the MarkVibe application root: $readmeRelativePath"
+    $readme = $readmeLocation + "`n`n" + $readme.Trim() + "`n`n" + $readmeLocation
+    Set-Content -LiteralPath $readmeFile -Value $readme -Encoding utf8NoBOM
     $hashes = foreach ($file in Get-ChildItem -LiteralPath $artifactsRoot -File | Sort-Object Name) {
 
         (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $file.Name

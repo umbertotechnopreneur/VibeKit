@@ -37,7 +37,7 @@ or Ultra reasoning option. Enter submits; Shift+Enter inserts a line break.
 
 ## Choose and test a connection
 
-**OpenAI API key** is the default and works in the desktop and browser builds.
+**OpenAI API key** is the default and works in the Windows desktop.
 Its Test button checks authenticated model-list access. Entering a new key tests
 and saves it only after success; leaving the field empty tests the saved key.
 Failure leaves the previous key intact. This does not prove generation quota or
@@ -50,7 +50,7 @@ send the open document or references. It can consume the CLI account's usage.
 The resulting modal explicitly reports **Test passed** or **Test failed**.
 Closing Settings cancels the test and suppresses delayed result dialogs.
 
-The CLI connection is unavailable in the standalone browser build. Selecting it
+Selecting the CLI connection
 never falls back to the API connection. CLI authentication, model availability and
 usage follow that CLI account; API billing categories do not establish ChatGPT
 allowance or CLI access. The retained model catalog describes supported choices,
@@ -119,7 +119,7 @@ Responses use a strict JSON schema with `kind`, `markdown` and `summary`. A comp
 a `review` is displayed. The API request grants no tools, sets `tool_choice: none`
 and `store: false`, explicitly selects Standard service, sends no conversation/history or previous response ID, and
 never executes returned code. Reviews appear in a read-only XAML text control. Edited documents use the existing
-managed Markdown parser and browser sanitizer. Refused, truncated, malformed, obsolete or cancelled
+managed Markdown parser and renderer sanitizer. Refused, truncated, malformed, obsolete or cancelled
 responses cannot replace source. See [OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs).
 
 Codex CLI receives the same captured target, explicit references and editing
@@ -130,33 +130,18 @@ Cancellation or the request deadline terminates its process tree. The CLI is a
 separate local program, not an OS-isolated text API; do not interpret read-only
 sandbox mode as a blanket restriction on filesystem reads.
 
-### Browser assistant controls
+### Native assistant controls
 
-An elevated popup covers the document during token preflight and generation,
-with a theme-aware dimmed backdrop, 16 px backdrop blur, progress and Stop.
-The composer, model flyout, usage expander, review and waiting surface are OpenSilver
-UserControls; JavaScript owns only rendering, selection and provider adapters.
-AI Assistant occupies a fixed right-hand column with a standard GridSplitter.
-It starts closed and restores the last open/closed choice, its width, the document
-sidebar width/visibility and the source/preview split ratio from local settings.
-Temporary narrow-window constraints do not replace saved widths. On small windows
-the assistant uses the available workspace until closed, without floating over text.
-A single model/effort selector opens a composer-width native
-flyout covering the complete prompt and action row. Its native slider has a rounded,
-28-pixel track; accent saturation increases across the five existing levels with
-a 160-millisecond color transition. Reasoning changes update the label immediately and retain
-the model controls and their scroll position; only catalog or language changes
-rebuild that list.
-References share one compact disclosure row. One approximate next-request count
-and a thin capacity bar appear below the composer. Blue information buttons expose
-keyboard guidance, reference rules and detailed usage through native tooltips;
-they can also be opened by keyboard or click. Incomplete context and exceeded
-input limits remain visible warnings. Responses scroll above the fixed composer;
-unchanged reference rows are reused while typing and refreshing usage.
+`WindowsAiPanel` renders the managed `WindowsAiSession` snapshot with WinUI
+controls. The right-hand pane owns prompt, model/effort selection, references,
+request progress, cancellation and review actions. The desktop model persists
+pane geometry. Markdown selection reaches the session as source coordinates;
+request state and revision validation never move into the renderer.
+
 ### Deadline and cancellation
 
 The entire network operation has a **60-second deadline**, not a fresh minute
-for each HTTP call. Cancellation propagates into browser/native HTTPS. A late reply
+for each HTTP call. Cancellation propagates into native HTTPS. A late reply
 is discarded before the source commit. No automatic retry repeats billed generation.
 
 ## Catalog, cost and context
@@ -215,9 +200,8 @@ to the next request. Revision/session checks prevent an old response from modify
 another page. Active graph-card gestures prevent a commit; document renderer input
 freezes briefly during the managed replacement. Ink and sticky notes are retired.
 
-**Save Markdown copy** opens an explicit native destination or starts a browser download. The native
-picker prevents replacement of the current original file. Browser download initiation
-does not prove completion and retains the unsaved-change warning. **Restore original**
+**Save Markdown copy** opens a native destination. The picker prevents
+replacement of the current original file. **Restore original**
 discards local Markdown edits after confirmation. Closing or replacing a workspace
 protects unsaved drafts and requests. Draft sessions are limited to sixteen pages;
 restored or explicitly saved sessions can expire without discarding unsaved source.

@@ -41,7 +41,7 @@ public static class Limits
     public const int CachedDocuments = 3;
 }
 
-/// <summary>Serializes the shared camel-case JSON contract used by managed, browser and native adapters.</summary>
+/// <summary>Serializes the shared camel-case JSON contract used by managed models and native document renderers.</summary>
 public static class Wire
 {
     public static readonly JsonSerializerOptions Options = new()
@@ -49,7 +49,7 @@ public static class Wire
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true
     };
-    /// <summary>Serializes a value using the shared camel-case browser and native wire contract.</summary>
+    /// <summary>Serializes a value using the shared camel-case managed and renderer wire contract.</summary>
     public static string Encode<T>(T value)
     {
         return JsonSerializer.Serialize(value, Options);
@@ -59,7 +59,7 @@ public static class Wire
     public static T Decode<T>(string value)
     {
         var decoded = JsonSerializer.Deserialize<T>(value, Options);
-        return decoded ?? throw new InvalidDataException("The browser returned an empty response.");
+        return decoded ?? throw new InvalidDataException("The renderer returned an empty response.");
     }
 }
 
@@ -187,15 +187,6 @@ public interface IWorkspaceProvider : IAsyncDisposable
     Task ReleaseAssetsAsync(string owner);
     /// <summary>Refreshes the provider's workspace view with cancellation.</summary>
     Task RefreshAsync(CancellationToken cancellationToken);
-}
-
-/// <summary>Exchanges cancellable JSON operations and application events with the browser adapter.</summary>
-public interface IBrowserRuntime : IAsyncDisposable
-{
-    /// <summary>Invokes a browser operation with JSON arguments and cancellable response handling.</summary>
-    Task<string> CallAsync(string operation, string arguments = "{}", CancellationToken cancellationToken = default);
-    /// <summary>Registers the asynchronous receiver for browser-originated application events.</summary>
-    void OnEvent(Func<string, Task> handler);
 }
 
 /// <summary>Carries an application error code and safe explanation across provider and presentation boundaries.</summary>

@@ -19,7 +19,7 @@ using System.Globalization;
 using System.Text.Json;
 
 namespace MarkVibe.Core;
-/// <summary>One local catalog shared by the OpenSilver, browser and Windows UI.</summary>
+/// <summary>One local catalog shared by the native shell and embedded document renderers.</summary>
 public static class UiStrings
 {
     private sealed record Catalog(string[] Languages, Dictionary<string, string[]> Strings, Dictionary<string, string> Aliases);

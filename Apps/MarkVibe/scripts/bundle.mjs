@@ -19,20 +19,18 @@
 
 import { build } from "esbuild";
 import { createHash } from "node:crypto";
-import { access, mkdir, readFile, writeFile, readdir, copyFile, rm, lstat } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile, readdir, copyFile, lstat } from "node:fs/promises";
 import { dirname, resolve, join, relative, sep } from "node:path";
 import { clientFingerprint, verifyInstalledPackages } from "./client-inputs.mjs";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
 const debug = process.argv.includes("--debug");
 const readerPrototype = process.argv.includes("--reader-prototype");
-const windowsDesktop = process.argv.includes("--windows-desktop");
+const windowsDesktop = !readerPrototype;
 const desktopEntrypoints = ["markvibe.js", "markvibe.css", "editor.worker.js", "diagram-frame.html"];
-const bundleDirectory = join(repositoryRoot, windowsDesktop
-  ? "src/MarkVibe.Windows/obj/desktop-js/" + (debug ? "debug" : "release")
-  : readerPrototype
+const bundleDirectory = join(repositoryRoot, readerPrototype
   ? "prototypes/MarkVibe.Reader.WinUI/obj/reader/js"
-  : "src/MarkVibe.Browser/wwwroot/js");
+  : "src/MarkVibe.Windows/obj/desktop-js/" + (debug ? "debug" : "release"));
 await verifyInstalledPackages();
 const inputFingerprint = await clientFingerprint();
 if (!bundleDirectory.startsWith(repositoryRoot + "/") && !bundleDirectory.startsWith(repositoryRoot + "\\")) {
@@ -50,9 +48,6 @@ if (previousOutputInfo?.isSymbolicLink()) {
 if (windowsDesktop && await desktopBundleCurrent()) {
   console.log("Windows document renderers are current.");
   process.exit(0);
-}
-if (!readerPrototype && !windowsDesktop) {
-  await rm(bundleDirectory, { recursive: true, force: true });
 }
 await mkdir(bundleDirectory, { recursive: true });
 // The opaque diagram frame cannot import modules from the application's origin.
@@ -91,9 +86,7 @@ const result = await build({
   absWorkingDir: repositoryRoot,
   entryPoints: windowsDesktop
     ? { markvibe: "client/windows-document-view.js", "editor.worker": "client/editor.worker.js" }
-    : readerPrototype
-    ? { reader: "prototypes/MarkVibe.Reader.WinUI/web/reader.js" }
-    : { markvibe: "client/main.js", "editor.worker": "client/editor.worker.js" },
+    : { reader: "prototypes/MarkVibe.Reader.WinUI/web/reader.js" },
   outdir: bundleDirectory,
   bundle: true,
   splitting: true,

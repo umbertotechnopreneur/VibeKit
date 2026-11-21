@@ -18,7 +18,7 @@
 
 <#
 .SYNOPSIS
-Create a per-user MSI from an existing self-contained publish directory without installing build tools.
+Create a per-user MSI from an existing framework-dependent publish directory without installing build tools.
 .DESCRIPTION
 Uses the Windows Installer COM database API and Windows makecab.exe. It never runs
 the application, installs the result, or changes certificate trust. The caller signs
@@ -252,7 +252,7 @@ if (Test-Path -LiteralPath (Join-Path $payloadRoot 'portable.flag')) {
 
 if (-not (Test-Path -LiteralPath (Join-Path $payloadRoot 'MarkVibe.Windows.exe')) -or
     -not (Test-Path -LiteralPath (Join-Path $payloadRoot 'app/index.html'))) {
-    throw 'MSI requires the complete existing self-contained desktop publish output.'
+    throw 'MSI requires the complete existing framework-dependent desktop publish output.'
 }
 
 [System.IO.Directory]::CreateDirectory($workRoot) | Out-Null
@@ -285,7 +285,7 @@ $properties = [ordered]@{
     Manufacturer = $packageMetadata.manufacturer
     UpgradeCode = $upgradeCode
     MarkVibeDisplayVersion = $Version.ToString()
-    ARPCOMMENTS = 'Markdown workspace, document graph and optional AI assistance. VibeWare.'
+    ARPCOMMENTS = 'Requires Microsoft .NET Runtime 10.0 (matching architecture) and WebView2 Runtime. https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime'
     ARPHELPLINK = 'https://github.com/umbertotechnopreneur/MarkVibe/issues'
     ARPURLINFOABOUT = 'https://github.com/umbertotechnopreneur/MarkVibe'
     ARPPRODUCTICON = 'MarkVibeIcon'
@@ -304,7 +304,7 @@ Add-InstallerRow $tables.Directory @('ProgramsDirectory', 'LocalAppDataFolder', 
 Add-InstallerRow $tables.Directory @('INSTALLFOLDER', 'ProgramsDirectory', "MARKVIBE|$installFolderName")
 Add-InstallerRow $tables.Directory @('ProgramMenuFolder', 'TARGETDIR', '.')
 Add-InstallerRow $tables.Directory @('ApplicationMenuFolder', 'ProgramMenuFolder', "MARKVIBE|$channelName (MSI $Architecture)")
-Add-InstallerRow $tables.Feature @('MainApplication', $null, 'MarkVibe', 'Self-contained Markdown desktop application', 0, 1, 'INSTALLFOLDER', 0)
+Add-InstallerRow $tables.Feature @('MainApplication', $null, 'MarkVibe', 'Markdown desktop application; requires .NET Runtime 10.0', 0, 1, 'INSTALLFOLDER', 0)
 
 $directoryIds = [System.Collections.Generic.Dictionary[string, string]]::new([StringComparer]::OrdinalIgnoreCase)
 $directoryIds.Add('', 'INSTALLFOLDER')

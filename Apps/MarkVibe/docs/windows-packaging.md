@@ -1,12 +1,12 @@
 > **File name** `windows-packaging.md`<br>
 > **Full path** `E:\vibekit\Apps\MarkVibe\docs\windows-packaging.md`<br>
-> **Path relative to the VibeKit repository** `Apps\MarkVibe\docs\windows-packaging.md`
+> **Path relative to the MarkVibe application root** `docs/windows-packaging.md`
 
 # Windows distribution
 
-`scripts/package-windows.ps1` defaults to self-contained Windows 11 **x64 Release**
+`scripts/package-windows.ps1` defaults to framework-dependent Windows 11 **x64 Release**
 packages. Debug and ARM64 require an explicit selection. The desktop package
-includes .NET and the Windows App SDK. WebView2 uses the installed Evergreen Runtime.
+requires a separately installed .NET Runtime 10.0 and includes Windows App SDK application libraries. WebView2 uses the installed Evergreen Runtime.
 
 ## Requested Release or Debug build
 
@@ -118,7 +118,7 @@ still refer to their original absolute locations.
 The same packaging command creates a real Windows Installer `.msi` for each
 selected architecture, in addition to MSIX and portable. It uses Windows Installer
 COM and the existing Windows `makecab.exe`; no additional packaging tool or EULA
-acceptance is required. The MSI includes the self-contained app and licenses,
+acceptance is required. The MSI includes the framework-dependent app and licenses,
 installs for the current user under LocalAppData, and creates a Start menu shortcut.
 WebView2 Runtime remains a prerequisite. It is not installed by the MSI.
 
@@ -146,6 +146,11 @@ The native authoring script and table definitions live under `packaging/windows/
 Keep component identities stable across upgrades and never add wildcard deletion
 of user data to the uninstall tables.
 
+The separately installed **Microsoft .NET Runtime 10.0**, matching the package
+architecture, is required. Obtain it from the [official .NET runtime download](https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime).
+Windows App SDK application libraries remain bundled; .NET itself is not bundled.
+The installation helper reports missing runtime prerequisites before installation.
+
 The payload contains the WinUI 3 executable and its compiled XAML resource index,
 the Win2D map, and the local WebView2 document renderer with Monaco's worker and
 the Mermaid frame. Packaging also places the app PRI at the MSIX resource index
@@ -171,4 +176,4 @@ requires a separate current request.
 
 > **File name** `windows-packaging.md`<br>
 > **Full path** `E:\vibekit\Apps\MarkVibe\docs\windows-packaging.md`<br>
-> **Path relative to the VibeKit repository** `Apps\MarkVibe\docs\windows-packaging.md`
+> **Path relative to the MarkVibe application root** `docs/windows-packaging.md`

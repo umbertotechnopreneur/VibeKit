@@ -32,6 +32,52 @@ if ($msixBundles.Count -ne 1) {
 
     throw 'Keep this script beside exactly one MarkVibe MSIX bundle.'
 }
+# .NET is shared with other applications; installing MarkVibe never installs a runtime implicitly.
+$buildInfo = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'BUILD-INFO.json') -Raw | ConvertFrom-Json
+$nativeArchitecture = [Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
+$runtimeArchitecture = if ($nativeArchitecture -in $buildInfo.architectures) { $nativeArchitecture }
+    elseif ($nativeArchitecture -eq 'arm64' -and 'x64' -in $buildInfo.architectures) { 'x64' }
+    else { throw "This bundle does not support the current Windows architecture: $nativeArchitecture." }
+$runtimeRegistry = "HKLM:\SOFTWARE\dotnet\Setup\InstalledVersions\$runtimeArchitecture"
+$runtimeRoot = (Get-ItemProperty -LiteralPath $runtimeRegistry -Name InstallLocation -ErrorAction SilentlyContinue).InstallLocation
+$nativeProgramFiles = if ($env:ProgramW6432) { $env:ProgramW6432 } else { $env:ProgramFiles }
+$defaultRuntimeRoot = Join-Path $nativeProgramFiles 'dotnet'
+if ($nativeArchitecture -eq 'arm64' -and $runtimeArchitecture -eq 'x64') {
+    $defaultRuntimeRoot = Join-Path $defaultRuntimeRoot 'x64'
+}
+$runtimeRoots = @($runtimeRoot,
+    [Environment]::GetEnvironmentVariable('DOTNET_ROOT_' + $runtimeArchitecture.ToUpperInvariant()),
+    $env:DOTNET_ROOT, $defaultRuntimeRoot) | Where-Object { $_ } | Select-Object -Unique
+$compatibleRuntime = $false
+foreach ($candidateRoot in $runtimeRoots) {
+    $dotnetHost = Join-Path $candidateRoot 'dotnet.exe'
+    $runtimeDirectory = Join-Path $candidateRoot 'shared/Microsoft.NETCore.App'
+    if (-not (Test-Path -LiteralPath $dotnetHost -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $runtimeDirectory -PathType Container)) { continue }
+    # A manually provisioned SDK/runtime need not have registry metadata. Check its
+    # PE machine field so an x64 runtime cannot satisfy an ARM64 prerequisite.
+    $hostReader = [IO.BinaryReader]::new([IO.File]::OpenRead($dotnetHost))
+    try {
+        if ($hostReader.ReadUInt16() -ne 0x5A4D) { continue }
+        $hostReader.BaseStream.Position = 0x3C
+        $peOffset = $hostReader.ReadInt32()
+        if ($peOffset -lt 0 -or $peOffset -gt $hostReader.BaseStream.Length - 6) { continue }
+        $hostReader.BaseStream.Position = $peOffset
+        if ($hostReader.ReadUInt32() -ne 0x00004550) { continue }
+        $machine = $hostReader.ReadUInt16()
+        $expectedMachine = if ($runtimeArchitecture -eq 'arm64') { 0xAA64 } else { 0x8664 }
+        if ($machine -ne $expectedMachine) { continue }
+    } finally {
+        $hostReader.Dispose()
+    }
+    $compatibleRuntime = @(Get-ChildItem -LiteralPath $runtimeDirectory -Directory | Where-Object {
+        $_.Name -match '^10\.0\.\d+$' -and (Test-Path -LiteralPath (Join-Path $_.FullName 'coreclr.dll'))
+    }).Count -gt 0
+    if ($compatibleRuntime) { break }
+}
+if (-not $compatibleRuntime) {
+    throw "Install Microsoft .NET Runtime 10.0 ($runtimeArchitecture) from https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime, then run this helper again. MarkVibe does not include .NET."
+}
 if ($TrustDevelopmentCertificate) {
     $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
     if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {

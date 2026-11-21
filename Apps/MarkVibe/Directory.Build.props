@@ -30,7 +30,7 @@ VBWR E -->
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
   <!-- Visual Studio previews the Windows desktop host as x64 unless an explicit RID is selected.
-       Browser project references remove this native RID before their WebAssembly build. -->
+       The renderer bundle is prepared independently of the native runtime identifier. -->
   <PropertyGroup Condition="'$(BuildingInsideVisualStudio)' == 'true' and '$(MSBuildProjectName)' == 'MarkVibe.Windows'">
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
   </PropertyGroup>

@@ -391,7 +391,6 @@ function close() {
   }
   resetView();
   sourceAdapter?.disposeSourceModels();
-  exportAdapter?.disposeExports();
 }
 
 readerPane.addEventListener("focusin", () => { focusedView = "read"; });

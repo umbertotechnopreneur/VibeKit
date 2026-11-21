@@ -19,7 +19,7 @@
 
 <#
 .SYNOPSIS
-Creates an unsigned portable ZIP from a completed self-contained publish.
+Creates an unsigned portable ZIP from a framework-dependent publish.
 .DESCRIPTION
 Consumes Release-Unpackaged output. Does not build, install, sign, or change trust.
 Application data continues to use the normal Windows user profile.
@@ -74,7 +74,7 @@ foreach ($path in @($publishRoot, $outputRoot)) {
     }
 }
 if (-not (Test-Path -LiteralPath $publishRoot -PathType Container)) {
-    throw 'PublishDirectory must be an existing self-contained publish directory.'
+    throw 'PublishDirectory must be an existing framework-dependent publish directory.'
 }
 $publishItems = @(Get-ChildItem -LiteralPath $publishRoot -Recurse -Force)
 if (@($publishItems | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }).Count -gt 0) {
@@ -89,7 +89,6 @@ foreach ($name in $generatedNames) {
 }
 foreach ($requiredFile in @(
     'WorkTrail.exe', 'WorkTrail.dll', 'WorkTrail.deps.json', 'WorkTrail.runtimeconfig.json', 'BuildInfo.json',
-    'hostfxr.dll', 'hostpolicy.dll', 'coreclr.dll', 'System.Private.CoreLib.dll',
     'Microsoft.ui.xaml.dll', 'Microsoft.WindowsAppRuntime.dll', 'Microsoft.Windows.ApplicationModel.Resources.dll',
     'WorkTrail.pri'
 )) {
@@ -115,10 +114,12 @@ if ($buildInfo.semVer -cne $Version -or $buildInfo.packageVersion -cne "$Version
 }
 $runtimeConfig = Get-Content -LiteralPath (Join-Path $publishRoot 'WorkTrail.runtimeconfig.json') -Raw | ConvertFrom-Json -AsHashtable
 $runtimeOptions = $runtimeConfig.runtimeOptions
-if ($null -eq $runtimeOptions -or $runtimeOptions.ContainsKey('framework') -or $runtimeOptions.ContainsKey('frameworks') -or
-    -not $runtimeOptions.ContainsKey('includedFrameworks') -or
-    'Microsoft.NETCore.App' -notin @($runtimeOptions.includedFrameworks | ForEach-Object { $_.name })) {
-    throw 'Portable runtime configuration must describe a self-contained .NET application.'
+if ($null -eq $runtimeOptions -or -not $runtimeOptions.ContainsKey('framework') -or $runtimeOptions.framework.name -ne 'Microsoft.NETCore.App' -or
+    $runtimeOptions.framework.version -notlike '10.*') {
+    throw 'Portable runtime configuration must require the shared .NET 10 runtime.'
+}
+foreach ($runtimeFile in @('hostfxr.dll', 'hostpolicy.dll', 'coreclr.dll', 'System.Private.CoreLib.dll')) {
+    if (Test-Path -LiteralPath (Join-Path $publishRoot $runtimeFile)) { throw "Bundled .NET runtime file: $runtimeFile" }
 }
 
 #endregion
@@ -162,7 +163,7 @@ function Assert-PortableArchitecture {
 }
 
 #endregion
-foreach ($binary in @('WorkTrail.exe', 'hostfxr.dll', 'coreclr.dll')) {
+foreach ($binary in @('WorkTrail.exe')) {
     Assert-PortableArchitecture -FileName $binary
 }
 

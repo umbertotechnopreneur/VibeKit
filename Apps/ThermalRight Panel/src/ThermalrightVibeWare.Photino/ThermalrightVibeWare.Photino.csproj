@@ -59,6 +59,7 @@ VBWR E -->
   </Target>
   <ItemGroup>
     <Compile Include="../../../../Widgets/Shared/VibeWareDiagnostics.cs" Link="Diagnostics/VibeWareDiagnostics.cs" />
+    <Compile Include="../../../../Widgets/Shared/ProcessMemoryWatchdog.cs" Link="Diagnostics/ProcessMemoryWatchdog.cs" />
     <PackageReference Include="Serilog" Version="4.4.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
   </ItemGroup>

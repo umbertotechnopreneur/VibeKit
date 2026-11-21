@@ -25,6 +25,7 @@
  *
  * VBWR E */
 using System.Text.Json;
+using MarkVibe.Controls;
 using MarkVibe.Core;
 using MarkVibe.Workspace;
 
@@ -36,6 +37,8 @@ public partial class MainPage
     /// <summary>Keeps persistent layout, save capabilities and temporary exploration within one workspace session.</summary>
     private sealed class MapWorkspaceState
     {
+        private MapLayoutSession? _reconciledSession;
+        private long _reconciledCatalogRevision = -1;
         public MapLayoutSession Session { get; set; } = new();
         public string Revision { get; set; } = "";
         public string Message { get; set; } = "";
@@ -44,6 +47,7 @@ public partial class MainPage
         public bool CanEnableWrite { get; set; }
         public bool Invalid { get; set; }
         public bool Busy { get; set; }
+        public bool Loaded { get; private set; }
         public string StateId { get; } = Guid.NewGuid().ToString("N");
         public int Generation { get; set; }
         public int ArrangementRevision { get; set; }
@@ -58,10 +62,35 @@ public partial class MainPage
         public int CameraRevision { get; set; }
         public string SelectedPath { get; set; } = "";
         public MapExploration Exploration { get; } = new();
+
+        /// <summary>Reconciles a replacement session or changed catalog exactly once, preserving unchanged layout identity across selections.</summary>
+        public void EnsureDocuments(DocumentCatalog catalog)
+        {
+            if (!Loaded || (ReferenceEquals(_reconciledSession, Session) && _reconciledCatalogRevision == catalog.MetadataRevision))
+            {
+                return;
+            }
+            Session.EnsureDocuments(catalog.Cards);
+            _reconciledSession = Session;
+            _reconciledCatalogRevision = catalog.MetadataRevision;
+        }
+
+        /// <summary>Commits persisted state while retaining navigation and exploration accumulated before the first map visit.</summary>
+        public void UseLayout(MapWorkspaceState loaded)
+        {
+            Session = loaded.Session;
+            Revision = loaded.Revision;
+            Message = loaded.Message;
+            CanWrite = loaded.CanWrite;
+            CanEnableWrite = loaded.CanEnableWrite;
+            Invalid = loaded.Invalid;
+            HasError = loaded.HasError;
+            Loaded = true;
+        }
     }
 
     /// <summary>Loads the persistent map layout and preserves unsupported originals and file revision state.</summary>
-    private static async Task<MapWorkspaceState> LoadMapAsync(BrowserWorkspaceProvider provider, DocumentCatalog catalog, CancellationToken cancellation)
+    private static async Task<MapWorkspaceState> LoadMapAsync(BrowserWorkspaceProvider provider, CancellationToken cancellation)
     {
         var state = new MapWorkspaceState();
         try
@@ -86,53 +115,80 @@ public partial class MainPage
             state.Message = error is WorkspaceException ? error.Message : "The map layout could not be read. The original file is preserved; download a separate copy of your changes.";
         }
 
-        state.Session.EnsureDocuments(catalog.Cards);
         return state;
     }
 
-    /// <summary>Builds the browser map state from the managed layout, save capabilities and available styles.</summary>
-    private object MapPresentation(MapWorkspaceState state, string acknowledged = "", string rejected = "") => new
+    /// <summary>Loads the layout on its first use, including explicit file changes that must update a saved map.</summary>
+    private async Task EnsureMapLayoutAsync(Context context, CancellationToken cancellation)
     {
-        layout = state.Session.Value,
-        palette = MapLayoutCodec.Colors,
-        icons = MapLayoutCodec.Icons,
-        metrics = new
+        // Reconciling a saved layout against the single-file startup catalog would remove its other cards.
+        await EnsureInventoryAsync(context).WaitAsync(cancellation);
+        if (!context.Map.Loaded)
         {
-            width = MapLayoutCodec.CardWidth,
-            height = MapLayoutCodec.CardHeight,
-            minimumWidth = MapLayoutCodec.MinimumCardWidth,
-            minimumHeight = MapLayoutCodec.MinimumCardHeight,
-            maximumWidth = MapLayoutCodec.MaximumCardWidth,
-            maximumHeight = MapLayoutCodec.MaximumCardHeight,
-            maximumCoordinate = MapLayoutCodec.MaximumCoordinate
-        },
-        defaultColor = MapLayoutCodec.DefaultColor,
-        defaultIcon = MapLayoutCodec.DefaultIcon,
-        readOnly = false,
-        dirty = state.Session.Dirty,
-        busy = state.Busy,
-        invalid = state.Invalid,
-        canWrite = state.CanWrite && !state.Invalid,
-        canEnableWrite = state.CanEnableWrite && !state.Invalid,
-        message = state.Message,
-        hasError = state.HasError,
-        acknowledged,
-        rejected,
-        stateId = state.StateId,
-        arrangementRevision = state.ArrangementRevision,
-        folderGroups = state.FolderGroups,
-        focusDepth = state.Session.Value.Atlas?.FocusDepth ?? 0,
-        routeStart = state.RouteStart,
-        routeEnd = state.RouteEnd,
-        camera = state.Camera,
-        cameraRevision = state.CameraRevision,
-        aiContextPaths = AiContextPaths(),
-        aiContextBusy = _aiContextBusy || _aiBusy,
-        exploration = state.Exploration.Snapshot(),
-        generation = ++state.Generation
-    };
+            await _mapGate.WaitAsync(cancellation);
+            try
+            {
+                if (!ReferenceEquals(context, _active))
+                {
+                    throw new OperationCanceledException();
+                }
+                if (!context.Map.Loaded)
+                {
+                    var loaded = await LoadMapAsync(context.Provider, cancellation);
+                    cancellation.ThrowIfCancellationRequested();
+                    context.Map.UseLayout(loaded);
+                }
+            }
+            finally
+            {
+                _mapGate.Release();
+            }
+        }
+        context.Map.EnsureDocuments(context.Catalog);
+    }
+
+    /// <summary>Keeps the immutable layout separate from frequently published selection and save controls.</summary>
+    private MapPresentationState MapPresentation(MapWorkspaceState state, string acknowledged = "", string rejected = "")
+    {
+        var controls = new
+        {
+            metrics = new
+            {
+                width = MapLayoutCodec.CardWidth,
+                height = MapLayoutCodec.CardHeight,
+                minimumWidth = MapLayoutCodec.MinimumCardWidth,
+                minimumHeight = MapLayoutCodec.MinimumCardHeight,
+                maximumWidth = MapLayoutCodec.MaximumCardWidth,
+                maximumHeight = MapLayoutCodec.MaximumCardHeight,
+                maximumCoordinate = MapLayoutCodec.MaximumCoordinate
+            },
+            readOnly = false,
+            dirty = state.Session.Dirty,
+            busy = state.Busy,
+            invalid = state.Invalid,
+            canWrite = state.CanWrite && !state.Invalid,
+            canEnableWrite = state.CanEnableWrite && !state.Invalid,
+            message = state.Message,
+            hasError = state.HasError,
+            acknowledged,
+            rejected,
+            stateId = state.StateId,
+            arrangementRevision = state.ArrangementRevision,
+            folderGroups = state.FolderGroups,
+            focusDepth = state.Session.Value.Atlas?.FocusDepth ?? 0,
+            routeStart = state.RouteStart,
+            routeEnd = state.RouteEnd,
+            camera = state.Camera,
+            cameraRevision = state.CameraRevision,
+            aiContextPaths = AiContextPaths(),
+            aiContextBusy = _aiContextBusy || _aiBusy,
+            exploration = state.Exploration.Snapshot(),
+            generation = ++state.Generation
+        };
+        return new(state.Session.Value, JsonSerializer.SerializeToElement(controls, Wire.Options));
+    }
     /// <summary>Publishes the active workspace's current map session state to the browser host.</summary>
-    private Task RenderMapStateAsync(Context context, string acknowledged = "", string rejected = "") => _contexts.TryGetValue(context.Provider.Info.Id, out var current) && ReferenceEquals(current, context) ? MapHost.DisplayStateAsync(context.Provider.Info.Id, MapPresentation(context.Map, acknowledged, rejected)) : Task.CompletedTask;
+    private Task RenderMapStateAsync(Context context, string acknowledged = "", string rejected = "") => context.Map.Loaded && _contexts.TryGetValue(context.Provider.Info.Id, out var current) && ReferenceEquals(current, context) ? MapHost.DisplayStateAsync(context.Provider.Info.Id, MapPresentation(context.Map, acknowledged, rejected)) : Task.CompletedTask;
 
     /// <summary>Searches titles and paths across the complete catalog, including cards outside the graph's display limit.</summary>
     private IReadOnlyList<DocumentCard> FindMapDocuments(string workspaceId, string query)
@@ -162,6 +218,7 @@ public partial class MainPage
             return;
         }
 
+        await CloseSupersededMapPreviewAsync(path);
         // Edit acknowledgments acquire this gate, so pending browser operations must finish first.
         await BrowserServices.CallAsync("map.flush");
         await _mapGate.WaitAsync();
@@ -378,14 +435,8 @@ public partial class MainPage
                 }
                 else if (action == "discard")
                 {
-                    var loaded = await LoadMapAsync(context.Provider, context.Catalog, CancellationToken.None);
-                    state.Session = loaded.Session;
-                    state.Revision = loaded.Revision;
-                    state.Message = loaded.Message;
-                    state.CanWrite = loaded.CanWrite;
-                    state.CanEnableWrite = loaded.CanEnableWrite;
-                    state.Invalid = loaded.Invalid;
-                    state.HasError = loaded.HasError;
+                    state.UseLayout(await LoadMapAsync(context.Provider, CancellationToken.None));
+                    state.EnsureDocuments(context.Catalog);
                     state.RouteStart = "";
                     state.RouteEnd = "";
                     state.Camera = null;

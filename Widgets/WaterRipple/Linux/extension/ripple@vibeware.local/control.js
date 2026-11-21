@@ -6,6 +6,7 @@ import Gtk from 'gi://Gtk?version=4.0';
 import {buildControls} from './settings-ui.js';
 import {loadSchema} from './schema.js';
 import {TrayIndicator} from './tray.js';
+import {processMemory, watchMemory} from './ram-guard.js';
 
 const directory = Gio.File.new_for_uri(import.meta.url).get_parent();
 const schema = loadSchema(import.meta.url);
@@ -22,6 +23,7 @@ let closeDialog = null;
 let exiting = false;
 let leaseProcess = null;
 let startupHidden = false;
+let memoryTimer = 0;
 
 function showPanel() {
     startupHidden = false;
@@ -140,6 +142,30 @@ function activate(startMinimized) {
 }
 
 app.connect('activate', () => activate(false));
+app.connect('startup', () => {
+    const limitBytes = 500_000_000;
+    memoryTimer = watchMemory(() => {
+        const root = processMemory();
+        if (!root) return null;
+        const childId = leaseProcess?.get_identifier();
+        const child = childId && processMemory(childId);
+        const processes = child?.parentPid === root.pid ? [root, child] : [root];
+        const bytes = processes.reduce((sum, process) => sum + process.rssBytes, 0);
+        return bytes > limitBytes ? {limitBytes, bytes, processes} : null;
+    }, event => {
+        memoryTimer = 0;
+        console.warn(JSON.stringify({kind: 'guard.memory-limit', app: 'WaterRipple', ...event}));
+        try {
+            const notice = new Gio.Notification();
+            notice.set_title('Water Ripple closed');
+            notice.set_body('The controller exceeded its memory limit. See the system journal for details.');
+            app.send_notification('memory-limit', notice);
+        } finally {
+            if (window) exitRipple();
+            app.quit();
+        }
+    });
+});
 app.connect('command-line', (_app, commandLine) => {
     if (!smokeTest && commandLine.get_arguments().includes('--autostart'))
         activate(true);
@@ -148,6 +174,7 @@ app.connect('command-line', (_app, commandLine) => {
     return 0;
 });
 app.connect('shutdown', () => {
+    if (memoryTimer) GLib.source_remove(memoryTimer);
     leaseProcess?.force_exit();
     tray?.destroy();
 });

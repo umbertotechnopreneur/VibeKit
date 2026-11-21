@@ -21,11 +21,10 @@
  * VBWR E */
 
 import DOMPurify from "dompurify";
-import hljs from "highlight.js/lib/common";
 import { acquireAsset, releaseAssets, getWorkspace, addFiles } from "./workspaces.js";
 import { resourceUrl, safeExternal, checkCancelled, nextFrame } from "./path.js";
 import { t, localize, refreshTranslations } from "./i18n.js";
-import { applyReaderTheme, resolveReaderTheme } from "./themes.js";
+import { applyReaderTheme, decorateThemeArticle, resolveReaderTheme } from "./themes.js";
 import { attachFileContext, fileContextTarget, fileSelection } from "./file-context.js";
 import { clearDocumentFind } from "./document-find.js";
 
@@ -121,17 +120,30 @@ export function prepareMarkdown(model) {
   return fragment;
 }
 
-/** Highlight bounded supported code blocks without executing document content. */
-export function highlightCode(article) {
-  for (const code of article.querySelectorAll("pre code:not(.language-mermaid)")) {
-    if (code.textContent.length > 60000) {
-      continue;
+/** Load the highlighter only for a document with eligible code and retain plain text if it is unavailable. */
+export async function highlightCode(article, signal) {
+  const blocks = [...article.querySelectorAll("pre code:not(.language-mermaid)")]
+    .filter(code => code.textContent.length <= 60000);
+  if (!blocks.length || signal?.aborted) {
+    return false;
+  }
+  let highlighter;
+  try {
+    ({ default: highlighter } = await import("highlight.js/lib/common"));
+  } catch {
+    return false;
+  }
+  for (const code of blocks) {
+    if (signal?.aborted) {
+      return false;
     }
     try {
-      hljs.highlightElement(code);
+      highlighter.highlightElement(code);
     } catch {
+      // A failed code block stays readable; other languages in the document can still be highlighted.
     }
   }
+  return true;
 }
 
 /** Open containing disclosures before measuring a source or outline navigation target. */
@@ -181,8 +193,9 @@ export class MarkdownHost {
     }
   }
   /** Replace reader content and its local asset leases while rejecting obsolete asynchronous work. */
-  async render({ document: model, workspaceId, position, anchor }, signal) {
+  async render({ document: model, workspaceId, position, anchor, prepareMedia }, signal) {
     clearDocumentFind(this);
+    this.stopDecorations();
     const revision = ++this.revision;
     this.abort.abort();
     const rendering = new AbortController();
@@ -195,6 +208,7 @@ export class MarkdownHost {
     this.workspaceId = workspaceId;
     this.model = model;
     const fragment = prepareMarkdown(model);
+    prepareMedia?.(fragment);
     const top = document.createElement("header");
     top.className = "document-meta";
     top.append(textElement("span", model.path, "eyebrow"), uiText("span", "{0} min read", "reading-time", Math.max(1, Math.ceil(fragment.textContent.split(/\s+/u).length / 220))));
@@ -202,8 +216,8 @@ export class MarkdownHost {
     this.article.className = "markdown";
     this.article.append(fragment);
     this.body.replaceChildren(top, this.article);
-    highlightCode(this.article);
-    applyReaderTheme(this.root, this.article, resolveReaderTheme(this.preferences, this.container.dataset.theme));
+    this.readerTheme = resolveReaderTheme(this.preferences, this.container.dataset.theme);
+    applyReaderTheme(this.root, this.article, this.readerTheme);
     this.blocks = [...this.article.querySelectorAll("section[data-source-start]")];
     this.assetQueue = [];
     const images = [...this.article.querySelectorAll("img")].slice(0, 96);
@@ -235,20 +249,11 @@ export class MarkdownHost {
       }
     }
     try {
-      const diagrams = [...this.article.querySelectorAll(".mv-diagram")];
-      if (diagrams.length) {
-        const { renderDiagrams } = await import("./diagrams.js");
-        await renderDiagrams(diagrams, () => revision === this.revision && !this.abort.signal.aborted);
-      }
+      await nextFrame();
       checkCancelled(signal);
-      if (revision !== this.revision) {
+      if (revision !== this.revision || rendering.signal.aborted) {
         return;
       }
-      if (diagrams.length) {
-        // Diagram rendering replaces source disclosure nodes after asynchronous work.
-        clearDocumentFind(this);
-      }
-      await nextFrame();
       if (position) {
         this.restore(position);
       }
@@ -258,8 +263,109 @@ export class MarkdownHost {
       else {
         this.body.scrollTop = 0;
       }
+      // Release the startup overlay with the styled text and its intended reading position already in the DOM.
+      if (document.getElementById("startup")?.hidden === false && this.body.clientHeight > 0 && this.article.childElementCount) {
+        window.dispatchEvent(new Event("markvibe-startup-ready"));
+      }
+      this.decorationFrame = requestAnimationFrame(() => {
+        this.decorationFrame = null;
+        if (revision === this.revision && !rendering.signal.aborted) {
+          this.watchDiagrams();
+          void this.highlightReader(this.article, rendering.signal);
+        }
+      });
     } finally {
       signal?.removeEventListener("abort", abort);
+    }
+  }
+  /** Decorate code after the first paint while retaining the latest theme and rejecting stale readers. */
+  async highlightReader(article, signal) {
+    if (await highlightCode(article, signal) && !signal.aborted && this.article === article) {
+      decorateThemeArticle(article, this.readerTheme);
+      clearDocumentFind(this);
+    }
+  }
+
+  /** Cancel pending presentation jobs and release the diagram frame on navigation, disposal or theme replacement. */
+  stopDecorations() {
+    if (this.decorationFrame != null) {
+      cancelAnimationFrame(this.decorationFrame);
+      this.decorationFrame = null;
+    }
+    this.diagramObserver?.disconnect();
+    this.diagramObserver = null;
+    this.diagramController?.abort();
+    this.diagramController = null;
+  }
+
+  /** Render only diagrams entering the reader or its nearby margin; export always uses its separate full pass. */
+  watchDiagrams() {
+    const article = this.article;
+    const appearance = this.container.dataset.theme;
+    if (this.diagramController && this.diagramAppearance === appearance) {
+      return;
+    }
+    this.diagramObserver?.disconnect();
+    this.diagramController?.abort();
+    const controller = new AbortController();
+    this.diagramController = controller;
+    this.diagramAppearance = appearance;
+    const diagrams = [...article.querySelectorAll(".mv-diagram")]
+      .filter(diagram => diagram.dataset.diagramSource || diagram.querySelector("code.language-mermaid"));
+    if (!diagrams.length) {
+      return;
+    }
+    if (typeof IntersectionObserver !== "function") {
+      void this.drawDiagrams(diagrams, appearance, controller.signal);
+      return;
+    }
+    const observer = new IntersectionObserver(entries => {
+      const approaching = [];
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          approaching.push(entry.target);
+          observer.unobserve(entry.target);
+        }
+      }
+      if (approaching.length) {
+        void this.drawDiagrams(approaching, appearance, controller.signal);
+      }
+    }, { root: this.body, rootMargin: "400px 0px" });
+    this.diagramObserver = observer;
+    for (const diagram of diagrams) {
+      observer.observe(diagram);
+    }
+  }
+
+  /** Prepare a batch away from the live DOM, then preserve the user's position at commit time. */
+  async drawDiagrams(elements, appearance, signal) {
+    if (signal.aborted) {
+      return;
+    }
+    const replacements = elements.map(element => element.cloneNode(true));
+    try {
+      const { renderDiagrams } = await import("./diagrams.js");
+      if (signal.aborted) {
+        return;
+      }
+      await renderDiagrams(replacements, () => !signal.aborted, appearance, signal);
+    } catch {
+      // The source fence remains readable if the optional renderer cannot be loaded.
+      return;
+    }
+    if (signal.aborted) {
+      return;
+    }
+    // Scrolling during a slow diagram render must win. Sample immediately before the synchronous replacement.
+    const position = this.body.scrollTop > 0 ? this.capture() : null;
+    clearDocumentFind(this);
+    for (const [index, element] of elements.entries()) {
+      const replacement = replacements[index];
+      element.dataset.diagramSource = replacement.dataset.diagramSource;
+      element.replaceChildren(...replacement.childNodes);
+    }
+    if (position) {
+      this.restore(position);
     }
   }
   /** Load queued local images within the retained reader asset concurrency limit. */
@@ -405,23 +511,15 @@ export class MarkdownHost {
     heading.tabIndex = -1;
     heading.focus({ preventScroll: true });
   }
-  /** Refresh local code and diagram presentation while rejecting obsolete appearance work. */
-  async retheme(isCurrent = () => true) {
-    if (!this.article) {
+  /** Apply the current theme immediately; refresh approaching diagrams when their light/dark palette changes. */
+  retheme(isCurrent = () => true) {
+    if (!this.article || !isCurrent() || this.abort.signal.aborted) {
       return;
     }
-    const revision = this.revision;
-    const article = this.article;
-    /** Reject diagram work after navigation, disposal or a newer appearance operation. */
-    const current = () => revision === this.revision && article === this.article && !this.abort.signal.aborted && isCurrent();
-    applyReaderTheme(this.root, this.article, resolveReaderTheme(this.preferences, this.container.dataset.theme));
-    const diagrams = [...this.article.querySelectorAll(".mv-diagram")];
-    if (diagrams.length) {
-      const { renderDiagrams } = await import("./diagrams.js");
-      await renderDiagrams(diagrams, current);
-      if (current()) {
-        clearDocumentFind(this);
-      }
+    this.readerTheme = resolveReaderTheme(this.preferences, this.container.dataset.theme);
+    applyReaderTheme(this.root, this.article, this.readerTheme);
+    if (this.diagramController) {
+      this.watchDiagrams();
     }
   }
   /** Refresh the captured position after the reader host's layout changes. */
@@ -434,6 +532,7 @@ export class MarkdownHost {
   dispose() {
     clearDocumentFind(this);
     this.revision++;
+    this.stopDecorations();
     this.disposeFileContext();
     this.abort.abort();
     this.observer?.disconnect();

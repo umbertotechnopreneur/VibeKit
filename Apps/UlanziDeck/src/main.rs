@@ -34,6 +34,7 @@ mod offline_actions;
 mod dock;
 mod gui;
 mod licensing;
+mod memory_watchdog;
 #[cfg(target_os = "linux")]
 mod linux_apps;
 #[cfg(target_os = "linux")]
@@ -248,12 +249,18 @@ fn main() -> ExitCode {
     let launcher_error_dialog = cfg!(windows)
         && std::env::var_os("ULANZI_DOCK_ERROR_DIALOG").is_some_and(|value| value == "1");
     let control = Arc::new(tray::Control::new());
+    let _memory_watchdog = memory_watchdog::start(Arc::clone(&control)).inspect_err(|error| {
+        eprintln!("UlanziDeck could not start its memory watchdog: {error}");
+    });
     let result = execute(Arc::clone(&control)).and_then(|()| {
         if control.restart_requested() {
             tray::restart_current_process()?;
         }
         Ok(())
     });
+    if control.memory_stop_requested() {
+        return ExitCode::from(137);
+    }
     let code = match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {

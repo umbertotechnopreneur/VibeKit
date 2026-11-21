@@ -10,6 +10,7 @@
   Modified with AI: OpenAI Codex; attribution header added; 2026-10-11
   Human guidance: Umberto Giacobbi; repository readability rules and MIT licensing
   Modified with AI: OpenAI Codex; target the Windows Runtime APIs needed by composition hosting; 2026-10-16
+  Modified with AI: OpenAI Codex; build the Windows frontend with WinUI 3 and a renderer-only client; 2026-11-20
   Human guidance: Umberto Giacobbi; stable desktop rendering with existing development tools
   Evidence: AI-DEVELOPMENT-DISCLOSURE.md; .github/tasks/archive.md
 
@@ -21,26 +22,77 @@ VBWR E -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
-    <!-- Composition hosting uses Windows Runtime APIs supplied by this already-installed reference pack. -->
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <WindowsSdkPackageVersion>10.0.19041.57</WindowsSdkPackageVersion>
     <OutputType>WinExe</OutputType>
-    <UseWPF>true</UseWPF>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <EnableMsixTooling>false</EnableMsixTooling>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <PlatformTarget Condition="'$(RuntimeIdentifier)' == 'win-arm64'">ARM64</PlatformTarget>
+    <PlatformTarget Condition="'$(RuntimeIdentifier)' == 'win-x64'">x64</PlatformTarget>
+    <Platforms>x64;ARM64</Platforms>
     <PublishTrimmed>false</PublishTrimmed>
     <PublishSingleFile>false</PublishSingleFile>
+    <MarkVibeNodeExe Condition="'$(MarkVibeNodeExe)' == ''">node</MarkVibeNodeExe>
+    <DesktopBundleFlavor>release</DesktopBundleFlavor>
+    <DesktopBundleFlavor Condition="'$(Configuration)' == 'Debug'">debug</DesktopBundleFlavor>
+    <DesktopBundleArgs Condition="'$(Configuration)' == 'Debug'">--debug</DesktopBundleArgs>
+    <DesktopBundleDirectory>$(MSBuildProjectDirectory)/obj/desktop-js/$(DesktopBundleFlavor)</DesktopBundleDirectory>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../../../Widgets/Shared/VibeWareDiagnostics.cs" Link="Diagnostics/VibeWareDiagnostics.cs" />
+    <Compile Include="../../../../Widgets/Shared/ProcessMemoryWatchdog.cs" Link="Diagnostics/ProcessMemoryWatchdog.cs" />
     <PackageReference Include="Serilog" Version="4.4.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-    <PackageReference Include="Microsoft.Web.WebView2" Version="[1.0.4258.31]" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="[1.8.260921001]" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="[10.0.26100.9457]" />
+    <PackageReference Include="Microsoft.Graphics.Win2D" Version="[1.4.0]" />
     <ProjectReference Include="../MarkVibe.Native/MarkVibe.Native.csproj" />
-    <ProjectReference Include="../MarkVibe.Browser/MarkVibe.Browser.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="RuntimeIdentifier;RuntimeIdentifiers;SelfContained;PublishSelfContained;PublishSingleFile;PublishReadyToRun" />
+    <EmbeddedResource Include="../MarkVibe.Browser/wwwroot/icons.svg" LogicalName="MarkVibe.Windows.MapIcons.svg" />
+    <None Update="Rendering/web/index.html;Rendering/web/desktop.css" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/%(Filename)%(Extension)" />
+    <None Include="../MarkVibe.Browser/wwwroot/css/content.css" Link="Rendering/web/css/content.css" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/css/content.css" />
+    <None Include="../MarkVibe.Browser/wwwroot/favicon.svg" Link="Rendering/web/favicon.svg" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/favicon.svg" />
+    <None Include="../MarkVibe.Browser/wwwroot/images/*" Link="Rendering/web/images/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/images/%(Filename)%(Extension)" />
+    <None Include="../MarkVibe.Browser/wwwroot/icons/appbar/*" Link="Rendering/web/icons/appbar/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/icons/appbar/%(Filename)%(Extension)" />
+    <None Include="../MarkVibe.Browser/wwwroot/demo/**/*" Link="Rendering/web/demo/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/demo/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
-  <Target Name="StageDesktopAssets" AfterTargets="Build">
-    <Exec Command="node &quot;$(MSBuildProjectDirectory)/../../scripts/stage-windows-assets.mjs&quot; &quot;$(MSBuildProjectDirectory)/../MarkVibe.Browser/bin/$(Configuration)/net10.0/MarkVibe.Browser.staticwebassets.runtime.json&quot; &quot;$(TargetDir)app&quot;" />
+  <Target Name="PrepareDesktopClientForVisualStudio" BeforeTargets="BundleDesktopClient"
+          Condition="'$(BuildingInsideVisualStudio)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+    <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildProjectDirectory)/../../scripts/prepare-client.ps1&quot; -DependenciesOnly" />
   </Target>
-  <Target Name="StagePublishedDesktopAssets" AfterTargets="Publish">
-    <Exec Command="node &quot;$(MSBuildProjectDirectory)/../../scripts/stage-windows-assets.mjs&quot; &quot;$(MSBuildProjectDirectory)/../MarkVibe.Browser/bin/$(Configuration)/net10.0/MarkVibe.Browser.staticwebassets.runtime.json&quot; &quot;$(PublishDir)app&quot;" />
+  <Target Name="BundleDesktopClient" Condition="'$(DesignTimeBuild)' != 'true'">
+    <!-- The source fingerprint also checks each referenced output and rejects incomplete bundles. -->
+    <Exec Command="&quot;$(MarkVibeNodeExe)&quot; &quot;$(MSBuildProjectDirectory)/../../scripts/bundle.mjs&quot; --windows-desktop $(DesktopBundleArgs)" />
+    <ReadLinesFromFile File="$(DesktopBundleDirectory)/runtime-files.txt">
+      <Output TaskParameter="Lines" ItemName="DesktopBundleFile" />
+    </ReadLinesFromFile>
+  </Target>
+  <Target Name="StageDesktopAssets" AfterTargets="Build" DependsOnTargets="BundleDesktopClient" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Copy SourceFiles="@(DesktopBundleFile->'$(DesktopBundleDirectory)/%(Identity)')" DestinationFiles="@(DesktopBundleFile->'$(TargetDir)app/js/%(Identity)')" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="StagePublishedDesktopAssets" AfterTargets="Publish" DependsOnTargets="BundleDesktopClient" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Copy SourceFiles="@(DesktopBundleFile->'$(DesktopBundleDirectory)/%(Identity)')" DestinationFiles="@(DesktopBundleFile->'$(PublishDir)app/js/%(Identity)')" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="IncludeWinUiResourcesInUnpackagedPublish" BeforeTargets="ComputeResolvedFilesToPublishList"
+          DependsOnTargets="$(GenerateProjectPriFile)" Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <!-- WinUI generates the compiled XAML PRI but omits it from unpackaged publish. -->
+      <ResolvedFileToPublish Include="$(ProjectPriFullPath)" Condition="Exists('$(ProjectPriFullPath)')">
+        <RelativePath>$(ProjectPriFileName)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+      <ResolvedFileToPublish Include="$(TargetDir)App.xbf">
+        <RelativePath>App.xbf</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+      <ResolvedFileToPublish Include="$(TargetDir)DesktopWindow.xbf">
+        <RelativePath>DesktopWindow.xbf</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
   </Target>
 </Project>

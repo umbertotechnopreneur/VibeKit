@@ -7,6 +7,7 @@ import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import ProductionExtension from './production-extension.js';
+import {applyValues, BUILTINS} from './settings-model.js';
 
 const delay = ms => new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
     resolve(); return GLib.SOURCE_REMOVE;
@@ -65,7 +66,7 @@ export default class SmokeTest extends ProductionExtension {
             width: 120, height: 36, style: 'background-color: #ffffff;'}) : null;
         if (farMarker) Main.layoutManager.uiGroup.add_child(farMarker);
         try {
-            const shot = async (name, settle = 700) => {
+            const shot = async (name, settle = 700, crop = null) => {
                 await delay(settle);
                 const file = Gio.File.new_for_path(`${GLib.getenv('RETRO_TEST_OUTPUT')}/${name}.png`);
                 const stream = file.replace(null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
@@ -79,8 +80,8 @@ export default class SmokeTest extends ProductionExtension {
                                 // Read the presented frame. An offscreen stage screenshot
                                 // can reuse a partially updated effect texture.
                                 const texture = view.get_framebuffer().get_texture();
-                                Shell.Screenshot.composite_to_stream(texture, 0, 0,
-                                    texture.get_width(), texture.get_height(), 1, null, 0, 0, 1, stream)
+                                const area = crop ?? [0, 0, texture.get_width(), texture.get_height()];
+                                Shell.Screenshot.composite_to_stream(texture, ...area, 1, null, 0, 0, 1, stream)
                                     .then(resolve, reject);
                             } catch (error) {
                                 reject(error);
@@ -98,6 +99,31 @@ export default class SmokeTest extends ProductionExtension {
             await shot('gnome-original');
             this._settings.set_boolean('active', true);
             if (!this._effect) throw Error(this._settings.get_string('status'));
+            if (GLib.getenv('RETRO_TEST_PRESETS') === '1') {
+                // Leave a margin around the sampled flat patch for spatial glow.
+                const patch = new St.Widget({x: 560, y: 610, width: 160, height: 144,
+                    style: 'background-color: #808080;'});
+                Main.layoutManager.uiGroup.add_child(patch);
+                const crop = [576, 626, 128, 112];
+                const frames = [];
+                try {
+                    for (const {id, values} of BUILTINS) {
+                        const filename = id.slice('builtin:'.length);
+                        applyValues(this._settings, values);
+                        await shot(filename, 35, crop);
+                        if (id === 'builtin:tv-composite-pal' || id === 'builtin:trinitron-aperture-grille')
+                            await shot(`${filename}-desktop`, 0);
+                        this._settings.set_double('grain', 0);
+                        await shot(`${filename}-no-grain`, 35, crop);
+                        this._settings.set_double('scanlines', 0);
+                        await shot(`${filename}-no-raster`, 35, crop);
+                        frames.push(filename);
+                    }
+                    console.log(`RETRO_PRESET_FRAMES ${JSON.stringify(frames)}`);
+                    console.log('RETRO_SMOKE_PASS: built-in preset frames');
+                } finally { patch.destroy(); }
+                return;
+            }
             if (oversized) {
                 this._settings.set_double('persistence-duration', 0.5);
                 this._settings.set_double('persistence-strength', 0.6);

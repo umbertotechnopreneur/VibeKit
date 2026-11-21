@@ -21,12 +21,19 @@ public static class Program
             if (!firstInstance) return 0;
             SetCurrentProcessExplicitAppUserModelID("biz.umbertogiacobbi.StudioControls");
             WinRT.ComWrappersSupport.InitializeComWrappers();
+            Microsoft.UI.Dispatching.DispatcherQueue? dispatcher = null;
+            using var memoryWatchdog = new VibeWare.MemoryProtection.ProcessMemoryWatchdog(
+                "Studio Controls", Diagnostics.DirectoryPath, 1_000_000_000,
+                () => Volatile.Read(ref dispatcher)?.TryEnqueue(() => ((App)Application.Current).RequestMemoryShutdown()),
+                showWindowsNotice: true);
             Application.Start(initialization =>
             {
+                var queue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
                 SynchronizationContext.SetSynchronizationContext(
                     new Microsoft.UI.Dispatching.DispatcherQueueSynchronizationContext(
-                        Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread()));
+                        queue));
                 _ = new App();
+                Volatile.Write(ref dispatcher, queue);
             });
             return !smokeRequested || UiSmoke.Passed ? 0 : 1;
         }

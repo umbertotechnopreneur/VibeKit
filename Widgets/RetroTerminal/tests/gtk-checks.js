@@ -6,7 +6,7 @@ import Gtk from 'gi://Gtk?version=4.0';
 import Gdk from 'gi://Gdk?version=4.0';
 const directory = Gio.File.new_for_path(ARGV[0]);
 const {buildControls} = await import(directory.get_child('settings-ui.js').get_uri());
-const {DEFAULTS, readValues} = await import(directory.get_child('settings-model.js').get_uri());
+const {BUILTINS, DEFAULTS, readValues} = await import(directory.get_child('settings-model.js').get_uri());
 Adw.init();
 const source = Gio.SettingsSchemaSource.new_from_directory(directory.get_child('schemas').get_path(), Gio.SettingsSchemaSource.get_default(), false);
 const settings = Gio.Settings.new_full(source.lookup('org.gnome.shell.extensions.vibeware-retro-terminal', true), null, null);
@@ -27,7 +27,7 @@ settings.reset('glow');
 check(ui.controls['scanline-spacing'].sensitive && ui.controls['scanline-width'].sensitive &&
     ui.controls['glow-radius'].sensitive, 'Fine controls return when their effects are active');
 check(ui.pipeline.enable_search && ui.pipeline.expression, 'The pipeline selector exposes native search');
-for (const name of ['Commodore 1702 Composite', 'Trinitron Aperture Grille']) {
+for (const {name} of BUILTINS) {
     const index = ui.pipelines.items.findIndex(item => item.name === name);
     check(index >= 0 && ui.pipeline.model.get_string(index + 1) === name, `${name} is selectable`);
     ui.pipeline.selected = index + 1;

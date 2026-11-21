@@ -1,5 +1,5 @@
 > - **File name** `README.md`
-> - **Full path** `E:\vibekit\Widgets\OpenAI\README.md`
+> - **Full path** `/run/media/umberto/Repo/vibekit/Widgets/OpenAI/README.md`
 > - **Path relative to the VibeKit repository root** `Widgets/OpenAI/README.md`
 
 # OpenAI Usage
@@ -14,7 +14,7 @@ Two native desktop clients in VibeKit:
 - **Linux:** Python / GTK 4 / libadwaita, one compact native window surface. Follows the GNOME 50 design, with compatible theme colors for libadwaita 1.5+ on Ubuntu 24.04 and newer.
 - **Shared:** C# / .NET 10 account reader and analytics. Both clients use the same calculations and settings schema.
 
-The widget shows the selected allowance remaining as a percentage, estimated time to exhaustion, remaining credits and a four-unit countdown to the automatic quota reset. The estimate uses automatically recorded quota observations. On Windows, **Usage Remaining** stays visible first. When earned reset vouchers are available, the estimate shares a column with the voucher count and up to two expiry dates. The estimate shows for 10 seconds and each voucher view for five seconds. Expiry dates use the selected time zone. Linux cycles through scheduled quota reset dates in a separate display. Preferences and About open in separate native windows. On Windows, Preferences groups widget options and notification thresholds in two columns, uses desktop acrylic and stays above the widget, outside the taskbar and Alt+Tab. The main widgets follow the system theme. About uses the cream VibeWare layout on both platforms and keeps the watchdog and log location under **Technical details**.
+The widget shows the selected allowance remaining, **Est. time Left**, **Available resets**, **Credits left**, and the first scheduled reset. The countdown and full reset date alternate every 10 seconds in the chosen reporting time zone. The black split-flap faces reserve fixed space for each value. **Available resets** uses at least two digits, and voucher expirations are available in its tooltip. Preferences and About open in separate native windows. On Windows, Preferences uses desktop acrylic and stays above the widget, outside the taskbar and Alt+Tab. About keeps the watchdog and log location under **Technical details**.
 
 The shared generated icon is used by the executable, window/header, About, Start/app-menu entries and packages. Metrics use monospace typography. Text gradients use the system accent and adjust their lightness to the system theme: native WinUI gradient brushes on Windows and native Pango/Cairo snapshots on GTK. Toolbar controls show only their icons at rest.
 
@@ -55,18 +55,20 @@ Token quantities use decimal prefixes **K, M, G, T, P, E** (powers of 1,000). Th
 
 ## Installers
 
-Installer targets for **0.4.3**, generated on demand from the current source. These paths exist only until cleanup:
+Installer targets for **0.4.4**, generated on demand from the current source. These paths exist only until cleanup:
 
-- `OpenAIUsage-0.4.3-windows-x64.msi`: per-user Windows x64 installation under `%LOCALAPPDATA%/Programs/OpenAI Usage`, Start menu shortcut and standard Windows uninstall/upgrade support. Includes .NET and Windows App SDK runtime files.
-- `openai-usage_0.4.3-1_amd64.deb`: Ubuntu amd64 package with a self-contained Linux .NET backend, launcher and desktop entry. GTK/Python/system-library prerequisites are declared as APT dependencies. Targets Ubuntu 24.04+; runtime execution on Ubuntu is not verified here.
+- `OpenAIUsage-0.4.4-windows-x64.msi`: per-user Windows x64 installation under `%LOCALAPPDATA%/Programs/OpenAI Usage`, Start menu shortcut and standard Windows uninstall/upgrade support. Includes .NET and Windows App SDK runtime files.
+- `openai-usage_0.4.4-1_amd64.deb`: Ubuntu amd64 package with the Linux backend, launcher and desktop entry. The local Debian builder declares the .NET runtime, GTK, Python and system libraries as APT dependencies. Targets Ubuntu 24.04+.
 
 All packages require a separately installed Codex CLI and your own ChatGPT sign-in. The installers contain no credentials and do not install or sign in to Codex. The local MSI and DEB are unsigned. Package validation, Windows installation/startup and native GTK runtime validation are separate checks; report their results in the current task rather than retaining a historical report.
 
 ```sh
-sudo apt install ./openai-usage_0.4.3-1_amd64.deb
+sudo apt install ./openai-usage_0.4.4-1_amd64.deb
 ```
 
 On Windows, open the MSI to install, then launch **OpenAI Usage** from Start. Use Settings > Apps to uninstall; private observation history is outside the installation directory. The installer builder forces clean source rebuilds and checks the compiled version. Packaging preserves generated installers, dependencies and build output for manual cleanup. Run `Packaging/Clean-BuildOutputs.ps1` to remove all generated material, including the latest installers. No release history, antivirus report, scan hash inventory or persistent import cache is kept.
+
+Enable **Usage details bar** in Preferences to add a chart button. Click it to open or close the second bar, or press Escape while the widget has focus to close it. **Allowances** shows the 5-hour and weekly Codex windows for the selected limit family when the account provides them. **Reset forecast** compares the observed time-to-exhaustion estimate with the selected allowance's reset. The widget opens with the second bar closed.
 
 ## Real data
 
@@ -76,7 +78,7 @@ The widget starts a private stdio `codex app-server`, initializes it and issues 
 | --- | --- |
 | Allowance and reset | `account/rateLimits/read`; windows are identified by actual duration, not primary/secondary position. Weekly Codex is preferred; a previously configured window remains honored. |
 | Credit balance | Returned balance, unlimited state or unavailable. Credits are distinct from earned full-reset vouchers. |
-| Earned reset vouchers | `account/rateLimits/read` returns the available count and may include expiry dates. Windows displays these in the estimate column when the count is positive. |
+| Earned reset vouchers | `account/rateLimits/read` returns the available count and may include expiry dates. The **Available resets** field displays the count, with expiry details in its tooltip. |
 | Token chart, daily average and previous week | `account/usage/read` daily buckets; available remotely without waiting for local collection. Missing dates are unavailable, not zero. |
 | Plan | `account/read`, retained by the shared backend. |
 | Quota history | Local percentage observations, isolated by hashed account identity, window and plan. The account API does not provide historical daily quota percentages. |
@@ -98,13 +100,13 @@ Source-built Debug output, available only before cleanup:
 
 Requires Windows x64, .NET 10 runtime and an installed Codex CLI signed in with ChatGPT. Windows App SDK components are included. Keep the output folder intact; this is an unpackaged app, not an installer. Run `codex login` yourself when needed, or set the native Codex executable path in Settings.
 
-Preferences apply as they change and include the Codex executable path, a reporting time zone chosen from those installed on the operating system, an optional Big size setting that increases the widget by approximately 25%, and independent notifications at 50%, 20% and 5% remaining. Big size is off by default. Alerts apply to the displayed allowance and are off by default; they rearm after the allowance rises above the threshold. On Windows, **Show in taskbar** also controls Alt+Tab; the window stays accessible if the notification icon is unavailable. **Start with Windows** reflects the Windows startup setting and applies immediately; unpackaged installs use the current user’s Run registry key, while MSIX uses its startup task. The pin button controls always-on-top and shows its current setting. On Linux, the pin requests always-on-top on X11 when supported by the window manager; on Wayland it is disabled because GTK 4 has no portable equivalent. The desktop may offer its own window controls. GTK 4 also does not provide a portable taskbar visibility control for Wayland, so the desktop controls window visibility. System animation preferences are respected; there is no mechanical sound.
+Preferences apply as they change and include the Codex executable path, a reporting time zone chosen from those installed on the operating system, an optional Big size setting that increases the widget by approximately 25%, and independent notifications at 50%, 20% and 5% remaining. Big size is off by default. Alerts apply to the displayed allowance and are off by default; they rearm after the allowance rises above the threshold. On Windows, **Show in taskbar** also controls Alt+Tab; the window stays accessible if the notification icon is unavailable. **Start with Windows** reflects the Windows startup setting and applies immediately; unpackaged installs use the current user’s Run registry key, while MSIX uses its startup task. The pin button controls always-on-top and shows its current setting. On Linux, the pin requests always-on-top on X11 when supported by the window manager; on Wayland it is disabled because GTK 4 has no portable equivalent. The desktop may offer its own window controls. GTK 4 also does not provide a portable taskbar visibility control for Wayland, so the desktop controls window visibility. The label position applies to all field headings and countdown units. Available resets, credits and the estimate can each be hidden. The traffic light immediately following the app icon reflects the displayed allowance. It is green above the active thresholds, amber at an enabled 50% or 20% threshold, red at an enabled 5% threshold and unlit when allowance data is unavailable. Credit alerts use a separate threshold and appear in the notification and tooltip. The alert ding can be switched off in Preferences. Split-flap and fade effects respect system animation preferences.
 
 ## Linux / GNOME
 
 Portable source-built output: `artifacts/linux`. Its backend DLL is platform-independent, not a repackaged Windows application.
 
-Prerequisites for the framework-dependent source output: .NET 10 runtime; Codex CLI signed in with ChatGPT; Python 3; PyGObject; GTK 4.14+; libadwaita 1.5+; Pycairo; PangoCairo introspection; and a graphical Linux session. The `.deb` includes its private .NET runtime. Typical Debian-family UI package names are `python3-gi`, `python3-gi-cairo`, `python3-cairo`, `gir1.2-gtk-4.0` and `gir1.2-adw-1`. Obtain prerequisites from official sources and follow the first-import policy below. Nothing is installed automatically by repository build scripts.
+Prerequisites for the framework-dependent source output: .NET 10 runtime; Codex CLI signed in with ChatGPT; Python 3; PyGObject; GTK 4.14+; libadwaita 1.5+; Pycairo; PangoCairo introspection; and a graphical Linux session. The local Debian build uses the system .NET runtime as an APT dependency. Typical Debian-family UI package names are `python3-gi`, `python3-gi-cairo`, `python3-cairo`, `gir1.2-gtk-4.0` and `gir1.2-adw-1`. Obtain prerequisites from official sources and follow the first-import policy below. Nothing is installed automatically by repository build scripts.
 
 ```sh
 sh /path/to/artifacts/linux/Linux/run.sh
@@ -112,7 +114,7 @@ sh /path/to/artifacts/linux/Linux/run.sh
 
 In a source checkout, build `Backend/OpenAIUsage.Backend.csproj` using the .NET 10 SDK, then run `sh Linux/run.sh`. `OPENAI_USAGE_BACKEND` can point to another source-built backend DLL. The optional `.desktop` template assumes you have created an `openai-usage` launcher on PATH.
 
-No Linux distribution is installed in the current Windows/WSL environment. Native GTK rendering, GNOME theme transitions, animation and input have **not** been exercised. Python syntax and the shared backend are checked; these do not replace a GNOME smoke test.
+The isolated GTK checks exercise native rendering, clock transitions and preferences with synthetic data. A GNOME desktop smoke test covers compositor, theme and notification integration.
 
 ## Build and verify
 
@@ -207,5 +209,5 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
 </p>
 
 > - **File name** `README.md`
-> - **Full path** `E:\vibekit\Widgets\OpenAI\README.md`
+> - **Full path** `/run/media/umberto/Repo/vibekit/Widgets/OpenAI/README.md`
 > - **Path relative to the VibeKit repository root** `Widgets/OpenAI/README.md`

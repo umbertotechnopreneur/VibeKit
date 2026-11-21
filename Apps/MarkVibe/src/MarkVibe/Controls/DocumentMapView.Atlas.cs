@@ -38,8 +38,7 @@ public partial class DocumentMapView
         NeighborhoodDepth.SelectedIndex = _state.TryGetProperty("focusDepth", out var depth) ? depth.GetInt32() : 0;
         NeighborhoodDepth.IsEnabled = !busy;
         SetMapToggle(FocusButton, NeighborhoodDepth.SelectedIndex > 0);
-        var layout = _state.GetProperty("layout").Deserialize<MapLayout>(Wire.Options);
-        var views = layout?.Atlas?.Views ?? [];
+        var views = _layout?.Atlas?.Views ?? [];
         var signature = _workspaceId + "\n" + string.Join("\n", views.Select(view => view.Name));
         if (signature != _viewSignature)
         {
@@ -172,6 +171,7 @@ public partial class DocumentMapView
         // Capture the source workspace so stale preview actions cannot navigate a replacement workspace.
         var workspaceId = _workspaceId;
         var documentPath = card.Path;
+        AddInspectorAction("pages", "Read here", () => OpenInspectorPreviewAsync(workspaceId, documentPath, ""));
         AddInspectorAction("book", "Open document", async () =>
         {
             if (_workspaceId == workspaceId && NavigateRequested != null)
@@ -244,16 +244,48 @@ public partial class DocumentMapView
                 Content = caption,
                 HorizontalContentAlignment = HorizontalAlignment.Left
             };
-            button.Click += async (_, _) => await RunActionAsync(async () =>
-            {
-                if (_workspaceId == workspaceId && NavigateRequested != null)
-                {
-                    await NavigateRequested(card.Path, heading.Id);
-                }
-            });
+            button.Click += async (_, _) => await RunActionAsync(() =>
+                NavigateFromInspectorAsync(workspaceId, card.Path, heading.Id));
             headings.Children.Add(button);
         }
         Links.Children.Add(headings);
+    }
+
+    /// <summary>Opens the selected document or section in the graph's single in-place reader.</summary>
+    private async Task<bool> OpenInspectorPreviewAsync(string workspaceId, string path, string anchor, bool onlyIfOpen = false)
+    {
+        if (_workspaceId != workspaceId || _state.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+        var stateId = _state.GetProperty("stateId").GetString()!;
+        var opened = await BrowserServices.CallAsync<bool>("map.previewOpen", new
+        {
+            hostId = HostId, workspaceId, stateId, path, anchor, onlyIfOpen
+        });
+        if (opened && IsCurrentSession(workspaceId, stateId) && Grid.GetColumn(LinksPane) == 0 &&
+            LinksPane.Visibility == Visibility.Visible)
+        {
+            // A floating inspector covers the narrow canvas. Make room for the selected card's reader.
+            _inspectorOpen = false;
+            ReflowMapChrome();
+        }
+        return opened;
+    }
+
+    /// <summary>Follows links in the open graph preview, or uses the normal reader when browsing the inspector alone.</summary>
+    private async Task NavigateFromInspectorAsync(string workspaceId, string path, string anchor)
+    {
+        if (_workspaceId != workspaceId || _state.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+        var stateId = _state.GetProperty("stateId").GetString()!;
+        var followed = await OpenInspectorPreviewAsync(workspaceId, path, anchor, onlyIfOpen: true);
+        if (!followed && IsCurrentSession(workspaceId, stateId) && NavigateRequested != null)
+        {
+            await NavigateRequested(path, anchor);
+        }
     }
 
     /// <summary>Adds route commands and the current route's source, summary and document steps.</summary>

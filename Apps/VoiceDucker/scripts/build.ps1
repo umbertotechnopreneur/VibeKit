@@ -61,13 +61,13 @@ foreach ($directory in @(
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 Push-Location $projectRoot
 try {
-    & dotnet restore $projectFile --locked-mode "-p:Platform=$Architecture" -p:SelfContained=true
+    & dotnet restore $projectFile --locked-mode "-p:Platform=$Architecture" -p:SelfContained=false
     if ($LASTEXITCODE -ne 0) { throw 'Package restore failed.' }
 
     & (Join-Path $PSScriptRoot 'verify-dependency-imports.ps1') -Runtime $runtime
 
     & dotnet publish $projectFile -c $Configuration "-p:Platform=$Architecture" `
-        -p:SelfContained=true -p:PublishReadyToRun=false -p:PublishSingleFile=false `
+        -p:SelfContained=false -p:PublishReadyToRun=false -p:PublishSingleFile=false `
         -r $runtime --no-restore -o $outputDirectory -m:8
     if ($LASTEXITCODE -ne 0) { throw 'Portable build failed.' }
 }

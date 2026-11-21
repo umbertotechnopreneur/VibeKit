@@ -22,7 +22,8 @@ internal sealed class StudioDiagnostics : IDisposable
         this.state = state;
         monitor = new ResourceMonitor(warning: sample =>
         {
-            Log.Warning("Private memory threshold reached Bytes={PrivateBytes} WorkingSet={WorkingSet}", sample.PrivateBytes, sample.WorkingSetBytes);
+            Log.Warning("Private memory threshold reached Pid={Pid} Process={ProcessName} Bytes={PrivateBytes} WorkingSet={WorkingSet} LimitBytes={LimitBytes} SampledAtUtc={SampledAtUtc}",
+                Environment.ProcessId, nameof(WaterRipple), sample.PrivateBytes, sample.WorkingSetBytes, MemoryWarningLatch.LimitBytes, sample.SampledAt);
             Native.MessageBox(IntPtr.Zero, "Water Ripple Studio is using at least 500 MB of private memory. This could be a memory leak. Please report it and include the recent application logs.\n\nStop the screen effect or close the app if memory keeps growing.", "Water Ripple Studio · memory", 0x50030);
         });
         timer = dispatcher.CreateTimer();

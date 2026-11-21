@@ -1,18 +1,55 @@
+> **File name** `ARCHITECTURE.md`<br>
+> **Full path** `E:\vibekit\Apps\HelpMe\docs\ARCHITECTURE.md`<br>
+> **Path relative to the VibeKit repository** `Apps\HelpMe\docs\ARCHITECTURE.md`
+
 # HelpMe architecture
 
 If you're looking through the code, start here. HelpMe is a .NET 10 console app that answers terminal questions, keeps notes you choose to save, and asks before running commands. It runs when you start `hm` and closes when you leave.
 
+## Process and data boundaries
+
 ```mermaid
-flowchart LR
-    U["User · hm"] --> A["Application flow"]
-    A --> V["Spectre views"]
-    A --> S["Services"]
-    S --> O["OpenAI Responses API"]
-    S --> P["Official pricing and Costs API"]
-    S --> D["SQLite history and settings"]
-    S --> L["Serilog files"]
-    S --> C["Approved PowerShell command"]
-    Y["Localized YAML prompts"] --> S
+flowchart TB
+    accTitle: HelpMe modules and data boundaries
+    accDescr: Terminal views send input to application workflows. Services exchange filtered context with OpenAI and retain redacted local records. Approved commands run as child processes.
+    USER["User at the terminal"]
+    subgraph APP["hm · .NET 10 console process"]
+        VIEW["Spectre.Console views<br/>Input, settings and previews"]
+        FLOW["Application workflows<br/>Conversation and authorization"]
+        STATE["Models<br/>Settings, active turns and usage"]
+        AI["OpenAI and context services<br/>Select notes and assemble requests"]
+        LOCAL["Persistence and audit services<br/>Save settings and redact records"]
+        EXEC["Execution service<br/>Check authorization and bound output"]
+    end
+    subgraph DISK["Local application files"]
+        YAML["Localized YAML instructions"]
+        DB["SQLite<br/>Settings, notes and audit ledger"]
+        LOG["Serilog diagnostics"]
+    end
+    PROVIDER["OpenAI<br/>Responses, pricing and optional Costs API"]
+    CHILD["Reviewed shell process<br/>Current-user privileges"]
+
+    USER <-->|"Input and display"| VIEW
+    VIEW <-->|"User intent and render values"| FLOW
+    FLOW <-->|"Session state"| STATE
+    FLOW -->|"Question and eligible context"| AI
+    FLOW -->|"Settings and activity"| LOCAL
+    FLOW -->|"ApprovedCommand"| EXEC
+    YAML -->|"Selected language and version"| AI
+    AI <-->|"Request, response and usage"| PROVIDER
+    AI -->|"Read notes and record requests"| LOCAL
+    LOCAL <-->|"Settings and redacted records"| DB
+    LOCAL -->|"Diagnostic events"| LOG
+    EXEC <-->|"Authorized input and bounded output"| CHILD
+
+    classDef native fill:#e6effb,stroke:#315a92,color:#18334f
+    classDef model fill:#dcf0e9,stroke:#20766a,color:#143e38
+    classDef external fill:#fff0d8,stroke:#9b6218,color:#51330e
+    classDef storage fill:#ece8f7,stroke:#69518f,color:#302347
+    class USER,VIEW native
+    class FLOW,STATE,AI,LOCAL,EXEC model
+    class PROVIDER,CHILD external
+    class YAML,DB,LOG storage
 ```
 
 ## Where things live
@@ -54,20 +91,28 @@ The views keep this presentation separate from command parsing and execution.
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant App
-    participant Memory
-    participant OpenAI
-    participant SQLite
+    accTitle: One HelpMe question from terminal input to answer
+    accDescr: HelpMe selects local notes and bounds the retained context. It records redacted events and renders the response.
+    actor User
+    participant App as Chat workflow
+    participant Memory as Turn buffer
+    participant DB as SQLite
+    participant AI as OpenAI Responses
 
-    User->>App: hm question or chat turn
-    App->>SQLite: Select saved notes locally
-    App->>Memory: Reserve instructions and notes, then add user message
-    Memory-->>App: Snapshot and prune count
-    App->>OpenAI: YAML instruction + protected preamble + runtime snapshot + selected notes + active messages
-    OpenAI-->>App: Structured Markdown answer + cited command candidates + usage
-    App->>SQLite: Redacted request and ordered session events
-    App-->>User: Markdown answer + cost/context status
+    User->>App: Ask or send a chat turn
+    App->>DB: Read eligible notes
+    DB-->>App: Return notes for local selection
+    App->>Memory: Reserve context, then add the turn
+    alt Turn fits the input budget
+        Memory-->>App: Return active turns and prune count
+        App->>AI: Send instructions, context, notes and turns
+        AI-->>App: Return answer, commands and usage
+        App->>DB: Record redacted request and events
+        App-->>User: Show answer and usage
+    else Fixed context and turn exceed the budget
+        Memory-->>App: Return limit error
+        App-->>User: Explain limit and keep chat open
+    end
 ```
 
 The Responses request sets `store=false`. For chat and single queries, the instruction includes only a privacy-filtered runtime context (working directory, platform/shell, CPU, physical memory, and an available GPU label) so terminal guidance matches the active machine; it excludes account, host, network, serial, and secret data. `OpenAiService` owns HTTP, auditing, persistence, and pricing; small request-builder and response-parser components isolate the provider protocol and are tested without network access. Stable YAML instructions precede changing conversation content. Prompt cache routing is enabled by default and usage details are read from the provider response.
@@ -77,6 +122,44 @@ One HTTP deadline covers sending and reading the bounded response body, and reco
 The system prompts can answer Windows, macOS, and Linux console questions. This does not imply that the HelpMe application supports running on macOS. The prompts explicitly exclude image generation and ordinary prose editing. An optional setup preamble is Unicode-normalized, capped at 500 words, screened for multilingual instruction overrides and role forgery, and enclosed in a dedicated untrusted-data block. The localized YAML prompt tells the model to apply only compatible style or format preferences from that block. The Responses API uses a strict JSON schema for the rendered Markdown answer and any cited command candidates. The model has no tool or process-execution capability.
 
 ## What happens when you approve a command
+
+```mermaid
+flowchart TB
+    accTitle: HelpMe command authorization
+    accDescr: A local workflow evaluates risk and shows a preview. Manual confirmation or an eligible direct countdown precedes execution.
+    INPUT["Command candidate<br/>Capture exact text locally"]
+    RISK["Assess local risk<br/>Add advisory AI review when required or enabled"]
+    MODE{"Authorization mode"}
+    MANUAL["Show exact command and output-sharing notice<br/>Ask for confirmation"]
+    DIRECT{"Complete review below high risk?"}
+    WAIT["Show the same preview<br/>Run five-second countdown"]
+    APPROVED["Issue ApprovedCommand<br/>Bind the reviewed interpreter"]
+    RUN["Run with timeout and output limits<br/>Show local stdout and stderr"]
+    STOP["Stop without executing"]
+    RESULT["Keep bounded, redacted evidence<br/>Audit and follow-up"]
+
+    INPUT --> RISK --> MODE
+    MODE -->|"Manual"| MANUAL
+    MODE -->|"Direct"| DIRECT
+    DIRECT -->|"Yes"| WAIT
+    DIRECT -->|"High, critical, unknown or incomplete"| STOP
+    MANUAL -->|"Confirmed"| APPROVED
+    MANUAL -->|"Declined or canceled"| STOP
+    WAIT -->|"Countdown completes"| APPROVED
+    WAIT -->|"Canceled"| STOP
+    APPROVED -->|"Valid authorization"| RUN
+    APPROVED -->|"Authorization expired"| STOP
+    RUN --> RESULT
+
+    classDef native fill:#e6effb,stroke:#315a92,color:#18334f
+    classDef model fill:#dcf0e9,stroke:#20766a,color:#143e38
+    classDef external fill:#fff0d8,stroke:#9b6218,color:#51330e
+    classDef storage fill:#ece8f7,stroke:#69518f,color:#302347
+    class INPUT,MANUAL,WAIT native
+    class RISK,MODE,DIRECT,APPROVED,STOP model
+    class RUN external
+    class RESULT storage
+```
 
 1. `/run` captures the exact proposed PowerShell text.
 2. A conservative local rule produces a risk score and description.
@@ -157,3 +240,7 @@ The latest response's provider input/output counters are kept separately in `Con
 - Windows setup can persist API keys in current-user environment variables; Unix setup provides export guidance and does not edit a secret profile.
 - PATH persistence uses the Windows user environment or one marked Unix profile block.
 - Automatic Nerd Font installation is an optional Windows helper; other platforms receive manual guidance.
+
+> **File name** `ARCHITECTURE.md`<br>
+> **Full path** `E:\vibekit\Apps\HelpMe\docs\ARCHITECTURE.md`<br>
+> **Path relative to the VibeKit repository** `Apps\HelpMe\docs\ARCHITECTURE.md`

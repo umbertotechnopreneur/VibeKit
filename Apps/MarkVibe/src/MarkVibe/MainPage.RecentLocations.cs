@@ -41,7 +41,7 @@ public partial class MainPage
             return;
         }
 
-        foreach (var button in new[] { OpenFileButton, OpenFolderButton })
+        foreach (var button in new[] { OpenFileButton, OpenFolderButton, CompactOpenButton })
         {
             if (button.Content is IconLabel label)
             {
@@ -58,11 +58,29 @@ public partial class MainPage
         }
     }
 
+    /// <summary>Lets compact windows choose either workspace picker before showing native recents or the browser picker.</summary>
+    private void ChooseLocationType(object sender, RoutedEventArgs arguments)
+    {
+        if (RecentLocationsPopup.IsOpen)
+        {
+            CloseRecentLocations();
+            return;
+        }
+
+        CloseRecentLocations();
+        FileMenuPopup.IsOpen = false;
+        _recentLocationKind = "";
+        OpenLocationTypes.Visibility = Visibility.Visible;
+        RecentLocationList.Visibility = Visibility.Collapsed;
+        DisplayRecentLocationsPopup(CompactOpenButton, CompactFileChoice);
+    }
+
     /// <summary>Loads alphabetic native recents; browser providers retain their existing file and folder pickers.</summary>
     private async Task ShowRecentLocationsAsync(string kind, Button owner)
     {
         if (!_desktop)
         {
+            CloseRecentLocations();
             await OpenWorkspaceAsync(kind);
             return;
         }
@@ -83,6 +101,8 @@ public partial class MainPage
             return;
         }
 
+        OpenLocationTypes.Visibility = Visibility.Collapsed;
+        RecentLocationList.Visibility = Visibility.Visible;
         BrowseRecentLocationButton.Content = new IconLabel(kind == "folder" ? "folder" : "file",
             kind == "folder" ? "Browse for a folder…" : "Browse for a file…");
         AppLocalization.SetText(RecentLocationsTitle, kind == "folder" ? "Recent folders" : "Recent files");
@@ -102,9 +122,16 @@ public partial class MainPage
             });
         }
 
+        DisplayRecentLocationsPopup(owner, BrowseRecentLocationButton);
+    }
+
+    /// <summary>Positions either level of the open menu beneath its visible owner and focuses the first action.</summary>
+    private void DisplayRecentLocationsPopup(Button owner, Button firstAction)
+    {
         var root = (FrameworkElement)Application.Current.RootVisual;
         var position = owner.TransformToVisual(root).Transform(new Point(0, owner.ActualHeight + 4));
-        RecentLocationsSurface.Width = Math.Max(200, Math.Min(540, root.ActualWidth - 24));
+        var preferredWidth = OpenLocationTypes.Visibility == Visibility.Visible ? 240 : 540;
+        RecentLocationsSurface.Width = Math.Max(1, Math.Min(preferredWidth, root.ActualWidth - 24));
         RecentLocationsScroll.MaxHeight = Math.Max(40, root.ActualHeight - position.Y - 140);
         RecentLocationsPopup.PlacementTarget = root;
         RecentLocationsPopup.Placement = PlacementMode.Relative;
@@ -114,7 +141,7 @@ public partial class MainPage
         RecentLocationsScroll.ScrollToVerticalOffset(0);
         AppLocalization.Apply(RecentLocationsSurface);
         RecentLocationsPopup.IsOpen = true;
-        BrowseRecentLocationButton.Focus();
+        firstAction.Focus();
     }
 
     /// <summary>Builds an accessible one-line path row whose tooltip and accessible name retain the complete path.</summary>
@@ -215,7 +242,8 @@ public partial class MainPage
         if (arguments.Key == Key.Escape)
         {
             CloseRecentLocations();
-            (_recentLocationKind == "folder" ? OpenFolderButton : OpenFileButton).Focus();
+            var owner = _narrow ? CompactOpenButton : _recentLocationKind == "folder" ? OpenFolderButton : OpenFileButton;
+            owner.Focus();
             arguments.Handled = true;
         }
     }
@@ -227,7 +255,8 @@ public partial class MainPage
         while (current != null)
         {
             if (ReferenceEquals(current, RecentLocationsSurface) ||
-                ReferenceEquals(current, OpenFileButton) || ReferenceEquals(current, OpenFolderButton))
+                ReferenceEquals(current, OpenFileButton) || ReferenceEquals(current, OpenFolderButton) ||
+                ReferenceEquals(current, CompactOpenButton))
             {
                 return;
             }

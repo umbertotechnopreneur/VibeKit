@@ -1,3 +1,7 @@
+> **File name** `README.md`<br>
+> **Full path** `E:\vibekit\Apps\Ghostty Shaders\README.md`<br>
+> **Path relative to the VibeKit repository** `Apps/Ghostty Shaders/README.md`
+
 # Ghostty Shaders
 
 [![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
@@ -70,6 +74,34 @@ Switches use `0` or `1`; numeric options show their allowed range. Grayscale mod
 
 The manager writes a generated `vibekit-crt.glsl` under `$XDG_CONFIG_HOME/ghostty` (or `~/.config/ghostty`) and adds a marked block to Ghostty's `config` if it exists, otherwise `config.ghostty`. It leaves existing shader entries in place: Ghostty chains shaders in configuration order. It creates a timestamped backup before changing an existing configuration. Included configuration files may still change the final settings. Reload Ghostty with **Ctrl+Shift+,** on Linux, or open a new window. The menu does not close or restart your session.
 
+### How a preset reaches Ghostty
+
+```mermaid
+flowchart TB
+    accTitle: Ghostty shader configuration flow
+    accDescr: The manager applies the selected preset as a generated shader and updates one configuration block. Ghostty loads the shader when its configuration is reloaded.
+    PRESET["Bundled preset or personal copy"]
+    EDIT["Manager<br/>Select and edit parameters"]
+    APPLY["Apply<br/>Generate shader and back up existing config"]
+    SHADER["vibekit-crt.glsl<br/>Generated GLSL"]
+    CONFIG["Ghostty config<br/>Managed shader block"]
+    GPU["Ghostty<br/>Reload config and apply the GPU effect"]
+    PRESET --> EDIT --> APPLY
+    APPLY -->|"Write GLSL"| SHADER
+    APPLY -->|"Update marked block"| CONFIG
+    SHADER --> GPU
+    CONFIG --> GPU
+
+    classDef input fill:#dcf0e9,stroke:#20766a,color:#143e38
+    classDef manager fill:#e6effb,stroke:#315a92,color:#18334f
+    classDef storage fill:#ece8f7,stroke:#69518f,color:#302347
+    classDef effect fill:#fff0d8,stroke:#9b6218,color:#51330e
+    class PRESET input
+    class EDIT,APPLY manager
+    class SHADER,CONFIG storage
+    class GPU effect
+```
+
 For automation, the manager also supports `-Action Apply`, `-Action Disable` and `-Action Status`. `-ConfigRoot` can point to an isolated XDG configuration directory for testing. Animated refresh and grain enable Ghostty's animation loop; disabling both turns it off for this managed block. Existing later configuration may override it.
 
 If the effect makes the terminal unreadable, run the manager with `-Action Disable`, or remove the block between `# BEGIN VIBEKIT GHOSTTY SHADERS` and `# END VIBEKIT GHOSTTY SHADERS` from the config and reload. The generated shader is retained for restoring your values. Compilation errors appear in Ghostty's logs.
@@ -112,3 +144,7 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
   </a><br>
   <em>Human intent, AI execution, and plenty of tokens</em>
 </p>
+
+> **File name** `README.md`<br>
+> **Full path** `E:\vibekit\Apps\Ghostty Shaders\README.md`<br>
+> **Path relative to the VibeKit repository** `Apps/Ghostty Shaders/README.md`

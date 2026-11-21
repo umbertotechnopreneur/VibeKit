@@ -23,17 +23,27 @@ import { cleanDiagramSvg } from "./diagram-svg.js";
 let queue = Promise.resolve();
 const supported = /^(?:flowchart|graph|sequenceDiagram|classDiagram|stateDiagram(?:-v2)?|erDiagram|timeline|mindmap|pie|gantt)\b/u;
 
-/** Await a single reply and release the response port even if the isolated runtime fails to load. */
-async function readReply(port, close = true) {
+/** Await one channel reply, releasing the port and timer on completion, timeout or explicit cancellation. */
+async function readReply(port, close = true, signal) {
   let timer;
+  let abort;
   try {
     return await new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(signal.reason);
+        return;
+      }
+      abort = () => reject(signal.reason);
+      signal?.addEventListener("abort", abort, { once: true });
       timer = setTimeout(() => reject(new Error("The diagram renderer did not respond.")), 30000);
       port.onmessage = event => resolve(event.data);
       port.onmessageerror = () => reject(new Error("Invalid diagram response."));
     });
   } finally {
     clearTimeout(timer);
+    if (abort) {
+      signal?.removeEventListener("abort", abort);
+    }
     port.onmessage = null;
     port.onmessageerror = null;
     if (close) {
@@ -43,7 +53,7 @@ async function readReply(port, close = true) {
 }
 
 /** Open one opaque, network-blocked renderer for a serial batch of reader or export diagrams. */
-function createRenderer() {
+function createRenderer(signal) {
   const frame = document.createElement("iframe");
   frame.setAttribute("sandbox", "allow-scripts");
   frame.setAttribute("aria-hidden", "true");
@@ -53,13 +63,21 @@ function createRenderer() {
   frame.src = resourceUrl("js/diagram-frame.html");
 
   const channel = new MessageChannel();
-  const ready = readReply(channel.port1, false);
+  const ready = readReply(channel.port1, false, signal);
   frame.addEventListener("load", () => {
     // A sandboxed origin has no targetable origin string. Send only the setup port here.
     frame.contentWindow.postMessage("markvibe-diagrams", "*", [channel.port2]);
-  }, { once: true });
+  }, { once: true, signal });
   document.body.append(frame);
 
+  /** Remove the sandbox immediately when a preview closes, even while its render reply is pending. */
+  function dispose() {
+    signal?.removeEventListener("abort", dispose);
+    channel.port1.close();
+    channel.port2.close();
+    frame.remove();
+  }
+  signal?.addEventListener("abort", dispose, { once: true });
   return {
     /** Send document text only through the channel bound to the loaded frame. */
     async render(id, source, dark) {
@@ -67,15 +85,12 @@ function createRenderer() {
         throw new Error("The isolated diagram renderer is unavailable.");
       }
       const response = new MessageChannel();
-      const result = readReply(response.port1);
+      signal?.throwIfAborted();
+      const result = readReply(response.port1, true, signal);
       channel.port1.postMessage({ id, source, dark }, [response.port2]);
       return await result;
     },
-    /** Release the runtime and its communication channel when this batch finishes. */
-    dispose() {
-      channel.port1.close();
-      frame.remove();
-    }
+    dispose
   };
 }
 
@@ -116,13 +131,13 @@ async function renderOne(element, valid, appearance, renderer) {
   }
   await pause();
 }
-/** Serialize diagram rendering jobs so Mermaid's shared state is used by one job at a time. */
-export function renderDiagrams(elements, valid, appearance) {
+/** Serialize Mermaid jobs; an optional signal releases the active sandbox when a preview is closed. */
+export function renderDiagrams(elements, valid, appearance, signal) {
   /** Render this job's diagrams in order while stopping when their document generation is obsolete. */
   const job = async () => {
     let renderer;
     /** Load the isolated runtime once, after the first supported fence passes its limits. */
-    const getRenderer = () => renderer ??= createRenderer();
+    const getRenderer = () => renderer ??= createRenderer(signal);
     try {
       for (const element of elements) {
         if (!valid()) {

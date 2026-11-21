@@ -2,7 +2,6 @@
 #pragma once
 #include "SettingsStore.h"
 #include "TrayIcon.h"
-#include <random>
 
 class GpuJokeNotifications final
 {
@@ -27,8 +26,7 @@ public:
 
     void Start(HWND window)
     {
-        std::minstd_rand random{static_cast<unsigned>(GetTickCount64() ^ GetCurrentProcessId())};
-        Schedule(window, std::uniform_int_distribution<UINT>(120'000, 240'000)(random));
+        Schedule(window, 120'000);
     }
 
     void Cancel(HWND window)

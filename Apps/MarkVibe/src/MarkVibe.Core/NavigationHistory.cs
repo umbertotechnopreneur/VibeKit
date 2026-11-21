@@ -16,6 +16,8 @@
  *
  * VBWR E */
 namespace MarkVibe.Core;
+
+/// <summary>Tracks full document visits and reading positions across workspaces. In-map previews have their own Back action.</summary>
 public sealed class NavigationHistory
 {
     private readonly List<HistoryEntry> _entries = new();

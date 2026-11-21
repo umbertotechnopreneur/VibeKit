@@ -33,8 +33,18 @@ def select_paths(paths):
         if path in {"Widgets/Shared/Build-WindowsMsi.ps1", "Widgets/Shared/create-widget-wix.py"}:
             selected.update({"desktop-ripple", "retro-terminal", "studio-controls"})
             continue
+        if path in {"Widgets/Shared/WindowsSignIn.cs", "Widgets/Shared/EffectStudioLayout.cs",
+                    "Widgets/Shared/DisplayTarget.cs", "Widgets/Shared/EffectWindowCoverage.h"}:
+            selected.update({"desktop-ripple", "retro-terminal"})
+            continue
         if path == ".github/workflows/widget-releases.yml":
             selected.update({"openai-usage", "desktop-ripple", "retro-terminal"})
+            continue
+        if path == "Widgets/Shared/ProcessMemoryWatchdog.cs":
+            selected.update({
+                "helpme", "markvibe", "thermalright", "worktrail",
+                "desktop-ripple", "retro-terminal", "studio-controls",
+            })
             continue
         if path.startswith("Widgets/Shared/"):
             selected.update({"openai-usage", "desktop-ripple"})

@@ -126,12 +126,12 @@ public partial class DocumentMapView
     /// <summary>Reflects accepted managed appearance state in the preview and selection rings.</summary>
     private void RefreshAppearanceFromState()
     {
-        if (!AppearancePopup.IsOpen || !_state.GetProperty("layout").GetProperty("nodes").TryGetProperty(_appearancePath, out var value))
+        if (!AppearancePopup.IsOpen || _layout == null || !_layout.Nodes.TryGetValue(_appearancePath, out var value))
         {
             return;
         }
-        var color = value.GetProperty("color").GetString()!;
-        var icon = value.GetProperty("icon").GetString()!;
+        var color = value.Color;
+        var icon = value.Icon;
         var brush = ColorBrush(color);
         AppearancePreview.BorderBrush = brush;
         AppearanceIcon.Foreground = brush;

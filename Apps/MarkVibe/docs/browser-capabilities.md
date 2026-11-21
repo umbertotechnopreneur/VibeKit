@@ -1,3 +1,7 @@
+> **File name** `browser-capabilities.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\browser-capabilities.md`<br>
+> **Path relative to the MarkVibe application root** `docs/browser-capabilities.md`
+
 # Browser capabilities
 
 MarkVibe detects capabilities at runtime. A browser name alone does not guarantee
@@ -13,6 +17,32 @@ that a device's file picker exposes the required files and paths.
 If a picker does not expose relative paths, select related files or a ZIP.
 
 ## Permission and persistence
+
+```mermaid
+flowchart TB
+    accTitle: Browser workspace resumption
+    accDescr: Connected folders reopen when the existing read grant is present. Imported snapshots and expired permissions require an explicit user action before the reading position can be restored.
+    START["Open the browser edition"]
+    MODE{"Which workspace was remembered?"}
+    GRANT{"Connected folder still has read access?"}
+    PICK["Continue where you left off<br/>Connect or reselect the workspace"]
+    OPEN["Reopen workspace and restore page, anchor and position"]
+    CHOOSE["Open the initial workspace view"]
+    START --> MODE
+    MODE -->|"Connected folder"| GRANT
+    MODE -->|"Imported folder, files or ZIP"| PICK
+    MODE -->|"None"| CHOOSE
+    GRANT -->|"Already granted"| OPEN
+    GRANT -->|"Unavailable"| PICK
+    PICK -->|"Same workspace is available again"| OPEN
+
+    classDef stage fill:#e6effb,stroke:#315a92,color:#18334f
+    classDef decision fill:#dcf0e9,stroke:#20766a,color:#143e38
+    classDef prompt fill:#fff0d8,stroke:#9b6218,color:#51330e
+    class START,OPEN,CHOOSE stage
+    class MODE,GRANT decision
+    class PICK prompt
+```
 
 Connected folders open in read mode. Enumeration and reads query permission.
 Startup resumes only with an existing read grant; the explicit reopen action can
@@ -39,3 +69,7 @@ virtual keyboards and orientation changes depend on the device.
 - [Directory picker](https://developer.mozilla.org/en-US/docs/Web/API/Window/showDirectoryPicker)
 - [Directory input and relative paths](https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElement/webkitdirectory)
 - [Read permission querying](https://developer.mozilla.org/en-US/docs/Web/API/FileSystemHandle/queryPermission)
+
+> **File name** `browser-capabilities.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\browser-capabilities.md`<br>
+> **Path relative to the MarkVibe application root** `docs/browser-capabilities.md`

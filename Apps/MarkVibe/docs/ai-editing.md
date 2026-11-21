@@ -1,3 +1,7 @@
+> **File name** `ai-editing.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\ai-editing.md`<br>
+> **Path relative to the MarkVibe application root** `docs/ai-editing.md`
+
 <!-- VBWR B
 
   Project: MarkVibe
@@ -66,6 +70,31 @@ mixed line endings. Generated diagram/image text is not a Markdown source range.
 
 ## One request, one replacement
 
+```mermaid
+sequenceDiagram
+    accTitle: AI editing request and revision guard
+    accDescr: The assistant sends the captured target and explicit references. A valid edit updates only the original managed target if it is still current.
+    actor User
+    participant Panel as Assistant
+    participant Model as Workspace model
+    participant Provider as Selected provider
+
+    User->>Panel: Send an editing instruction
+    Panel->>Model: Capture document or selection and current revision
+    Model-->>Panel: Return target source and selected read-only references
+    Panel->>Provider: Submit instruction, target and bounded references
+    Provider-->>Panel: Return structured edit or review
+    alt Valid edit and captured revision is current
+        Panel->>Model: Replace captured range or document
+        Model-->>Panel: Publish the new managed draft
+    else Review
+        Panel-->>User: Display read-only feedback
+    else Cancelled, invalid or obsolete
+        Panel-->>User: Show the outcome
+        Note over Model: The source revision stays intact
+    end
+```
+
 Each send contains two fixed system messages, explicitly selected read-only
 references, the current document/selection, and the current editing instruction.
 The application message identifies MarkVibe,
@@ -101,6 +130,8 @@ Cancellation or the request deadline terminates its process tree. The CLI is a
 separate local program, not an OS-isolated text API; do not interpret read-only
 sandbox mode as a blanket restriction on filesystem reads.
 
+### Browser assistant controls
+
 An elevated popup covers the document during token preflight and generation,
 with a theme-aware dimmed backdrop, 16 px backdrop blur, progress and Stop.
 The composer, model flyout, usage expander, review and waiting surface are OpenSilver
@@ -122,6 +153,8 @@ keyboard guidance, reference rules and detailed usage through native tooltips;
 they can also be opened by keyboard or click. Incomplete context and exceeded
 input limits remain visible warnings. Responses scroll above the fixed composer;
 unchanged reference rows are reused while typing and refreshing usage.
+### Deadline and cancellation
+
 The entire network operation has a **60-second deadline**, not a fresh minute
 for each HTTP call. Cancellation propagates into browser/native HTTPS. A late reply
 is discarded before the source commit. No automatic retry repeats billed generation.
@@ -189,3 +222,7 @@ discards local Markdown edits after confirmation. Closing or replacing a workspa
 protects unsaved drafts and requests. Draft sessions are limited to sixteen pages;
 restored or explicitly saved sessions can expire without discarding unsaved source.
 Original files and annotation sidecars are not silently rewritten by an AI reply.
+
+> **File name** `ai-editing.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\ai-editing.md`<br>
+> **Path relative to the MarkVibe application root** `docs/ai-editing.md`

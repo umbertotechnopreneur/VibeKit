@@ -92,7 +92,7 @@
       <range min="256" max="512" />
     </key>
     <key name="max-waves" type="i">
-      <default>1</default>
+      <default>2</default>
       <range min="1" max="2" />
     </key>
     <key name="panic-enabled" type="b">

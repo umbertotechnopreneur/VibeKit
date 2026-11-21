@@ -83,10 +83,12 @@ for the current user with DPAPI; they are not portable plaintext files.
 
 The build uses locked dependencies and a fresh publish folder. Choose a new or
 empty `-OutputDirectory` for another build; existing files are never mixed into
-the release. `-Package` produces `artifacts/StudioControls-0.3.1-windows-x64.msi`.
+the release. `-Package` produces `artifacts/StudioControls-0.3.3-windows-x64.msi`.
 Run the MSI, then open Studio Controls from Start. The installer includes the
 .NET and WinUI runtimes, generic assets, the sanitized scene template and licences.
-No Python installation is required on Windows.
+No Python installation is required on Windows. The language flags are bundled
+from [flag-icons 7.5.0](https://github.com/lipis/flag-icons/releases/tag/v7.5.0)
+under the MIT license in the Windows Flags directory.
 
 The package command stages an unsigned per-user MSI with WiX 5.0.2 and Python 3.
 The installer adds a Start menu shortcut and supports major upgrades. Preferences

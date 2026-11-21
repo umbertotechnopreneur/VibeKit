@@ -20,40 +20,29 @@ public partial class DocumentMapView
 {
     private readonly Dictionary<string, bool> _linkSectionExpansion = new(StringComparer.Ordinal);
 
-    /// <summary>Groups unique targets in an initially collapsed section and remembers expansion during inspector refreshes.</summary>
-    private void AddLinks(string title, string direction, IEnumerable<(string Path, string Anchor, string Title)> links)
+    /// <summary>Shows the catalog count and creates navigation controls on first expansion of this snapshot.</summary>
+    private void AddLinks(string title, string direction, int visibleCount, int totalCount,
+        IEnumerable<(string Path, string Anchor, string Title)> links)
     {
-        var targets = links.DistinctBy(link => (link.Path, link.Anchor)).ToArray();
-        var rows = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
-
-        if (targets.Length == 0)
-        {
-            var empty = new TextBlock
-            {
-                FontSize = 11,
-                Foreground = LinkMutedBrush(),
-                Margin = new Thickness(4, 4, 4, 6)
-            };
-            AppLocalization.SetText(empty, "No links yet");
-            rows.Children.Add(empty);
-        }
-        foreach (var link in targets)
-        {
-            rows.Children.Add(CreateLinkRow(link.Path, link.Anchor, link.Title));
-        }
-
         var section = new Expander
         {
             Style = (Style)Application.Current.Resources["MinimalExpander"],
             Foreground = (Brush)Resources["MapChromeText"],
-            Header = CreateLinkHeading(title, direction, targets.Length),
-            Content = rows,
-            IsExpanded = _linkSectionExpansion.TryGetValue(title, out var expanded) && expanded,
+            Header = CreateLinkHeading(title, direction, visibleCount, totalCount),
             HorizontalContentAlignment = HorizontalAlignment.Stretch
         };
         AutomationProperties.SetName(section, UiStrings.T(title));
-        section.Expanded += (_, _) => _linkSectionExpansion[title] = true;
+        section.Expanded += (_, _) =>
+        {
+            _linkSectionExpansion[title] = true;
+            section.Content ??= CreateLinkRows(links);
+        };
         section.Collapsed += (_, _) => _linkSectionExpansion[title] = false;
+        if (_linkSectionExpansion.TryGetValue(title, out var expanded) && expanded)
+        {
+            section.Content = CreateLinkRows(links);
+            section.IsExpanded = true;
+        }
 
         Links.Children.Add(new Border
         {
@@ -67,8 +56,30 @@ public partial class DocumentMapView
         });
     }
 
-    /// <summary>Builds a directional section heading with its localized label and distinct-target count.</summary>
-    private Grid CreateLinkHeading(string title, string direction, int targetCount)
+    /// <summary>Builds the bounded set of rows for a visible section, preserving the catalog's target order.</summary>
+    private StackPanel CreateLinkRows(IEnumerable<(string Path, string Anchor, string Title)> links)
+    {
+        var rows = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
+        foreach (var link in links)
+        {
+            rows.Children.Add(CreateLinkRow(link.Path, link.Anchor, link.Title));
+        }
+        if (rows.Children.Count == 0)
+        {
+            var empty = new TextBlock
+            {
+                FontSize = 11,
+                Foreground = LinkMutedBrush(),
+                Margin = new Thickness(4, 4, 4, 6)
+            };
+            AppLocalization.SetText(empty, "No links yet");
+            rows.Children.Add(empty);
+        }
+        return rows;
+    }
+
+    /// <summary>Displays the known distinct-target total, identifying the visible subset when the inspector is bounded.</summary>
+    private Grid CreateLinkHeading(string title, string direction, int visibleCount, int totalCount)
     {
         var heading = new Grid { Margin = new Thickness(4, 2, 4, 2) };
         heading.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
@@ -103,7 +114,14 @@ public partial class DocumentMapView
             Margin = new Thickness(8, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center
         };
-        AppLocalization.SetRaw(count, targetCount.ToString(CultureInfo.CurrentCulture));
+        if (visibleCount < totalCount)
+        {
+            AppLocalization.SetText(count, "{0} of {1}", visibleCount, totalCount);
+        }
+        else
+        {
+            AppLocalization.SetRaw(count, totalCount.ToString(CultureInfo.CurrentCulture));
+        }
         Grid.SetColumn(count, 2);
         heading.Children.Add(count);
         return heading;
@@ -154,9 +172,9 @@ public partial class DocumentMapView
         };
         button.Click += async (_, _) => await RunActionAsync(async () =>
         {
-            if (_workspaceId == workspaceId && NavigateRequested != null)
+            if (_workspaceId == workspaceId)
             {
-                await NavigateRequested(path, anchor);
+                await NavigateFromInspectorAsync(workspaceId, path, anchor);
             }
         });
         return button;

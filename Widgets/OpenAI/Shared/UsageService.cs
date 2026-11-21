@@ -42,6 +42,7 @@ public sealed class UsageService(Storage storage)
             Connected = true, UpdatedAt = now, Status = "Live · Codex account", Plan = usage.Plan,
             Windows = usage.Windows, SelectedWindow = selected?.Key,
             CreditsLabel = usage.UnlimitedCredits ? "Unlimited" : usage.Credits?.ToString("N0", CultureInfo.InvariantCulture) ?? "Unavailable",
+            CreditsBalance = usage.UnlimitedCredits ? null : usage.Credits,
             TokenDays = usage.Tokens.Where(d => string.CompareOrdinal(d.Date, tokenToday.AddDays(-14).ToString("yyyy-MM-dd")) >= 0 && string.CompareOrdinal(d.Date, tokenToday.ToString("yyyy-MM-dd")) < 0).ToList(),
             TokenEndDate = tokenToday.AddDays(-1).ToString("yyyy-MM-dd"),
             AccessNote = usage.SpendBlocked ? "Account spending control reached." : usage.OrdinaryUsageAllowed == false ? "Included usage is currently blocked by the service." : ""
@@ -58,8 +59,21 @@ public sealed class UsageService(Storage storage)
             }).ToArray();
         }
         string? limitPrefix = selected?.Key.Split(':')[0];
-        state.ResetDisplays = usage.Windows
-            .Where(w => w.ResetsAt.HasValue && limitPrefix is not null && w.Key.StartsWith(limitPrefix + ":", StringComparison.Ordinal))
+        var matchingWindows = usage.Windows
+            .Where(w => limitPrefix is not null && w.Key.StartsWith(limitPrefix + ":", StringComparison.Ordinal)).ToArray();
+        AllowanceDisplay? BuildAllowance(int minutes)
+        {
+            var window = matchingWindows.FirstOrDefault(w => w.Minutes == minutes);
+            if (window is null) return null;
+            string? compact = window.ResetsAt is { } end
+                ? TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeSeconds(end), zone).ToString("dd/MM HH:mm", CultureInfo.InvariantCulture)
+                : null;
+            return new(100 - window.Used, window.ResetsAt, compact);
+        }
+        state.FiveHourAllowance = BuildAllowance(300);
+        state.WeeklyAllowance = BuildAllowance(10080);
+        state.ResetDisplays = matchingWindows
+            .Where(w => w.ResetsAt.HasValue)
             .OrderBy(w => w.ResetsAt).ThenBy(w => w.Minutes)
             .Select((w, index) =>
             {
@@ -91,13 +105,19 @@ public sealed class UsageService(Storage storage)
             state.Remaining = 100 - window.Used;
             state.ResetsAt = window.ResetsAt;
             if (window.ResetsAt is { } reset)
-                state.ResetLabel = TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeSeconds(reset), zone).ToString("ddd dd MMM yyyy · HH:mm:ss zzz", CultureInfo.InvariantCulture) + " · " + zone.Id;
+            {
+                var local = TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeSeconds(reset), zone);
+                state.ResetLabel = local.ToString("ddd dd MMM yyyy · HH:mm:ss zzz", CultureInfo.InvariantCulture) + " · " + zone.Id;
+                state.SelectedResetCompact = local.ToString("dd/MM HH:mm", CultureInfo.InvariantCulture);
+                state.ResetCalendarDate = local.ToString("dddd dd MMMM yyyy", CultureInfo.InvariantCulture).ToUpperInvariant();
+            }
             state.QuotaDays = Analytics.DailyQuota(history, today, zone, usage.Plan);
             var forecast = Analytics.Predict(state.Remaining.Value, state.QuotaDays, window.ResetsAt, now);
             if (forecast.Average is null && state.Remaining > 0 && (window.ResetsAt is null || window.ResetsAt > now.ToUnixTimeSeconds()))
                 forecast = Analytics.PredictObserved(state.Remaining.Value, history, usage.Plan, window.ResetsAt, now);
             state.ForecastAvailable = forecast.DaysLeft.HasValue;
             state.ForecastCompact = forecast.DaysLeft is { } duration ? Analytics.CompactDuration(duration) : "ⓘ";
+            state.ResetForecast = Analytics.CompareForecastWithReset(state.Remaining.Value, forecast, window.ResetsAt, now);
             state.AverageLabel = forecast.Average is { } average ? $"{average:0.##} pp / day" : "Collecting quota history";
             state.ForecastLabel = forecast.Headline;
             state.ForecastDetail = state.Status.Contains("Local history unavailable") ? "Local quota history is unavailable. Check access to the application data folder." : forecast.Detail;

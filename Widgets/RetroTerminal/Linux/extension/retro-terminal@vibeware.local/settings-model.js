@@ -43,47 +43,144 @@ function displayLook(id, name, overrides) {
     }};
 }
 
-// Monitor-inspired looks use stronger optics and more of the processed signal.
+// Keep the raster gentle and give each look a small amount of static grain.
 export const BUILTINS = [
+    // Existing monitor presets.
     displayLook('commodore-1702-composite', 'Commodore 1702 Composite', {
-        intensity: 0.75, scanlines: 0.42, 'scanline-spacing': 5, 'scanline-width': 1.5, glow: 0.18,
-        'glow-radius': 2, vignette: 0.38, mask: PhosphorMask.DOTS, 'mask-strength': 0.18, contrast: 1.07}),
+        intensity: 0.4, scanlines: 0.105, 'scanline-spacing': 5, 'scanline-width': 1.25, glow: 0.08,
+        'glow-radius': 1.75, vignette: 0.06, grain: 0.06, mask: PhosphorMask.DOTS, 'mask-strength': 0.065}),
     displayLook('commodore-1902-rgbi', 'Commodore 1902 RGBI', {
-        intensity: 0.7, scanlines: 0.25, 'scanline-spacing': 3, 'scanline-width': 0.75, vignette: 0.06,
-        mask: PhosphorMask.DOTS, 'mask-strength': 0.23, 'black-level': -0.025, contrast: 1.22}),
+        intensity: 0.36, scanlines: 0.085, 'scanline-spacing': 3, 'scanline-width': 0.75, grain: 0.045,
+        mask: PhosphorMask.DOTS, 'mask-strength': 0.075, contrast: 1.035}),
     displayLook('commodore-pet-green', 'Commodore PET Green', {
-        intensity: 0.66, scanlines: 0.31, 'scanline-spacing': 4, 'scanline-width': 1.25, preset: Palette.GREEN,
-        glow: 0.15, 'glow-radius': 1.75, vignette: 0.27, contrast: 1.16}),
+        preset: Palette.GREEN, intensity: 0.31, scanlines: 0.09, 'scanline-spacing': 4, 'scanline-width': 1,
+        glow: 0.08, 'glow-radius': 1.25, vignette: 0.055, grain: 0.06}),
     displayLook('amiga-1084s-rgb', 'Amiga 1084S RGB', {
-        intensity: 0.74, scanlines: 0.4, 'scanline-spacing': 4, 'scanline-width': 1.25, glow: 0.1,
-        'glow-radius': 1.5, vignette: 0.15, mask: PhosphorMask.DOTS, 'mask-strength': 0.24, contrast: 1.18}),
+        intensity: 0.39, scanlines: 0.095, 'scanline-spacing': 4, 'scanline-width': 1, glow: 0.05,
+        'glow-radius': 1.25, grain: 0.05, mask: PhosphorMask.DOTS, 'mask-strength': 0.08, contrast: 1.025}),
     displayLook('amiga-workbench-blue', 'Amiga Workbench Blue', {
-        intensity: 0.58, scanlines: 0.23, 'scanline-spacing': 3, 'scanline-width': 1, 'custom-color': true,
-        'phosphor-color': '#889dff', glow: 0.07, 'glow-radius': 1.25, vignette: 0.08, 'black-level': 0.025,
-        contrast: 1.06}),
+        'custom-color': true, 'phosphor-color': '#a4b5ff', intensity: 0.39, scanlines: 0.075,
+        'scanline-spacing': 3, 'scanline-width': 1, glow: 0.05, grain: 0.05, 'black-level': 0.01}),
     displayLook('amiga-500-pal', 'Amiga 500 PAL', {
-        intensity: 0.7, scanlines: 0.43, 'scanline-spacing': 6, 'scanline-width': 1.75, glow: 0.25,
-        'glow-radius': 2.5, vignette: 0.26, grain: 0.018, 'black-level': 0.015, contrast: 0.96}),
+        intensity: 0.41, scanlines: 0.11, 'scanline-spacing': 5, 'scanline-width': 1.25, glow: 0.08,
+        'glow-radius': 1.75, vignette: 0.045, grain: 0.075, contrast: 0.985}),
     displayLook('tv-composite-pal', 'TV Composite PAL', {
-        intensity: 0.82, scanlines: 0.47, 'scanline-spacing': 6, 'scanline-width': 2, glow: 0.28,
-        'glow-radius': 2.75, vignette: 0.48, grain: 0.03, mask: PhosphorMask.DOTS, 'mask-strength': 0.19,
-        'black-level': -0.025, contrast: 1.09}),
+        intensity: 0.44, scanlines: 0.105, 'scanline-spacing': 5, 'scanline-width': 1.25, glow: 0.095,
+        'glow-radius': 1.75, vignette: 0.08, grain: 0.085, mask: PhosphorMask.DOTS, 'mask-strength': 0.045,
+        'black-level': 0.01}),
     displayLook('tv-black-and-white', 'TV Black and White', {
-        intensity: 0.82, scanlines: 0.27, 'scanline-spacing': 4, 'scanline-width': 1.25, 'custom-color': true,
-        'phosphor-color': '#e5edf7', glow: 0.16, 'glow-radius': 2, vignette: 0.42, grain: 0.019,
-        contrast: 1.24}),
+        'custom-color': true, 'phosphor-color': '#edf2f7', intensity: 0.46, scanlines: 0.09,
+        'scanline-spacing': 4, 'scanline-width': 1, glow: 0.075, 'glow-radius': 1.5, vignette: 0.075,
+        grain: 0.075, contrast: 1.03}),
     displayLook('tv-rf-soft-focus', 'TV RF Soft Focus', {
-        intensity: 0.76, scanlines: 0.32, 'scanline-spacing': 5, 'scanline-width': 1.25, glow: 0.35,
-        'glow-radius': 3.25, vignette: 0.58, grain: 0.065, 'black-level': 0.035, contrast: 0.84}),
+        intensity: 0.43, scanlines: 0.085, 'scanline-spacing': 5, 'scanline-width': 1.25, glow: 0.13,
+        'glow-radius': 2.5, vignette: 0.1, grain: 0.1, 'black-level': 0.012, contrast: 0.97}),
     displayLook('trinitron-aperture-grille', 'Trinitron Aperture Grille', {
-        intensity: 0.8, scanlines: 0.33, 'scanline-spacing': 4, 'scanline-width': 1.25, vignette: 0.1,
-        mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.4, contrast: 1.12}),
+        intensity: 0.42, scanlines: 0.08, 'scanline-spacing': 4, 'scanline-width': 1, vignette: 0.025,
+        grain: 0.055, mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.095}),
     displayLook('trinitron-fine-pitch', 'Trinitron Fine Pitch', {
-        intensity: 0.67, scanlines: 0.18, 'scanline-spacing': 2, 'scanline-width': 0.75, vignette: 0.03,
-        mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.29, 'black-level': -0.01, contrast: 1.1}),
+        intensity: 0.37, scanlines: 0.075, 'scanline-spacing': 2, 'scanline-width': 0.75, grain: 0.05,
+        mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.08}),
     displayLook('trinitron-broadcast-rgb', 'Trinitron Broadcast RGB', {
-        intensity: 0.74, scanlines: 0.5, 'scanline-spacing': 5, 'scanline-width': 1.75, vignette: 0.07,
-        mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.31, 'black-level': -0.035, contrast: 1.24}),
+        intensity: 0.43, scanlines: 0.09, 'scanline-spacing': 5, 'scanline-width': 1, grain: 0.055,
+        mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.085, contrast: 1.025}),
+
+    // More Commodore and Amiga monitors.
+    displayLook('commodore-64-luma', 'Commodore 64 Luma', {
+        intensity: 0.38, scanlines: 0.12, 'scanline-spacing': 4, 'scanline-width': 1, glow: 0.095,
+        'glow-radius': 1.5, vignette: 0.045, grain: 0.075, mask: PhosphorMask.DOTS, 'mask-strength': 0.05,
+        contrast: 0.98}),
+    displayLook('commodore-128-text', 'Commodore 128 Text', {
+        intensity: 0.34, scanlines: 0.09, 'scanline-spacing': 3, 'scanline-width': 0.75, grain: 0.055,
+        mask: PhosphorMask.DOTS, 'mask-strength': 0.06, contrast: 1.04}),
+    displayLook('commodore-1084-composite', 'Commodore 1084 Composite', {
+        intensity: 0.42, scanlines: 0.105, 'scanline-spacing': 4, 'scanline-width': 1, glow: 0.1,
+        'glow-radius': 2, vignette: 0.045, grain: 0.07, mask: PhosphorMask.DOTS, 'mask-strength': 0.07}),
+    displayLook('commodore-amber-phosphor', 'Commodore Amber Phosphor', {
+        preset: Palette.AMBER, intensity: 0.32, scanlines: 0.085, 'scanline-spacing': 4, 'scanline-width': 1,
+        glow: 0.075, 'glow-radius': 1.5, vignette: 0.045, grain: 0.065}),
+    displayLook('amiga-workbench-grey', 'Amiga Workbench Grey', {
+        'custom-color': true, 'phosphor-color': '#dddfe3', intensity: 0.37, scanlines: 0.065,
+        'scanline-spacing': 3, 'scanline-width': 0.75, grain: 0.045}),
+    displayLook('amiga-1200-rgb', 'Amiga 1200 RGB', {
+        intensity: 0.38, scanlines: 0.085, 'scanline-spacing': 3, 'scanline-width': 0.75, glow: 0.045,
+        'glow-radius': 1.25, grain: 0.05, mask: PhosphorMask.DOTS, 'mask-strength': 0.09}),
+    displayLook('amiga-500-ntsc', 'Amiga 500 NTSC', {
+        intensity: 0.41, scanlines: 0.095, 'scanline-spacing': 4, 'scanline-width': 1, glow: 0.075,
+        'glow-radius': 1.5, vignette: 0.04, grain: 0.085, contrast: 0.99}),
+    displayLook('amiga-genlock', 'Amiga Genlock', {
+        intensity: 0.4, scanlines: 0.07, 'scanline-spacing': 5, 'scanline-width': 1, glow: 0.065,
+        'glow-radius': 1.75, vignette: 0.03, grain: 0.075, 'black-level': 0.008, contrast: 1.015}),
+
+    // More TV and Trinitron displays.
+    displayLook('tv-composite-ntsc', 'TV Composite NTSC', {
+        intensity: 0.43, scanlines: 0.105, 'scanline-spacing': 4, 'scanline-width': 1, glow: 0.085,
+        'glow-radius': 1.75, vignette: 0.07, grain: 0.09, mask: PhosphorMask.DOTS, 'mask-strength': 0.06,
+        'black-level': 0.008}),
+    displayLook('tv-s-video', 'TV S-Video', {
+        intensity: 0.37, scanlines: 0.09, 'scanline-spacing': 4, 'scanline-width': 1, glow: 0.055,
+        'glow-radius': 1.25, vignette: 0.035, grain: 0.065, mask: PhosphorMask.DOTS, 'mask-strength': 0.065}),
+    displayLook('tv-portable-mono', 'TV Portable Mono', {
+        'custom-color': true, 'phosphor-color': '#dce7e4', intensity: 0.46, scanlines: 0.1,
+        'scanline-spacing': 5, 'scanline-width': 1.25, glow: 0.09, 'glow-radius': 1.75, vignette: 0.085,
+        grain: 0.09, 'black-level': 0.01}),
+    displayLook('tv-studio-monitor', 'TV Studio Monitor', {
+        intensity: 0.41, scanlines: 0.075, 'scanline-spacing': 4, 'scanline-width': 1, glow: 0.045,
+        grain: 0.06, mask: PhosphorMask.DOTS, 'mask-strength': 0.07, contrast: 1.02}),
+    displayLook('trinitron-desktop-vga', 'Trinitron Desktop VGA', {
+        intensity: 0.36, scanlines: 0.07, 'scanline-spacing': 3, 'scanline-width': 0.75, grain: 0.05,
+        mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.11, contrast: 1.02}),
+    displayLook('trinitron-studio-pal', 'Trinitron Studio PAL', {
+        intensity: 0.43, scanlines: 0.095, 'scanline-spacing': 5, 'scanline-width': 1.25, glow: 0.065,
+        'glow-radius': 1.5, grain: 0.075, mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.075}),
+    displayLook('trinitron-consumer-rgb', 'Trinitron Consumer RGB', {
+        intensity: 0.4, scanlines: 0.095, 'scanline-spacing': 4, 'scanline-width': 1, glow: 0.075,
+        'glow-radius': 1.5, vignette: 0.055, grain: 0.065, mask: PhosphorMask.RGB_STRIPES,
+        'mask-strength': 0.085}),
+    displayLook('trinitron-soft-grille', 'Trinitron Soft Grille', {
+        intensity: 0.38, scanlines: 0.065, 'scanline-spacing': 5, 'scanline-width': 1.25, glow: 0.09,
+        'glow-radius': 1.75, grain: 0.07, mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.07,
+        contrast: 0.985}),
+
+    // Terminal phosphors.
+    displayLook('terminal-ibm-green', 'Terminal IBM Green', {
+        preset: Palette.GREEN, intensity: 0.34, scanlines: 0.105, 'scanline-spacing': 4, 'scanline-width': 1,
+        glow: 0.07, 'glow-radius': 1.5, grain: 0.065, contrast: 1.02}),
+    displayLook('terminal-amber-glow', 'Terminal Amber Glow', {
+        preset: Palette.AMBER, intensity: 0.35, scanlines: 0.085, 'scanline-spacing': 5, 'scanline-width': 1,
+        glow: 0.115, 'glow-radius': 1.75, vignette: 0.06, grain: 0.065}),
+    displayLook('terminal-ice-blue', 'Terminal Ice Blue', {
+        'custom-color': true, 'phosphor-color': '#accfff', intensity: 0.4, scanlines: 0.075,
+        'scanline-spacing': 4, 'scanline-width': 1, glow: 0.055, 'glow-radius': 1.25, grain: 0.05}),
+    displayLook('terminal-paper-white', 'Terminal Paper White', {
+        'custom-color': true, 'phosphor-color': '#f5ead6', intensity: 0.43, scanlines: 0.065,
+        'scanline-spacing': 3, 'scanline-width': 0.75, grain: 0.055, contrast: 1.025}),
+    displayLook('terminal-mint-phosphor', 'Terminal Mint Phosphor', {
+        'custom-color': true, 'phosphor-color': '#a9ffcc', intensity: 0.41, scanlines: 0.08,
+        'scanline-spacing': 4, 'scanline-width': 1, glow: 0.08, 'glow-radius': 1.5, grain: 0.06}),
+    displayLook('terminal-violet-phosphor', 'Terminal Violet Phosphor', {
+        'custom-color': true, 'phosphor-color': '#d5bbff', intensity: 0.42, scanlines: 0.085,
+        'scanline-spacing': 5, 'scanline-width': 1, glow: 0.075, 'glow-radius': 1.5, grain: 0.065}),
+
+    // Arcade and video signals.
+    displayLook('arcade-shadow-mask', 'Arcade Shadow Mask', {
+        intensity: 0.44, scanlines: 0.095, 'scanline-spacing': 4, 'scanline-width': 1, glow: 0.08,
+        'glow-radius': 1.5, vignette: 0.06, grain: 0.06, mask: PhosphorMask.DOTS, 'mask-strength': 0.11}),
+    displayLook('arcade-rgb-cabinet', 'Arcade RGB Cabinet', {
+        intensity: 0.42, scanlines: 0.09, 'scanline-spacing': 5, 'scanline-width': 1, glow: 0.08,
+        'glow-radius': 1.5, vignette: 0.07, grain: 0.065, mask: PhosphorMask.RGB_STRIPES, 'mask-strength': 0.08}),
+    displayLook('arcade-fine-raster', 'Arcade Fine Raster', {
+        intensity: 0.34, scanlines: 0.075, 'scanline-spacing': 3, 'scanline-width': 0.75, glow: 0.055,
+        grain: 0.045, mask: PhosphorMask.DOTS, 'mask-strength': 0.065}),
+    displayLook('arcade-warm-glass', 'Arcade Warm Glass', {
+        'custom-color': true, 'phosphor-color': '#ffe1b8', intensity: 0.36, scanlines: 0.085,
+        'scanline-spacing': 4, 'scanline-width': 1, glow: 0.105, 'glow-radius': 1.75, vignette: 0.07,
+        grain: 0.07, contrast: 0.985}),
+    displayLook('vhs-soft-signal', 'VHS Soft Signal', {
+        intensity: 0.45, scanlines: 0.07, 'scanline-spacing': 6, 'scanline-width': 1.25, glow: 0.12,
+        'glow-radius': 2, vignette: 0.055, grain: 0.1, 'black-level': 0.012, contrast: 0.965}),
+    displayLook('crt-clean-signal', 'CRT Clean Signal', {
+        intensity: 0.33, scanlines: 0.065, 'scanline-spacing': 4, 'scanline-width': 0.75, grain: 0.055}),
 ];
 
 export function validateValues(values) {

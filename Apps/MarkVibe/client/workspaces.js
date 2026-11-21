@@ -375,7 +375,11 @@ class NativeWorkspace extends Workspace {
   /** Retain the identity and capabilities supplied by the Windows native workspace service. */
   constructor(info) {
     super(info.name, "native", info.id);
-    this.nativeInfo = info;
+    const { initialDocument, ...description } = info;
+    this.nativeInfo = { ...description, initialDocumentPath: initialDocument?.path ?? null };
+    if (initialDocument) {
+      this.add(initialDocument.path, { size: initialDocument.bytes });
+    }
   }
   /** Return the native workspace's existing capability description. */
   info() {
@@ -384,7 +388,9 @@ class NativeWorkspace extends Workspace {
   /** Refresh native workspace entries through the authenticated desktop bridge. */
   async scan(signal) {
     const entries = await nativeCall("workspace.entries", { workspaceId: this.id }, signal);
+    checkCancelled(signal);
     this.entries = new Map(entries.map(entry => [entry.path, { size: entry.bytes }]));
+    this.nativeInfo = { ...this.nativeInfo, initialDocumentPath: null };
   }
   /** Read bounded native bytes through the desktop bridge and wrap them as a browser resource. */
   async blob(path, maximum, signal) {
@@ -410,24 +416,34 @@ class NativeWorkspace extends Workspace {
   }
 }
 
+/** Retain a workspace whose folder and navigation are already owned by the native host. */
+export function registerNativeWorkspace(info) {
+  return retainNativeWorkspace(new NativeWorkspace(info));
+}
+
+/** Replace the adapter and revoke any image URLs associated with its previous instance. */
+function retainNativeWorkspace(workspace) {
+  releaseWorkspace(workspace.id);
+  workspaces.set(workspace.id, workspace);
+  return workspace.info();
+}
+
 /** Opens the requested provider and derives imported identity independently of map and note sidecars. */
 export async function openWorkspace(
-  mode, signal, recentPath = "", recentKind = "", workspaceId = ""
+  mode, signal, recentPath = "", recentKind = "", workspaceId = "", priorityDocumentPath = ""
 ) {
   checkCancelled(signal);
   if (isDesktop() &&
       ["files", "folder", "connected", "reopen", "resume", "startup", "recent", "parent"].includes(mode)) {
     const info = await nativeCall("workspace.open", {
-      mode: mode === "startup" ? "files" : mode, recentPath, recentKind, workspaceId
+      mode: mode === "startup" ? "files" : mode, recentPath, recentKind, workspaceId, priorityDocumentPath
     }, signal);
     const workspace = new NativeWorkspace(info);
-    await workspace.scan(signal);
-    const old = workspaces.get(workspace.id);
-    if (old) {
-      releaseWorkspace(old.id);
+    // A verified file can be read immediately; the managed catalog requests the full scan after displaying it.
+    if (!workspace.info().initialDocumentPath) {
+      await workspace.scan(signal);
     }
-    workspaces.set(workspace.id, workspace);
-    return workspace.info();
+    return retainNativeWorkspace(workspace);
   }
   if (mode === "folder") {
     mode = capabilities().connected ? "connected" : "imported";

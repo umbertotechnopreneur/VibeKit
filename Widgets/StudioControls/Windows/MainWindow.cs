@@ -2,7 +2,10 @@ using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Markup;
 using System.Text.Json;
 using VibeKit.StudioControls.Core;
 using global::Windows.UI.ViewManagement;
@@ -13,7 +16,7 @@ namespace VibeKit.StudioControls.Windows;
 public sealed partial class MainWindow : Window
 {
     private readonly NativeLocalization localization = new();
-    private readonly ComboBox languageSelector = new() { Header = "Language", Width = 160, DisplayMemberPath = "Label" };
+    private readonly ComboBox languageSelector = new() { Header = "Language", Width = 168 };
     private readonly Grid root = new() { Padding = new(18), RowSpacing = 14 };
     private readonly CancellationTokenSource lifetime = new();
     private readonly SemaphoreSlim obsGate = new(1, 1);
@@ -41,7 +44,7 @@ public sealed partial class MainWindow : Window
     private readonly TextBlock notice = Text("");
     private readonly TextBlock cameraNotice = Text("Choose a camera to open its native controls. No preview is captured.");
     private readonly TextBlock projectNotice = Text("");
-    private readonly ComboBox theme = new() { Width = 120 };
+    private readonly Dictionary<string, ToggleButton> themeButtons = new(StringComparer.Ordinal);
     private readonly ComboBox cameras = new() { DisplayMemberPath = "Name", MinWidth = 220, HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TextBox host = new() { Header = "OBS host", PlaceholderText = "127.0.0.1" };
     private readonly NumberBox port = new() { Header = "WebSocket port", Minimum = 1, Maximum = 65535, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
@@ -70,11 +73,9 @@ public sealed partial class MainWindow : Window
         AppWindow.Resize(new(1120, 940));
         Content = root;
         root.RowDefinitions.Add(new() { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new() { Height = GridLength.Auto });
         root.RowDefinitions.Add(new() { Height = new(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new() { Height = GridLength.Auto });
         BuildHeader();
-        BuildConnection();
         BuildTabs();
         BuildTransport();
         host.Text = settings.Host;
@@ -82,25 +83,27 @@ public sealed partial class MainWindow : Window
         try { password.Password = LocalSettings.ReadPassword(settings); }
         catch (Exception error) when (error is System.Security.Cryptography.CryptographicException or FormatException)
         { Diagnostics.Record("credentials.read", error); notice.Text = "Re-enter the OBS password. It is protected for the Windows user who saved it."; }
-        foreach (string name in new[] { "Light", "Dark", "System" })
-            theme.Items.Add(new ComboBoxItem { Tag = name, Content = name });
-        SelectTheme(settings.Theme);
-        theme.SelectionChanged += (_, _) =>
-        {
-            if (theme.SelectedItem is ComboBoxItem item) { settings.Theme = (string)item.Tag; ApplyTheme(); SavePreferences(); }
-        };
-        languageSelector.ItemsSource = StudioTranslations.Languages;
-        languageSelector.SelectedItem = StudioTranslations.Languages.First(item => item.Code == localization.Language);
+        SelectTheme(settings.Theme, persist: false);
+        languageSelector.ItemTemplate = (DataTemplate)XamlReader.Load("""
+            <DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Image Source="{Binding Flag}" Width="22" Height="16" Stretch="Uniform" />
+                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                </StackPanel>
+            </DataTemplate>
+            """);
+        var languages = StudioTranslations.Languages.Select(language => new WindowsLanguageChoice(language)).ToArray();
+        languageSelector.ItemsSource = languages;
+        languageSelector.SelectedItem = languages.First(item => item.Code == localization.Language);
         languageSelector.SelectionChanged += (_, _) =>
         {
-            if (languageSelector.SelectedItem is not UiLanguage selected) return;
+            if (languageSelector.SelectedItem is not WindowsLanguageChoice selected) return;
             settings.Language = selected.Code;
             root.Language = selected.Code;
             localization.Language = selected.Code;
             SavePreferences();
         };
         systemSettings.ColorValuesChanged += SystemThemeChanged;
-        ApplyTheme();
         if (settingsWarning is not null) notice.Text = settingsWarning;
         LoadProject();
         polling.Tick += async (_, _) => await PollAsync();
@@ -120,15 +123,30 @@ public sealed partial class MainWindow : Window
         Grid.SetColumn(languageSelector, 2);
         header.Children.Add(languageSelector);
         header.Children.Add(new TextBlock { Text = "Umberto’s Lab", FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.Bold });
-        theme.Header = "Appearance";
-        Grid.SetColumn(theme, 1);
-        header.Children.Add(theme);
+        var appearance = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4,
+            VerticalAlignment = VerticalAlignment.Bottom };
+        AutomationProperties.SetName(appearance, "Appearance");
+        foreach (var (name, glyph) in new[] { ("Light", "\uE706"), ("Dark", "\uE708"), ("System", "\uE7F4") })
+        {
+            var button = new ToggleButton
+            {
+                Width = 38,
+                Height = 32,
+                Content = new FontIcon { FontFamily = new FontFamily("Segoe Fluent Icons"), Glyph = glyph, FontSize = 16 },
+            };
+            AutomationProperties.SetName(button, name);
+            ToolTipService.SetToolTip(button, name);
+            button.Click += (_, _) => SelectTheme(name);
+            themeButtons.Add(name, button);
+            appearance.Children.Add(button);
+        }
+        Grid.SetColumn(appearance, 1);
+        header.Children.Add(appearance);
         root.Children.Add(header);
     }
 
-    private void BuildConnection()
+    private FrameworkElement BuildConnection()
     {
-        var expander = new Expander { Header = "OBS connection & setup", HorizontalAlignment = HorizontalAlignment.Stretch, IsExpanded = true };
         var content = Column();
         var fields = Columns(3);
         fields.Children.Add(host);
@@ -143,17 +161,18 @@ public sealed partial class MainWindow : Window
         actions.Children.Add(ActionButton("Export diagnostics…", ExportAsync));
         content.Children.Add(actions);
         content.Children.Add(Text("Enable Tools → WebSocket Server Settings in OBS. Passwords are protected with Windows DPAPI. Connecting never starts OBS or recording."));
-        expander.Content = content;
-        Grid.SetRow(expander, 1); root.Children.Add(expander);
+        return content;
     }
 
     private void BuildTabs()
     {
         var tabs = new TabView { IsAddTabButtonVisible = false, CanDragTabs = false, CanReorderTabs = false };
+        tabs.TabItems.Add(Tab("OBS connection & setup", BuildConnection()));
         tabs.TabItems.Add(Tab("Camera & recording", BuildCameraAndScenes()));
         tabs.TabItems.Add(Tab("Screen & vignettes", BuildEffects()));
         tabs.TabItems.Add(Tab("Project & cards", BuildProject()));
-        Grid.SetRow(tabs, 2); root.Children.Add(tabs);
+        tabs.SelectedIndex = 0;
+        Grid.SetRow(tabs, 1); root.Children.Add(tabs);
     }
 
     private void BuildTransport()
@@ -173,7 +192,7 @@ public sealed partial class MainWindow : Window
             audioButtons[input] = button; buttons.Children.Add(button);
         }
         transport.Children.Add(buttons);
-        Grid.SetRow(transport, 3); root.Children.Add(transport);
+        Grid.SetRow(transport, 2); root.Children.Add(transport);
     }
 
     private static TabViewItem Tab(string title, UIElement content) => new()
@@ -218,7 +237,13 @@ public sealed partial class MainWindow : Window
         return button;
     }
 
-    private void SelectTheme(string name) => theme.SelectedItem = theme.Items.OfType<ComboBoxItem>().First(item => (string)item.Tag == name);
+    private void SelectTheme(string name, bool persist = true)
+    {
+        foreach (var (option, button) in themeButtons) button.IsChecked = option == name;
+        settings.Theme = name;
+        ApplyTheme();
+        if (persist) SavePreferences();
+    }
 
     private void SavePreferences()
     {
@@ -286,7 +311,7 @@ public sealed partial class MainWindow : Window
                 if (languageIndex < StudioTranslations.Languages.Count)
                 {
                     var projectText = projectFields.ToDictionary(pair => pair.Key, pair => pair.Value.Text);
-                    languageSelector.SelectedItem = StudioTranslations.Languages[languageIndex];
+                    languageSelector.SelectedIndex = languageIndex;
                     string code = StudioTranslations.Languages[languageIndex].Code;
                     if (localization.Language != code || LocalSettings.Load(out _).Language != code ||
                         !Equals(record.Content, localization.Text("Start recording")) ||
@@ -302,5 +327,29 @@ public sealed partial class MainWindow : Window
             Close();
         };
         smokeTimer.Start();
+    }
+}
+
+[WinRT.GeneratedBindableCustomProperty]
+public sealed partial class WindowsLanguageChoice
+{
+    public string Code { get; }
+    public string Label { get; }
+    public SvgImageSource Flag { get; }
+
+    internal WindowsLanguageChoice(UiLanguage language)
+    {
+        Code = language.Code;
+        Label = language.Label;
+        string country = language.Code switch
+        {
+            "en" => "gb",
+            "vi" => "vn",
+            "ko" => "kr",
+            "zh" => "cn",
+            "ja" => "jp",
+            _ => language.Code,
+        };
+        Flag = new SvgImageSource(new Uri($"ms-appx:///Flags/{country}.svg"));
     }
 }

@@ -22,13 +22,13 @@ $msi = Join-Path $output "OpenAIUsage-$version-windows-x64-$run.msi"
 New-Item -ItemType Directory -Path $payload,$output -Force | Out-Null
 Push-Location $root
 try {
-    & dotnet restore Windows/OpenAIUsage.Windows.csproj -r win-x64 --packages $packages --source $packages -p:NuGetAudit=false -p:SelfContained=true
+    & dotnet restore Windows/OpenAIUsage.Windows.csproj -r win-x64 --packages $packages --source $packages -p:NuGetAudit=false -p:SelfContained=false
     if ($LASTEXITCODE -ne 0) { throw 'Offline restore failed.' }
-    & dotnet build Windows/OpenAIUsage.Windows.csproj -t:Rebuild -c Release -r win-x64 --self-contained true --no-restore
+    & dotnet build Windows/OpenAIUsage.Windows.csproj -t:Rebuild -c Release -r win-x64 --self-contained false --no-restore
     if ($LASTEXITCODE -ne 0) { throw 'Windows source build failed.' }
-    & dotnet publish Windows/OpenAIUsage.Windows.csproj -c Release -r win-x64 --self-contained true --no-build --no-restore -o $payload
+    & dotnet publish Windows/OpenAIUsage.Windows.csproj -c Release -r win-x64 --self-contained false --no-build --no-restore -o $payload
     if ($LASTEXITCODE -ne 0) { throw 'Windows publish failed.' }
-    foreach ($file in @('OpenAIUsage.Windows.exe','OpenAIUsage.Windows.pri','App.xbf','hostfxr.dll','coreclr.dll')) { if (-not (Test-Path -LiteralPath (Join-Path $payload $file))) { throw "Missing $file" } }
+    foreach ($file in @('OpenAIUsage.Windows.exe','OpenAIUsage.Windows.pri','App.xbf','OpenAIUsage.Windows.runtimeconfig.json')) { if (-not (Test-Path -LiteralPath (Join-Path $payload $file))) { throw "Missing $file" } }
     if ((Get-Item (Join-Path $payload 'OpenAIUsage.Windows.dll')).VersionInfo.FileVersion -ne "$version.0") { throw 'Published version mismatch.' }
     $notices = Join-Path $payload 'licenses'
     New-Item -ItemType Directory -Path $notices | Out-Null

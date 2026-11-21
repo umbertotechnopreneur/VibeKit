@@ -47,6 +47,29 @@ internal static class WidgetFooter
         return footer;
     }
 
+    internal static Button CreateCompact(string product, Action showAbout)
+    {
+        var menu = new MenuFlyout();
+        var about = new MenuFlyoutItem { Text = "About " + product };
+        about.Click += (_, _) => showAbout();
+        menu.Items.Add(about);
+        void AddLink(string title, string url)
+        {
+            var item = new MenuFlyoutItem { Text = title };
+            item.Click += async (_, _) => await Windows.System.Launcher.LaunchUriAsync(new Uri(url));
+            menu.Items.Add(item);
+        }
+        AddLink("VibeWare manifesto", Manifesto);
+        AddLink("Terms", Website + "/terms/");
+        AddLink("Privacy", Website + "/privacy/");
+        var button = new Button { Content = "VibeWare", Flyout = menu, FontSize = 12,
+            Padding = new Thickness(8, 4, 8, 4), MinWidth = 0,
+            Style = (Style)Application.Current.Resources["StudioBrandStyle"] };
+        AutomationProperties.SetName(button, "VibeWare · About and links");
+        AutomationProperties.SetAutomationId(button, "VibeWareMenu");
+        return button;
+    }
+
     private static HyperlinkButton TextLink(string text, string? url = null)
     {
         var link = new HyperlinkButton

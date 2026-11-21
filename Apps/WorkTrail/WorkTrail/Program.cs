@@ -99,9 +99,15 @@ public static class Program
             mainInstance.Activated += MainInstance_Activated;
         }
 
+        DispatcherQueue? dispatcher = null;
+        using var memoryWatchdog = new VibeWare.MemoryProtection.ProcessMemoryWatchdog(
+            "WorkTrail", Tools.Widgets.VibeWareDiagnostics.GetLogDirectory("WorkTrail"), 1_500_000_000,
+            () => Volatile.Read(ref dispatcher)?.TryEnqueue(() => _application?.RequestMemoryShutdown()),
+            showWindowsNotice: true);
         Microsoft.UI.Xaml.Application.Start(_ =>
         {
-            var context = new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread());
+            var queue = DispatcherQueue.GetForCurrentThread();
+            var context = new DispatcherQueueSynchronizationContext(queue);
             SynchronizationContext.SetSynchronizationContext(context);
             var application = new App();
             lock (ActivationGate)
@@ -113,6 +119,7 @@ public static class Program
                     application.HandleRedirectedActivation(activation);
                 }
             }
+            Volatile.Write(ref dispatcher, queue);
         });
     }
 

@@ -41,11 +41,11 @@ public sealed class TrayIcon : IDisposable
         data.Info=message.Length>250?message[..250]:message; data.InfoFlags=2;
         ShellNotifyIcon(1,ref data);
     }
-    public bool NotifyQuota(string message)
+    public bool NotifyQuota(string message, bool includesCredits = false)
     {
         if (disposed || !IsAvailable) return false;
-        var data=Data(); data.Flags=0x10; data.InfoTitle="OpenAI Usage · Allowance alert";
-        data.Info=message.Length>250?message[..250]:message; data.InfoFlags=1;
+        var data=Data(); data.Flags=0x10; data.InfoTitle = includesCredits ? "OpenAI Usage · Usage alert" : "OpenAI Usage · Allowance alert";
+        data.Info=message.Length>250?message[..250]:message; data.InfoFlags = 0x1 | 0x10; // Information icon; the widget owns the optional ding.
         return ShellNotifyIcon(1,ref data);
     }
     private nint OnMessage(nint hwnd,uint message,nint wParam,nint lParam)

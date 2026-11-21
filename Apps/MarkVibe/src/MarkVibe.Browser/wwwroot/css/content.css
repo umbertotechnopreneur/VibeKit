@@ -24,6 +24,7 @@
  * Modified with AI: OpenAI Codex; subtle dotted link underlines; 2026-10-25
  * Human guidance: Umberto Giacobbi; lighter underlines with more space below link text
  * Modified with AI: OpenAI Codex; lighter dense graph surfaces; 2026-10-25
+ * Modified with AI: OpenAI Codex; inline document reading in desktop and compact maps; 2026-11-20
  * Evidence: AI-DEVELOPMENT-DISCLOSURE.md; .github/tasks/archive.md
  *
  * Copyright (c) 2026 Umberto Giacobbi
@@ -95,6 +96,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus
 .small-map .map-viewport{overflow:auto;cursor:auto;touch-action:pan-y}.small-map .map-world{position:relative;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;padding:18px;width:100%!important;height:auto!important;transform:none!important}
 /* The map is a dark canvas in either application theme; inherited accent follows system preferences. */
 .document-map {
+  position: relative;
   border-radius: 0 0 12px 12px;
   --panel: #000;
   --text: #edf4ff;
@@ -104,6 +106,93 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus
   color: var(--text);
   color-scheme: dark;
   font-family: var(--ui-font, "Segoe UI", system-ui, sans-serif);
+}
+/* The selected card owns one activation button. Its reading surface stays in screen coordinates. */
+.map-read-here,
+.map-reading-toolbar button {
+  color: #edf4ff;
+  background: #172333;
+  border: 1px solid #50647c;
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.map-read-here {
+  position: absolute;
+  left: 8px;
+  top: calc(100% + 3px);
+  z-index: 2;
+  white-space: nowrap;
+}
+.small-map .map-read-here {
+  left: auto;
+  top: auto;
+  right: 8px;
+  bottom: 8px;
+}
+.small-map .map-card.selected .page-card {
+  padding-bottom: 32px;
+}
+.map-reading-panel {
+  position: absolute;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #edf4ff;
+  background: #101720;
+  border: 1px solid var(--accent, #8cbcff);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px #0009;
+  --code: #182330;
+  --accent-soft: #1a2837;
+}
+.map-reading-panel.map-reading-inline {
+  position: relative;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.map-reading-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 9px;
+  border-bottom: 1px solid var(--line);
+}
+.map-reading-toolbar strong {
+  flex: 1 1 105px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.map-reading-status:not(:empty) {
+  padding: 8px 14px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.map-reading-panel .map-reading-page.markdown {
+  min-height: 0;
+  flex: 1;
+  width: 100%;
+  margin: 0;
+  padding: 12px 18px 36px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  user-select: text;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.map-reading-page:focus-visible {
+  outline-offset: -3px;
+}
+.map-reading-image {
+  color: var(--muted);
+  font-style: italic;
 }
 .document-map .map-viewport {
   background: #000;

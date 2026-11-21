@@ -11,6 +11,7 @@ namespace MarkVibe.Core;
 internal sealed class DocumentGraph
 {
     private readonly Dictionary<string, HashSet<string>> _neighbors;
+    private readonly Dictionary<string, List<string>> _incoming;
     public IReadOnlyList<string> OrderedPaths { get; }
     public IReadOnlyList<List<string>> Levels { get; }
 
@@ -18,14 +19,21 @@ internal sealed class DocumentGraph
     public DocumentGraph(IReadOnlyList<DocumentCard> cards)
     {
         _neighbors = cards.ToDictionary(card => card.Path, _ => new HashSet<string>(StringComparer.Ordinal), StringComparer.Ordinal);
+        _incoming = cards.ToDictionary(card => card.Path, _ => new List<string>(), StringComparer.Ordinal);
         foreach (var card in cards)
         {
-            foreach (var link in card.Links)
+            foreach (var targetPath in card.Links.Select(link => link.Path).Distinct(StringComparer.Ordinal))
             {
-                // Anchors and reciprocal links share one neighbor; missing targets and self-links add no depth.
-                if (link.Path != card.Path && _neighbors.TryGetValue(link.Path, out var targetNeighbors))
+                if (!_neighbors.TryGetValue(targetPath, out var targetNeighbors))
                 {
-                    _neighbors[card.Path].Add(link.Path);
+                    continue;
+                }
+
+                // Self-links belong in the inspector, but they add no distance to a route.
+                _incoming[targetPath].Add(card.Path);
+                if (targetPath != card.Path)
+                {
+                    _neighbors[card.Path].Add(targetPath);
                     targetNeighbors.Add(card.Path);
                 }
             }
@@ -69,6 +77,12 @@ internal sealed class DocumentGraph
         }
         OrderedPaths = ordered;
         Levels = levels;
+    }
+
+    /// <summary>Returns each known source document linking to the target once, in catalog order.</summary>
+    public IReadOnlyList<string> IncomingPaths(string target)
+    {
+        return _incoming.TryGetValue(target, out var sources) ? sources : [];
     }
 
     /// <summary>Returns shortest undirected distances from the selected document; disconnected paths are absent.</summary>

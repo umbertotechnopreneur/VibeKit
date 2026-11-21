@@ -3,15 +3,16 @@ using System.Text;
 namespace RetroStudio;
 internal static class Native
 {
-    [DllImport("user32.dll")] internal static extern uint GetDpiForWindow(nint window);
     private const string Library = "RetroEngine.dll";
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern nint RetroCreate(nint owner);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroDestroy(nint engine);
-    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroStart(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroStart(nint engine, nint monitor);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroRunning(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroStop(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern SystemClose RetroSystemClose(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroRecoveryPending(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroSetRecovery(nint engine,int enabled,int seconds);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroSetTarget(nint engine, int target);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] private static extern nint RetroGpuJoke(uint index);
     internal static string GpuJoke(uint index) => Marshal.PtrToStringUni(RetroGpuJoke(index)) ?? string.Empty;
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroSetGpuJokes(nint engine, int enabled);
@@ -44,3 +45,4 @@ internal static class Native
 }
 
 internal enum TrayAction { None, Open, Quit, Preferences, About }
+internal enum SystemClose { None, Saved, SaveFailed }

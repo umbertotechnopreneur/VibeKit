@@ -36,21 +36,21 @@ try {
         @{project='Tests/OpenAIUsage.Tests.csproj'; rid=$null},
         @{project='Shared/OpenAIUsage.Core.csproj'; rid=$null}
     )) {
-        $restoreArguments = @('restore',$restore.project,'--packages',$packageRoot,'--source',$packageRoot,'-p:NuGetAudit=false','-p:SelfContained=true')
+        $restoreArguments = @('restore',$restore.project,'--packages',$packageRoot,'--source',$packageRoot,'-p:NuGetAudit=false','-p:SelfContained=false')
         if ($restore.rid) { $restoreArguments += @('-r',$restore.rid) }
         & dotnet @restoreArguments
         if ($LASTEXITCODE -ne 0) { throw "Verified offline restore failed: $($restore.project)" }
     }
     Assert-VerifiedImport $packageRoot @($Imports.Packages)
     # Rebuild forces compilation even when old outputs carry future timestamps.
-    & dotnet build 'Windows/OpenAIUsage.Windows.csproj' -t:Rebuild -c Release -r win-x64 --self-contained true --no-restore
+    & dotnet build 'Windows/OpenAIUsage.Windows.csproj' -t:Rebuild -c Release -r win-x64 --self-contained false --no-restore
     if ($LASTEXITCODE -ne 0) { throw 'Clean Windows source rebuild failed.' }
 
-    & dotnet publish 'Windows/OpenAIUsage.Windows.csproj' -c Release -r win-x64 --self-contained true --no-build --no-restore -o $windowsPayload
+    & dotnet publish 'Windows/OpenAIUsage.Windows.csproj' -c Release -r win-x64 --self-contained false --no-build --no-restore -o $windowsPayload
     if ($LASTEXITCODE -ne 0) { throw 'Current Windows source publish failed.' }
-    & dotnet build 'Backend/OpenAIUsage.Backend.csproj' -t:Rebuild -c Release -r linux-x64 --self-contained true --no-restore
+    & dotnet build 'Backend/OpenAIUsage.Backend.csproj' -t:Rebuild -c Release -r linux-x64 --self-contained false --no-restore
     if ($LASTEXITCODE -ne 0) { throw 'Clean Linux backend source rebuild failed.' }
-    & dotnet publish 'Backend/OpenAIUsage.Backend.csproj' -c Release -r linux-x64 --self-contained true --no-build --no-restore -o (Join-Path $linuxPayload 'backend')
+    & dotnet publish 'Backend/OpenAIUsage.Backend.csproj' -c Release -r linux-x64 --self-contained false --no-build --no-restore -o (Join-Path $linuxPayload 'backend')
     if ($LASTEXITCODE -ne 0) { throw 'Current Linux backend source publish failed.' }
     & dotnet build 'Tests/OpenAIUsage.Tests.csproj' -t:Rebuild -c Release --no-restore
     if ($LASTEXITCODE -ne 0) { throw 'Clean test source rebuild failed.' }
@@ -79,10 +79,10 @@ try {
         New-Item -ItemType Directory -Path $noticeDir -Force | Out-Null
         foreach ($notice in $notices) { Copy-Item -LiteralPath $notice.Source -Destination (Join-Path $noticeDir $notice.Name) }
     }
-    foreach ($resource in @('OpenAIUsage.Windows.pri','App.xbf','hostfxr.dll','coreclr.dll')) {
+    foreach ($resource in @('OpenAIUsage.Windows.pri','App.xbf','OpenAIUsage.Windows.runtimeconfig.json')) {
         if (-not (Test-Path -LiteralPath (Join-Path $windowsPayload $resource))) { throw "Windows payload missing: $resource" }
     }
-    foreach ($resource in @('OpenAIUsage.Backend','libhostfxr.so','libcoreclr.so')) {
+    foreach ($resource in @('OpenAIUsage.Backend','OpenAIUsage.Backend.runtimeconfig.json')) {
         if (-not (Test-Path -LiteralPath (Join-Path $linuxPayload "backend\$resource"))) { throw "Linux payload missing: $resource" }
     }
     $compiledVersion = (Get-Item -LiteralPath (Join-Path $windowsPayload 'OpenAIUsage.Windows.dll')).VersionInfo.FileVersion

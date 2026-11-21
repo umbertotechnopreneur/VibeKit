@@ -118,7 +118,7 @@ export class SourceHost {
   }
 
   /** Display read-only source with cached Monaco state or a usable plain-text fallback. */
-  async render({ workspaceId, path, source, fingerprint, preferences }, signal) {
+  async render({ workspaceId, path, source, fingerprint, preferences, desktopMonaco = false }, signal) {
     const revision = ++this.revision;
 
     // A newly visible OpenSilver presenter can still have a zero width until layout.
@@ -135,10 +135,10 @@ export class SourceHost {
       return;
     }
 
-    const simple = preferences.simpleSource ||
+    const simple = preferences.simpleSource || (!desktopMonaco && (
       matchMedia("(pointer:coarse)").matches ||
       this.container.clientWidth < 450 ||
-      (navigator.deviceMemory && navigator.deviceMemory < 4);
+      (navigator.deviceMemory && navigator.deviceMemory < 4)));
     const modelCacheKey = workspaceId + "/" + path;
 
     // A matching document is reusable only after its asynchronous renderer is ready.

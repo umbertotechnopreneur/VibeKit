@@ -1,8 +1,37 @@
+> **File name** `desktop-and-export.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\desktop-and-export.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\docs\desktop-and-export.md`
+
 # Document export and native hosts
 
-Current-page HTML/PDF export is implemented in browsers and the Windows WPF/WebView2 host.
+The WinUI 3 desktop app and web edition both export the current document as HTML or PDF.
 
 ## Changes to the current file
+
+```mermaid
+flowchart TB
+    accTitle: External changes to an open Markdown file
+    accDescr: A watcher detects a new revision. The user decides whether to reload. The displayed copy survives a declined or invalid reload.
+    EDITOR["Another program saves the open file"]
+    WATCH["Detect a new disk revision"]
+    ASK{"Reload the open document?"}
+    READ["Read and validate the changed file"]
+    VALID{"Can the new revision be opened?"}
+    KEEP["Keep the displayed document"]
+    SHOW["Display new revision<br/>Restore reading position where possible"]
+    EDITOR --> WATCH --> ASK
+    ASK -->|"No"| KEEP
+    ASK -->|"Yes"| READ --> VALID
+    VALID -->|"Read failed"| KEEP
+    VALID -->|"Valid Markdown source"| SHOW
+
+    classDef input fill:#ece8f7,stroke:#69518f,color:#302347
+    classDef model fill:#dcf0e9,stroke:#20766a,color:#143e38
+    classDef ui fill:#e6effb,stroke:#315a92,color:#18334f
+    class EDITOR input
+    class WATCH,READ,VALID model
+    class ASK,KEEP,SHOW ui
+```
 
 The Windows host watches the opened Markdown file, including editor saves that
 replace it atomically. A connected browser folder is checked periodically using
@@ -21,7 +50,8 @@ the source file or request a new browser folder permission.
 
 ## Export the current page
 
-Choose **Settings → Export current page** in Read, Source, Split or Map.
+In the Windows app, choose **Export** in the document toolbar. In the web edition,
+choose **Settings → Export current page**.
 Both formats include the title/path, reading styles, highlighted code, supported
 local images and sanitized Mermaid on a light background.
 Only the current document is included. Same-document anchors and safe external links
@@ -45,9 +75,10 @@ aggregate and 32 MiB final UTF-8 HTML. No document upload is used.
 
 ## Run Windows
 
-Build the solution after bundling; `scripts/stage-windows-assets.mjs` materializes
-the Browser runtime manifest under the host's `bin/.../app/`, including OpenSilver,
-WASM and client assets. It requires neither an HTTP server nor MAUI.
+Build the desktop project with the dependencies prepared as described in the
+[build guide](visual-studio.md). It stages its local reader, Mermaid and Monaco
+assets under the executable's `app/` directory. The WinUI 3 desktop app is built
+independently of the web edition.
 
 ```powershell
 dotnet run --project src/MarkVibe.Windows --no-build -c Release
@@ -60,30 +91,31 @@ Native access excludes UNC roots, reparse points, junctions, alternate streams a
 reserved Windows filenames. The host exposes specific typed operations rather than
 unrestricted filesystem or shell access.
 
-Settings live in the persistent WebView2 profile; the native session records the
-selected root and document/anchor/position under `%LOCALAPPDATA%\MarkVibe\Windows`.
-It automatically reopens on restart. Disabling remembering clears the saved session;
-`--open` overrides it. Document map positions, colors, icons and atlas settings
-are saved separately in `.markvibe-map.json`; see [map layout](map-layout.md).
-Markdown files remain unchanged. Ink and sticky-note sidecars are not used.
+Windows preferences and reader layout live in `desktop-settings.json` under
+`%LOCALAPPDATA%\MarkVibe\Windows`. The native session in the same profile records
+the last root, document, anchor and position. **Remember last workspace** allows
+the app to restore it on restart. `--open` selects a different starting file.
+Document map positions, colors, icons and atlas settings live in the workspace's
+`.markvibe-map.json`. See [map layout](map-layout.md).
 
-Source builds need the .NET 10 desktop runtime and Microsoft Edge WebView2 Runtime.
-The MSIX and portable distributions include .NET; WebView2 Runtime remains required.
-Portable profiles live in a sibling `data/` directory. See [distribution and installation](windows-packaging.md).
+Source builds use .NET 10 and the Windows App SDK. Desktop packages include both
+runtimes and use the installed Microsoft Edge WebView2 Runtime. Portable profiles
+live in a sibling `data/` directory. See [distribution and installation](windows-packaging.md).
 
 ## Other platforms
 
 | Platform | Current route |
 | --- | --- |
-| Windows | WPF/WebView2 wrapper |
-| macOS, Android, iOS | Possible [OpenSilver MAUI Hybrid launcher](https://doc.opensilver.net/documentation/general/maui-hybrid-launcher.html); no wrapper implemented |
-| Linux | Possible [OpenSilver Photino launcher](https://doc.opensilver.net/documentation/general/photino-launcher.html); no wrapper implemented |
-| Browsers | Existing WebAssembly project; browser permissions and printing apply |
+| Windows 11 | Native WinUI 3 application, Win2D map and WebView2 document rendering |
+| Browsers | Separate WebAssembly edition with browser file permissions and printing |
 
-Greater filesystem access comes from the explicitly implemented native service,
-not automatically from embedding a web page. The bridge checks sender URL, version
-and per-launch capability, blocks external page resources and opens user-initiated
-external links in the system browser. Follow Microsoft's
+The native workspace provider handles filesystem access. The renderer bridge
+checks sender URL, version and per-launch capability, blocks external page resources
+and opens user-initiated external links in the system browser. Follow Microsoft's
 [WebView2 security guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/security)
 and [printing documentation](https://learn.microsoft.com/en-us/microsoft-edge/webview2/how-to/print).
+
+> **File name** `desktop-and-export.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\desktop-and-export.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\docs\desktop-and-export.md`
 

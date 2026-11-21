@@ -19,25 +19,30 @@ def state_dir():
     return Path(os.environ.get("XDG_STATE_HOME", str(Path.home()/".local/state")))/"openai-usage"
 
 
-def record(kind, message, memory=None):
+def record(kind, message, memory=None, *, processes=None):
     try:
         directory = state_dir()/"logs"
         directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         path = directory/"linux.jsonl"
         if path.exists() and path.stat().st_size > 512*1024:
             path.replace(directory/"linux.jsonl.1")
+        event = {"atUtc": time.time(), "kind": kind, "message": str(message)[:600], "bytes": memory}
+        if processes is not None:
+            event.update(limitBytes=LIMIT_BYTES, processes=processes)
         with path.open("a", encoding="utf-8") as output:
-            output.write(json.dumps({"atUtc": time.time(), "kind": kind, "message": str(message)[:600], "bytes": memory})+"\n")
+            output.write(json.dumps(event)+"\n")
     except OSError:
         pass
 
 
 def process_info(pid):
     try:
-        line = Path(f"/proc/{pid}/stat").read_text()
-        values = line[line.rfind(")")+2:].split()
+        line = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8", errors="replace")
+        name_end = line.rindex(")")
+        values = line[name_end+2:].split()
         return {"pid": pid, "parent": int(values[1]), "state": values[0], "started": int(values[19]),
-                "bytes": max(0, int(values[21]))*os.sysconf("SC_PAGE_SIZE")}
+                "bytes": max(0, int(values[21]))*os.sysconf("SC_PAGE_SIZE"),
+                "name": line[line.index("(")+1:name_end]}
     except (OSError, ValueError, IndexError):
         return None
 
@@ -105,7 +110,13 @@ def run(parent, identity, ready_fd):
             retained = descendants(parent, snapshot, valid, [own])
             memory = sum(p["bytes"] for p in retained.values())
             if memory > LIMIT_BYTES:
-                record("guard.memory-limit", "Widget and owned children stopped at the 1 GB aggregate RSS limit.", memory)
+                processes = [
+                    {"pid": p["pid"], "parentPid": p["parent"], "name": p["name"],
+                     "isRoot": p["pid"] == parent, "rssBytes": p["bytes"]}
+                    for p in sorted(retained.values(), key=lambda item: -item["bytes"])
+                ]
+                record("guard.memory-limit", "Widget and owned children stopped at the 1 GB aggregate RSS limit.",
+                       memory, processes=processes)
                 stop_owned(retained)
                 notice("OpenAI Usage exceeded its 1 GB memory limit.\nThe widget and its child processes have been stopped.\nDetails are in the local diagnostic logs.")
                 return 137

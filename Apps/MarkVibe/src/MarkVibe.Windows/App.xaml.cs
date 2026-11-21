@@ -15,53 +15,70 @@
  * License: MIT (see LICENSE)
  *
  * VBWR E */
-using System.Windows;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 
 namespace MarkVibe.Windows;
 /// <summary>Starts the desktop workspace or the installer's optional default-app setup.</summary>
 public partial class App : Application
 {
+    private Window? _window;
+    private VibeWare.MemoryProtection.ProcessMemoryWatchdog? _memoryWatchdog;
+
+    /// <summary>Loads WinUI resources before creating the desktop shell.</summary>
+    public App() => InitializeComponent();
+
     /// <summary>Parses startup options and opens the desktop window, reporting initialization failures.</summary>
-    protected override void OnStartup(StartupEventArgs e)
+    protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        base.OnStartup(e);
-        var options = DesktopOptions.Parse(e.Args);
+        var options = DesktopOptions.Parse(Environment.GetCommandLineArgs().Skip(1).ToArray());
         DesktopLog.Initialize(options.DataDirectory);
-        DispatcherUnhandledException += (_, args) => DesktopLog.Error("application.dispatcherFailure", args.Exception);
-        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        UnhandledException += (_, failure) => DesktopLog.Error("application.dispatcherFailure", failure.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, failure) =>
         {
-            if (args.ExceptionObject is Exception error)
+            if (failure.ExceptionObject is Exception error)
             {
                 DesktopLog.Error("application.unhandledFailure", error);
             }
         };
-        TaskScheduler.UnobservedTaskException += (_, args) => DesktopLog.Error("application.unobservedTask", args.Exception);
+        TaskScheduler.UnobservedTaskException += (_, failure) => DesktopLog.Error("application.unobservedTask", failure.Exception);
         try
         {
             if (options.ConfigureFileAssociations)
             {
-                ShutdownMode = ShutdownMode.OnExplicitShutdown;
-                MarkdownFileAssociations.Offer(options);
-                Shutdown();
-                return;
+                var root = new Grid();
+                var setup = new Window { Title = "MarkVibe", Content = root };
+                root.Loaded += async (_, _) =>
+                {
+                    try { await MarkdownFileAssociations.OfferAsync(options, root.XamlRoot); }
+                    finally { setup.Close(); }
+                };
+                _window = setup;
             }
-
-            MainWindow = new DesktopWindow(options);
-            MainWindow.ContentRendered += (_, _) => MarkdownFileAssociations.Offer(options, MainWindow);
-            MainWindow.Show();
+            else
+            {
+                var dispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+                _memoryWatchdog = new VibeWare.MemoryProtection.ProcessMemoryWatchdog(
+                    "MarkVibe", Path.Combine(options.DataDirectory, "logs"), 2_000_000_000,
+                    () => dispatcher.TryEnqueue(() => _window?.Close()), showWindowsNotice: true, stopDescendants: true);
+                _window = new DesktopWindow(options);
+            }
+            _window.Closed += OnClosed;
+            _window.Activate();
         }
         catch (Exception error)
         {
+            _memoryWatchdog?.Dispose();
             DesktopLog.Error("application.startupFailure", error);
             throw;
         }
     }
 
     /// <summary>Records normal shutdown without changing the application's exit status.</summary>
-    protected override void OnExit(ExitEventArgs e)
+    private void OnClosed(object sender, WindowEventArgs args)
     {
-        DesktopLog.Write("info", "application.exit", new { exitCode = e.ApplicationExitCode });
+        _memoryWatchdog?.Dispose();
+        DesktopLog.Write("info", "application.exit");
         DesktopLog.Shutdown();
-        base.OnExit(e);
     }
 }

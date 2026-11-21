@@ -5,6 +5,10 @@
   Copyright (c) 2026 Umberto Giacobbi | License: MIT (see LICENSE)
 VBWR E -->
 
+> **File name** `visual-studio.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\visual-studio.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\docs\visual-studio.md`
+
 # Build and debug in Visual Studio
 
 Open **`MarkVibe.sln`**, select **Debug / Any CPU**, then choose **MarkVibe Desktop**
@@ -18,11 +22,10 @@ or removing a project. Always name the intended solution in command-line command
 
 ## Existing prerequisites
 
-- **Visual Studio 2026 (18.x)** with C#/.NET desktop support. Browser debugging also
+- **Visual Studio 2026 (18.x)** with C#/.NET and WinUI desktop support. Browser debugging also
   uses its ASP.NET/web tooling and a supported Edge or Chrome browser. Microsoft
   supports targeting .NET 10 starting with VS 18.0. The 10.0.4xx SDK band ships with
-  VS 18.9; an updated VS 2026 is the preferred pairing. This is not a claim that
-  18.9 is the minimum supported version. See Microsoft's
+  VS 18.9. See Microsoft's
   [SDK and Visual Studio support matrix](https://learn.microsoft.com/en-us/dotnet/core/porting/versioning-sdk-msbuild-vs).
 - **Latest installed stable .NET 10 SDK**, minimum **10.0.402**. `global.json`
   allows stable SDK roll-forward; do not silently retarget the projects.
@@ -30,36 +33,40 @@ or removing a project. Always name the intended solution in command-line command
   inherited by Visual Studio. Check `node --version` in its terminal. If an older
   Node takes precedence, reopen Visual Studio from an environment whose PATH selects
   the existing supported Node installation.
-- **WebView2 Runtime** for the desktop host. Windows SDK reference packages and
-  OpenSilver's build tools are declared in the projects and restored through NuGet.
-  No simulator project or machine-wide OpenSilver extension is needed by this
-  solution's build targets.
+- **WebView2 Runtime** for the desktop renderer. NuGet restores the Windows App SDK,
+  Win2D and Windows SDK reference packages for the desktop. The web edition restores its OpenSilver tools separately.
 
 ## What Build Solution includes
 
 | Project | Purpose |
 | --- | --- |
-| `MarkVibe.Windows` | WPF executable, WebView2 host, desktop file dialogs and printing |
+| `MarkVibe.Windows` | WinUI 3 executable, Win2D map, WebView2 document renderer, native file dialogs and printing |
 | `MarkVibe.Native` | Native file access and persisted workspace/session state |
 | `MarkVibe.Browser` | Blazor WebAssembly bootstrap, OpenSilver runtime and local client assets |
-| `MarkVibe` | Shared OpenSilver C#/XAML application and controls |
+| `MarkVibe` | OpenSilver C#/XAML application and controls for the web edition |
 | `MarkVibe.Core` | Markdown, catalog, navigation and map state |
 | `MarkVibe.Core.Checks` | Core executable checks, compiled but never run by Build Solution |
 | `MarkVibe.Native.Checks` | Native executable checks, compiled but never run by Build Solution |
 
-On a normal Visual Studio build, `PrepareVisualStudioClient` checks the existing
-client fingerprint before `RequireClientBundle`. If dependencies or generated
-assets are missing or stale, it calls `scripts/prepare-client.ps1`: locked `npm ci`
-without install scripts, followed by the local bundle. An unchanged bundle is
-reused. Both hosts enter MSBuild even when C# has not changed, so edits to external
-JavaScript inputs cannot bypass this check or leave old desktop assets staged. Design-time evaluation
-does not restore npm packages or bundle assets.
+On a normal Visual Studio build, the desktop project prepares the locked npm
+dependencies and bundles its renderer directly from the client modules. The web
+edition checks its own asset fingerprint through `PrepareVisualStudioClient` and
+prepares its bundle as needed. Both hosts enter MSBuild when an external client
+module changes. Design-time evaluation skips npm and bundling.
 
-The desktop project references the Browser build and stages its static assets
-under the executable's `app/` directory. It serves those assets inside WebView2;
-the desktop launch does not require a separate web development server.
+The Windows project stages its page, renderer bundle and shared assets under
+the executable's `app/` directory. WebView2 serves this renderer through a local
+virtual host. Run the browser profile separately when developing the web edition.
 
-The command-line build keeps its explicit client preparation:
+To build the desktop alone from the command line:
+
+```powershell
+pwsh -NoProfile -File scripts/prepare-client.ps1 -DependenciesOnly
+dotnet restore src/MarkVibe.Windows --locked-mode
+dotnet build src/MarkVibe.Windows -c Release --no-restore
+```
+
+The full solution also builds the web edition:
 
 ```powershell
 pwsh -NoProfile -File scripts/prepare-client.ps1
@@ -75,9 +82,8 @@ use [the packaging script](windows-packaging.md).
 ## Choose the process that owns the code
 
 **MarkVibe Desktop** starts `MarkVibe.Windows` under the managed debugger. Use it
-for breakpoints in the WPF host, WebView2 integration, native file operations and
-other .NET code executed by that process. The OpenSilver UI runs as WebAssembly
-inside WebView2; starting the WPF debugger alone does not attach to that runtime.
+for breakpoints in WinUI controls, the workspace model, Win2D graph, WebView2
+integration and native file operations.
 
 **MarkVibe Browser** starts the `MarkVibe Debug` profile of `MarkVibe.Browser` at
 `http://localhost:5080`. It opens a browser and configures the Blazor debugging
@@ -92,11 +98,11 @@ The original `MarkVibe` browser profile remains available for command-line use a
 does not open a browser automatically. Do not start both browser profiles at once
 on the same port.
 
-For explicitly requested JavaScript profiling, run `npm run bundle:debug` before
-the Debug build. It keeps readable modules and linked source maps. The Release
-guard rejects that bundle; `npm run bundle` restores normal optimized assets.
-`scripts/profile-graph.mjs` records local browser DevTools traces after indexing;
-see [local profiling](diagnostics.md#graph-profiling) for commands and trace inspection.
+The desktop Debug configuration builds readable renderer modules and linked source
+maps automatically. For web-edition JavaScript profiling, run `npm run bundle:debug`
+before its Debug build. Run `npm run bundle` for optimized web Release assets.
+`scripts/profile-graph.mjs` records local browser DevTools traces after indexing.
+See [local profiling](diagnostics.md#graph-profiling) for commands and trace inspection.
 Restart a running development server after rebuilding its WebAssembly assemblies.
 
 If the shared startup profiles are not shown, use **Configure Startup Projects**
@@ -106,3 +112,7 @@ single startup project. For browser debugging, set `MarkVibe.Browser` as startup
 and select **MarkVibe Debug** in its launch dropdown. The two entries in
 `MarkVibe.slnLaunch` each start one host; they do not start the executable checks.
 See [Microsoft's launch-profile documentation](https://learn.microsoft.com/en-us/visualstudio/ide/how-to-set-multiple-startup-projects).
+
+> **File name** `visual-studio.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\visual-studio.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\docs\visual-studio.md`

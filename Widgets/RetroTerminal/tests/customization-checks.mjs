@@ -5,21 +5,17 @@ const moduleAt = async name => import(`data:text/javascript;base64,${Buffer.from
     new URL(`../Linux/extension/retro-terminal@vibeware.local/${name}.js`, import.meta.url), 'utf8')).toString('base64')}`);
 const {DEFAULTS, BUILTINS, PhosphorMask, readLibrary, savePreset, validateValues} = await moduleAt('settings-model');
 const {GlitchSequence} = await moduleAt('glitches');
-for (const preset of BUILTINS) assert.deepEqual(validateValues(preset.values), preset.values);
-assert.equal(BUILTINS.length, 12);
+assert.equal(BUILTINS.length, 40);
 assert.equal(new Set(BUILTINS.map(({id}) => id)).size, BUILTINS.length);
 assert.equal(new Set(BUILTINS.map(({name}) => name)).size, BUILTINS.length);
-for (const family of ['Commodore', 'Amiga', 'TV', 'Trinitron']) {
-    const looks = BUILTINS.filter(({name}) => name.startsWith(family + ' '));
-    assert.equal(looks.length, 3);
-    for (const {name, values} of looks) {
-        assert(values.intensity >= 0.55 && values.scanlines >= 0.18, name);
-        assert(!values['glitches-enabled'] && !values['persistence-enabled'], name);
-        if (family === 'Trinitron')
-            assert.equal(values.mask, PhosphorMask.RGB_STRIPES, name);
-        if (family === 'TV')
-            assert(values.vignette >= 0.4, name);
-    }
+assert.equal(new Set(BUILTINS.map(({values}) => JSON.stringify(values))).size, BUILTINS.length);
+for (const {name, values} of BUILTINS) {
+    assert.deepEqual(validateValues(values), values);
+    assert(values.intensity * values.scanlines <= 0.055, name);
+    assert(values.intensity * values.grain >= 0.015, name);
+    assert(!values['glitches-enabled'] && !values['persistence-enabled'], name);
+    if (name.startsWith('Trinitron '))
+        assert.equal(values.mask, PhosphorMask.RGB_STRIPES, name);
 }
 const serialized = savePreset('[]', 'My amber', {...DEFAULTS, preset: 1, 'phosphor-color': '#ffc030'});
 assert.equal(readLibrary(serialized)[0].name, 'My amber');

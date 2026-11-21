@@ -27,6 +27,7 @@ internal sealed class ScreenEffectSession : IDisposable
     private double invalidSince;
     private double inspectionUntil;
     private bool inspectionVisible;
+    private int targetIndex = -1;
 
     private string reason = "";
     private const int HotkeyId = 0x5752;
@@ -86,6 +87,11 @@ internal sealed class ScreenEffectSession : IDisposable
                 model.State.StatusMessage = "";
             }
             frame.Prepare(settings, now);
+            if (settings.TargetIndex != targetIndex)
+            {
+                targetIndex = settings.TargetIndex;
+                Native.RippleSetTarget(renderer, targetIndex);
+            }
             bool captureDue = !inspecting && now >= frame.NextCapture;
             if (captureDue) frame.NextCapture = Math.Max(frame.NextCapture + 1 / settings.CaptureFps, now);
             float rasterizationScale = (float)(window.Surface.XamlRoot?.RasterizationScale ?? 1);

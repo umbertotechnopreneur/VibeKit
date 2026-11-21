@@ -71,6 +71,7 @@ extern "C"
         int32_t widthPixels, int32_t heightPixels, RippleCapabilities* capabilities);
     __declspec(dllexport) int32_t __cdecl RippleSetScreenMode(void* handle, int32_t enabled);
     __declspec(dllexport) void __cdecl RippleSetInteropWindow(void* handle, void* window);
+    __declspec(dllexport) void __cdecl RippleSetTarget(void* handle, int32_t target);
     __declspec(dllexport) int32_t __cdecl RippleGetGpuMemory(void* handle, RippleGpuMemory* memory);
     __declspec(dllexport) void __cdecl RippleDestroy(void* handle);
 }

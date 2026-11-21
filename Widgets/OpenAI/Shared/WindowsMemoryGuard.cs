@@ -72,7 +72,7 @@ public static class WindowsMemoryGuard
                     catch (IOException) { }
                 }
                 if (!IsOverLimit(peak)) continue;
-                Diagnostics.Record("guard.memory-limit", "The widget and its children were stopped after exceeding 1 GB.", (long)peak);
+                Diagnostics.RecordMemoryLimit((long)peak, JobMemorySnapshot.Capture(job, pid));
                 if (!TerminateJobObject(job, 137)) throw new Win32Exception(Marshal.GetLastWin32Error());
                 ShowNotice("OpenAI Usage exceeded its 1 GB memory limit.\nThe widget and its child processes have been stopped.\nDetails are in the local diagnostic logs.");
                 return 137;

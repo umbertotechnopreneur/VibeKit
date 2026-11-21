@@ -1,3 +1,7 @@
+> **File name** `map-layout.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\map-layout.md`<br>
+> **Path relative to the MarkVibe application root** `docs/map-layout.md`
+
 # Document map layout
 
 Each opened workspace keeps one `.markvibe-map.json` in its top-level folder.
@@ -26,6 +30,13 @@ to pan, scroll the mouse wheel to zoom in or out around the pointer, and choose
 active drag so its logical coordinates remain consistent.
 Negative positions are supported. **Alt+arrow** moves a focused card by 20 logical
 pixels; add Shift for 100 pixels. Escape cancels an unfinished drag.
+
+On Windows, Tab moves between native controls, including the graph and the
+selected card's **Read here** button. With the graph focused, **Page Up/Down**
+cycles through cards. Add Shift to move through the focused card's links or Ctrl
+to move through folder islands. **R** focuses the resize grip and **M** focuses
+the minimap. **Home** fits the graph. The web edition exposes individual graph
+elements in its Tab order.
 
 Hover a connection to illuminate its curve and both endpoint cards. Its invisible
 hit area stays 14 screen pixels wide while zooming. Connection endpoints follow
@@ -130,7 +141,9 @@ workflow.
 
 Cards fade in progressively from the layout center when opening or arranging the
 map. The stagger is capped at one second for the last card, followed by its short
-fade. Reduced-motion preferences disable entry effects. Narrow or coarse-pointer
+fade. The Windows canvas also interpolates existing cards, connections, folder
+frames and the minimap between arrangements. Reduced-motion preferences disable
+these transitions and entry effects. Narrow or coarse-pointer
 devices retain a scrollable card list and normal scrolling instead of wheel zoom.
 
 ## Persistence
@@ -139,7 +152,9 @@ devices retain a scrollable card list and normal scrolling instead of wheel zoom
 
 The floating map chrome leaves the black canvas continuous behind its controls.
 The camera reserves space beneath the toolbar when fitting the graph. Narrow
-devices retain a normal card list; document preview can be opened as an overlay.
+devices retain a normal card list and can show the inspector as an overlay.
+The reading panel opens below its row in the compact Windows list when the row
+is available.
 
 Zoom progressively changes card content without editing coordinates: below 40%
 cards show their identifying header, at 40–72% their preview remains, and normal
@@ -196,7 +211,10 @@ their saved coordinates. Search expands a collapsed target folder before centeri
 The document inspector shows the catalog introduction, up to twelve headings,
 bordered icon actions and incoming/outgoing link sections. Both link sections
 start collapsed and retain their expansion during inspector refreshes in the
-current session. The distance selector has room for its localized captions and
+current session. In Windows, they use the entire indexed catalog and expose
+more rows in batches, independent of the canvas limit. Unavailable local
+targets remain visible, and separate links to the same page retain their anchors.
+The distance selector has room for its localized captions and
 shares its font size with the view-name input.
 
 A single card click selects its preview. A second nearby click on the same
@@ -206,17 +224,27 @@ handles changed targets. Completed drags, resizing, context menus and suspended
 or replacement sessions clear the pending click. Enter remains an explicit open
 action; Space selects. Compact document labels share this activation path.
 
+Choose **Read here** on the selected card or in its inspector to read Markdown
+inside the map. Following a document link replaces the open preview and scrolls
+to the linked section. **Back** returns to the previous passage and map position.
+From the first preview, **Back** returns to the original map. **Close** or Escape
+returns directly to that map. **Open document** continues in the full reader.
+Alt+Left uses the preview history while focus is inside the reading panel.
+Images and diagrams in the preview load when you choose to show them.
+
 Choose **Set route start**, then
 select another document and choose **Find route to this document**. C# finds the
 shortest route using incoming and outgoing connections and opens collapsed folders
 on that route. Gold paths retain each original link's arrow direction. Unconnected
 documents and routes exceeding the display limit have explicit messages; no
 connection is inferred from text similarity. The inspector also lists route steps.
+When indexing is incomplete, route results describe the known links in the indexed documents.
 
 Hovering or focusing a connection displays its directed endpoints, source line
 and a bounded source excerpt. Excerpts are plain text from the parsed source,
 retained for up to 64 distinct link lines per document. Enter on a focused
-connection opens its target. This does not send content to an AI provider.
+connection opens its target section in the map preview. Clicking the connection
+does the same.
 
 The minimap represents the visible map projection and islands, with a camera
 rectangle updated during pan/zoom. Click or drag to navigate; arrow keys pan and
@@ -232,6 +260,34 @@ and use the same dirty/save/download/revision-conflict flow as card edits.
 **Reset all** restores card defaults and clears the current lens/collapse state,
 while preserving named viewpoints. Reduced motion disables entry, geometry and
 camera transitions.
+
+```mermaid
+flowchart TB
+    accTitle: Map layout save and conflict recovery
+    accDescr: Accepted edits become pending. Eligible workspaces try to save the checked revision. Conflicts preserve the file and allow downloading a separate copy.
+    EDIT["Accept a map edit<br/>Card move, appearance or viewpoint"]
+    PENDING["Managed layout has pending changes"]
+    ACCESS{"Can write the workspace sidecar?"}
+    COMPARE{"Does the saved revision still match?"}
+    SAVED["Write sidecar atomically<br/>Accept the new revision"]
+    CONFLICT["Preserve the existing file<br/>Keep edits pending"]
+    COPY["Download layout<br/>Export a separate copy"]
+    RELOAD["Discard changes<br/>Reload the workspace copy"]
+    EDIT --> PENDING --> ACCESS
+    ACCESS -->|"Yes"| COMPARE
+    ACCESS -->|"No"| COPY
+    COMPARE -->|"Yes"| SAVED
+    COMPARE -->|"No"| CONFLICT
+    CONFLICT -->|"Keep the edited layout"| COPY
+    CONFLICT -->|"Use the layout on disk"| RELOAD
+
+    classDef managed fill:#dcf0e9,stroke:#20766a,color:#143e38
+    classDef storage fill:#ece8f7,stroke:#69518f,color:#302347
+    classDef notice fill:#fff0d8,stroke:#9b6218,color:#51330e
+    class EDIT,PENDING,ACCESS,COMPARE managed
+    class SAVED,COPY,RELOAD storage
+    class CONFLICT notice
+```
 
 - **Windows local folders:** card moves and appearance changes autosave through
   contained, revision-checked atomic writes in `MarkVibe.Native`.
@@ -268,5 +324,10 @@ not that the user completed the save dialog.
 
 The document inspector uses a splitter whenever the canvas and preview fit side
 by side. Its preferred width (220–600 px, initially 290 px) is saved in
-`markvibe.layout` and restored on restart. Window resizing constrains the visible
+the desktop layout model or the web edition's `markvibe.layout` and restored on
+restart. Window resizing constrains the visible
 width without overwriting that preference. Narrow windows use the preview overlay.
+
+> **File name** `map-layout.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\map-layout.md`<br>
+> **Path relative to the MarkVibe application root** `docs/map-layout.md`

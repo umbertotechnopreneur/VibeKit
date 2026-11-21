@@ -7,9 +7,9 @@
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.Windows.Threading;
 using MarkVibe.Core;
 using MarkVibe.Native;
+using Microsoft.UI.Dispatching;
 
 namespace MarkVibe.Windows;
 
@@ -17,9 +17,9 @@ namespace MarkVibe.Windows;
 internal sealed class CurrentDocumentWatcher : IDisposable
 {
     private readonly NativeFiles _files;
-    private readonly Dispatcher _dispatcher;
-    private readonly Action<object> _notify;
-    private readonly DispatcherTimer _debounce;
+    private readonly DispatcherQueue _dispatcher;
+    private readonly Action<DocumentDiskChange> _notify;
+    private readonly DispatcherQueueTimer _debounce;
     private FileSystemWatcher? _watcher;
     private CancellationTokenSource _lifetime = new();
     private string _workspaceId = "";
@@ -32,13 +32,15 @@ internal sealed class CurrentDocumentWatcher : IDisposable
     private int _retryCount;
 
     /// <summary>Creates a UI-dispatched debounce boundary for background filesystem events.</summary>
-    internal CurrentDocumentWatcher(NativeFiles files, Dispatcher dispatcher, Action<object> notify)
+    internal CurrentDocumentWatcher(NativeFiles files, DispatcherQueue dispatcher, Action<DocumentDiskChange> notify)
     {
         _files = files;
         _dispatcher = dispatcher;
         _notify = notify;
-        _debounce = new DispatcherTimer(TimeSpan.FromMilliseconds(600), DispatcherPriority.Background, ReadChangedFile, dispatcher);
-        _debounce.Stop();
+        _debounce = dispatcher.CreateTimer();
+        _debounce.Interval = TimeSpan.FromMilliseconds(600);
+        _debounce.IsRepeating = false;
+        _debounce.Tick += ReadChangedFile;
     }
 
     /// <summary>Watches only the contained current file, including atomic replacement and later recreation.</summary>
@@ -94,11 +96,11 @@ internal sealed class CurrentDocumentWatcher : IDisposable
     /// <summary>Coalesces duplicate save events and rejects events belonging to a disposed watcher.</summary>
     private void QueueCheck(object sender)
     {
-        if (_disposed || _dispatcher.HasShutdownStarted)
+        if (_disposed)
         {
             return;
         }
-        _dispatcher.InvokeAsync(() =>
+        _dispatcher.TryEnqueue(DispatcherQueuePriority.Low, () =>
         {
             if (_disposed || !ReferenceEquals(sender, _watcher))
             {
@@ -111,7 +113,7 @@ internal sealed class CurrentDocumentWatcher : IDisposable
     }
 
     /// <summary>Compares bounded UTF-8 content, retrying briefly while an editor is replacing or locking the file.</summary>
-    private async void ReadChangedFile(object? sender, EventArgs arguments)
+    private async void ReadChangedFile(DispatcherQueueTimer sender, object arguments)
     {
         _debounce.Stop();
         if (_disposed || _watcher == null)
@@ -176,16 +178,7 @@ internal sealed class CurrentDocumentWatcher : IDisposable
             return;
         }
         _fingerprint = fingerprint;
-        _notify(new
-        {
-            version = 1,
-            notification = "document-changed",
-            workspaceId = _workspaceId,
-            path = _path,
-            watchId = _watchId,
-            fingerprint,
-            missing
-        });
+        _notify(new DocumentDiskChange(_workspaceId, _path, _watchId, fingerprint, missing));
     }
 
     /// <summary>Closes the watcher and debounce timer with the desktop window.</summary>
@@ -201,3 +194,6 @@ internal sealed class CurrentDocumentWatcher : IDisposable
         _debounce.Tick -= ReadChangedFile;
     }
 }
+
+/// <summary>Identifies an observed file revision without disclosing its contents to the UI.</summary>
+internal sealed record DocumentDiskChange(string WorkspaceId, string Path, string WatchId, string Fingerprint, bool Missing);

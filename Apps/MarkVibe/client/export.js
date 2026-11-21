@@ -116,7 +116,7 @@ async function prepareDocument(model, workspaceId, preferences, signal, expandDe
     }
   }
   output.body.append(header, article);
-  highlightCode(article);
+  await highlightCode(article, signal);
   decorateThemeArticle(article, theme);
   let warnings = 0;
   let bytes = 0;

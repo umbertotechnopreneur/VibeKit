@@ -20,6 +20,12 @@ var forecast = Analytics.Predict(42, days, now.AddHours(62).ToUnixTimeSeconds(),
 Near(forecast.Average, 18, "Seven-day arithmetic average");
 Near(forecast.DaysLeft, 56d/24, "42 percentage points at 18 per day lasts 56 hours");
 Check(forecast.Detail.Contains("6 hours"), "Exhaustion warning before reset");
+Check(Analytics.CompareForecastWithReset(42, forecast, now.AddHours(62).ToUnixTimeSeconds(), now)
+    == new ResetForecastDisplay("RUNS OUT 6H BEFORE RESET", true), "Forecast panel uses the computed difference to reset");
+Check(Analytics.CompareForecastWithReset(42, forecast, now.AddHours(56).ToUnixTimeSeconds(), now)
+    == new ResetForecastDisplay("EXPECTED TO LAST UNTIL RESET", false), "A reset at the projected exhaustion does not warn");
+Check(Analytics.CompareForecastWithReset(42, forecast, now.ToUnixTimeSeconds(), now).Message == "WAITING FOR RESET DATA",
+    "An expired reset invalidates the forecast panel comparison");
 Check(Analytics.Predict(42, days, now.AddHours(1).ToUnixTimeSeconds(), now).Detail.Contains("until reset"), "Reset precedes hypothetical exhaustion");
 Check(Analytics.Predict(0, days, null, now).Headline == "Allowance exhausted", "Zero allowance");
 Check(Analytics.Predict(42, [], null, now).Average is null, "No history is not zero consumption");
@@ -79,7 +85,19 @@ try
     store.SaveSettings(settings);
     Check(store.LoadSettings().TimeZoneId == "UTC", "Settings persist atomically");
     var state = new UsageService(store).Build(parsed, settings, now);
+    Check(!settings.EnableDetailsBar, "Details bar is opt-in for existing profiles");
+    Check(state.FiveHourAllowance?.Remaining == 80 && state.WeeklyAllowance?.Remaining == 42 &&
+        state.FiveHourAllowance.ResetsAt == parsed.Windows[1].ResetsAt, "Allowance cards use both authoritative quota windows");
+    var weeklyOnly = parsed with { Windows = [parsed.Windows[0], parsed.Windows[1] with { Key = "other:300" }] };
+    Check(new UsageService(store).Build(weeklyOnly, settings, now).FiveHourAllowance is null,
+        "A missing 5-hour allowance stays unavailable instead of borrowing another limit family");
+    settings.EnableDetailsBar = true;
+    store.SaveSettings(settings);
+    Check(store.LoadSettings().EnableDetailsBar, "The details bar opt-in persists");
     Check(state.CreditsLabel == "1,250", "Credit balance is displayed without decimal places");
+    Check(state.CreditsBalance == 1250.25m, "Credits alerts compare the raw balance before display rounding");
+    Check(new UsageService(store).Build(parsed with { UnlimitedCredits = true }, settings, now).CreditsBalance is null,
+        "Unlimited credits do not trigger a balance threshold");
     Check(state.ResetDisplays.Count == 2 && state.ResetDisplays[0].Heading == "First reset" && state.ResetDisplays[1].Heading == "Second reset", "Available reset dates are numbered in chronological order");
     Check(state.ResetDisplays[0].Detail.Contains("UTC"), "Reset tooltip includes the selected system time zone");
     var missingReset = parsed with { Windows=[parsed.Windows[0] with { ResetsAt = null }, parsed.Windows[1]] };
@@ -98,6 +116,14 @@ try
     var withToday=parsed with { Tokens=[new TokenDay("2026-11-02",1_000_000)] };
     Check(new UsageService(store).Build(withToday,settings,now).TodayTokensLabel=="1 M", "Today's reported bucket is separate from the completed seven-day average");
     settings.TimeZoneId = OperatingSystem.IsWindows() ? "SE Asia Standard Time" : "Asia/Ho_Chi_Minh";
+    long calendarReset = new DateTimeOffset(2026, 12, 10, 19, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds();
+    var calendarUsage = parsed with { Windows = [..parsed.Windows.Select(window => window with { ResetsAt = calendarReset })] };
+    var calendar = new UsageService(store).Build(calendarUsage, settings, now);
+    Check(calendar.ResetCalendarDate == "FRIDAY 11 DECEMBER 2026" && calendar.SelectedResetCompact == "11/12 02:00" && calendar.ResetsAt == calendarReset,
+        "Both calendar formats identify the countdown reset in the selected time zone across midnight");
+    var withoutCalendar = parsed with { Windows = [..parsed.Windows.Select(window => window with { ResetsAt = null })] };
+    Check(new UsageService(store).Build(withoutCalendar, settings, now).ResetCalendarDate is null,
+        "A missing reset timestamp leaves the calendar display unavailable");
     state = new UsageService(store).Build(parsed, settings, new DateTimeOffset(2026, 11, 1, 21, 0, 0, TimeSpan.Zero));
     Check(state.TokenEndDate == "2026-10-31", "Still-growing current UTC token bucket is excluded even after local midnight");
     var other = store.Record("different-account", parsed.Windows[0], "pro", now.ToUnixTimeSeconds());

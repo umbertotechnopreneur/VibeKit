@@ -19,6 +19,12 @@ public partial class App : Application
             }
         };
     }
+    internal void RequestMemoryShutdown()
+    {
+        if (window is { } mainWindow) mainWindow.Close();
+        else Exit();
+    }
+
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         var main = new MainWindow();

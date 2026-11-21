@@ -10,6 +10,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {CrtEffect} from './effect.js';
 import {DelayGuard, surfaceAllowed} from './guard.js';
+import {shellPressure, watchMemory} from './ram-guard.js';
 import {PhosphorPersistence} from './persistence.js';
 import {GlitchSequence} from './glitches.js';
 import {DEFAULTS, readValues} from './settings-model.js';
@@ -19,6 +20,7 @@ const now = () => GLib.get_monotonic_time() / 1e6;
 export default class RetroTerminal extends Extension {
     enable() {
         this._settings = this.getSettings();
+        this._startRamWatch();
         this._signals = [];
         this._timer = 0;
         this._previewTimer = 0;
@@ -280,7 +282,21 @@ export default class RetroTerminal extends Extension {
         this._clear();
         this._settings.set_string('status', reason);
     }
+    _startRamWatch() {
+        this._ramTimer = watchMemory(
+            () => this._settings.get_boolean('active') ? shellPressure() : null,
+            event => {
+                this._ramTimer = 0;
+                console.warn(JSON.stringify({kind: 'guard.memory-pressure', app: 'RetroTerminal', ...event}));
+                this._stop('Stopped because system memory is low. Enable the effect manually to resume.');
+                Main.notify('Retro Terminal stopped', 'System memory is low. You can enable the effect again after memory recovers.');
+                this._startRamWatch();
+            });
+    }
+
     disable() {
+        if (this._ramTimer) GLib.source_remove(this._ramTimer);
+        this._ramTimer = 0;
         this._cancelGpuJokes?.();
         this._cancelGpuJokes = null;
         this._stop('Extension disabled');

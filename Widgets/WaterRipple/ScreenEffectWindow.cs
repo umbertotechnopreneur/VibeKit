@@ -33,7 +33,7 @@ internal sealed class ScreenEffectWindow : Window
         SetSurfaceVisible(false);
         if (!Native.SetWindowDisplayAffinity(Handle, 0x11)) throw new Win32Exception("Screen capture exclusion could not be enabled.");
         AppWindow.Show(false);
-        Native.SetTopmost(Handle, true);
+        Native.SetOverlayTopmost(Handle);
         TraceSurface("WindowShownHidden");
     }
 

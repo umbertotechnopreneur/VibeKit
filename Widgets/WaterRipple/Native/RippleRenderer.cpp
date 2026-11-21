@@ -26,6 +26,7 @@
 #include <vector>
 #include "RippleRenderer.h"
 #include "CrtFrameExport.h"
+#include "../../Shared/EffectWindowCoverage.h"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -265,6 +266,8 @@ namespace
     static_assert(sizeof(RippleCapabilities) == 304);
     static_assert(sizeof(RippleGpuMemory) == 32);
 
+    using vibeware::desktop_effect::EffectTarget;
+
     class Renderer
     {
     public:
@@ -343,6 +346,12 @@ namespace
                 constants.Timing[0] = speed;
                 constants.Timing[1] = std::max(0.01f, duration);
                 constants.Timing[2] = static_cast<float>(count);
+                if (count && effectTarget != EffectTarget::Desktop)
+                {
+                    result = coverage.Update(device.Get(), context.Get(), overlayWindow, RECT{x, y, x + w, y + h}, start);
+                    if (FAILED(result)) return Finish(start, result);
+                    constants.Timing[3] = static_cast<float>(effectTarget);
+                }
                 constants.Chromatic[0] = chromaticSeparation;
                 constants.Chromatic[1] = chromaticBlend;
                 constants.Filters[0] = crest;
@@ -361,13 +370,13 @@ namespace
                 context->PSSetShader(pixelShader.Get(), nullptr, 0);
                 ID3D11Buffer* buffer = constantBuffer.Get();
                 ID3D11SamplerState* samplerPointer = sampler.Get();
-                ID3D11ShaderResourceView* sources[]{ captureView.Get() };
+                ID3D11ShaderResourceView* sources[]{ captureView.Get(), constants.Timing[3] ? coverage.View() : nullptr };
                 context->PSSetConstantBuffers(0, 1, &buffer);
                 context->PSSetSamplers(0, 1, &samplerPointer);
                 context->PSSetShaderResources(0, ARRAYSIZE(sources), sources);
                 context->Draw(3, 0);
                 // Unbind before the next frame writes to the capture texture.
-                ID3D11ShaderResourceView* nullViews[1]{};
+                ID3D11ShaderResourceView* nullViews[2]{};
                 context->PSSetShaderResources(0, ARRAYSIZE(nullViews), nullViews);
             }
             if (screenMode && captureEnabled && hasValidCapture &&
@@ -401,7 +410,12 @@ namespace
             return screenMode && adapter ? ValidateScreenAdapter() : S_OK;
         }
 
-        void SetInteropWindow(HWND window) { crtExport.SetWindow(window); }
+        void SetInteropWindow(HWND window) { overlayWindow = window; crtExport.SetWindow(window); }
+        void SetTarget(EffectTarget target)
+        {
+            effectTarget = target;
+            if (target == EffectTarget::Desktop) coverage.Reset();
+        }
 
         HRESULT GetGpuMemory(RippleGpuMemory& memory)
         {
@@ -448,6 +462,9 @@ namespace
         ComPtr<ID3D11Texture2D> captureTexture;
         ComPtr<ID3D11ShaderResourceView> captureView;
         ComPtr<ID3D11RenderTargetView> captureTarget;
+        vibeware::desktop_effect::WindowCoverage coverage;
+        EffectTarget effectTarget{};
+        HWND overlayWindow{};
         std::vector<unsigned char> vertexBytes, pixelBytes;
         DXGI_OUTPUT_DESC outputDescription{};
         HMONITOR monitor{};
@@ -488,6 +505,7 @@ namespace
             if (context) context->ClearState();
             if (panel) panel->SetSwapChain(nullptr);
             captureTarget.Reset(); captureView.Reset(); captureTexture.Reset(); desktopCache.Reset();
+            coverage.Reset();
             targetView.Reset(); swapChain.Reset();
             // Release deferred D3D objects before a replacement composition swap
             // chain is attached to the same panel on the next start cycle.
@@ -950,6 +968,12 @@ extern "C" __declspec(dllexport) int32_t __cdecl RippleGetGpuMemory(void* handle
 extern "C" __declspec(dllexport) void __cdecl RippleSetInteropWindow(void* handle, void* window)
 {
     if (handle) static_cast<Renderer*>(handle)->SetInteropWindow(static_cast<HWND>(window));
+}
+
+extern "C" __declspec(dllexport) void __cdecl RippleSetTarget(void* handle, int32_t target)
+{
+    if (handle && target >= 0 && target <= static_cast<int32_t>(EffectTarget::Wallpaper))
+        static_cast<Renderer*>(handle)->SetTarget(static_cast<EffectTarget>(target));
 }
 
 

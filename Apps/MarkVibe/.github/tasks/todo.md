@@ -1,15 +1,13 @@
+> **File name** `todo.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\.github\tasks\todo.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\.github\tasks\todo.md`
+
 # Active work
 
-Keep only current, actionable tasks. Remove completed items; do not append history.
-The latest delivery is summarized in [archive.md](archive.md).
+- [ ] Owner acceptance of the WinUI 3 desktop. Check startup, reader and Monaco commands, Split scrolling and resizing, native context menus, map navigation and persistence, folder refresh, AI revisions, dialogs, file associations and HTML/PDF export.
+- [ ] When Windows interactive checks are requested, update the Windows smoke driver for the native WinUI shell and renderer-only DevTools origin.
+- [ ] When dependency maintenance is requested, resolve the advisories for `System.Security.Cryptography.Pkcs` 8.0.1 and `System.Security.Cryptography.Xml` 8.0.4.
 
-- [ ] Owner acceptance of the current desktop app: reader and source commands,
-  SVG presentation, map interaction and persistence, workspace refresh, startup
-  information, dialogs, Markdown associations and HTML/PDF export.
-- [ ] Complete model/service ownership for workspace/navigation, AI requests,
-  map persistence and file-change transitions; see
-  [architecture](../../docs/architecture.md).
-- [ ] Resolve dependency advisories for System.Security.Cryptography.Pkcs 8.0.1
-  and Xml 8.0.4 when dependency maintenance is requested.
-- [ ] Before Store delivery, obtain the Partner Center identity and separate
-  publication authorization; see [Store prerequisites](../../docs/windows-store.md).
+> **File name** `todo.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\.github\tasks\todo.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\.github\tasks\todo.md`

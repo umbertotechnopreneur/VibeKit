@@ -1,3 +1,7 @@
+> **File name** `dependencies.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\dependencies.md`<br>
+> **Path relative to the MarkVibe application root** `docs/dependencies.md`
+
 # Dependency and compatibility decisions
 
 Dependency versions and licenses are defined by the project files, lockfiles and
@@ -13,7 +17,9 @@ third-party notices. The SDK selection follows `global.json`.
 | Microsoft.AspNetCore.Components.WebAssembly.DevServer | 10.0.10 | Local development server | MIT upstream, development-only |
 | Markdig | 1.4.0 | Managed Markdown AST and HTML | BSD-2-Clause |
 | System.Security.Cryptography.Xml | 8.0.4 | Patch vulnerable 8.0.2 transitive dependency | .NET MIT upstream |
-| Microsoft.Web.WebView2 | 1.0.4258.31 | Windows WPF host and direct PDF API | SDK LICENSE.txt: permissive three-clause terms; separate installed runtime |
+| Microsoft.WindowsAppSDK | 1.8.260921001 | WinUI 3 desktop shell | See packaged third-party notices |
+| Microsoft.Graphics.Win2D | 1.4.0 | Native document map rendering | See packaged third-party notices |
+| Microsoft.Web.WebView2 | 1.0.3179.45 (resolved by Windows App SDK) | Embedded document renderer and direct PDF API | SDK LICENSE.txt: permissive three-clause terms; separate installed runtime |
 | DOMPurify | 3.4.16 | Independent DOM/SVG sanitation | Apache-2.0 option selected from MPL-2.0 OR Apache-2.0 |
 | Monaco editor | 0.57.0 | Lazy read-only source editor | MIT |
 | Mermaid | 12.1.0 | Strict diagrams | MIT |
@@ -54,9 +60,9 @@ documents redistribution boundaries, not blanket ownership of third-party code.
 
 ## Why this architecture
 
-The Windows host pins WebView2 SDK 1.0.4258.31 and uses the separately installed Evergreen Runtime. Host operations follow [WebView2 security guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/security) and the official [PDF printing APIs](https://learn.microsoft.com/en-us/microsoft-edge/webview2/how-to/print).
+The Windows host uses the WebView2 SDK resolved in its package lock and the separately installed Evergreen Runtime. Host operations follow [WebView2 security guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/security) and the official [PDF printing APIs](https://learn.microsoft.com/en-us/microsoft-edge/webview2/how-to/print).
 
-OpenSilver provides the requested DOM-based C#/XAML runtime. Its matching WASM package's net10.0 metadata supports selecting .NET 10 at source level. Markdig is managed code with a shared AST; it avoids independent JavaScript interpretations of headings and links.
+OpenSilver provides the browser edition's DOM-based C#/XAML runtime. Its WASM package supports the .NET 10 target. Both editions use the managed Markdig parser to derive headings and links from the same syntax tree. [Runtime diagram](architecture.md)
 
 Monaco loads on demand as a module. Mermaid loads on demand in a self-contained sandboxed frame. Browser documents and images are lazy. The complete generated static directory can be served without a document-processing service.
 
@@ -75,3 +81,7 @@ Monaco loads on demand as a module. Mermaid loads on demand in a self-contained 
 - [fflate 0.8.3](https://github.com/101arrowz/fflate/releases/tag/v0.8.3)
 - [highlight.js 11.12.0](https://github.com/highlightjs/highlight.js/releases/tag/11.12.0)
 - [esbuild 0.28.2](https://github.com/evanw/esbuild/releases/tag/0.28.2)
+
+> **File name** `dependencies.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\dependencies.md`<br>
+> **Path relative to the MarkVibe application root** `docs/dependencies.md`

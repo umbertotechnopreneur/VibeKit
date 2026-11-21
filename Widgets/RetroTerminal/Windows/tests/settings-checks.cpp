@@ -3,6 +3,7 @@
 #include "../PerformanceRecovery.h"
 #include <cassert>
 #include <limits>
+#include <set>
 #include <iostream>
 #include <string_view>
 int main()
@@ -49,19 +50,20 @@ int main()
     assert(schedule.Sample(1002, s).type == GlitchType::None);
     s.glitchIntensity = .25f;
     assert(schedule.Trigger(1002, s));
-    for (const auto family : {L"Commodore ", L"Amiga ", L"TV ", L"Trinitron "}) {
-        int familyPresets = 0;
-        for (const auto& [name, settings] : BuiltInPresets) {
-            if (!std::wstring_view(name).starts_with(family)) continue;
-            assert(settings.intensity >= .55f && settings.scanStrength >= .18f);
-            assert(!settings.randomGlitches && !settings.persistence);
-            if (std::wstring_view(family) == L"TV ") assert(settings.vignette >= .4f);
-            if (std::wstring_view(family) == L"Trinitron ") assert(settings.mask == PhosphorMask::RgbStripes);
-            ++familyPresets;
-        }
-        assert(familyPresets == 3);
+    assert(BuiltInPresetCount == 40);
+    std::set<std::wstring_view> names;
+    for (const auto& [name, settings] : BuiltInPresets) {
+        assert(names.emplace(name).second);
+        auto clamped = settings;
+        clamped.Clamp();
+        for (const auto& control : FloatControls)
+            assert(settings.*(control.field) == clamped.*(control.field));
+        assert(settings.intensity * settings.scanStrength <= .055f);
+        assert(settings.intensity * settings.grain >= .015f);
+        assert(!settings.randomGlitches && !settings.persistence);
+        if (std::wstring_view(name).starts_with(L"Trinitron "))
+            assert(settings.mask == PhosphorMask::RgbStripes);
     }
-    assert(BuiltInPresetCount == 12);
     using namespace std::chrono_literals;
     PerformanceRecovery recovery;
     auto now = PerformanceRecovery::TimePoint{} + 1s;

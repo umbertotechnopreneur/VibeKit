@@ -170,6 +170,14 @@
     "Restore view": ["Ripristina vista","Restaurer la vue","Khôi phục chế độ xem","恢复视图","還原檢視","Pulihkan tampilan","보기 복원","ビューを復元"],
     "Delete saved view": ["Elimina vista salvata","Supprimer la vue enregistrée","Xóa chế độ xem đã lưu","删除已保存的视图","刪除已儲存嘅檢視","Hapus tampilan tersimpan","저장된 보기 삭제","保存したビューを削除"],
     "Document preview": ["Anteprima documento","Aperçu du document","Xem trước tài liệu","文档预览","文件預覽","Pratinjau dokumen","문서 미리 보기","ドキュメントのプレビュー"],
+    "Show image · {0}": ["Mostra immagine · {0}","Afficher l’image · {0}","Hiện hình ảnh · {0}","显示图片 · {0}","顯示圖片 · {0}","Tampilkan gambar · {0}","이미지 표시 · {0}","画像を表示 · {0}"],
+    "Show diagram": ["Mostra diagramma","Afficher le diagramme","Hiện sơ đồ","显示图表","顯示圖表","Tampilkan diagram","다이어그램 표시","図を表示"],
+    "Diagram unavailable": ["Diagramma non disponibile","Diagramme indisponible","Sơ đồ không khả dụng","图表不可用","圖表無法顯示","Diagram tidak tersedia","다이어그램을 사용할 수 없습니다","図を表示できません"],
+    "Read here": ["Leggi qui","Lire ici","Đọc tại đây","在此阅读","喺度閱讀","Baca di sini","여기서 읽기","ここで読む"],
+    "Loading document…": ["Caricamento del documento…","Chargement du document…","Đang tải tài liệu…","正在加载文档…","正在載入文件…","Memuat dokumen…","문서를 불러오는 중…","ドキュメントを読み込み中…"],
+    "This section is unavailable in the current document.": ["Questa sezione non è disponibile nel documento corrente.","Cette section est introuvable dans le document actuel.","Không tìm thấy mục này trong tài liệu hiện tại.","当前文档中找不到此章节。","喺呢份文件入面搵唔到呢一節。","Bagian ini tidak ditemukan dalam dokumen saat ini.","현재 문서에서 이 섹션을 찾을 수 없습니다.","現在のドキュメントにこのセクションが見つかりません。"],
+    "No route found in the indexed documents": ["Nessun percorso trovato nei documenti indicizzati","Aucun itinéraire trouvé dans les documents indexés","Không tìm thấy đường đi trong các tài liệu đã lập chỉ mục","在已索引文档中未找到路径","喺已建立索引嘅文件入面搵唔到路徑","Tidak ditemukan rute dalam dokumen yang telah diindeks","색인된 문서에서 경로를 찾을 수 없습니다","索引済みのドキュメント内に経路が見つかりません"],
+    "Known route in the indexed documents: {0} links": ["Percorso trovato nei documenti indicizzati · {0} collegamenti","Itinéraire trouvé dans les documents indexés · {0} liens","Đường đi trong các tài liệu đã lập chỉ mục · {0} liên kết","在已索引文档中找到的路径 · {0} 个链接","喺已建立索引嘅文件搵到嘅路徑 · {0} 個連結","Rute yang ditemukan dalam dokumen terindeks · {0} tautan","색인된 문서에서 찾은 경로 · 링크 {0}개","索引済みのドキュメント内で見つかった経路 · リンク {0} 件"],
     "Open document": ["Apri documento","Ouvrir le document","Mở tài liệu","打开文档","開啟文件","Buka dokumen","문서 열기","ドキュメントを開く"],
     "Set route start": ["Imposta inizio percorso","Définir le départ","Đặt điểm bắt đầu","设置路径起点","設定路徑起點","Tetapkan awal rute","경로 시작 설정","経路の始点に設定"],
     "Find route to this document": ["Trova percorso fino a qui","Trouver un chemin vers ce document","Tìm đường đến tài liệu này","查找到此文档的路径","搵到呢份文件嘅路徑","Cari rute ke dokumen ini","이 문서까지 경로 찾기","このドキュメントへの経路を検索"],
@@ -1870,6 +1878,16 @@
       "Belum ada tautan",
       "아직 링크 없음",
       "リンクはまだありません"
+    ],
+    "Show more links": [
+      "Mostra altri link",
+      "Afficher plus de liens",
+      "Hiện thêm liên kết",
+      "显示更多链接",
+      "顯示更多連結",
+      "Tampilkan tautan lainnya",
+      "링크 더 보기",
+      "リンクをもっと表示"
     ],
     "Customize card": [
       "Personalizza scheda",

@@ -1,8 +1,12 @@
+> **File name** `settings.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\settings.md`<br>
+> **Path relative to the MarkVibe application root** `docs/settings.md`
+
 # Settings and workspace resumption
 
-Settings are managed by the C# `Preferences` record and the OpenSilver dialog.
-JavaScript validates the persistence boundary and adapts browser storage, media
-queries and library APIs.
+The shared C# `Preferences` record defines settings. The Windows app has a native
+WinUI dialog over the desktop model. The web edition uses an OpenSilver dialog and
+validates settings again when reading browser storage.
 
 ## Available preferences
 
@@ -11,7 +15,7 @@ queries and library APIs.
 | Appearance | System | Light/Dark override, or live system color-scheme changes |
 | Language | System | Apply the system language or an available translation immediately |
 | UI font | System default | Use a supported monospace family installed on Windows, without changing document/editor fonts |
-| Acrylic | On | Retained preference; unavailable in the opaque Windows host for rendering stability |
+| Acrylic | On | Opts into the Windows backdrop or the web edition's acrylic presentation |
 | Document presentation | Technical | Technical, Editorial or Compact reading |
 | Light/dark document themes | MarkVibe | Select independent reader themes for the two appearances |
 | Light/dark code themes | Automatic | Follow the selected reader theme or choose a code theme |
@@ -40,6 +44,12 @@ This Windows choice is separate from Reset preferences.
 
 ## Coordinated theme application
 
+WinUI applies the theme to native controls. The desktop model sends validated
+reader styles, code themes, font and color settings to its document WebView2.
+The native map draws independently and uses system motion settings.
+
+### Web edition
+
 `App.xaml` installs the official `OpenSilver.Themes.Modern` theme through `Application.Theme`, as shown in the [OpenSilver documentation](https://doc.opensilver.net/documentation/how-to-topics/theme-handling.html). Its LightPalette and DarkPalette use MarkVibe's shell colors. Changing appearance selects `ModernTheme.CurrentPalette`, updates shell brushes, publishes CSS variables to DOM hosts, selects Monaco's `vs`/`vs-dark`, and renders Mermaid using the matching palette. The map and highlighted code inherit the same appearance. Existing source mappings preserve the reading location during presentation changes.
 
 Control templates remain supplied by Modern Theme. App-specific styles adjust control properties. Selected sidebar text inherits the theme's selected foreground so contrast follows both palettes. Generation checks prevent older asynchronous appearance work from replacing newer preferences.
@@ -49,6 +59,14 @@ shell, including popup entries and validation errors. Changing appearance update
 already-open settings controls without recreating the dialog.
 
 ## Versioned local persistence
+
+Windows stores validated preferences, folder reader appearance and pane geometry
+in `desktop-settings.json` under `%LOCALAPPDATA%\MarkVibe\Windows`. Portable
+copies use the adjacent `data` folder. The session stores the granted root and
+relative document path with its anchor and reading position. WebView2 holds the
+renderer profile. Settings and navigation belong to the C# model.
+
+### Web edition
 
 `localStorage["markvibe.preferences"]` stores `{ "version": 1, "values": { ... } }`. Only this envelope is supported; the earlier flat object is no longer migrated. Unknown values are discarded or normalized, and malformed JSON or unsupported versions recover to defaults. C# validates allowed appearance/style values and zoom limits. Browser validation remains a separate untrusted-storage boundary.
 
@@ -60,16 +78,16 @@ starts closed when no layout is saved. Standard splitter gestures save their
 completed geometry; temporary window constraints do not replace the preferred
 sizes. C# and the storage boundary validate the versioned layout envelope.
 
-These settings are scoped to the browser origin/profile. Clearing site data, private browsing, quota pressure or using a different origin can remove them. Browser pickers do not reveal an absolute OS path; the remembered path is relative to the workspace. Windows uses a persistent WebView2 profile and a separate native session under `%LOCALAPPDATA%\MarkVibe\Windows`. Its session stores the user-selected root plus relative document/anchor/position, without Markdown content.
+These settings are scoped to the browser origin/profile. Clearing site data, private browsing, quota pressure or using a different origin can remove them. Browser pickers do not reveal an absolute OS path; the remembered path is relative to the workspace.
 
 ## Restart behavior
 
-- The sample workspace reopens its last page, anchor and reading position automatically.
+- The web sample workspace reopens its last page, anchor and reading position automatically. Windows opens the bundled sample from its native command.
 - Windows automatically reopens the last granted local folder/document. Missing or inaccessible paths present a reopening action. `--open` takes precedence over the remembered document.
 - A remembered connected folder reopens automatically only when `queryPermission({mode:"read"})` is already granted. Startup does not call `requestPermission`. If permission is unavailable, the app shows the last page/path and an explicit reopening action.
 - Selected files, imported folders and ZIPs show “Continue where you left off.” Choose the workspace again to regain access. A stable identity based on provider mode, name and normalized entry paths restores the selected document and position after that selection.
 - A different selected workspace opens its own initial page. Imported identities cannot distinguish two different folders with the same name and identical entry paths; browsers do not provide their absolute paths.
-- Disabling remembering removes saved document/workspace entries and the persisted directory handle. The current open workspace remains readable. Navigation no longer saves it; restarting returns to the sample. Resetting preferences enables remembering again.
+- Disabling remembering removes the saved workspace and document. The web edition also removes its persisted directory handle. Resetting preferences enables remembering again.
 
 The reader stores block identity, fraction and source line, rather than a percentage of total page height. Scroll, navigation, browser history, pagehide and hidden-page transitions retain the useful position. Imported document contents must still be reselected after a restart.
 
@@ -98,7 +116,8 @@ Leaving the field blank keeps the saved key. **Validate and save** verifies a
 typed candidate against the model-list endpoint before replacing the stored key;
 the check sends no documents and generates no text. Windows stores the accepted
 key in the user environment; the browser discloses its unencrypted localStorage.
-Normal startup automatically loads the model list when a saved key is configured.
+The Windows assistant loads model availability when opened or when you explicitly
+check the connection. The web edition can load its model list during startup.
 See [security boundaries](security.md) for that network behavior and the isolated
 native smoke profile, which does not read credentials or call OpenAI.
 
@@ -106,12 +125,17 @@ OpenAI uses an ordinary flat settings section, with a masked key field, plain
 connection status and inline validation feedback. It has no enclosing card or
 status badge. The fields and text align with the other preference sections.
 
-Settings, About and confirmation dialogs use a shared frosted surface with a
+Windows uses native WinUI dialogs for settings, About and confirmation. The web
+edition uses a shared frosted surface with a
 300-millisecond blur transition on the full-window modal backdrop. Styling targets
 the stable `DialogBackdrop` template element because OpenSilver replaces classes
 assigned during initial Loaded callbacks. Its nested native `Overlay` provides
 the tint; the portal stays opaque and unfiltered. The content surface animates
 separately and remains sharp. Reduced-motion preferences skip the delayed close.
+
+> **File name** `settings.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\settings.md`<br>
+> **Path relative to the MarkVibe application root** `docs/settings.md`
 Local inspection of Debug x64 0.1.0.16 confirmed 16 px blur while Settings remained
 open and live caption colors through light/dark/light changes. This is focused UI
 inspection, not full application acceptance or an automated test-suite result.

@@ -43,11 +43,14 @@ const result = await build({
       builder.onResolve({ filter: /\/(markdown|workspaces|monaco-adapter)\.js$/ }, args => ({ path: args.path.split("/").at(-1), namespace: "fixture" }));
       builder.onLoad({ filter: /markdown\.js$/, namespace: "fixture" }, () => ({ contents: `
         export function createRoot() { throw new Error("DOM mounting is outside this unit check"); }
+        export function prepareMarkdown() { throw new Error("Document rendering is outside this unit check"); }
         export function textElement() { return {}; }
         export function uiText() { return {}; }
       ` }));
       builder.onLoad({ filter: /workspaces\.js$/, namespace: "fixture" }, () => ({ contents: `
         export function enableMapSaving() { throw new Error("No native calls in this check"); }
+        export function acquireAsset() { throw new Error("No asset reads in this check"); }
+        export function releaseAssets() { throw new Error("No asset owners in this check"); }
       ` }));
       builder.onLoad({ filter: /monaco-adapter\.js$/, namespace: "fixture" }, () => ({ contents: `
         export const models = [];

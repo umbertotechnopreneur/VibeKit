@@ -64,6 +64,7 @@ public static class AtomicFile
 
 public sealed class NativeFiles
 {
+    private const int MaximumDirectoryDepth = 16;
     private readonly Dictionary<string, string> _roots = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _writes = new(1, 1);
     private readonly string _sessionFile;
@@ -138,11 +139,41 @@ public sealed class NativeFiles
         RejectLinks(root);
         return root;
     }
-    /// <summary>Enumerates bounded relevant files while excluding ignored directories and symbolic links.</summary>
-    public IReadOnlyList<WorkspaceEntry> Entries(string id)
+    /// <summary>Gets metadata for one readable Markdown page using the catalog's containment and depth rules before walking the folder.</summary>
+    public WorkspaceEntry? FindInitialDocument(string id, string? path)
+    {
+        if (string.IsNullOrEmpty(path) || !WorkspacePath.IsMarkdown(path) ||
+            path.Count(character => character == '/') > MaximumDirectoryDepth)
+        {
+            return null;
+        }
+
+        try
+        {
+            // The file may have moved or its folder may have become a link since the session was saved.
+            var file = new FileInfo(Resolve(id, path));
+            if (file.Exists && file.Length <= Limits.DocumentBytes)
+            {
+                return new WorkspaceEntry(path, file.Length, "document");
+            }
+        }
+        catch (Exception error) when (error is WorkspaceException or IOException or UnauthorizedAccessException)
+        {
+            // The normal bounded catalog can still offer other pages or report the provider's access error.
+        }
+        return null;
+    }
+
+    /// <summary>Enumerates bounded relevant files while excluding ignored directories and symbolic links; cancellation stops a superseded scan.</summary>
+    public IReadOnlyList<WorkspaceEntry> Entries(string id, CancellationToken cancellationToken = default) =>
+        Entries(id, out _, cancellationToken);
+
+    /// <summary>Enumerates the same catalog and reports names the workspace path policy excluded.</summary>
+    public IReadOnlyList<WorkspaceEntry> Entries(string id, out bool skippedNames, CancellationToken cancellationToken = default)
     {
         var root = Root(id);
         RejectLinks(root);
+        skippedNames = false;
         var entries = new List<WorkspaceEntry>();
         var queue = new Queue<(string Path, int Depth)>();
         queue.Enqueue((root, 0));
@@ -151,6 +182,7 @@ public sealed class NativeFiles
         var documents = 0;
         while (queue.TryDequeue(out var folder))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (++directories > 1024)
             {
                 throw Error("folder-too-large", "Choose a smaller documentation folder.");
@@ -158,6 +190,7 @@ public sealed class NativeFiles
 
             foreach (var entry in new DirectoryInfo(folder.Path).EnumerateFileSystemInfos())
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (++visited > 10000)
                 {
                     throw Error("folder-too-large", "Choose a smaller documentation folder.");
@@ -174,22 +207,30 @@ public sealed class NativeFiles
                     continue;
                 }
 
-                if (entry is DirectoryInfo)
+                var isDirectory = entry is DirectoryInfo;
+                if (!isDirectory && !Relevant(path))
                 {
-                    if (folder.Depth < 16)
+                    continue;
+                }
+                try
+                {
+                    ValidateWorkspacePath(path);
+                }
+                catch (Exception error) when (error is ArgumentException || error is WorkspaceException { Code: "invalid-path" or "outside-workspace" })
+                {
+                    skippedNames = true;
+                    continue;
+                }
+                if (isDirectory)
+                {
+                    if (folder.Depth < MaximumDirectoryDepth)
                     {
                         queue.Enqueue((entry.FullName, folder.Depth + 1));
                     }
-
                     continue;
                 }
 
-                if (!Relevant(path))
-                {
-                    continue;
-                }
-
-                _ = Resolve(id, path);
+                _ = ResolveValidated(id, path, allowMissingLeaf: false);
                 var kind = WorkspacePath.IsMarkdown(path) ? "document" : path == MapLayoutCodec.FileName ? "sidecar" : "asset";
                 if (kind == "document" && ++documents > Limits.Documents || entries.Count >= Limits.Entries)
                 {
@@ -300,6 +341,13 @@ public sealed class NativeFiles
     /// <summary>Resolves a canonical workspace path while enforcing root containment and Windows filename and reparse-point rules.</summary>
     public string Resolve(string id, string path, bool allowMissingLeaf = false)
     {
+        ValidateWorkspacePath(path);
+        return ResolveValidated(id, path, allowMissingLeaf);
+    }
+
+    /// <summary>Rejects names that cannot be represented by an exact canonical workspace path on Windows.</summary>
+    private static void ValidateWorkspacePath(string path)
+    {
         if (WorkspacePath.Normalize(path, true) != path || WorkspacePath.IsIgnored(path))
         {
             throw Error("invalid-path", "This path is outside the documentation workspace.");
@@ -315,7 +363,11 @@ public sealed class NativeFiles
                 throw Error("invalid-path", "This filename is unsafe on Windows.");
             }
         }
+    }
 
+    /// <summary>Checks root containment and filesystem links after validating the logical name.</summary>
+    private string ResolveValidated(string id, string path, bool allowMissingLeaf)
+    {
         var root = Root(id);
         var fullPath = Path.GetFullPath(Path.Combine(root, path.Replace('/', Path.DirectorySeparatorChar)));
         var rootPrefix = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;

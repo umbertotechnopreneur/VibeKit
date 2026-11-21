@@ -4,6 +4,7 @@
 #include "BuiltInPresets.h"
 #include "CloseDialog.h"
 #include "GpuJokeNotifications.h"
+#include "MemoryWatchdog.h"
 #include <commdlg.h>
 #include <vector>
 #include <iterator>
@@ -44,7 +45,7 @@ namespace
         GpuJokeNotifications gpuJokes;
         HWND jokeCaption{};
         unsigned jokeIndex{};
-        bool running = false, hotkeyAvailable = false, dirty = false;
+        bool running = false, hotkeyAvailable = false, dirty = false, firstFrame = false;
         int slowFrames = 0, frames = 0;
         float cpuTotal = 0;
         Clock::time_point previousTick{}, statsSince{};
@@ -278,7 +279,9 @@ namespace
         }
         void Stop(const std::wstring& reason)
         {
+            const bool wasRunning = running;
             running = false;
+            firstFrame = false;
             glitches.Cancel(Time(), settings);
             KillTimer(window, RenderTimer);
             if (overlay) ShowWindow(overlay, SW_HIDE);
@@ -286,6 +289,7 @@ namespace
             if (overlay) { DestroyWindow(overlay); overlay = nullptr; }
             SetWindowTextW(toggle, L"Enable effect");
             Status(reason);
+            if (wasRunning) tray.Notify(L"CRT effect off", reason.c_str());
         }
         void Start()
         {
@@ -312,6 +316,7 @@ namespace
                 glitches.Reset(Time(), settings);
                 if (!SetTimer(window, RenderTimer, 34, nullptr)) winrt::throw_last_error();
                 running = true;
+                firstFrame = true;
                 SetWindowTextW(toggle, L"Disable effect");
                 Status(L"Waiting for a screen frame…");
             }
@@ -344,6 +349,10 @@ namespace
                 {
                     dirty = false;
                     if (!SetLayeredWindowAttributes(overlay, 0, 255, LWA_ALPHA)) winrt::throw_last_error();
+                    if (firstFrame) {
+                        firstFrame = false;
+                        tray.Notify(L"CRT effect on", L"The screen effect is active.");
+                    }
                     ++frames;
                     cpuTotal += milliseconds;
                 }
@@ -523,6 +532,12 @@ namespace
             SetWindowPos(window, nullptr, rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top, SWP_NOZORDER | SWP_NOACTIVATE);
             return 0;
         }
+        case RetroMemoryWatchdog::LimitMessage:
+            app->Stop(L"Stopped because Retro Terminal exceeded its memory limit.");
+            MessageBoxW(window, L"Retro Terminal reached its RAM limit. Details are in the local diagnostic log.",
+                L"Retro Terminal", MB_OK | MB_ICONWARNING);
+            if (IsWindow(window)) DestroyWindow(window);
+            return 0;
         case WM_CLOSE:
             if (app->RequestClose()) DestroyWindow(window);
             return 0;
@@ -580,6 +595,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
             CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left, rect.bottom - rect.top, nullptr, nullptr, instance, &app);
         if (!app.window) winrt::throw_last_error();
         app.CreateControls();
+        auto memoryWatchdog = RetroMemoryWatchdog::Start(app.window);
         ShowWindow(app.window, show);
         MSG message{};
         int result;

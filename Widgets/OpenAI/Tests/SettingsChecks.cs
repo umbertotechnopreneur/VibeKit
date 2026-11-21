@@ -5,7 +5,21 @@ internal static class SettingsChecks
     internal static async Task RunAsync(Action<bool, string> check, string directory)
     {
         var storage = new Storage(directory);
-        foreach (string invalid in new[] { "{broken", "null", "{\"timeZoneId\":\"Invalid/Fixture\"}", new string('x', Storage.MaximumSettingsBytes + 1) })
+        File.WriteAllText(storage.SettingsPath, "{\"timeZoneId\":\"UTC\"}");
+        var old = storage.LoadSettings();
+        check(old.LabelPosition == "above" && old.ShowAvailableResets && old.ShowCredits && old.ShowEstimatedTime &&
+            old.AlertSound && old.CreditsAlertThreshold is null, "Existing settings receive compatible presentation defaults");
+        storage.SaveSettings(new WidgetSettings
+        {
+            TimeZoneId = "UTC", LabelPosition = "hidden", ShowAvailableResets = false, ShowEstimatedTime = false,
+            AlertSound = false, CreditsAlertThreshold = 0
+        });
+        var savedPreferences = storage.LoadSettings();
+        check(savedPreferences.LabelPosition == "hidden" && !savedPreferences.ShowAvailableResets && savedPreferences.ShowCredits &&
+            !savedPreferences.ShowEstimatedTime && !savedPreferences.AlertSound && savedPreferences.CreditsAlertThreshold == 0,
+            "Independent metrics, hidden labels and the optional credits threshold persist");
+        foreach (string invalid in new[] { "{broken", "null", "{\"timeZoneId\":\"Invalid/Fixture\"}",
+            "{\"labelPosition\":\"side\"}", "{\"creditsAlertThreshold\":-1}", new string('x', Storage.MaximumSettingsBytes + 1) })
         {
             File.WriteAllText(storage.SettingsPath, invalid);
             var editable = storage.LoadSettingsForEditing();

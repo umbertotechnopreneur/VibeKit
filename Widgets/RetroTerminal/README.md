@@ -1,5 +1,5 @@
 > - **File name** `README.md`
-> - **Published file** [README.md](https://github.com/umbertotechnopreneur/VibeKit/blob/main/Widgets/RetroTerminal/README.md)
+> - **Full path** `/run/media/umberto/Repo/vibekit/Widgets/RetroTerminal/README.md`
 > - **Path relative to the VibeKit repository root** `Widgets/RetroTerminal/README.md`
 
 # Retro Terminal
@@ -51,12 +51,12 @@ available above the sections. Preferences expose:
 - Four individually allowed glitches: local RGB separation, horizontal tear,
   line interference and a soft scanning band.
 
-**Pipelines** includes twelve CRT looks inspired by Commodore, Amiga, analog
-television and Trinitron displays. Try **Commodore PET Green** for green phosphor,
-**Amiga Workbench Blue** for cool tints, **TV Composite PAL** for bold scanlines
-and darkened corners, or **Trinitron Aperture Grille** for vertical RGB stripes.
-The built-ins keep random glitches and temporal afterglow disabled. Choosing a
-preset changes the appearance without turning the effect on.
+**Pipelines** includes 40 CRT looks with light scanlines and fine static grain.
+Try **Commodore PET Green** for green phosphor, **Amiga Workbench Blue** for cool
+tints, **TV Composite PAL** for a soft composite signal, or **Trinitron Aperture
+Grille** for subtle vertical RGB stripes. The built-ins keep random glitches and
+temporal afterglow disabled. Choosing a preset changes the appearance without
+turning the effect on.
 
 Select a pipeline from the Effect page or the library. Built-ins are protected;
 duplicate one to keep your changes. Personal pipelines update automatically as
@@ -167,6 +167,7 @@ node tests/capture-plan-checks.mjs
 node tests/pipeline-checks.mjs
 python3 scripts/benchmark-shader.py --output-dir /tmp/retro-terminal-benchmark
 python3 scripts/smoke-gnome.py --mode ubuntu --output-dir /tmp/retro-terminal-smoke
+python3 scripts/smoke-gnome.py --mode ubuntu --presets --output-dir /tmp/retro-terminal-preset-smoke
 python3 scripts/smoke-gnome.py --mode ubuntu --oversized-capture --output-dir /tmp/retro-terminal-large-smoke
 ```
 
@@ -228,5 +229,5 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
 </p>
 
 > - **File name** `README.md`
-> - **Published file** [README.md](https://github.com/umbertotechnopreneur/VibeKit/blob/main/Widgets/RetroTerminal/README.md)
+> - **Full path** `/run/media/umberto/Repo/vibekit/Widgets/RetroTerminal/README.md`
 > - **Path relative to the VibeKit repository root** `Widgets/RetroTerminal/README.md`

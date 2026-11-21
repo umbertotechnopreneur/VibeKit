@@ -15,9 +15,9 @@ stage=$(mktemp -d "$output/.openai-usage-XXXXXX")
 payload="$stage/payload"
 export NUGET_PACKAGES="$stage/nuget"
 
-dotnet publish Backend/OpenAIUsage.Backend.csproj -c Release -r linux-x64 --self-contained true -o "$payload/backend"
+dotnet publish Backend/OpenAIUsage.Backend.csproj -c Release -r linux-x64 --self-contained false -o "$payload/backend"
 test -f "$payload/backend/OpenAIUsage.Backend"
-test -f "$payload/backend/libcoreclr.so"
+test -f "$payload/backend/OpenAIUsage.Backend.runtimeconfig.json"
 mkdir -p -- "$payload/Linux" "$payload/licenses"
 cp -- Linux/*.py Linux/run.sh "$payload/Linux/"
 cp -R -- Branding "$payload/Branding"

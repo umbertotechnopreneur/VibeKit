@@ -132,10 +132,10 @@ Maintainer: OpenAI Usage local builds <noreply@example.invalid>
 Section: utils
 Priority: optional
 Installed-Size: {installed_size}
-Depends: python3 (>= 3.10), python3-gi, python3-gi-cairo, python3-cairo, gir1.2-gtk-4.0 (>= 4.14), gir1.2-adw-1 (>= 1.5), libgtk-4-1 (>= 4.14), libadwaita-1-0 (>= 1.5), libc6 (>= 2.35), libgcc-s1, libstdc++6, libgssapi-krb5-2, libssl3t64 | libssl3, libicu78 | libicu77 | libicu76 | libicu74 | libicu72, zlib1g
+Depends: dotnet-runtime-10.0, python3 (>= 3.10), python3-gi, python3-gi-cairo, python3-cairo, gir1.2-gtk-4.0 (>= 4.14), gir1.2-adw-1 (>= 1.5), libgtk-4-1 (>= 4.14), libadwaita-1-0 (>= 1.5), libc6 (>= 2.35), libgcc-s1, libstdc++6, libgssapi-krb5-2, libssl3t64 | libssl3, libicu78 | libicu77 | libicu76 | libicu74 | libicu72, zlib1g
 Description: Native OpenAI allowance and token-history widget
  GTK desktop widget with split-flap reset countdown and real Codex account data.
- Includes the source-built .NET backend and its private runtime.
+ Includes the source-built .NET backend; the .NET runtime is shared.
  Requires an independently installed Codex CLI with ChatGPT sign-in.
 """.encode()
     md5sums = "".join(hashlib.md5(data).hexdigest()+"  "+name+"\n" for name, (data, _) in sorted(files.items())).encode()

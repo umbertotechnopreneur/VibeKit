@@ -86,11 +86,28 @@ public static class Analytics
         return new(average, days, 0, Duration(days), $"Estimate based on {seconds / 3600:0.#} hours of observed activity in the last 7 days. Unobserved periods and reset crossings are excluded; actual usage may differ and the allowance may reset first.");
     }
 
-    public static string CompactDuration(double days)
+    public static ResetForecastDisplay CompareForecastWithReset(double remaining, Forecast forecast, long? reset, DateTimeOffset now)
+    {
+        if (remaining <= 0) return new("ALLOWANCE EXHAUSTED", true);
+        if (reset is null) return new("RESET TIME UNAVAILABLE", false);
+        long secondsToReset = reset.Value - now.ToUnixTimeSeconds();
+        if (secondsToReset <= 0) return new("WAITING FOR RESET DATA", false);
+        if (forecast.DaysLeft is not { } days)
+            return new(forecast.Average == 0 ? "NO OBSERVED CONSUMPTION" : "COLLECTING QUOTA HISTORY", false);
+        double gap = secondsToReset - days * 86400;
+        if (gap <= 0) return new("EXPECTED TO LAST UNTIL RESET", false);
+
+        string before = gap < 60 ? "<1M" : CompactDuration(gap / 86400d, omitEmptyUnit: true).ToUpperInvariant();
+        return new($"RUNS OUT {before} BEFORE RESET", true);
+    }
+
+    public static string CompactDuration(double days, bool omitEmptyUnit = false)
     {
         if (!double.IsFinite(days) || days >= 36500) return ">100y";
         long minutes = Math.Max(0, (long)Math.Floor(days * 1440));
         if (minutes < 60) return $"{minutes}m";
+        if (omitEmptyUnit && minutes % 1440 == 0) return $"{minutes / 1440}d";
+        if (omitEmptyUnit && minutes < 1440 && minutes % 60 == 0) return $"{minutes / 60}h";
         if (minutes < 1440) return $"{minutes / 60}h {minutes % 60}m";
         return $"{minutes / 1440}d {minutes % 1440 / 60}h";
     }

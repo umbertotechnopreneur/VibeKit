@@ -72,7 +72,10 @@ internal sealed class MemoryGuard : IDisposable
 
                 if (privateBytes > LimitBytes)
                 {
-                    Recover(privateBytes);
+                    long? workingSetBytes = null;
+                    try { workingSetBytes = process.WorkingSet64; }
+                    catch (Exception error) when (error is InvalidOperationException or System.ComponentModel.Win32Exception) { }
+                    Recover(privateBytes, workingSetBytes);
                     return;
                 }
             }
@@ -88,11 +91,12 @@ internal sealed class MemoryGuard : IDisposable
     }
 
     /// <summary>Warns, stops audio with its bounded worker shutdown, then requests an OS restart.</summary>
-    private void Recover(long privateBytes)
+    private void Recover(long privateBytes, long? workingSetBytes)
     {
         var restart = ReserveRestart(out var reason);
-        App.Diagnostics.Warning("Memory limit exceeded. Private bytes {PrivateBytes}. Restart requested: {Restart}", privateBytes, restart);
-        WriteLog($"limit-exceeded privateBytes={privateBytes} limitBytes={LimitBytes} restart={restart} reason={reason}");
+        App.Diagnostics.Warning("Memory limit exceeded Pid={Pid} Process={ProcessName} PrivateBytes={PrivateBytes} WorkingSetBytes={WorkingSetBytes} LimitBytes={LimitBytes} RestartRequested={Restart}",
+            Environment.ProcessId, nameof(VoiceDucker), privateBytes, workingSetBytes, LimitBytes, restart);
+        WriteLog($"limit-exceeded process={nameof(VoiceDucker)} privateBytes={privateBytes} workingSetBytes={workingSetBytes?.ToString() ?? "unavailable"} limitBytes={LimitBytes} restart={restart} reason={reason}");
         var action = restart
             ? "VoiceDucker will restart automatically."
             : "VoiceDucker will close without restarting to prevent a restart loop. Please reopen it after checking the problem.";

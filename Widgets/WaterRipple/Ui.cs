@@ -126,57 +126,32 @@ internal static class Ui
         });
     }
 
-    internal static Grid BrandHeader(string title, string subtitle)
-    {
-        var header = new Grid { ColumnSpacing = 18 };
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var words = new StackPanel { Spacing = 5, VerticalAlignment = VerticalAlignment.Center };
-        words.Children.Add(Text(title, 28));
-        var description = Text(subtitle, 13);
-        description.Style = SecondaryTextStyle;
-        words.Children.Add(description);
-        header.Children.Add(words);
-
-        return header;
-    }
-
     internal static FrameworkElement DiagnosticRows(AppState state, string property)
     {
-        var rows = new StackPanel { Spacing = 4 };
+        var grid = new Grid { ColumnSpacing = 12, RowSpacing = 6 };
+        for (int i = 0; i < 4; i++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         void Refresh()
         {
             string value = property == nameof(AppState.MetricsText) ? state.MetricsText : state.ResourcesText;
-            string[] lines = value.Split('\n');
+            string[] lines = value.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            grid.Children.Clear(); grid.RowDefinitions.Clear();
             for (int i = 0; i < lines.Length; i++)
             {
-                if (i == rows.Children.Count)
-                {
-                    var row = new Grid { ColumnSpacing = 8 };
-                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                    var label = Text("", 12); label.Style = SecondaryTextStyle; row.Children.Add(label);
-                    var number = Text("", 12); number.TextAlignment = TextAlignment.Right;
-                    Grid.SetColumn(number, 1); row.Children.Add(number);
-                    rows.Children.Add(row);
-                }
-                var current = (Grid)rows.Children[i];
-                var parts = lines[i].Split('\t', 2);
-                var currentLabel = (TextBlock)current.Children[0];
-                var currentValue = (TextBlock)current.Children[1];
-                string text = parts.Length == 2 ? parts[1] : "";
-                if (currentLabel.Text != parts[0]) currentLabel.Text = parts[0];
-                if (currentValue.Text != text) currentValue.Text = text;
+                int row = i / 2, column = (i % 2) * 2;
+                if (column == 0) grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                string[] parts = lines[i].Split('\t', 2);
+                var label = Text(parts[0], 12); label.Style = SecondaryTextStyle; label.TextAlignment = TextAlignment.Right;
+                var number = Text(parts.Length == 2 ? parts[1] : "", 12); number.TextAlignment = TextAlignment.Left;
+                Grid.SetRow(label, row); Grid.SetColumn(label, column);
+                Grid.SetRow(number, row); Grid.SetColumn(number, column + 1);
+                grid.Children.Add(label); grid.Children.Add(number);
             }
-            while (rows.Children.Count > lines.Length) rows.Children.RemoveAt(rows.Children.Count - 1);
         }
         void Changed(object? sender, PropertyChangedEventArgs args) { if (args.PropertyName == property) Refresh(); }
-        rows.Loaded += (_, _) => { state.PropertyChanged += Changed; Refresh(); };
-        rows.Unloaded += (_, _) => state.PropertyChanged -= Changed;
-        Refresh();
-        return rows;
+        grid.Loaded += (_, _) => { state.PropertyChanged += Changed; Refresh(); };
+        grid.Unloaded += (_, _) => state.PropertyChanged -= Changed;
+        Refresh(); return grid;
     }
-
     internal static void AttachAppearance(Window window, Grid root, AppSettings settings)
     {
         root.Style = (Style)Application.Current.Resources["WindowSurfaceStyle"];
@@ -248,6 +223,24 @@ internal static class Ui
         group.Children.Add(slider);
         parent.Children.Add(group);
         return slider;
+    }
+
+    internal static Grid PreferenceSlider(string label, string description, AppSettings settings, string property,
+        double minimum, double maximum, double step, string unit)
+    {
+        var slider = new Slider
+        {
+            Minimum = minimum,
+            Maximum = maximum,
+            StepFrequency = step,
+            MinHeight = 28,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        AutomationProperties.SetName(slider, label);
+        Bind(slider, RangeBase.ValueProperty, settings, property, BindingMode.TwoWay);
+        var value = Text("", 12);
+        Bind(value, TextBlock.TextProperty, settings, property, converter: NumberLabel, parameter: unit);
+        return Tools.Widgets.EffectStudioLayout.SliderRow(label, description, slider, value);
     }
 
     internal static ToggleSwitch Toggle(Panel parent, string label, object source, string property)

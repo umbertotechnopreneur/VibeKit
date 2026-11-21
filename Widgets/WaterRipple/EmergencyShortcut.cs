@@ -7,6 +7,7 @@ namespace WaterRipple;
 // A private message loop keeps emergency exit independent of the WinUI dispatcher.
 internal sealed class EmergencyShortcut : IDisposable
 {
+    internal const string RegisteredStatus = "Emergency shortcut is active and immediately closes Water Ripple.";
     private const uint WmHotkey = 0x0312, WmUpdate = 0x8001, WmQuit = 0x0012;
     private const int HotkeyId = 1;
     private readonly Action<string> report;
@@ -48,7 +49,7 @@ internal sealed class EmergencyShortcut : IDisposable
                 registered = false;
             }
             report(!want ? "Emergency shortcut is disabled." : registered
-                ? "Emergency shortcut is active and immediately closes Water Ripple."
+                ? RegisteredStatus
                 : "Emergency shortcut unavailable. Another app may be using it.");
         }
         ready.Set();

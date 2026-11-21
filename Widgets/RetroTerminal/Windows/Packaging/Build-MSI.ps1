@@ -29,7 +29,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Retro Terminal CMake configuration failed.' }
 & $cmake --build $build --config Release --target RetroEngine
 if ($LASTEXITCODE -ne 0) { throw 'Retro Terminal native source build failed.' }
 
-& dotnet publish $project -c Release -r win-x64 --self-contained true -p:Platform=x64 -p:NuGetAudit=false -o $payload
+& dotnet publish $project -c Release -r win-x64 --self-contained false -p:Platform=x64 -p:NuGetAudit=false -o $payload
 if ($LASTEXITCODE -ne 0) { throw 'Retro Terminal source publish failed.' }
 Copy-Item -LiteralPath (Join-Path $windows 'Studio/bin/x64/Release/net10.0-windows10.0.26100.0/win-x64/RetroStudio.pri') -Destination (Join-Path $payload 'resources.pri')
 Copy-Item -LiteralPath (Join-Path $build 'Release/RetroEngine.dll'),(Join-Path $root 'LICENSE') -Destination $payload

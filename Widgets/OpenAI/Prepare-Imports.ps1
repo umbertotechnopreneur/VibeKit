@@ -26,7 +26,7 @@ try {
     foreach ($project in $projects) {
         $arguments = @('restore',$project.project,'--packages',$packageRoot,'--source','https://api.nuget.org/v3/index.json','-p:NuGetAudit=false','--disable-parallel')
         if ($project.rid) { $arguments += @('-r',$project.rid) }
-        if ($ForPackaging) { $arguments += '-p:SelfContained=true' }
+        if ($ForPackaging) { $arguments += '-p:SelfContained=false' }
         & dotnet @arguments | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "Dependency staging failed for $($project.project)." }
     }

@@ -1,43 +1,66 @@
+> **File name** `windows-packaging.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\windows-packaging.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\docs\windows-packaging.md`
+
 # Windows distribution
 
 `scripts/package-windows.ps1` defaults to self-contained Windows 11 **x64 Release**
-packages. Debug and ARM64 require an explicit selection. The desktop .NET runtime is included; WebView2 uses the installed Evergreen
-Runtime. No SDK, workload, app or certificate is installed by packaging.
+packages. Debug and ARM64 require an explicit selection. The desktop package
+includes .NET and the Windows App SDK. WebView2 uses the installed Evergreen Runtime.
 
 ## Requested Release or Debug build
+
+```mermaid
+flowchart TB
+    accTitle: Windows package build and local deployment
+    accDescr: One packaging invocation publishes Release x64 source, produces signed packages, and leaves installation and launch to an explicit local step.
+    SRC["Current source<br/>WinUI, Win2D and renderer modules"]
+    PUB["Publish Release x64<br/>Compile and stage app payload"]
+    SIGN["Package and sign<br/>MSIX and bundle"]
+    OUTPUT["Versioned artifacts<br/>Packages, certificate and checksums"]
+    INSTALL["Install in Windows<br/>Trust the development certificate"]
+    OPEN["Launch the installed app"]
+    SRC --> PUB --> SIGN --> OUTPUT
+    OUTPUT -->|"Explicit local installation"| INSTALL --> OPEN
+
+    classDef input fill:#dcf0e9,stroke:#20766a,color:#143e38
+    classDef build fill:#e6effb,stroke:#315a92,color:#18334f
+    classDef storage fill:#ece8f7,stroke:#69518f,color:#302347
+    class SRC input
+    class PUB,SIGN,INSTALL,OPEN build
+    class OUTPUT storage
+```
 
 Use PowerShell 7, existing Node >=22.12, a stable .NET 10 SDK >=10.0.402 and Windows SDK tools
 `makeappx.exe`/`signtool.exe`. The script discovers tools already installed on the machine.
 
 ```powershell
 ./scripts/package-windows.ps1
+# MSIX and bundle only:
+./scripts/package-windows.ps1 -MsixOnly
 # Explicit wider distribution:
 ./scripts/package-windows.ps1 -Configuration Release -Architectures x64,arm64
-# Launch the local Release build after packaging:
-Start-Process ./src/MarkVibe.Windows/bin/Release/net10.0-windows10.0.19041.0/win-x64/MarkVibe.Windows.exe
 ```
 
-Run one requested configuration at a time: each invocation **deletes the repository's
-entire `artifacts/` directory before building**, including previous packages and old
-validation fixtures. The deletion checks the absolute output boundary and removes
-links without following them. Final distribution files remain there; temporary staging
-and private signing material are removed. No Codex output directory is created.
+Each invocation writes the distribution under `artifacts/<build-id>/` and keeps
+staging under `artifacts/.work/<build-id>/`. The build ID includes configuration,
+version and a unique suffix. Private signing files live under the application's
+ignored `obj/packaging-signing/` directory. Existing build outputs are available
+for manual cleanup.
 
 `packaging/windows/version.json` stores the last successful four-part version.
 Default packaging increments its final component, across both configurations.
 `-Version 0.1.1.0` selects a greater explicit version. Version metadata advances only
-after packaging succeeds. Build settings include version, configuration and UTC timestamp;
-the About window displays the version and timestamp.
+after packaging succeeds. Build settings include version, configuration and UTC
+timestamp. The About dialog displays the running package or executable version.
 
-Packaged applications also contain `app/build-info.json`. The splash reads this
-before managed startup and shows version/configuration/architecture, the build
-machine's name and its local build date/time, UTC offset and timezone identifier.
-The local date/time text uses the build host's culture and timezone; opening the
-package on another machine does not convert it. Unpackaged development hosts
-without that file omit the metadata instead of inventing compilation facts.
+Packaged applications contain `app/build-info.json` with the configuration,
+architecture and build-host timestamp metadata. The local date and time text
+uses the build host's culture and timezone.
 
-Outputs: portable ZIPs, MSI installers and MSIX files for the selected architectures, one
-MSIX bundle, public development certificate, installation helper, README,
+By default, the script includes portable ZIPs and MSI installers for the selected
+architectures. Both modes produce MSIX files, one MSIX bundle, a public development
+certificate and installation helper for signed builds, README,
 `BUILD-INFO.json` and `SHA256SUMS.txt`. No tests, installation, branch/worktree creation,
 commit or publication are performed by this script. For local Release x64 delivery,
 the owner has authorized closing MarkVibe, discarding unsaved in-app work,
@@ -103,7 +126,7 @@ Debug/Release and x64/ARM64 have separate stable upgrade identities. The MSI
 compares three version fields, so application version `major.minor.build.revision`
 maps to `major.minor.(build * 1000 + revision)`; for example, `0.1.0.23` becomes
 `0.1.23`. Packaging rejects revisions above 999 or values beyond MSI's numeric
-limits before cleaning artifacts. The four-part app version remains in build
+limits before packaging. The four-part app version remains in build
 metadata and the application's About window.
 
 Open the MSI normally or use Windows Installer's standard command line:
@@ -123,19 +146,12 @@ The native authoring script and table definitions live under `packaging/windows/
 Keep component identities stable across upgrades and never add wildcard deletion
 of user data to the uninstall tables.
 
-The visible desktop browser uses the standard HWND-hosted `WebView2` with opaque
-browser, WPF and native client backgrounds. Native Acrylic is unavailable and
-Settings explains why; the saved preference is retained. All application dialogs,
-menus and tooltips live inside the browser, so they do not need WPF-over-browser
-composition. The isolated PDF host remains hidden with its existing boundaries.
-
-`WebView2CompositionControl` adds a graphics-capture step and can have lower
-frame rates than standard hosting; see Microsoft's
-[composition-control specification](https://github.com/MicrosoftEdge/WebView2Feedback/blob/main/specs/WPF_WebView2CompositionControl.md).
-In-app modal blur remains a separate browser effect.
-The Windows project targets `net10.0-windows10.0.19041.0` and pins the existing
-Windows SDK .NET reference pack `10.0.19041.57`. A bare `net10.0-windows` target
-defaults to Windows 7 APIs. Keep the explicit Windows target and MSIX's Windows 11 minimum.
+The payload contains the WinUI 3 executable and its compiled XAML resource index,
+the Win2D map, and the local WebView2 document renderer with Monaco's worker and
+the Mermaid frame. Packaging also places the app PRI at the MSIX resource index
+path. The desktop project targets `net10.0-windows10.0.19041.0` and pins Windows SDK
+reference pack `10.0.19041.57`. Keep the explicit desktop target and the Windows 11
+minimum in the MSIX manifest.
 
 ## GitHub and Microsoft Store
 
@@ -152,3 +168,7 @@ signed by Microsoft. See [manual desktop MSIX components](https://learn.microsof
 Installer acceptance means explicitly installing the generated package and trying
 the app. Packaging success is not an installation result. Automated test execution
 requires a separate current request.
+
+> **File name** `windows-packaging.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\windows-packaging.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\docs\windows-packaging.md`

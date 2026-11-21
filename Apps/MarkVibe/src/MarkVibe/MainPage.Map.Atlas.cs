@@ -25,8 +25,7 @@ public partial class MainPage
         return map with
         {
             Attention = exploration.Attention.Where(item => visiblePaths.Contains(item.Key))
-                .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal),
-            IndexComplete = exploration.IndexComplete
+                .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal)
         };
     }
 
@@ -96,7 +95,7 @@ public partial class MainPage
                 return;
             case "atlas-route-end":
                 state.RouteEnd = state.SelectedPath;
-                var route = context.Catalog.Map(state.SelectedPath, false, state.RouteStart, state.RouteEnd).Route ?? [];
+                var route = context.Catalog.FindRoute(state.RouteStart, state.RouteEnd);
                 var routeFolders = route.Select(path => path.Contains('/') ? path[..path.LastIndexOf('/')] : "").ToHashSet(StringComparer.Ordinal);
                 atlas = atlas with { CollapsedFolders = folders.Where(folderPath => !routeFolders.Contains(folderPath)).ToArray() };
                 break;

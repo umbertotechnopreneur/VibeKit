@@ -47,6 +47,8 @@ import { setLanguage, setSystemLanguage, t, localize, refreshTranslations } from
 
 const views = new Map();
 const snapshots = new Map();
+// A managed render owns its snapshot until it reaches the mounted reader. Reattachment replays only idle snapshots.
+const pendingReaderSnapshots = new WeakSet();
 const jobs = new Map();
 const attachments = new Map();
 const mapEvents = new Set();
@@ -58,6 +60,7 @@ let endpoint = null;
 let syncPair = null;
 let syncLocked = false;
 let firstHistory = true;
+let restoringHistoryId = "";
 let preferenceRevision = 0;
 let exportAdapter;
 let preferences = readPreferences();
@@ -263,15 +266,20 @@ async function applyPreferences(args) {
   document.documentElement.dataset.documentStyle = preferences.documentStyle;
   document.documentElement.style.setProperty("--reading-scale", String(preferences.zoom / 100));
   const windowStyle = isDesktop() ? await nativeCall("window.appearance", { acrylic: preferences.acrylic, dark, language: locale }) : { acrylic: false, acrylicAvailable: false };
-  const fonts = await installedUiFonts();
-  const chosenFont = fonts.find(font => font.id === preferences.uiFont);
+  let chosenFont;
+  if (preferences.uiFont !== "system") {
+    const fonts = await installedUiFonts();
+    chosenFont = fonts.find(font => font.id === preferences.uiFont);
+  }
   const uiFont = chosenFont?.id ?? "system";
   if (revision !== preferenceRevision) {
     return { dark, persisted: true, locale, uiFont, ...windowStyle };
   }
-  const fontStack = uiFont === "system" ? '"Segoe UI", system-ui, sans-serif' : '"' + chosenFont.label + '", "Segoe UI", system-ui, sans-serif';
+  const family = chosenFont ? '"' + chosenFont.label + '"' : null;
+  const systemStack = '"Segoe UI", system-ui, sans-serif';
+  const fontStack = family ? family + ", " + systemStack : systemStack;
   document.documentElement.style.setProperty("--ui-font", fontStack);
-  document.documentElement.style.setProperty("--ui-monospace", uiFont === "system" ? '"Cascadia Mono"' : '"' + chosenFont.label + '"');
+  document.documentElement.style.setProperty("--ui-monospace", family ?? '"Cascadia Mono"');
   if (/^#[\da-f]{6}$/iu.test(windowStyle.accent ?? "")) {
     document.documentElement.style.setProperty("--accent", windowStyle.accent);
   } else {
@@ -350,8 +358,11 @@ async function dispatch(operation, args, signal) {
           localStorage.removeItem("markvibe.lastDocument");
           localStorage.removeItem("markvibe.lastWorkspace");
         }
-        await initializeWorkspaceStorage();
-        await setWorkspaceMemory(preferences.rememberLastDocument);
+        // Windows restores its native session. Only browser directory handles require IndexedDB.
+        if (!desktop) {
+          await initializeWorkspaceStorage();
+          await setWorkspaceMemory(preferences.rememberLastDocument);
+        }
         const hash = new URLSearchParams(location.hash.slice(1));
         const current = savedEntry();
         const path = hash.get("doc") || current?.path || "";
@@ -442,7 +453,7 @@ async function dispatch(operation, args, signal) {
     case "file.delete":
       return nativeCall(operation, args, signal);
     case "workspace.open":
-      return openWorkspace(args.mode, signal, args.recentPath, args.recentKind, args.workspaceId);
+      return openWorkspace(args.mode, signal, args.recentPath, args.recentKind, args.workspaceId, args.priorityDocumentPath);
     case "workspace.recent":
       return isDesktop() ? nativeCall(operation, args, signal) : [];
     case "fileAssociations.status":
@@ -456,6 +467,22 @@ async function dispatch(operation, args, signal) {
       else await view.action(args.action, args.data);
       return true;
     }
+    case "map.preview":
+      // Responses belong to the live graph. Never retain Markdown in the map snapshot for reattachment.
+      views.get(args.hostId)?.preview?.receive(args);
+      return true;
+    case "map.previewOpen": {
+      const view = views.get(args.hostId);
+      if (!view?.preview || view.suspended || view.arranging || view.workspaceId !== args.workspaceId || view.state?.stateId !== args.stateId
+          || (args.onlyIfOpen && !view.preview.currentPath)) {
+        return false;
+      }
+      view.preview.open(args.path, args.anchor, args.onlyIfOpen);
+      return true;
+    }
+    case "map.previewClose":
+      views.get(args.hostId)?.preview?.close();
+      return true;
     case "map.appearance": {
       const changes = {};
       if (args.color != null) changes.color = args.color;
@@ -513,14 +540,24 @@ async function dispatch(operation, args, signal) {
       return true;
     case "map.state":
       {
-        const state = retainMapState(args.workspaceId, args.state);
         const snapshot = snapshots.get(args.hostId);
-        if (snapshot?.workspaceId === args.workspaceId) {
+        const sameWorkspace = snapshot?.kind === "map" && snapshot.workspaceId === args.workspaceId;
+        if (sameWorkspace && snapshot.state.stateId !== args.controls.stateId) {
+          return true;
+        }
+        if (!args.layout && !matchesMapStructure(snapshot, args)) {
+          return false;
+        }
+        const incoming = { ...args.controls, layout: args.layout ?? snapshot.state.layout };
+        const state = retainMapState(args.workspaceId, incoming);
+        if (sameWorkspace) {
+          if (snapshot.state.layout !== state.layout) snapshot.structureId = 0;
           snapshot.state = state;
         }
         const view = views.get(args.hostId);
-        if (view?.workspaceId === args.workspaceId) {
-          view.setState(args.state);
+        if (view?.workspaceId === args.workspaceId && view.state?.stateId === incoming.stateId) {
+          // Even a late acknowledgment removes its optimistic edit before setState chooses the latest generation.
+          view.setState(incoming);
         }
         return true;
       }
@@ -556,8 +593,12 @@ async function dispatch(operation, args, signal) {
         if (!workspace.info().capabilities.canRefresh) {
           throw new WorkspaceError("reimport-needed", "Select this folder or bundle again to refresh its contents.");
         }
+        const completingInitialCatalog = Boolean(workspace.info().initialDocumentPath);
         await workspace.scan(signal);
-        releaseAssetsForWorkspace(args.workspaceId);
+        if (!completingInitialCatalog) {
+          // A deliberate refresh can replace media. Finishing the first catalog leaves visible image URLs valid.
+          releaseAssetsForWorkspace(args.workspaceId);
+        }
         return workspace.info();
       }
     case "workspace.release":
@@ -579,10 +620,21 @@ async function dispatch(operation, args, signal) {
       return true;
     case "markdown.render":
       {
-        snapshots.set(args.hostId, { ...args, kind: "markdown" });
-        const reader = await getView(args.hostId, signal);
-        reader.preferences = readerPreferences;
-        await reader.render(args, signal);
+        const snapshot = { ...args, kind: "markdown" };
+        pendingReaderSnapshots.add(snapshot);
+        snapshots.set(args.hostId, snapshot);
+        try {
+          const reader = await getView(args.hostId, signal);
+          checkCancelled(signal);
+          if (snapshots.get(args.hostId) === snapshot) {
+            // A presenter detached during the render must still replay the snapshot on its new host.
+            pendingReaderSnapshots.delete(snapshot);
+            reader.preferences = readerPreferences;
+            await reader.render(snapshot, signal);
+          }
+        } finally {
+          pendingReaderSnapshots.delete(snapshot);
+        }
         return true;
       }
     case "markdown.capture":
@@ -599,18 +651,36 @@ async function dispatch(operation, args, signal) {
     case "map.render":
     case "map.selection":
       {
-        args.state = retainMapState(args.workspaceId, args.state);
-        const snapshot = { ...args, kind: "map" };
-        snapshots.set(args.hostId, snapshot);
-        const view = await getView(args.hostId, signal);
-        if (snapshots.get(args.hostId) !== snapshot) {
+        const previous = snapshots.get(args.hostId);
+        const delta = !args.structure;
+        if (previous?.kind === "map" && previous.presentationId > args.presentationId) {
           return true;
         }
-        args.state = retainMapState(args.workspaceId, args.state);
-        if (operation === "map.selection") {
-          view.applySelection(args);
+        if (delta && !matchesMapStructure(previous, args)) return false;
+
+        const layout = args.layout ?? previous.state.layout;
+        const state = retainMapState(args.workspaceId, { ...args.controls, layout });
+        const snapshot = {
+          kind: "map", hostId: args.hostId, workspaceId: args.workspaceId, selected: args.selected,
+          focused: args.focused, advanced: args.advanced, depth: args.depth, center: args.center,
+          presentationId: args.presentationId, structureId: state.layout === layout ? args.structureId : 0,
+          map: { ...(args.structure ?? previous.map), ...args.selectionData }, state
+        };
+        // Retain a complete snapshot before waiting for a host. Reattachment can render it independently.
+        snapshots.set(args.hostId, snapshot);
+        const view = await getView(args.hostId, signal);
+        if (snapshots.get(args.hostId) !== snapshot || views.get(args.hostId) !== view) {
+          return true;
+        }
+
+        if (operation === "map.selection" && view.workspaceId === args.workspaceId && view.state?.stateId === state.stateId) {
+          const structureUnchanged = delta && snapshot.structureId === args.structureId &&
+            view.map?.nodes === snapshot.map.nodes && view.map?.edges === snapshot.map.edges &&
+            view.state.layout === snapshot.state.layout;
+          view.applySelection({ ...snapshot, structureUnchanged });
         } else {
-          view.render(args);
+          view.render(snapshot);
+          if (args.center) view.centerCard(args.selected);
         }
         return true;
       }
@@ -619,6 +689,17 @@ async function dispatch(operation, args, signal) {
       return true;
     case "history.replace":
       pushHistory(args, true);
+      return true;
+    case "history.cancelTraversal":
+      if (history.state?.markvibe?.id === args.targetId) {
+        if (args.delta) {
+          restoringHistoryId = args.departure.id;
+          history.go(args.delta);
+        } else {
+          // A visit from an earlier session has no retained distance. Keep the rejected destination available via Back.
+          pushHistory(args.departure);
+        }
+      }
       return true;
     case "history.go":
       history.go(Math.max(-1, Math.min(1, args.delta)));
@@ -654,9 +735,13 @@ async function call(operation, argumentsJson, request) {
 }
 /** Forward browser history navigation to the managed application state. */
 function popState(event) {
+  const restoring = restoringHistoryId;
+  restoringHistoryId = "";
   if (event.state?.markvibe) {
     rememberEntry(event.state.markvibe);
-    emit({ type: "history", entry: event.state.markvibe });
+    if (event.state.markvibe.id !== restoring) {
+      emit({ type: "history", entry: event.state.markvibe });
+    }
   }
 }
 /** Ask an open Settings dialog to reread effective Windows defaults after desktop activation. */
@@ -708,6 +793,12 @@ function suspendMaps(value) {
 /** Freeze renderer input during an atomic managed document replacement. */
 function suspendDocumentInput(value) {
   for (const view of views.values()) view.body.inert = value;
+}
+
+/** Accept a layout-free update only against the exact projection retained for this opening of this workspace. */
+function matchesMapStructure(snapshot, args) {
+  return snapshot?.kind === "map" && snapshot.workspaceId === args.workspaceId &&
+    snapshot.state.stateId === args.controls.stateId && args.structureId > 0 && snapshot.structureId === args.structureId;
 }
 
 /** Keep the latest managed map state for the workspace's retained hosts. */
@@ -803,6 +894,7 @@ window.markvibe = {
     }
     views.get(id).setSuspended?.(mapSuspended);
     if (kind === "markdown") {
+      views.get(id).preferences = readerPreferences;
       views.get(id).setExpanded(readerExpanded);
       views.get(id).positionListener = position => {
         const view = views.get(id);
@@ -815,7 +907,7 @@ window.markvibe = {
     }
     const snapshot = snapshots.get(id);
     const view = views.get(id);
-    if (snapshot) {
+    if (snapshot && !pendingReaderSnapshots.has(snapshot)) {
       Promise.resolve(view.render(snapshot, new AbortController().signal))
         .then(() => {
           if (snapshots.get(id) !== snapshot || views.get(id) !== view) {
@@ -834,7 +926,7 @@ window.markvibe = {
     attachments.delete(id);
     const view = views.get(id);
     const snapshot = snapshots.get(id);
-    if (snapshot && view?.capture) {
+    if (snapshot && !pendingReaderSnapshots.has(snapshot) && view?.capture) {
       snapshot.position = view.capture();
     }
     view?.selectionObserver?.abort();

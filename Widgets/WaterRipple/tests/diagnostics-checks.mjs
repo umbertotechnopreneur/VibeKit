@@ -34,9 +34,13 @@ const GLib = {
 const scheduleStartupGpuJoke = vm.runInNewContext(
     source('gpu-joke-notifications.js').replace(/^export /gm, '') + '\nscheduleStartupGpuJoke;',
     {GLib});
+const {shellPressure, watchMemory} = vm.runInNewContext(
+    source('ram-guard.js').replace(/^export /gm, '') + '\n({shellPressure, watchMemory});',
+    {GLib, TextDecoder});
 const Extension = vm.runInNewContext(source('extension.js')
     .replace('export default class RippleExtension', 'class RippleExtension') + '\nRippleExtension;', {
-    GLib, Extension: class {}, RecoveryPolicy, readResourceSample, retryDelay, FramePacer, scheduleStartupGpuJoke, TextDecoder,
+    GLib, Extension: class {}, RecoveryPolicy, readResourceSample, retryDelay, FramePacer, scheduleStartupGpuJoke,
+    shellPressure, watchMemory, TextDecoder,
     Clutter: {ModifierType: {BUTTON1_MASK: 1}},
     console: {log: message => logs.push(JSON.parse(message.slice('Ripple: '.length)))},
     Main: {wm: {removeKeybinding() {}}, overview: {}, layoutManager: {}, sessionMode: {},

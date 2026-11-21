@@ -19,6 +19,8 @@ public record Sample(long At, double Used, long? Reset, string Plan);
 public record QuotaDay(string Date, double? Used, double Coverage);
 public record Forecast(double? Average, double? DaysLeft, int CompleteDays, string Headline, string Detail);
 public record ResetDisplay(string Heading, string Value, string Detail, long ResetsAt);
+public record AllowanceDisplay(double Remaining, long? ResetsAt, string? ResetCompact);
+public record ResetForecastDisplay(string Message, bool Warning);
 
 public sealed class WidgetSettings
 {
@@ -32,11 +34,22 @@ public sealed class WidgetSettings
     public bool Alert50 { get; set; }
     public bool Alert20 { get; set; }
     public bool Alert5 { get; set; }
+    public string LabelPosition { get; set; } = "above";
+    public bool ShowAvailableResets { get; set; } = true;
+    public bool ShowCredits { get; set; } = true;
+    public bool ShowEstimatedTime { get; set; } = true;
+    public bool EnableDetailsBar { get; set; }
+    public bool AlertSound { get; set; } = true;
+    public int? CreditsAlertThreshold { get; set; }
     public WidgetSettings Copy() => (WidgetSettings)MemberwiseClone();
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(CodexPath)) throw new ArgumentException("Choose a Codex executable.");
         _ = TimeZoneInfo.FindSystemTimeZoneById(TimeZoneId);
+        if (LabelPosition is not ("above" or "below" or "hidden"))
+            throw new ArgumentException("Choose whether field labels appear above, below, or are hidden.");
+        if (CreditsAlertThreshold is < 0)
+            throw new ArgumentException("Choose a nonnegative credits alert threshold.");
     }
 }
 
@@ -52,10 +65,16 @@ public sealed class WidgetState
     public double? Remaining { get; set; }
     public long? ResetsAt { get; set; }
     public string ResetLabel { get; set; } = "Reset unavailable";
+    public string? SelectedResetCompact { get; set; }
+    public string? ResetCalendarDate { get; set; }
     public List<ResetDisplay> ResetDisplays { get; set; } = [];
+    public AllowanceDisplay? FiveHourAllowance { get; set; }
+    public AllowanceDisplay? WeeklyAllowance { get; set; }
+    public ResetForecastDisplay? ResetForecast { get; set; }
     public int? ResetVoucherCount { get; set; }
     public IReadOnlyList<ResetVoucherDisplay> ResetVoucherExpirations { get; set; } = [];
     public string CreditsLabel { get; set; } = "Unavailable";
+    public decimal? CreditsBalance { get; set; }
     public string AccessNote { get; set; } = "";
     public string AverageLabel { get; set; } = "Collecting quota history";
     public bool ForecastAvailable { get; set; }

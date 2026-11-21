@@ -63,6 +63,11 @@ def wix_source(payload, output, *, name, version, namespace, executable, registr
             exe_file = file_id
     if not exe_file:
         raise ValueError("Current Windows executable is missing")
+    child(package, "CustomAction", Id="RemoveUserStartup", FileRef=exe_file,
+          ExeCommand="--remove-windows-startup", Execute="deferred", Impersonate="yes", Return="ignore")
+    sequence = child(package, "InstallExecuteSequence")
+    child(sequence, "Custom", Action="RemoveUserStartup", Before="RemoveFiles",
+          Condition='REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE')
     for key, directory in dirs.items():
         comp_id = identity("R", key)
         comp = child(directory, "Component", Id=comp_id, Guid=str(uuid.uuid5(namespace, "directory:"+key)), Bitness="always64")

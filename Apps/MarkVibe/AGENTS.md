@@ -1,160 +1,36 @@
-# Repository Guidelines
+> **File name** `AGENTS.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\AGENTS.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\AGENTS.md`
 
-## Project Structure & Module Organization
+# MarkVibe working agreements
 
-- `src/MarkVibe.Core/`: Markdown model, navigation, catalog and ink state.
-- `src/MarkVibe/`: OpenSilver C#/XAML shell, Modern Theme, About and DOM hosts.
-- `src/MarkVibe.Browser/`: WebAssembly bootstrap and local `wwwroot/` assets.
-- `src/MarkVibe.Native/`: contained files, atomic sidecars and session persistence.
-- `src/MarkVibe.Windows/`: WPF/WebView2, native pickers and direct PDF saving.
-- `client/`: browser providers, sanitization, Monaco, Mermaid and rendering.
-- `packaging/windows/` and `scripts/`: versioned MSIX, MSI and portable packaging.
-- `tests/`, `schemas/`, `docs/`: checks, ink contract and architecture.
+The [VibeKit agreements](../../AGENTS.md) also apply. The Windows app uses WinUI 3 for the shell and Win2D for the map. C# models own files, Markdown parsing, revisions, navigation, catalog and map state. WebView2 hosts the Markdown and Mermaid reader, Monaco source view and isolated PDF renderer. The standalone web edition has its own OpenSilver shell and graph renderer. Edit maintained sources. Generated `wwwroot/js/`, `bin/` and `obj/` are build products. See the [architecture](docs/architecture.md) and [map layout contract](docs/map-layout.md).
 
-C# owns state and parsing. Never edit generated `wwwroot/js/`, `bin/` or `obj/`.
+## Windows delivery and verification
 
-## Build, Test, and Development Commands
+- A build request on this machine means **Release x64 MSIX**, built from current source, installed and launched. An explicit MSI request also requires a real Windows Installer artifact. Keep the installed distribution type unless the owner requests a change. Debug, ARM64 and x86 require explicit requests.
+- For that Release delivery, the owner authorizes closing MarkVibe, discarding unsaved in-app work, trusting only its generated development certificate in `LocalMachine/TrustedPeople`, replacing the previous MarkVibe package as needed and removing the retired Debug installation. Preserve source documents, application data and unrelated applications and certificates.
+- Use the latest installed stable .NET 10 SDK (minimum 10.0.402) and Node 22.12 or newer. Obtain authorization for SDK installation. Keep the Visual Studio `.sln` and CLI `.slnx` project lists aligned. Preserve design-time, IDE and CLI bundle behavior. See [Visual Studio](docs/visual-studio.md).
+- The packaging script records each distribution in its own directory under `artifacts/`. Preserve existing generated material unless the owner requests its removal. Keep packaging work and outputs under this application. See [Windows packaging](docs/windows-packaging.md).
+- Run tests only when explicitly requested for the current task. Use synthetic fixtures and the appropriate core, native, client, browser or Windows checks. The owner performs GUI acceptance. Driving input, focusing or moving windows, desktop capture and interactive checks require an explicit request beyond installation and launch.
+- Store packaging requires the real Partner Center Name, Publisher and display name plus an explicitly requested configuration and version. Publication requires separate authorization. See [Store prerequisites](docs/windows-store.md).
 
-Use the latest installed stable .NET 10 SDK (minimum **10.0.402**), Node **>=22.12** and execution authorization:
+## Code and identity
 
-On this machine, a build request means the existing **MSIX** delivery,
-**Release, x64 only**, followed by launching the newly installed desktop app. A request
-for a real MSI also includes the Windows Installer artifact; do not call MSIX an
-MSI or silently replace an installed distribution with a second installer type. The owner
-confirmed x64 rather than 32-bit x86 and retired the installed Debug version.
-Do not create or install Debug, ARM64 or x86 deliveries unless explicitly requested.
-For local Release x64 delivery, the owner has explicitly authorized closing
-all MarkVibe instances, discarding unsaved in-app work, trusting the generated
-MarkVibe development certificate in `LocalMachine/TrustedPeople`, and installing
-or replacing the Release package without another confirmation. Remove the previous
-MarkVibe package if replacement requires it; do not delete source documents or
-unrelated applications, data or certificates. Remove an old Debug installation
-when replacing it. Launch the installed Release app after delivery. Publication
-still requires explicit authorization.
-Run tests only when explicitly requested for the current task.
+- Write repository content in English. Use four-space C#, two-space JavaScript, existing XAML indentation and LF. Preserve nullable annotations, ES modules, local SVG icons and accessible button names. Use PascalCase members, `_camelCase` fields and camelCase wire properties.
+- Document every type and method with its purpose and contract. Use XML for C# and documentation comments for JavaScript and PowerShell. Explain non-obvious ordering, invariants and cancellation. Use descriptive names, cohesive methods, separate statements and readable control flow. Readability edits preserve behavior and public contracts.
+- Maintain only current application-owned schemas and bridge commands. Retire obsolete paths when changing both ends. Migrations or compatibility layers require an explicit request. Preserve input validation, cancellation, platform capabilities, security boundaries and user files.
+- Keep the `VBWR B` and `VBWR E` markers and MIT copyright for Umberto Giacobbi on maintained source, scripts and markup. Document AI and human contributions supported by evidence. Preserve third-party notices, valid JSON and lockfiles, the README footer and the [AI disclosure](AI-DEVELOPMENT-DISCLOSURE.md).
+- Follow the VibeWare publication, README footer and source-header templates. Keep the unmodified transparent logo, its proportions, the separate app icon and the keyboard-accessible badge. Retain **Human intent, AI execution, and plenty of tokens** and the [canonical manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
+- Keep About, Terms, Privacy, VibeWare and Manifesto links visible without clipping. Reserve footer space, fade over three seconds after 30 seconds and reveal links on hover or focus while in use. About includes the installed version, purpose, first-person responsibility statement, both GitHub projects, personal site, Terms, Privacy and an accessible Close. Keep product data handling distinct from shared legal terms, licensing and signing.
 
-```powershell
-npm ci --ignore-scripts --no-audit --no-fund
-npm run bundle
-dotnet restore MarkVibe.slnx --locked-mode
-dotnet build MarkVibe.slnx --no-restore -c Release
-dotnet run --project src/MarkVibe.Browser --no-build -c Release --launch-profile MarkVibe
-dotnet run --project src/MarkVibe.Windows --no-build -c Release
-./scripts/package-windows.ps1
-# Explicit wider distribution only:
-./scripts/package-windows.ps1 -Configuration Release -Architectures x64,arm64
-```
+## Changes and Git
 
-`MarkVibe.sln` is the Visual Studio entry point; `.slnx` retains the same seven
-projects for named command-line builds. Keep their project lists aligned. Shared
-launch profiles start Desktop or Browser separately. Build compiles the check
-projects but never executes them. Visual Studio prepares stale client assets before
-the existing bundle guard; preserve design-time and command-line behavior. See
-`docs/visual-studio.md` for native versus WebAssembly debugger ownership.
+- Ask before creating each branch or worktree. Preserve unrelated work and unpublished commits. Respect read limits and keep credentials, private documents, local configuration and generated files out of Git.
+- Deliver code through focused pull requests to the protected default branch. Prefer squash merge. Approval and merge require explicit owner authorization and applicable branch checks. Formal self-review is unnecessary. Use imperative subjects, update affected locks and report checks actually run or that tests were not requested.
+- Documentation-only edits require no build, test, CI dispatch or PR. On an explicit request for Git delivery, commit only the authorized documents on the current branch with `[skip ci]` and push. If protection blocks it, report the restriction and leave the branch rules intact.
+- Keep [active work](.github/tasks/todo.md) actionable and [the latest delivery](.github/tasks/archive.md) short. Replace the previous summary. Report validation in the conversation and omit persistent lessons, CI or validation journals.
 
-Packaging defaults to x64 Release, cleans repository `artifacts/`, increments the package version and creates MSIX, a bundle, MSI installers and portable ZIPs for the selected architectures. It runs no tests and does not launch the app itself. For a direct preview, use `src/MarkVibe.Windows/bin/Release/net10.0-windows10.0.19041.0/win-x64/MarkVibe.Windows.exe`; local Release delivery ends with the installed app running. Outputs and temporary packaging files stay in repository `artifacts/`; never create them in Codex directories.
-
-## VibeWare identity and publication
-
-Follow the VibeWare `templates/APP-PUBLICATION.md`, `README-FOOTER.md` and
-`SOURCE-CODE-HEADER.md` in the initiative's repository. MarkVibe participates in
-the initiative; its creator and copyright holder is **Umberto Giacobbi**.
-
-- Preserve the approved, unmodified `images/vibeware-logo.png`, its transparent
-  canvas and aspect ratio. The header badge links to the manifesto and is
-  keyboard accessible; it does not replace the application or taskbar icon.
-- Use the exact tagline **Human intent, AI execution, and plenty of tokens** and
-  canonical manifesto `https://umbertogiacobbi.biz/vibeware/manifesto`.
-- Keep **About MarkVibe · Terms · Privacy** and **This is VibeWare · Manifesto**
-  available without clipped links. Preserve footer space, show links for 30 seconds,
-  then fade over 3 seconds; reveal on pointer/focus and keep visible while used.
-- About identifies the installed version and actual purpose, uses the first-person
-  AI-assistance responsibility statement, and retains links to MarkVibe on GitHub,
-  VibeWare on GitHub, the personal site, Terms and Privacy plus an accessible Close.
-- Keep VibeWare artwork free of recoloring, glow or other added effects. The brand
-  does not establish performance, security, test results or third-party rights.
-- Product data handling belongs in this repository. Shared Terms/Privacy pages,
-  code licenses, local signing and Microsoft Store identity remain distinct.
-- Partner Center identity is not yet available. Current MSIX delivery is local
-  Release x64 with a local development certificate. A Store package requires its real Name, Publisher and display name,
-  an explicitly requested Store configuration/version and separate publication
-  authorization; see `docs/windows-store.md`.
-
-## Coding Style & Naming Conventions
-
-Use English, four-space C#, two-space JavaScript and existing XAML indentation. Use PascalCase C# members, `_camelCase` fields and camelCase wire properties. Preserve nullable annotations, ES modules and LF. No formatter/linter is configured. Icons are local SVG symbols; retain accessible button labels.
-
-Apply these readability rules to all new or changed code, including future work
-and existing code touched during maintenance. Code must be understandable to human
-readers; minimizing line count is not a goal.
-
-- Document every class/type and method/function with a useful comment explaining its
-  purpose and relevant contract. Use XML documentation for C# type and member
-  declarations and appropriate documentation comments in JavaScript or PowerShell.
-- Add comments inside methods when the logic is not straightforward. Explain
-  assumptions, ordering, invariants and the reason for a decision rather than restating
-  each statement.
-- Use descriptive variable and parameter names; avoid unclear abbreviations and
-  single-letter names when their meaning is not immediately obvious.
-- Separate logical phases with blank lines. Put distinct statements on separate lines,
-  expand control-flow bodies and wrap long conditions, argument lists and initializers
-  across readable, indented lines.
-- Prefer straightforward control flow and small, cohesive methods. Use intermediate
-  variables when their names clarify a complex expression; avoid redundant temporaries,
-  dense ternaries and chains that obscure intent.
-- Preserve behavior and public contracts during readability-only cleanup. Review
-  comments, names, spacing and control flow together, and preserve concurrent changes
-  from other contributors.
-- Support only current application-owned schemas and bridge commands. Do not add
-  migrations, obsolete aliases, old decoders or speculative compatibility layers
-  unless the owner explicitly requests them. Remove unused historical paths when
-  changing both ends of an internal contract. Keep malformed-input validation,
-  cancellation, security boundaries and genuine platform capabilities: these are
-  not backward compatibility. Never delete user files to retire a format.
-- Preserve a VibeWare header on maintained project source, script and markup files,
-  using the exact `VBWR B` / `VBWR E` markers and the file format's comment syntax.
-  Record only supported AI contributions and human guidance; use **MIT** for project
-  code and retain the copyright holder from `LICENSE`.
-- Keep generated output, vendored libraries and third-party theme assets under their
-  existing notices. JSON and lockfiles remain valid data without comment headers. Keep
-  the README footer and `AI-DEVELOPMENT-DISCLOSURE.md` aligned with the available
-  evidence.
-
-## Testing Guidelines
-
-**Run tests only when the user explicitly requests them for the current task.** Earlier approvals do not override this. Suggest relevant checks without running them. Authorized options: core/native executable checks, `npm run test:client`, `test:browser`, `test:windows`. Use descriptive behavior names and synthetic fixtures; no coverage percentage is required. Local Release x64 app/certificate installation is already authorized as described above; installation success does not establish functional acceptance.
-
-The owner performs GUI acceptance. Do not drive the mouse or keyboard, focus,
-maximize or move windows, capture the desktop, or run interactive app checks
-unless explicitly requested. Requested Release delivery still includes its authorized
-build, installation and final launch; it does not authorize interactive validation.
-
-## Commit & Pull Request Guidelines
-
-Keep documentation short and easy to read. Use plain words, short sentences and
-one or two concrete examples. Explain the result first; link to code for details.
-Avoid repeating the same explanation across documents. Describe current behavior
-and instructions, not the sequence of past changes. Keep only the latest delivery
-summary, replacing the previous one. Do not create historical validation reports,
-CI/PR ledgers or cumulative contribution logs.
-
-Use focused imperative subjects. Describe the problem, result and actual validation; link issues and UI screenshots when available. Update dependency locks. Record when tests were not requested.
-
-Documentation-only changes need no PR, build, tests or workflow dispatch. When the
-owner requests Git delivery, commit only the authorized documentation on the
-current branch with `[skip ci]` and push. Editing alone does not authorize delivery.
-Preserve unrelated changes and unpublished commits. If branch protection blocks
-the push, report the restriction without creating a PR or starting CI.
-
-Deliver code changes through pull requests into the protected default branch.
-No independent reviewer or formal approval is required. The owner/admin can
-merge their own pull request when authorized and other branch rules are met.
-GitHub's formal self-review restriction is distinct from permission to merge;
-record owner authorization rather than claiming an approval GitHub rejected.
-Do not approve or merge pending work until the owner explicitly authorizes it.
-Do not push directly to it or rewrite published history as routine maintenance.
-Prefer a single reviewable change per PR and squash merging when the repository permits it.
-
-## Agent Workflow
-
-Ask permission before **each branch or worktree creation**. Keep only current actionable work in `.github/tasks/todo.md` and the latest delivery summary in `archive.md`. Replace the previous summary and remove completed tasks; do not maintain a history or lessons ledger. Respect read limits, preserve unrelated changes and require publication/SDK authorization. Reuse consent within its scope; keep secrets and private documents out of Git and artifacts.
+> **File name** `AGENTS.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\AGENTS.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\AGENTS.md`

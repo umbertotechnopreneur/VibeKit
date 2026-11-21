@@ -98,6 +98,12 @@ internal static class Program
                 window?.Close();
             }));
 
+        using var linuxMemoryGuard = OperatingSystem.IsLinux()
+            ? new VibeWare.MemoryProtection.ProcessMemoryWatchdog("TermalRight VibeWare",
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ThermalrightVibeWare", "logs"),
+                2_000_000_000, () => ThreadPool.QueueUserWorkItem(_ => actions.CloseApplication()), stopDescendants: true)
+            : null;
+
         // Restore the existing instance on the native UI thread; do not create another studio.
         void ShowStudio()
         {

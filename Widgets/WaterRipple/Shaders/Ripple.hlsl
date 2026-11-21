@@ -1,4 +1,5 @@
 Texture2D Desktop : register(t0);
+Texture2D<float> WindowCoverage : register(t1);
 SamplerState LinearClamp : register(s0);
 cbuffer RippleConstants : register(b0)
 {
@@ -50,6 +51,12 @@ float2 Displacement(float2 position, float4 wave, out float highlight)
 
 float4 PSMain(VertexOutput input) : SV_TARGET
 {
+    [branch] if (Timing.w != 0)
+    {
+        bool overWindow = WindowCoverage.Load(int3(int2(input.Position.xy), 0)) > 0.5;
+        if (overWindow != (Timing.w == 1))
+            return float4(Desktop.Sample(LinearClamp, input.UV).rgb, 1);
+    }
     float2 position = input.UV * Surface.xy;
     float2 shift = float2(0, 0);
     float highlight = 0;

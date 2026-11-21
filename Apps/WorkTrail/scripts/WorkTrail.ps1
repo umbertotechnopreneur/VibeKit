@@ -1111,7 +1111,7 @@ function Invoke-WorkTrailUnpackagedPublish {
         '-r',
         $runtime,
         '--self-contained',
-        'true',
+        'false',
         '-p:WindowsAppSDKSelfContained=true',
         '--output',
         $publishDirectory

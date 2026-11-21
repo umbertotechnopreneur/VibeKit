@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <Version>1.0.32</Version>
+    <Version>1.0.41</Version>
     <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <WindowsSdkPackageVersion>10.0.26100.87</WindowsSdkPackageVersion>
@@ -21,8 +21,12 @@
   <ItemGroup>
     <Compile Remove="tests/**/*.cs" />
     <Compile Include="../Shared/WidgetAbout.cs" Link="WidgetAbout.cs" />
+    <Compile Include="../Shared/WindowsSignIn.cs" Link="WindowsSignIn.cs" />
     <Compile Include="../Shared/WidgetFooter.cs" Link="WidgetFooter.cs" />
+    <Compile Include="../Shared/EffectStudioLayout.cs" Link="EffectStudioLayout.cs" />
+    <Compile Include="../Shared/DisplayTarget.cs" Link="DisplayTarget.cs" />
     <Compile Include="../Shared/VibeWareDiagnostics.cs" Link="VibeWareDiagnostics.cs" />
+    <Compile Include="../Shared/ProcessMemoryWatchdog.cs" Link="ProcessMemoryWatchdog.cs" />
     <Compile Include="../Shared/DiagnosticAboutActions.cs" Link="DiagnosticAboutActions.cs" />
     <EmbeddedResource Include="Shared/pipeline-catalog.json" LogicalName="WaterRipple.pipeline-catalog.json" />
     <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.6.5" />
@@ -36,7 +40,7 @@
     <Content Include="Assets\WaterRipple.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="BuildNativeRenderer" BeforeTargets="CopyFilesToOutputDirectory"
-          Inputs="Native\RippleRenderer.cpp;Native\RippleRenderer.h;Native\CrtFrameExport.h;..\Shared\DesktopEffectInterop.h;Shaders\Ripple.hlsl;build-native.ps1"
+          Inputs="Native\RippleRenderer.cpp;Native\RippleRenderer.h;Native\CrtFrameExport.h;..\Shared\DesktopEffectInterop.h;..\Shared\EffectWindowCoverage.h;Shaders\Ripple.hlsl;build-native.ps1"
           Outputs="$(TargetDir)RippleRenderer.dll;$(TargetDir)Shaders\RippleVS.cso;$(TargetDir)Shaders\RipplePS.cso">
     <Exec Command="powershell.exe -NoProfile -File &quot;$(MSBuildProjectDirectory)\build-native.ps1&quot; -OutputDirectory &quot;$(TargetDir).&quot; -IntermediateDirectory &quot;$(IntermediateOutputPath)Native&quot; -Configuration &quot;$(Configuration)&quot;" />
   </Target>

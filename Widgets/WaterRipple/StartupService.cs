@@ -1,58 +1,51 @@
 using System;
 using System.ComponentModel;
-using System.Threading.Tasks;
-using Windows.ApplicationModel;
+using System.IO;
+using System.Security;
 using Serilog;
+using Tools.Widgets;
 
 namespace WaterRipple;
 
-// StartupTask is the source of truth; do not mirror OS policy in a JSON preference.
 internal sealed class StartupService : IDisposable
 {
+    internal static readonly WindowsSignIn SignIn = new("Water Ripple");
     private readonly AppState state;
-    private bool updating, disposed;
+    private bool updating;
     internal StartupService(AppState state) { this.state = state; state.PropertyChanged += Changed; }
-    internal Task RefreshAsync() => UpdateAsync(null);
-    private async void Changed(object? sender, PropertyChangedEventArgs args)
+
+    internal void Refresh() => Update(null);
+
+    private void Changed(object? sender, PropertyChangedEventArgs args)
     {
-        if (args.PropertyName == nameof(AppState.StartWithWindows) && !updating && !disposed)
-            await UpdateAsync(state.StartWithWindows);
+        if (args.PropertyName == nameof(AppState.StartWithWindows) && !updating)
+            Update(state.StartWithWindows);
     }
-    private async Task UpdateAsync(bool? enabled)
+
+    private void Update(bool? enabled)
     {
-        if (updating || disposed) return;
         updating = true;
-        state.CanManageStartup = false;
         try
         {
-            var task = await StartupTask.GetAsync("WaterRippleStartup");
-            var current = task.State;
-            if (enabled == true && current == StartupTaskState.Disabled) current = await task.RequestEnableAsync();
-            else if (enabled == false && current == StartupTaskState.Enabled) { task.Disable(); current = task.State; }
-            if (disposed) return;
-            state.StartWithWindows = current == StartupTaskState.Enabled || current == StartupTaskState.EnabledByPolicy;
-            state.CanManageStartup = current == StartupTaskState.Disabled || current == StartupTaskState.Enabled;
-            state.StartupStatus = current switch
-            {
-                StartupTaskState.DisabledByUser => "Disabled in Windows Startup Apps. Re-enable it there to allow startup.",
-                StartupTaskState.DisabledByPolicy => "Startup is disabled by your Windows administrator.",
-                StartupTaskState.EnabledByPolicy => "Startup is enabled by your Windows administrator.",
-                StartupTaskState.Enabled => "Water Ripple will start in the notification area and apply click ripples when you sign in.",
-                _ => "Water Ripple will open only when you launch it."
-            };
-            if (enabled.HasValue) Log.Information("Windows startup preference changed State={State}", current);
+            if (enabled.HasValue) SignIn.SetEnabled(enabled.Value);
+            var current = SignIn.Read();
+            state.StartWithWindows = current.Enabled;
+            state.CanManageStartup = !current.Blocked;
+            state.StartupStatus = current.Blocked
+                ? "Disabled in Windows Startup Apps. Re-enable it there to allow startup."
+                : current.Enabled
+                    ? "Water Ripple will start in the notification area and apply click ripples when you sign in."
+                    : "Water Ripple will open only when you launch it.";
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException or InvalidOperationException)
         {
-            if (!disposed)
-            {
-                state.StartWithWindows = false;
-                state.CanManageStartup = false;
-                state.StartupStatus = "Windows startup integration is unavailable for this installation.";
-            }
-            Log.Warning(ex, "Windows startup task is unavailable");
+            state.StartWithWindows = enabled == false;
+            state.CanManageStartup = enabled.HasValue;
+            state.StartupStatus = "Could not update the Windows startup setting.";
+            Log.Warning("Windows startup setting unavailable Type={Type}", ex.GetType().Name);
         }
         finally { updating = false; }
     }
-    public void Dispose() { disposed = true; state.PropertyChanged -= Changed; }
+
+    public void Dispose() => state.PropertyChanged -= Changed;
 }

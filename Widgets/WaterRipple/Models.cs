@@ -24,14 +24,15 @@ public abstract class ObservableModel : INotifyPropertyChanged
 // The sole source of user preferences. All consumers observe the same instance.
 public sealed class AppSettings : ObservableModel
 {
-    private bool useAcrylic = true, chromaticEnabled = true, emergencyShortcutEnabled = true;
-    private bool crestEnabled, ripplesEnabled, liquidEnabled;
+    private bool chromaticEnabled = true, emergencyShortcutEnabled = true;
+    private bool useAcrylic, crestEnabled, ripplesEnabled, liquidEnabled;
     private bool autoRecover = true, showGpuJokes = true;
     private double strength = 9, waveSize = 100, speed = 150, duration = 1.5;
     private double animationFps = 60, captureFps = 30;
     private double chromaticSeparation = 18, chromaticBlend = 45;
     private double crestIntensity = 50, ripplesIntensity = 50, liquidIntensity = 50;
-    private int presetIndex = 1, themeIndex;
+    private int presetIndex = 1, themeIndex, targetIndex;
+    private string targetDisplay = "";
     public static IReadOnlyList<string> PresetNames { get; } = Array.AsReadOnly(new[]
     {
         "Gentle", "Water drop", "Deep water", "Shockwave", "Dew", "Pond", "Raindrop", "Glass", "Jelly", "Echo"
@@ -47,6 +48,8 @@ public sealed class AppSettings : ObservableModel
     public bool ShowGpuJokes { get => showGpuJokes; set => SetProperty(ref showGpuJokes, value); }
     public bool AutoRecover { get => autoRecover; set => SetProperty(ref autoRecover, value); }
     public int ThemeIndex { get => themeIndex; set => SetProperty(ref themeIndex, value is >= 0 and <= 2 ? value : 0); }
+    public int TargetIndex { get => targetIndex; set => SetProperty(ref targetIndex, value is >= 0 and <= 2 ? value : 0); }
+    public string TargetDisplay { get => targetDisplay; set => SetProperty(ref targetDisplay, value ?? ""); }
     public bool UseAcrylic { get => useAcrylic; set => SetProperty(ref useAcrylic, value); }
     public bool ChromaticEnabled { get => chromaticEnabled; set => SetProperty(ref chromaticEnabled, value); }
     public double ChromaticSeparation { get => chromaticSeparation; set => SetProperty(ref chromaticSeparation, Number(value, 0, 100, 18)); }
@@ -118,11 +121,7 @@ public sealed class AppState : ObservableModel
     public bool IsScreenEffectActive
     {
         get => isScreenEffectActive;
-        set
-        {
-            if (!SetProperty(ref isScreenEffectActive, value)) return;
-            RaisePropertyChanged(nameof(ApplyButtonText));
-        }
+        set => SetProperty(ref isScreenEffectActive, value);
     }
     public bool CaptureAllowed
     {
@@ -154,7 +153,6 @@ public sealed class AppState : ObservableModel
     public long PrivateRamBytes { get => privateRamBytes; set => SetProperty(ref privateRamBytes, Math.Max(0, value)); }
     public long WorkingSetBytes { get => workingSetBytes; set => SetProperty(ref workingSetBytes, Math.Max(0, value)); }
     public int ActiveWaveCount { get => activeWaveCount; set => SetProperty(ref activeWaveCount, Math.Clamp(value, 0, 8)); }
-    public string ApplyButtonText => IsScreenEffectActive ? "Stop screen effect" : "Enable screen effect";
 
 }
 

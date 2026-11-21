@@ -73,18 +73,6 @@
   background: var(--accent);
   animation: progress 1.4s ease-in-out infinite;
 }
-#startup.startup-ready { cursor: pointer; }
-.startup-ready .boot-progress, .startup-ready #boot-message { visibility: hidden; }
-.startup-ready .boot-progress::after { animation: none; }
-#startup-continue {
-  font: inherit;
-  color: var(--text);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  padding: 8px 16px;
-  cursor: pointer;
-}
 .boot-build {
   margin: 28px 0 0;
   padding-top: 16px;

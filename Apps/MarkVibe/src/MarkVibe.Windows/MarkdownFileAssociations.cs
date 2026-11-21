@@ -17,8 +17,9 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
-using System.Windows;
 using MarkVibe.Core;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.Win32;
 using static MarkVibe.Core.UiStrings;
 
@@ -85,14 +86,14 @@ internal static class MarkdownFileAssociations
     }
 
     /// <summary>Asks once, defaults to No, and opens Windows Settings only after an explicit Yes.</summary>
-    internal static void Offer(DesktopOptions options, Window? owner = null)
+    internal static async Task OfferAsync(DesktopOptions options, XamlRoot root)
     {
         if (options.SmokeTest || File.Exists(Path.Combine(AppContext.BaseDirectory, "portable.flag")))
         {
             return;
         }
 
-        if (owner == null)
+        if (options.ConfigureFileAssociations)
         {
             UiStrings.SetLanguage("system", CultureInfo.CurrentUICulture.Name);
         }
@@ -124,13 +125,13 @@ internal static class MarkdownFileAssociations
             SHChangeNotify(associationChanged, 0, IntPtr.Zero, IntPtr.Zero);
 
             var message = T("Would you like to use MarkVibe to open Markdown files (.md and .markdown)? Choose Yes to open Windows Settings, then select MarkVibe for these file types.");
-            var choice = owner == null
-                ? MessageBox.Show(
-                    message, "MarkVibe", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No)
-                : MessageBox.Show(
-                    owner, message, "MarkVibe", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
-
-            if (choice == MessageBoxResult.Yes)
+            var dialog = new ContentDialog
+            {
+                XamlRoot = root, Title = "MarkVibe", PrimaryButtonText = T("Yes"), CloseButtonText = T("No"),
+                DefaultButton = ContentDialogButton.Close,
+                Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap }
+            };
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 Process.Start(new ProcessStartInfo(settingsUri) { UseShellExecute = true });
             }
@@ -144,9 +145,11 @@ internal static class MarkdownFileAssociations
             DesktopLog.Error("fileAssociations.offerFailed", error);
             if (options.ConfigureFileAssociations)
             {
-                MessageBox.Show(
-                    T("Default-app setup could not be opened. Open Windows Settings > Apps > Default apps and select MarkVibe."),
-                    "MarkVibe", MessageBoxButton.OK, MessageBoxImage.Information);
+                await new ContentDialog
+                {
+                    XamlRoot = root, Title = "MarkVibe", CloseButtonText = T("Close"),
+                    Content = new TextBlock { Text = T("Default-app setup could not be opened. Open Windows Settings > Apps > Default apps and select MarkVibe."), TextWrapping = TextWrapping.Wrap }
+                }.ShowAsync();
             }
         }
     }

@@ -23,6 +23,8 @@ using CSHTML5.Native.Html.Controls;
 using MarkVibe.Core;
 
 namespace MarkVibe.Controls;
+
+/// <summary>Owns the stable mount point for a browser renderer. Unloading releases its DOM resources through the adapter.</summary>
 public abstract class DomHost : HtmlPresenter
 {
     public string HostId { get; } = Guid.NewGuid().ToString("N");
@@ -52,6 +54,7 @@ public abstract class DomHost : HtmlPresenter
     private void Detach(object sender, RoutedEventArgs arguments) => OpenSilver.Interop.ExecuteJavaScriptVoid("window.markvibe.detach($0)", HostId);
 }
 
+/// <summary>Displays the reader's effective revision and captures its position for document navigation.</summary>
 public sealed class MarkdownView() : DomHost("markdown")
 {
     /// <summary>Renders the Markdown model with its workspace assets and requested reading position.</summary>
@@ -60,6 +63,8 @@ public sealed class MarkdownView() : DomHost("markdown")
     public Task<ReadingPosition> CaptureAsync() => BrowserServices.CallAsync<ReadingPosition>("markdown.capture", new { hostId = HostId });
 }
 
+/// <summary>Hosts the source adapter and its view-local editor resources.</summary>
 public sealed class SourceRenderer() : DomHost("source") { }
 
+/// <summary>Hosts the interactive map, its camera and its single temporary document preview.</summary>
 public sealed class MapRenderer() : DomHost("map") { }

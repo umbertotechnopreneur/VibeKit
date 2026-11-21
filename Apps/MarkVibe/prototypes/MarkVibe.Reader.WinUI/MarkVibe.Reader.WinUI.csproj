@@ -1,0 +1,41 @@
+<!-- VBWR B
+  Project: MarkVibe | Creator: Umberto Giacobbi
+  Created with AI: OpenAI Codex; standalone WinUI Markdown reader prototype
+  Human guidance: open local folders in a single fast-starting reader with Mermaid
+  Copyright (c) 2026 Umberto Giacobbi | License: MIT (see LICENSE)
+VBWR E -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <WindowsSdkPackageVersion>10.0.19041.57</WindowsSdkPackageVersion>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
+    <Platforms>x64</Platforms>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <ReaderNodeExe Condition="'$(ReaderNodeExe)' == ''">node</ReaderNodeExe>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="[1.8.260921001]" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="[10.0.26100.9457]" />
+    <ProjectReference Include="../../src/MarkVibe.Core/MarkVibe.Core.csproj" />
+    <ProjectReference Include="../../src/MarkVibe.Native/MarkVibe.Native.csproj" />
+    <None Update="web/index.html;web/reader.css" CopyToOutputDirectory="PreserveNewest" TargetPath="reader/%(Filename)%(Extension)" />
+    <None Include="../../src/MarkVibe.Browser/wwwroot/css/content.css" Link="web/css/content.css" CopyToOutputDirectory="PreserveNewest" TargetPath="reader/css/content.css" />
+    <ReaderInput Include="web/reader.js;../../client/**/*;../../scripts/bundle.mjs;../../scripts/client-inputs.mjs;../../package.json;../../package-lock.json;../../THIRD-PARTY-NOTICES.txt;../../src/MarkVibe.Core/Localization/strings.json;../../src/MarkVibe.Core/Presentation/*.json" />
+  </ItemGroup>
+  <!-- Build the reader directly from maintained JS and keep its output local to this prototype. -->
+  <Target Name="BundleReader" Inputs="@(ReaderInput)" Outputs="obj/reader/js/input-fingerprint.json;obj/reader/js/reader.js;obj/reader/js/diagram-frame.html">
+    <Exec Command="&quot;$(ReaderNodeExe)&quot; &quot;$(MSBuildProjectDirectory)/../../scripts/bundle.mjs&quot; --reader-prototype" />
+  </Target>
+  <Target Name="StageReaderBundle" AfterTargets="Build" DependsOnTargets="BundleReader" Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <ReaderOutput Include="obj/reader/js/**/*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ReaderOutput)" DestinationFiles="@(ReaderOutput->'$(TargetDir)reader/js/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

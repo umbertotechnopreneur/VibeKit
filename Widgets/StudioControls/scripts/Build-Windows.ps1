@@ -25,7 +25,7 @@ $staged = Join-Path $parent ('.studio-build-' + [Guid]::NewGuid().ToString('N'))
 try {
     & dotnet restore $project -r win-x64 -p:Platform=x64 --locked-mode
     if ($LASTEXITCODE -ne 0) { throw 'Studio Controls locked dependency restore failed.' }
-    & dotnet publish $project -c $Configuration -r win-x64 -p:Platform=x64 --self-contained true --no-restore -o $staged
+    & dotnet publish $project -c $Configuration -r win-x64 -p:Platform=x64 --self-contained false --no-restore -o $staged
     if ($LASTEXITCODE -ne 0) { throw 'Studio Controls Windows publish failed.' }
     Copy-Item -LiteralPath (Join-Path $root 'Windows/README.txt') -Destination (Join-Path $staged 'README.txt')
     foreach ($name in @('LICENSE', 'THIRD-PARTY-NOTICES.md')) {

@@ -5,6 +5,7 @@
  * Modified with AI: OpenAI Codex; share document activation between overview labels and cards; 2026-10-16
  * Modified with AI: OpenAI Codex; batch viewport reads and retain semantic zoom and minimap elements; 2026-10-23
  * Modified with AI: OpenAI Codex; stable semantic detail during dense graph gestures; 2026-10-25
+ * Modified with AI: OpenAI Codex; temporary folder visibility while reading inside the map; 2026-11-20
  * Copyright (c) 2026 Umberto Giacobbi | License: MIT (see LICENSE)
  * VBWR E */
 import { textElement, uiText } from "./markdown.js";
@@ -23,7 +24,7 @@ function svgNode(name, attributes = {}) {
 }
 
 /** Return the immediate canonical folder identifier used by the managed catalog. */
-function folderOf(path) {
+export function folderOf(path) {
   const separator = path.lastIndexOf("/");
   return separator < 0 ? "" : path.slice(0, separator);
 }
@@ -141,6 +142,10 @@ export class MapAtlasRenderer {
       this.overviewLabels.replaceChildren();
     }
     this.collapsed = new Set(host.state?.layout.atlas?.collapsedFolders ?? []);
+    // Following a preview link may reveal a card inside a collapsed island for this reading session only.
+    if (host.preview?.currentPath) {
+      this.collapsed.delete(folderOf(host.preview.currentPath));
+    }
     this.focusDepth = host.state?.focusDepth ?? 0;
     this.routePairs = new Set();
     const route = host.map?.route ?? [];

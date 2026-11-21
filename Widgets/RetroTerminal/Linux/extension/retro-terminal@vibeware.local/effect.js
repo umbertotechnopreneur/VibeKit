@@ -1,11 +1,26 @@
 // SPDX-License-Identifier: MIT
 import GObject from 'gi://GObject';
+import Clutter from 'gi://Clutter';
 import Shell from 'gi://Shell';
 import Cogl from 'gi://Cogl';
 import {DECLARATIONS, CODE} from './shader.js';
 
 export const CrtEffect = GObject.registerClass({GTypeName: 'VibewareRetroTerminalEffect'},
 class CrtEffect extends Shell.GLSLEffect {
+    vfunc_paint(node, context, flags) {
+        // Mutter can cull windows to this paint's damage region before updating
+        // the offscreen texture. A different view or capture needs its own paint.
+        const framebuffer = context.get_framebuffer();
+        const clip = context.get_redraw_clip();
+        const sameClip = clip ? this._paintClip?.equal(clip) : !this._paintClip;
+        if (framebuffer !== this._paintFramebuffer?.deref() || !sameClip) {
+            this._paintFramebuffer = new WeakRef(framebuffer);
+            this._paintClip = clip?.copy() ?? null;
+            flags |= Clutter.EffectPaintFlags.ACTOR_DIRTY;
+        }
+        super.vfunc_paint(node, context, flags);
+    }
+
     vfunc_build_pipeline() {
         this.add_glsl_snippet(Cogl.SnippetHook.FRAGMENT, DECLARATIONS, CODE, true);
     }
@@ -28,11 +43,16 @@ class CrtEffect extends Shell.GLSLEffect {
             settings.get_int('mask'), settings.get_double('mask-strength')]);
         this._set('crtOptics', [settings.get_double('glow-radius'), settings.get_double('black-level'),
             settings.get_double('contrast'), 0]);
-        this.queue_repaint();
+        // Invalidate the scene cache so a settings change also reaches static windows
+        // outside the latest damage region of the compositor.
+        this.get_actor()?.queue_redraw();
     }
 
     setGlitch(type = 0, progress = 0, intensity = 0, seed = 0) {
-        this._set('crtGlitch', [type, progress, intensity, seed]);
+        const values = [type, progress, intensity, seed];
+        if (values.every((value, index) => value === (this._glitch?.[index] ?? 0))) return;
+        this._glitch = values;
+        this._set('crtGlitch', values);
         this.queue_repaint();
     }
 });

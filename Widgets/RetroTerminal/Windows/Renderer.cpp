@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include "Renderer.h"
 #include "RippleFrameInput.h"
+#include "../../Shared/EffectWindowCoverage.h"
 #include <d3d11.h>
 #include <dxgi1_4.h>
 #include <dcomp.h>
@@ -29,8 +30,8 @@ namespace
     [[noreturn]] void Fail(const wchar_t* text) { throw winrt::hresult_error(E_FAIL, text); }
     constexpr uint64_t MiB = 1024 * 1024;
     constexpr uint64_t MaxPixels = 3840 * 2160;
-    struct alignas(16) Constants { float Surface[4], Phosphor[4], Scan[4], Tone[4], Finish[4], Glitch[4]; };
-    static_assert(sizeof(Constants) == 96);
+    struct alignas(16) Constants { float Surface[4], Phosphor[4], Scan[4], Tone[4], Finish[4], Glitch[4], Target[4]; };
+    static_assert(sizeof(Constants) == 112);
 
     ComPtr<IDXGIAdapter1> FindAdapter(HMONITOR monitor, std::wstring& name)
     {
@@ -82,6 +83,8 @@ namespace
 struct Renderer::State
 {
     HWND overlay{};
+    RECT monitorBounds{};
+    vibeware::desktop_effect::WindowCoverage coverage;
     UINT width{}, height{};
     bool validFrame = false, presentPending = false;
     retro_terminal::RippleFrameInput rippleInput;
@@ -180,6 +183,7 @@ void Renderer::Start(HWND overlay, HMONITOR monitor, const std::wstring& shaderP
     next->overlay = overlay;
     MONITORINFO info{sizeof(info)};
     if (!GetMonitorInfoW(monitor, &info)) winrt::throw_last_error();
+    next->monitorBounds = info.rcMonitor;
     next->width = info.rcMonitor.right - info.rcMonitor.left;
     next->height = info.rcMonitor.bottom - info.rcMonitor.top;
     if (next->width < 16 || next->height < 16 || uint64_t(next->width) * next->height > MaxPixels)
@@ -273,7 +277,8 @@ void Renderer::Start(HWND overlay, HMONITOR monitor, const std::wstring& shaderP
     state = std::move(next);
 }
 
-bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, bool settingsChanged, bool animationChanged)
+bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, bool settingsChanged, bool animationChanged,
+    int effectTarget)
 {
     if (!state) return false;
     auto& s = *state;
@@ -324,6 +329,8 @@ bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, b
     s.wasTail = tail;
     if (finishTail) s.historyValid = false;
     if (!newFrame && !settingsChanged && !s.presentPending && !animationChanged && !tail && !finishTail) return false;
+    if (effectTarget == 0) s.coverage.Reset();
+    else Check(s.coverage.Update(s.device.Get(), s.context.Get(), s.overlay, s.monitorBounds, now));
     const float dtMs = std::chrono::duration<float, std::milli>(now - s.lastDraw).count();
     const float decay = s.historyValid ? std::exp2(-std::max(0.f, dtMs) / settings.persistenceMs) : 0.f;
     Constants values{
@@ -332,7 +339,8 @@ bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, b
         {settings.scanStrength, settings.scanSpacing, settings.scanThickness, settings.maskStrength},
         {settings.glowRadius, settings.glow, settings.blackLevel, settings.contrast},
         {settings.vignette, settings.grain, decay, persistence ? settings.persistenceStrength : 0.f},
-        {float(glitch.type), glitch.amount, glitch.position, glitch.phase}
+        {float(glitch.type), glitch.amount, glitch.position, glitch.phase},
+        {float(effectTarget), 0.f, 0.f, 0.f}
     };
     s.context->UpdateSubresource(s.constants.Get(), 0, nullptr, &values, 0, 0);
     const unsigned historyWrite = 1 - s.historyRead;
@@ -350,11 +358,11 @@ bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, b
     ID3D11SamplerState* sampler = s.sampler.Get();
     s.context->PSSetSamplers(0, 1, &sampler);
     ID3D11ShaderResourceView* views[]{usingRipple ? ripple.view : s.desktopView.Get(),
-        persistence ? s.historyViews[s.historyRead].Get() : nullptr};
-    s.context->PSSetShaderResources(0, 2, views);
+        persistence ? s.historyViews[s.historyRead].Get() : nullptr, s.coverage.View()};
+    s.context->PSSetShaderResources(0, ARRAYSIZE(views), views);
     s.context->Draw(3, 0);
-    ID3D11ShaderResourceView* empty[2]{};
-    s.context->PSSetShaderResources(0, 2, empty);
+    ID3D11ShaderResourceView* empty[ARRAYSIZE(views)]{};
+    s.context->PSSetShaderResources(0, ARRAYSIZE(empty), empty);
     s.context->OMSetRenderTargets(0, nullptr, nullptr);
     if (persistence) { s.historyRead = historyWrite; s.historyValid = true; }
     s.lastDraw = now;

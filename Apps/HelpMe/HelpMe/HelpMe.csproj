@@ -55,6 +55,7 @@ VBWR E -->
 
   <ItemGroup>
     <Compile Include="../../../Widgets/Shared/VibeWareDiagnostics.cs" Link="Infrastructure/VibeWareDiagnostics.cs" />
+    <Compile Include="../../../Widgets/Shared/ProcessMemoryWatchdog.cs" Link="Infrastructure/ProcessMemoryWatchdog.cs" />
     <EmbeddedResource Include="..\assets\vibeware-symbol.rgb" LogicalName="HelpMe.Assets.vibeware-symbol.rgb" />
     <Content Include="..\output\pdf\helpme-quick-reference.pdf" Link="docs\helpme-quick-reference.pdf" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\assets\HelpMe.ico" Link="HelpMe.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

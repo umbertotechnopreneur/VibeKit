@@ -29,79 +29,15 @@ public sealed class DocumentMenuService
         document != null && target.WorkspaceId == workspaceId && target.Path == document.Path &&
         (target.Fingerprint.Length == 0 || target.Fingerprint == document.Fingerprint);
 
-    /// <summary>Builds file commands shared by graph cards, folders and document surfaces.</summary>
+    /// <summary>Builds the shared file commands for the browser shell.</summary>
     public static IReadOnlyList<DocumentMenuItem> CreateFileActions(
-        bool localFiles, bool markdown, bool folder, bool hasSelection)
-    {
-        var items = new List<DocumentMenuItem>();
-        if (!folder)
-        {
-            items.Add(new("copySelection", "Copy", "copy", hasSelection));
-        }
-        if (markdown && !folder)
-        {
-            items.Add(new("copyFile", "Copy entire file content", "copy"));
-        }
-        if (!folder || localFiles)
-        {
-            items.Add(new("copyPath", "Copy file path", "link"));
-        }
-        if (localFiles)
-        {
-            if (markdown && !folder)
-            {
-                items.Add(new("browser", "Open in browser", "map-globe"));
-            }
-            items.Add(new("reveal", "Show in File Explorer", "folder"));
-            items.Add(new("terminal", "Open in terminal", "code"));
-            if (!folder)
-            {
-                items.Add(new("delete", "Delete file…", "delete"));
-            }
-        }
-        return items;
-    }
+        bool localFiles, bool markdown, bool folder, bool hasSelection) =>
+        DocumentCommands.CreateFileActions(localFiles, markdown, folder, hasSelection);
 
-    /// <summary>Adds only source-backed commands that apply to the clicked current document.</summary>
+    /// <summary>Builds contextual commands from the current parsed snapshot.</summary>
     public static IReadOnlyList<DocumentMenuItem> Create(
-        FileMenuTarget target, bool localFiles, MarkdownModel? document, bool readerExpanded)
-    {
-        var items = CreateFileActions(localFiles, WorkspacePath.IsMarkdown(target.Path),
-            target.IsFolder, target.SelectedText.Length > 0).ToList();
-        if (target.IsFolder || document?.Path != target.Path)
-        {
-            return items;
-        }
-
-        var context = DocumentContentService.Describe(document, target);
-        var contextual = new List<DocumentMenuItem>
-        {
-            new("find", "Find in document", "search"),
-            new("column", "Column", "reader-column", Checked: !readerExpanded),
-            new("expandedColumn", "Expanded column", "reader-expanded", Checked: readerExpanded)
-        };
-        if (context.CanGoToSource)
-        {
-            contextual.Add(new("sourceHere", "Go to source here", "code"));
-        }
-        if (context.CanCopySection)
-        {
-            contextual.Add(new("copySection", "Copy link to section", "link"));
-        }
-        if (context.CanCopyTable)
-        {
-            contextual.Add(new("copyTableTsv", "For Excel", "copy", Group: "Copy table"));
-            contextual.Add(new("copyTableMarkdown", "Markdown", "copy", Group: "Copy table"));
-        }
-        if (context.CanCopyCode)
-        {
-            contextual.Add(new("copyCode", "Copy code block", "code"));
-        }
-        contextual.Add(new("exportPdf", "PDF", "pdf", Group: "Export"));
-        contextual.Add(new("exportHtml", "HTML", "code", Group: "Export"));
-        items.InsertRange(Math.Min(2, items.Count), contextual);
-        return items;
-    }
+        FileMenuTarget target, bool localFiles, MarkdownModel? document, bool readerExpanded) =>
+        DocumentCommands.Create(target, localFiles, document, readerExpanded);
 
     /// <summary>Executes a permitted captured command and returns any required UI transition.</summary>
     public async Task<DocumentCommandResult> ExecuteAsync(DocumentCommandSession session,

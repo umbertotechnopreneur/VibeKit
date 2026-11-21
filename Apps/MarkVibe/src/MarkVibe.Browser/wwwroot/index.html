@@ -27,6 +27,8 @@ VBWR E -->
  <meta name="description" content="Read Markdown, explore its source and discover how your documentation connects. Documents are processed on your device.">
  <title>MarkVibe · Markdown viewer</title>
  <base href="./">
+ <link rel="preload" as="script" href="libs/OpenSilver.js">
+ <link rel="preload" as="script" href="_framework/blazor.webassembly.js">
  <link rel="icon" type="image/svg+xml" href="favicon.svg">
  <link rel="stylesheet" href="css/shell.css">
  <link rel="stylesheet" href="js/markvibe.css">
@@ -40,8 +42,6 @@ VBWR E -->
    <p id="boot-message" role="status" aria-live="polite"
       data-mv-i18n="Preparing your workspace…">Preparing your workspace…</p>
    <div class="boot-progress"></div>
-   <button id="startup-continue" type="button" hidden
-           data-mv-i18n="Open workspace">Open workspace</button>
    <dl id="startup-build" class="boot-build" hidden>
     <div><dt data-mv-i18n="Version">Version</dt><dd id="startup-build-version"></dd></div>
     <div><dt data-mv-i18n="Build machine">Build machine</dt><dd id="startup-build-machine"></dd></div>

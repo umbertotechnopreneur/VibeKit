@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <Version>0.3.1</Version>
+    <Version>0.3.3</Version>
+    <ApplicationIcon>StudioControls.ico</ApplicationIcon>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.22000.0</TargetPlatformMinVersion>
@@ -12,7 +13,7 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
-    <SelfContained>true</SelfContained>
+    <SelfContained>false</SelfContained>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -25,7 +26,9 @@
     <PackageReference Include="System.Drawing.Common" Version="10.0.14" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.15" />
     <ProjectReference Include="../Shared/StudioControls.Core/StudioControls.Core.csproj" />
+    <Compile Include="../../Shared/ProcessMemoryWatchdog.cs" Link="ProcessMemoryWatchdog.cs" />
     <Content Include="../Assets/**/*" Link="Assets/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Flags/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../Scenes/studio-windows.json" Link="Scenes/studio-windows.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="PublishCompiledXaml" AfterTargets="ComputeFilesToPublish">

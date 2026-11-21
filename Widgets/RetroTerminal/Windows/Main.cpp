@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 #include "Renderer.h"
 #include "ControllerState.h"
+#include "BuiltInPresets.h"
 #include "CloseDialog.h"
 #include "GpuJokeNotifications.h"
+#include "MemoryWatchdog.h"
 #include <commdlg.h>
 #include <vector>
 #include <iterator>
@@ -43,7 +45,7 @@ namespace
         GpuJokeNotifications gpuJokes;
         HWND jokeCaption{};
         unsigned jokeIndex{};
-        bool running = false, hotkeyAvailable = false, dirty = false;
+        bool running = false, hotkeyAvailable = false, dirty = false, firstFrame = false;
         int slowFrames = 0, frames = 0;
         float cpuTotal = 0;
         Clock::time_point previousTick{}, statsSince{};
@@ -125,7 +127,10 @@ namespace
             heading = Control(L"STATIC", L"Retro Terminal", SS_LEFT, 20, 31, 400, 32);
             SendMessageW(heading, WM_SETFONT, reinterpret_cast<WPARAM>(headingFont), TRUE);
             preset = Control(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL, 20, 78, 340, 200, PresetId);
-            for (auto label : {L"Custom", L"Clean terminal", L"Worn terminal", L"Arcade", L"My preset 1", L"My preset 2", L"My preset 3"})
+            SendMessageW(preset, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Custom"));
+            for (const auto& entry : BuiltInPresets)
+                SendMessageW(preset, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(entry.name));
+            for (auto label : {L"My preset 1", L"My preset 2", L"My preset 3"})
                 SendMessageW(preset, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label));
             SendMessageW(preset, CB_SETCURSEL, 0, 0);
             Control(L"BUTTON", L"Save to selected personal preset", BS_PUSHBUTTON | WS_TABSTOP, 375, 76, 290, 28, SavePresetId);
@@ -184,10 +189,10 @@ namespace
         void SelectPreset()
         {
             int index = int(SendMessageW(preset, CB_GETCURSEL, 0, 0));
-            if (index == 0) return;
-            if (index <= 3) settings = BuiltInPreset(index - 1);
+            if (index <= 0) return;
+            if (index <= BuiltInPresetCount) settings = BuiltInPresets[index - 1].settings;
             else {
-                if (!LoadPersonalPreset(index - 3)) {
+                if (!LoadPersonalPreset(index - BuiltInPresetCount)) {
                     Status(L"This personal preset is empty. Choose your settings and save to this slot.");
                     return;
                 }
@@ -197,8 +202,8 @@ namespace
         void SavePreset()
         {
             int index = int(SendMessageW(preset, CB_GETCURSEL, 0, 0));
-            if (index < 4) { Status(L"Select My preset 1, 2 or 3 before saving. Existing slot contents will be replaced."); return; }
-            if (SavePersonalPreset(index - 3))
+            if (index <= BuiltInPresetCount) { Status(L"Select My preset 1, 2 or 3 before saving. Existing slot contents will be replaced."); return; }
+            if (SavePersonalPreset(index - BuiltInPresetCount))
                 Status(L"Personal preset saved.");
             else Status(L"Could not save the personal preset.");
         }
@@ -274,7 +279,9 @@ namespace
         }
         void Stop(const std::wstring& reason)
         {
+            const bool wasRunning = running;
             running = false;
+            firstFrame = false;
             glitches.Cancel(Time(), settings);
             KillTimer(window, RenderTimer);
             if (overlay) ShowWindow(overlay, SW_HIDE);
@@ -282,6 +289,7 @@ namespace
             if (overlay) { DestroyWindow(overlay); overlay = nullptr; }
             SetWindowTextW(toggle, L"Enable effect");
             Status(reason);
+            if (wasRunning) tray.Notify(L"CRT effect off", reason.c_str());
         }
         void Start()
         {
@@ -308,6 +316,7 @@ namespace
                 glitches.Reset(Time(), settings);
                 if (!SetTimer(window, RenderTimer, 34, nullptr)) winrt::throw_last_error();
                 running = true;
+                firstFrame = true;
                 SetWindowTextW(toggle, L"Disable effect");
                 Status(L"Waiting for a screen frame…");
             }
@@ -340,6 +349,10 @@ namespace
                 {
                     dirty = false;
                     if (!SetLayeredWindowAttributes(overlay, 0, 255, LWA_ALPHA)) winrt::throw_last_error();
+                    if (firstFrame) {
+                        firstFrame = false;
+                        tray.Notify(L"CRT effect on", L"The screen effect is active.");
+                    }
                     ++frames;
                     cpuTotal += milliseconds;
                 }
@@ -382,8 +395,13 @@ namespace
             switch (app->tray.TakeAction())
             {
             case TrayIcon::Action::Open:
+            case TrayIcon::Action::Preferences:
                 ShowWindow(window, SW_RESTORE);
                 SetForegroundWindow(window);
+                break;
+            case TrayIcon::Action::About:
+                MessageBoxW(window, L"Retro Terminal · VibeWare\nA CRT effect for your desktop.\nMIT License",
+                    L"About Retro Terminal", MB_OK | MB_ICONINFORMATION);
                 break;
             case TrayIcon::Action::Quit:
                 PostMessageW(window, WM_CLOSE, 0, 0);
@@ -514,6 +532,12 @@ namespace
             SetWindowPos(window, nullptr, rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top, SWP_NOZORDER | SWP_NOACTIVATE);
             return 0;
         }
+        case RetroMemoryWatchdog::LimitMessage:
+            app->Stop(L"Stopped because Retro Terminal exceeded its memory limit.");
+            MessageBoxW(window, L"Retro Terminal reached its RAM limit. Details are in the local diagnostic log.",
+                L"Retro Terminal", MB_OK | MB_ICONWARNING);
+            if (IsWindow(window)) DestroyWindow(window);
+            return 0;
         case WM_CLOSE:
             if (app->RequestClose()) DestroyWindow(window);
             return 0;
@@ -571,6 +595,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
             CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left, rect.bottom - rect.top, nullptr, nullptr, instance, &app);
         if (!app.window) winrt::throw_last_error();
         app.CreateControls();
+        auto memoryWatchdog = RetroMemoryWatchdog::Start(app.window);
         ShowWindow(app.window, show);
         MSG message{};
         int result;

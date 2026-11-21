@@ -92,20 +92,6 @@ inline void EffectSettings::Clamp()
     glitchTypes &= AllGlitchTypes;
 }
 
-inline EffectSettings BuiltInPreset(int preset)
-{
-    EffectSettings s;
-    if (preset == 0) { s.scanStrength = .12f; s.glow = .18f; s.grain = 0; }
-    if (preset == 1) {
-        s.palette = Palette::Amber; s.glow = .45f; s.grain = .025f;
-        s.randomGlitches = true; s.glitchIntensity = .2f;
-    }
-    if (preset == 2) {
-        s.palette = Palette::SourceColor; s.mask = PhosphorMask::RgbStripes; s.glow = .5f; s.scanStrength = .25f;
-    }
-    return s;
-}
-
 struct GlitchFrame {
     GlitchType type = GlitchType::None;
     float amount = 0;

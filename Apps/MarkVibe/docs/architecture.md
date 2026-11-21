@@ -1,172 +1,255 @@
-# Architecture
+> **File name** `architecture.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\architecture.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\docs\architecture.md`
 
-## Runtime and application model
+# MarkVibe architecture
 
-MarkVibe uses OpenSilver's DOM-based C#/XAML application model. The Browser project is a .NET 10 Blazor WebAssembly host whose root component invokes OpenSilver.WebAssembly.Runner. The OpenSilver app provides the window layout and controls.
+[Map layout](map-layout.md) · [Export](desktop-and-export.md) · [AI editing](ai-editing.md) · [Windows packaging](windows-packaging.md)
 
-Application state belongs to an intermediate object model. Services validate
-commands, update that model and call platform adapters. Views display model data
-and forward user actions; moving a method to another MainPage partial does not
-establish this separation.
+## Desktop modules and boundaries
 
-Document menus, search, global preferences, folder appearance and shell layout
-now follow this ownership through Core `DocumentInteractionState` and
-`ShellLayout`. `App.Documents` composes their services independently of MainPage.
-`DocumentMenuService` supplies command descriptors; `DocumentContentService`
-prepares source-backed clipboard content. Reader controls use
-`ReaderPresentationService`, and both source and reader search use
-`DocumentFindService`. Browser search retains only renderer indexes, ranges and
-selection handles; it never rewrites source-mapped Markdown nodes.
+WinUI 3 provides the desktop shell. Win2D draws the document map. The embedded
+WebView2 surfaces render Markdown, Mermaid and Monaco, and print the prepared
+document to PDF. C# owns file access and the application state that feeds each
+surface.
 
-This is not a completed application-wide migration. Existing workspace and
-navigation coordination, AI requests, map persistence and disk-change/deletion
-workflows still live partly in MainPage. Move these transitions and operation
-lifetimes into dedicated services over a composed application model; preserve
-cancellation, stale-result checks and the authoritative document catalog.
+```mermaid
+flowchart TB
+    accTitle: Desktop modules grouped by runtime boundary
+    accDescr: WinUI and Win2D consume managed state. A scoped bridge feeds document content to WebView2. Native files own local storage.
+    subgraph HOST["MarkVibe.Windows · .NET desktop process"]
+        direction TB
+        subgraph UI["Native presentation"]
+            SHELL["WinUI 3<br/>Window, toolbar, Pages, Outline, context menus, dialogs"]
+            DRAW["Win2D<br/>Map cards, edges, hit tests and camera"]
+        end
+        subgraph MODEL["Managed application state"]
+            SESSION["DesktopWorkspaceModel<br/>Workspace, effective document, navigation and preferences"]
+            MAP["WindowsMapModel<br/>Layout, selection, filters and saved views"]
+            AI["WindowsAiSession<br/>Requests, progress and proposals"]
+        end
+        BRIDGE["DocumentWebView<br/>Renderer lifecycle and validated message channel"]
+        CORE["MarkVibe.Core<br/>MarkdownParser, DocumentCatalog, DocumentSession and map services"]
+        FILES["LocalWorkspaceProvider → NativeFiles<br/>Workspace inventory, bounded reads and atomic writes"]
+    end
+    subgraph WEB["Embedded WebView2 surfaces · loaded on demand"]
+        READER["Document renderer<br/>Markdown, Mermaid, Monaco, Find and selection"]
+        PRINT["Isolated PDF renderer<br/>Prepared HTML and local print"]
+    end
+    DISK["Local files<br/>Markdown, images, map sidecar and session metadata"]
+    PROFILE["Application profile<br/>Desktop preferences and pane layout"]
 
-OpenSilver 3.3.3 is used with its matching WebAssembly runtime and Modern Theme 3.3.0. The application library and host target net10.0. Use the latest installed stable .NET 10 SDK, minimum 10.0.402, as selected by `global.json`.
+    SHELL <-->|"Commands and state"| SESSION
+    SHELL <-->|"Requests and proposals"| AI
+    DRAW <-->|"Gestures and map snapshot"| MAP
+    SESSION -->|"Open, index and edit"| CORE
+    MAP -->|"Query catalog and update layout"| CORE
+    AI -->|"Resolve effective revisions"| SESSION
+    SESSION -->|"Enumerate and read workspace files"| FILES
+    SESSION -->|"Save settings"| PROFILE
+    MAP -->|"Load and save map sidecar"| FILES
+    SESSION <-->|"Document snapshots and gestures"| BRIDGE
+    BRIDGE <-->|"Fixed-origin, versioned messages"| READER
+    READER -->|"Prepared HTML through native host"| PRINT
+    FILES <-->|"Validated file access"| DISK
 
-Application controls are declared in OpenSilver XAML: shell, navigation tree,
-settings, About, source/map toolbars, AI composer, model Popup, review, usage
-Expander and waiting overlay. `VectorIcons.xaml`, `Composer.xaml`, `FocusLayout.xaml`
-and the other resource dictionaries own their reusable presentation.
+    classDef native fill:#e6effb,stroke:#315a92,color:#18334f
+    classDef model fill:#dcf0e9,stroke:#20766a,color:#143e38
+    classDef web fill:#fff0d8,stroke:#9b6218,color:#51330e
+    classDef storage fill:#ece8f7,stroke:#69518f,color:#302347
+    class SHELL,DRAW,BRIDGE native
+    class SESSION,MAP,AI,CORE model
+    class READER,PRINT web
+    class FILES,DISK,PROFILE storage
+```
 
-`MarkdownView`, `SourceRenderer` and `MapRenderer` are the only HtmlPresenter
-adapters. They contain specialized document/editor/graph rendering; they do not
-create application toolbars, model menus, prompt inputs, note editors or dialogs.
-`MonacoEditorView` and `DocumentMapView` are XAML UserControls surrounding those
-adapters. No Vue framework is used.
+Blue marks native presentation and hosting. Green marks managed models and
+services. Amber marks embedded renderers. Purple marks file access and storage.
 
-## Responsibilities
+| Module | Authoritative state or operation | What the view receives |
+| --- | --- | --- |
+| `DesktopWorkspaceModel` and `DesktopWorkspace` | Active provider and catalog, effective document, reading and preview history, Find and preferences | Selected document, navigation commands, and the state for Pages and Outline |
+| `DocumentCatalog` and `DocumentSession` | Paths, titles, headings, block ranges, resolved links, statistics and unsaved revisions | Parsed document and catalog snapshots used by the reader, editor and map |
+| `WindowsMapModel` and Core layout services | Selection, distance, route, exploration, card geometry and named views | The canvas projection and the inspector's document relationships |
+| `WindowsAiSession` | Request lifecycle and proposals for a captured editing target | Request progress, reference information and revision actions |
+| `NativeFiles` | Workspace path resolution, bounded reads, session metadata and revision-checked writes | Results of file commands and persistence |
+| `DocumentWebView` and client renderer | Rendered DOM, image leases, scroll offsets, text selection and local editor surface | Rendered document content and source-backed interaction events |
 
-The Windows WPF/WebView2 host serves a staged copy of the same browser app through
-a fixed HTTPS virtual origin. A versioned, origin-checked message bridge invokes
-`MarkVibe.Native` for granted-root reads, remembered session and revision-safe map
-writes. Native OS dialogs select files/folders and export destinations; a separate
-script-disabled WebView2 generates clean PDFs. No HTTP document server is involved.
+The WinUI controls hold focus, geometry and other presentation state. Preferences,
+layout and folder reading choices persist in `desktop-settings.json`. Each
+`DesktopWorkspace` has its own provider, catalog and AI reference collection.
 
-Pen, ink annotation and sticky-note editing are not supported.
-The application does not enumerate, read or write their document sidecars.
-Existing files remain untouched. Map schema 4 contains document cards and optional
-validated atlas presentation settings (neighborhood, collapsed folders and up to
-eight named camera viewpoints), without source edits or annotations;
-older map versions and embedded note collections are unsupported and are not
-silently migrated or overwritten.
+## Open a folder and render a document
 
-| C# | Browser adapters |
-| --- | --- |
-| Workspace contracts and capabilities | File/handle pickers and directory traversal |
-| Path and URL policy | File objects, permission checks and IndexedDB handle persistence |
-| One Markdig AST per document parse | Final DOMPurify sanitation and DOM insertion |
-| Titles, summaries, headings and source ranges | Code highlighting, Mermaid and Monaco |
-| Catalog, document revisions, statistics and actual-link map | Image decoding checks and blob URL ownership |
-| Navigation history and current view | Browser history events and native scroll positions |
-| Versioned preferences, Modern Theme palette and shell commands | Browser persistence, CSS themes, editor theme and split-scroll events |
-| Current document, export command and cancellation | Standalone HTML assembly, bounded embedded assets and document-only print frame |
+```mermaid
+sequenceDiagram
+    accTitle: Opening, indexing and rendering a Markdown workspace
+    accDescr: The workspace model opens the chosen page, builds a background index, and sends parsed document data to a renderer on first use.
+    participant UI as WinUI 3
+    participant WS as Workspace model
+    participant FS as NativeFiles
+    participant Cat as Catalog and parser
+    participant Web as WebView2
 
-IWorkspaceProvider is the stable C# abstraction. BrowserWorkspaceProvider implements it through a typed JSON bridge with operation names. The JavaScript provider registry implements connected, imported, selected-file, ZIP and demo modes behind the same enumeration, text, asset, refresh and disposal behavior.
+    UI->>WS: Open folder or file
+    WS->>FS: Find the file or README.md
+    alt A priority page is available
+        WS->>Cat: Seed and parse page
+        par Present the page
+            WS-->>UI: Publish the parsed page
+            UI->>Web: Render Markdown snapshot
+        and Enumerate the folder
+            WS->>FS: List paths and metadata
+            FS-->>WS: Return inventory
+        end
+    else Choose from the inventory
+        WS->>FS: List paths and metadata
+        FS-->>WS: Return inventory
+        WS->>Cat: Seed catalog and parse first page
+        WS-->>UI: Publish workspace and page
+        opt An initial page exists
+            UI->>Web: Render Markdown snapshot
+        end
+    end
+    WS->>Cat: Index remaining pages
+    Cat->>FS: Read within index budget
+    Cat-->>WS: Progress and link metadata
+    WS-->>UI: Refresh Pages and map
+    opt Source or Split is selected
+        UI->>Web: Source and pane state
+        Web->>Web: Load Monaco and its worker
+    end
+```
 
-No operation name or script is taken from Markdown or sidecar contents. Browser events call a single JSInvokable entry point and are routed to C# commands.
+Markdig parses bounded Markdown and restricts embedded HTML. The same syntax tree
+provides heading IDs, block IDs, source ranges and resolved links. Outline uses
+those coordinates. Find searches the active pane. Split synchronizes the reader
+and editor through source lines and block ranges with a short feedback guard.
 
-## Document pipeline
+The index retains metadata, statistics and links within an 8 MiB source budget.
+Pages outside a partial index can still be opened by path. A workspace opened
+from a specific file can show that page while the full folder inventory finishes.
 
-1. Enumerate relative paths and metadata without loading all document/image contents.
-2. Open the first page immediately, then incrementally index pages with cancellation.
-3. Parse bounded Markdown in Markdig with raw HTML disabled.
-4. Generate duplicate-safe Unicode heading IDs, block IDs, source ranges and resolved link records from that AST.
-5. Render the same AST into block-wrapped HTML. Source view receives the same effective source revision.
-6. Sanitize HTML in the browser and install only generated, validated link/asset metadata.
-7. Resolve workspace images lazily to bounded blob URLs; render fenced Mermaid in a serialized, strict pipeline.
-8. Build map cards and edges from the indexed C# link records.
+The local client bundle lives under the executable's `app/` directory. WebView2
+loads it through a fixed virtual HTTPS origin. The message channel checks the
+sender and validates a per-instance capability on native requests. The host
+permits a fixed set of operations and resolves supported images inside the
+active workspace. DOMPurify sanitizes HTML before display and export. Mermaid
+runs in a sandboxed frame with an opaque origin and network access disabled.
 
-The index retains document metadata, statistics and resolved links, not a second
-copy of source text for search. Its 8 MiB source-byte budget can make indexing
-partial; unindexed pages remain available by path. There is no workspace-wide
-full-text search control or dormant `SearchText` contract. Map search matches
-catalog titles and relative paths, selects a result and animates the graph camera
-to that card. It does not retain document bodies for searching. Find in the Source
-view searches only its current document. Map relationships and metadata fill in as
-indexing progresses, and the map reports truncated projections.
+### Document revisions
 
-`DocumentCatalog` owns edited `DocumentSession` objects independently of its
-three-model parsed cache. A session keeps original, current and last-exported
-source with a monotonically increasing revision. Its state is `Original`,
-`Unsaved` or `Exported`; exporting a copy does not change the workspace original.
-Undo and redo each retain at most 16 entries and 4,194,304 UTF-16 code units.
-Each catalog retains at most 16 edited sessions. Opening, indexing, reader/source
-rendering, map metadata and export all resolve the effective revision from this
-owner, so parsed-cache eviction cannot silently revert an edited document.
-Refreshing a workspace retains an unsaved session even if its backing file has
-disappeared, keeping that revision available for explicit copy saving.
+`DocumentCatalog` keeps edited `DocumentSession` objects independently of its
+three-document parsed cache. A session tracks original, current and last-exported
+source with a monotonically increasing revision. Its states are `Original`,
+`Unsaved` and `Exported`. Undo and redo each retain at most 16 entries and
+4,194,304 UTF-16 code units. Each catalog retains at most 16 edited sessions.
+Saving a Markdown copy preserves the original file. Refresh retains unsaved
+revisions for documents that disappear from disk.
 
-Map layout, validation and the fixed palette/icon catalog live in `MarkVibe.Core`.
-The DOM adapter previews card dragging and emits position/appearance edits to the
-managed session. Each workspace stores a root-level `.markvibe-map.json`; native
-writes are atomic and revision-checked, while connected browser folders enable
-autosave through an explicit write-permission click. Imports export a JSON copy.
-See [document map layout](map-layout.md) for interaction and recovery details.
+## Document map and linked pages
 
-Folder grouping is another managed layout preset, alongside Star, Circle and Grid.
-The renderer draws folder frames and animates camera movement; C# owns the catalog,
-search result selection and arrangement coordinates.
+```mermaid
+flowchart TB
+    accTitle: Document map rendering and relationship lookup
+    accDescr: The model uses the catalog for both a bounded graph projection and a complete indexed relationship lookup. Reading and layout writes follow separate paths.
+    CATALOG["DocumentCatalog<br/>Indexed documents, paths and Markdown links"]
+    LAYOUT["MapLayoutSession<br/>Card positions, appearance and saved views"]
+    MAP["WindowsMapModel<br/>Selected page, distance, route and exploration"]
+    CANVAS["Win2D canvas<br/>Cards, edges, folders, zoom and minimap"]
+    INSPECTOR["WinUI inspector<br/>Incoming pages and outgoing links with anchors"]
+    PREVIEW["DesktopWorkspaceModel<br/>Preview path, anchor, history and return camera"]
+    READER["DocumentWebView<br/>Markdown and Mermaid passage"]
+    SIDECAR[".markvibe-map.json<br/>Revision-checked sidecar"]
 
-Each workspace context owns an `AiDocumentCollection` containing at most 16
-canonical Markdown paths, without another source-text cache. The AI panel resolves
-metadata for local token estimates and resolves effective source revisions when
-the user sends. The current editing target is excluded from reference documents.
-References are individually bounded to 1 MiB UTF-8 and collectively to 4 MiB.
-They enter the request as untrusted, read-only user messages before the target;
-both token-count preflight and generation use the same ordered input. Local
-collection statistics require no network calls. Only the captured target can be
-replaced by an accepted edit response.
+    CATALOG -->|"Catalog and link graph"| MAP
+    LAYOUT <-->|"Current layout and accepted edits"| MAP
+    MAP -->|"Bounded canvas projection"| CANVAS
+    CANVAS -->|"Select, drag or resize"| MAP
+    MAP -->|"Complete known relationships for the selected page"| INSPECTOR
+    INSPECTOR -->|"Read here or follow a link inside the preview"| PREVIEW
+    CANVAS -->|"Read here or follow a connection"| PREVIEW
+    PREVIEW -->|"Document and anchor"| READER
+    MAP <-->|"Load and save through NativeFiles"| SIDECAR
 
-Current-page exports reuse that model through a lazy adapter. The shared HTML boundary and code highlighter are also used by the reader. Export reads all supported images, including those below the fold, through the provider's image validator without duplicating reader Blob leases. It renders Mermaid in a light palette, embeds validated assets/CSS, retains same-page anchors and disables links to Markdown pages outside the exported file. HTML is downloaded locally; PDF opens a separate script-free document in the browser print dialog. See [export and native hosts](desktop-and-export.md).
+    classDef native fill:#e6effb,stroke:#315a92,color:#18334f
+    classDef model fill:#dcf0e9,stroke:#20766a,color:#143e38
+    classDef web fill:#fff0d8,stroke:#9b6218,color:#51330e
+    classDef storage fill:#ece8f7,stroke:#69518f,color:#302347
+    class CANVAS,INSPECTOR native
+    class CATALOG,LAYOUT,MAP,PREVIEW model
+    class READER web
+    class SIDECAR storage
+```
 
-## Interaction and lifecycle
+Tree, Star, Circle, Grid and Folders arrange the catalog. Search matches titles
+and paths. The inspector reads all indexed incoming pages and distinct outgoing
+targets for the selection. It exposes additional rows in batches and preserves
+anchors and unavailable targets. Win2D renders the bounded projection and
+handles camera and pointer interactions. The managed preview history stores a
+reading position and a map camera for returning to a passage. The sidecar saves
+layout edits atomically after checking its revision. [Map layout](map-layout.md)
 
-The desktop shell has a resizable sidebar and Split divider. A narrow screen shows the sidebar or content at full width and offers Read, Source and Map. Split is offered only when width is at least 1,050 pixels.
+## Assistant
 
-Each DOM host retains its identity. Monaco imports only on demand, caches at most three source models, restores view state and uses a local module worker. Small/coarse-pointer devices prefer the lightweight source view. That view uses text nodes, line numbers, find and copy; unusually high line counts use a read-only textarea.
+The user starts connection checks and editing requests. Each workspace can retain
+up to 16 Markdown paths in its AI reference collection. The session resolves
+their effective source revisions at request time, excludes the editing target
+and reads at most 4 MiB of reference content in total. Reference statistics and
+token estimates are computed locally. A complete edit updates the captured
+local document revision. Restore Original recovers the original source. [AI editing and data handling](ai-editing.md)
 
-Reading positions use stable content-derived block IDs, a fractional offset within the block and a fractional source line. Split synchronization converts through source lines and ranges, with a short reentrancy lock. It does not equate percentages of different pane heights.
+## Export flow
 
-Browser history entries include a workspace id, document path, anchor and position. Positions are captured before navigation, on scroll and before the page hides. Connected handles retain a stable id and can resume automatically only with already granted read permission. Selected files, imports and ZIP contents are session selections; they must be chosen again after restart. Their stable provider/name/path-list identity restores the last page after reselection, while a saved descriptor displays the pending workspace. Absolute OS paths are not exposed by browser pickers. See [settings and resumption](settings.md).
+```mermaid
+flowchart TB
+    accTitle: Windows HTML and PDF export
+    accDescr: The renderer prepares sanitized HTML. A native file picker selects the destination. The chosen format determines whether the host writes HTML or prints a PDF.
+    COMMAND["WinUI export command<br/>Choose HTML or PDF"]
+    DOC["Effective Markdown snapshot<br/>Managed document revision"]
+    HTML["Local document renderer<br/>Sanitize HTML and embed validated assets"]
+    SAVE["DesktopDocumentFiles<br/>Validate export and pick destination"]
+    WRITE["Atomic file write<br/>Save prepared HTML"]
+    PRINT["Isolated WebView2 print host<br/>Print prepared HTML locally"]
+    HTMLFILE["HTML file"]
+    PDFFILE["PDF file"]
 
-Only two workspace contexts and three parsed Markdown models per context are retained, with edited-session retention bounded separately as described above. Workspace eviction releases providers, asset URLs and editor models. New navigation and indexing cancel their predecessors. DOM hosts dispose observers and editor instances on unload and replay bounded current-view snapshots on reattachment.
+    COMMAND -->|"Selected document and format"| DOC
+    DOC -->|"Parsed HTML and workspace identity"| HTML
+    HTML -->|"Prepared HTML and suggested filename"| SAVE
+    SAVE -->|"HTML destination"| WRITE
+    SAVE -->|"PDF destination"| PRINT
+    WRITE --> HTMLFILE
+    PRINT --> PDFFILE
 
-## Static assets and hosting
+    classDef native fill:#e6effb,stroke:#315a92,color:#18334f
+    classDef model fill:#dcf0e9,stroke:#20766a,color:#143e38
+    classDef web fill:#fff0d8,stroke:#9b6218,color:#51330e
+    classDef storage fill:#ece8f7,stroke:#69518f,color:#302347
+    class COMMAND,SAVE native
+    class DOC model
+    class HTML,PRINT web
+    class WRITE,HTMLFILE,PDFFILE storage
+```
 
-Client libraries are bundled locally with esbuild. Monaco loads on demand. Mermaid loads in a dedicated sandboxed frame when a supported diagram is displayed or exported. Assets use document.baseURI. Bootstrap imports the client adapter, loads libs/OpenSilver.js, and starts _framework/blazor.webassembly.js.
+Export validates and embeds supported images, including images below the fold.
+It preserves same-page anchors and marks links to neighboring Markdown documents
+as unavailable. Native file dialogs select the output destination. The isolated
+PDF host has page scripts and web messaging disabled. [Export and native hosts](desktop-and-export.md)
 
-The production runtime needs only static files. A development server is a local convenience. No production ASP.NET Core document API, document upload endpoint, analytics endpoint, database service or remote CDN is part of this source architecture.
+## Browser edition
 
-Root and subdirectory hosting both require a trailing-slash directory URL. Hash-based document state leaves static resource URLs intact. An offline application shell/service worker is future work.
+`MarkVibe.Browser` is the separate Blazor WebAssembly host for the `MarkVibe`
+OpenSilver application. It uses browser file permissions for connected folders and
+session providers for imports, files and ZIPs. The web edition's JS adapter uses
+the shared reader modules and its own bootstrap and graph presentation. An
+existing read grant is required for automatic resumption of a connected folder.
+The web edition resolves resource URLs relative to its static deployment path.
+It downloads HTML or opens a browser print document for PDF export.
 
-## Platform references
+Use the stable .NET 10 SDK configured in `global.json` and the supported Node
+version. See [Visual Studio and command-line builds](visual-studio.md).
 
-- [OpenSilver.WebAssembly 3.3.3 package metadata](https://www.nuget.org/packages/OpenSilver.WebAssembly/3.3.3)
-- [Official OpenSilver Browser bootstrap sample](https://github.com/OpenSilver/OpenSilver.Samples.Showcase/tree/develop/src/OpenSilver.Showcase.Browser)
-- [OpenSilver DOM interop API](https://doc.opensilver.net/reference/OpenSilver.Interop.html)
-- [OpenSilver HtmlPresenter](https://doc.opensilver.net/documentation/in-depth-topics/html-presenter.html)
-- [OpenSilver Modern Theme handling](https://doc.opensilver.net/documentation/how-to-topics/theme-handling.html)
-- [Markdig 1.4.0](https://www.nuget.org/packages/Markdig/1.4.0)
-
-The browser adapters use native file selectors to keep File objects lazy and preserve imported relative paths. OpenSilver's documented OpenFileDialog.ShowDialogAsync is a potential single-file integration point, but this project does not rely on it for directory path preservation.
-
-## XAML and renderer boundary
-
-Control events call managed C# owners directly. The owner performs selection,
-request, cancellation, history and saving checks. Browser calls implement only
-renderer operations or platform adapters. `ai.state` keeps a nonvisual close guard;
-it does not create a DOM view. Prompt drafts update that guard synchronously.
-
-`Backdrop.BlurRadius` is a XAML attached material property. Its rendering hook
-sets CSS on the element OpenSilver has already created; it creates no controls.
-Flyouts and dialogs reuse the system-accent elevation resource and a 16 px blur.
-
-`UiTree` shares enumeration of declared children among typography, localization
-and icon decoration. It includes OpenSilver `UserControl.Content`, popup content
-and item headers. Typography does not traverse control-template internals or DOM
-document content. Explicit raw-content markers keep document titles, folder names,
-tooltips and accessible labels out of UI translation. The supported UI font list
-is one shared JSON catalog; Windows exposes only its installed subset.
+> **File name** `architecture.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\architecture.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\docs\architecture.md`

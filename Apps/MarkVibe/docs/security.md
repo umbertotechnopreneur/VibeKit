@@ -1,8 +1,47 @@
+> **File name** `security.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\security.md`<br>
+> **Path relative to the MarkVibe application root** `docs/security.md`
+
 # Security and resource boundaries
 
 These boundaries describe how MarkVibe handles documents, local files and network access.
 
 ## Untrusted document content
+
+```mermaid
+flowchart TB
+    accTitle: How untrusted workspace content reaches the reader
+    accDescr: Markdown, local images and Mermaid pass through distinct validation steps before the reader or exporter uses them.
+    subgraph LOCAL["Workspace input"]
+        SOURCE["Markdown text and relative paths"]
+        MEDIA["Local image bytes"]
+    end
+    subgraph CORE["Managed boundary"]
+        PARSE["Markdig and path rules<br/>Bound source and resolve workspace links"]
+        VERIFY["Workspace provider<br/>Validate image format and size"]
+    end
+    subgraph VIEW["Local renderer"]
+        SAFE["DOMPurify<br/>Allowlisted HTML and attributes"]
+        FRAME["Mermaid sandbox<br/>Opaque origin and blocked network"]
+        SVG["SVG checks<br/>Allowed markup and scoped CSS"]
+        SURFACE["Reader and export preparation"]
+    end
+    SOURCE -->|"Markdown syntax and embedded HTML"| PARSE
+    MEDIA --> VERIFY
+    PARSE -->|"Generated HTML"| SAFE
+    PARSE -->|"Supported diagram source"| FRAME
+    FRAME -->|"SVG over private message channel"| SVG
+    SAFE --> SURFACE
+    SVG --> SURFACE
+    VERIFY -->|"Validated local asset URL"| SURFACE
+
+    classDef input fill:#ece8f7,stroke:#69518f,color:#302347
+    classDef managed fill:#dcf0e9,stroke:#20766a,color:#143e38
+    classDef embedded fill:#fff0d8,stroke:#9b6218,color:#51330e
+    class SOURCE,MEDIA input
+    class PARSE,VERIFY managed
+    class SAFE,FRAME,SVG,SURFACE embedded
+```
 
 Markdig recognizes embedded HTML. The managed renderer hides comments and accepts only inert formatting tags, including `details` and `summary`, without any source attributes. Unsupported tags are displayed as text. The DOM adapter performs an independent DOMPurify allowlist pass, removes existing image sources and installs local asset URLs only after provider validation. Checkbox controls are disabled. Scripts, event attributes, embedded frames, objects and forms are not permitted.
 
@@ -188,3 +227,7 @@ is handled as a session-only state.
 Deployers must provide HTTPS, correct WebAssembly/module MIME types and complete local assets. A tested deployment-specific Content Security Policy is pending: OpenSilver interop and WebAssembly requirements must be evaluated before selecting script directives. No unverified CSP is presented as a security guarantee.
 
 Archive, renderer and parser limits reduce exposure but are not a hard browser CPU timeout. Pathological inputs, cancellation latency and memory pressure still require adversarial browser validation before release.
+
+> **File name** `security.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\security.md`<br>
+> **Path relative to the MarkVibe application root** `docs/security.md`

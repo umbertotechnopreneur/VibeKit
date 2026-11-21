@@ -25,6 +25,7 @@
  * Modified with AI: OpenAI Codex; measured camera batching and bounded gesture presentation; 2026-10-23
  * Human guidance: Umberto Giacobbi; profile and optimize the graph in an isolated Debug browser
  * Modified with AI: OpenAI Codex; dense graph geometry batching and immediate magnification; 2026-10-25
+ * Modified with AI: OpenAI Codex; follow graph connections in a single reading panel; 2026-11-20
  * Evidence: AI-DEVELOPMENT-DISCLOSURE.md; .github/tasks/archive.md
  *
  * Copyright (c) 2026 Umberto Giacobbi
@@ -39,6 +40,7 @@ import { enableMapSaving } from "./workspaces.js";
 import { makeId } from "./path.js";
 import { MapAtlasRenderer } from "./map-atlas.js";
 import { MapExplorationRenderer } from "./map-effects.js";
+import { MapPreview } from "./map-preview.js";
 
 const svgNamespace = "http://www.w3.org/2000/svg";
 // Presentation constants are shared by transforms, world bounds and search centering.
@@ -101,10 +103,22 @@ export class MapHost {
     this.body.append(this.viewport);
     this.atlas = new MapAtlasRenderer(this);
     this.effects = new MapExplorationRenderer(this);
+    this.preview = new MapPreview(this);
     // Capture before card gestures as well as background panning can change their coordinate frame.
-    this.viewport.addEventListener("pointerdown", () => this.cancelCamera(), { capture: true });
+    this.viewport.addEventListener("pointerdown", event => {
+      if (!event.target.closest(".map-reading-panel")) {
+        this.cancelCamera();
+      }
+    }, { capture: true });
     this.cancelCameraOnEscape = event => {
       if (event.key === "Escape") {
+        if (this.preview?.currentPath && event.composedPath().includes(this.viewport)
+            && !event.composedPath().includes(this.preview.panel)
+            && !this.cardDrag && !this.cardResize && !this.effects.lasso) {
+          event.preventDefault();
+          event.stopPropagation();
+          this.preview.close(true);
+        }
         this.cancelCamera();
       }
     };
@@ -291,9 +305,13 @@ export class MapHost {
 
   }
   /** Merge managed layout acknowledgments with newer pending local card changes. */
-  setState(state) {
+  setState(state, reuseLayout = false) {
+    // A selection-only update keeps the existing coordinates. Edits and their replies must still reconcile them.
+    const keepCoordinates = reuseLayout && this.state?.layout === state.layout &&
+      !this.pendingEdits.size && !state.acknowledged && !state.rejected && !this.cardDrag && !this.cardResize;
 
     if (this.state && this.state.stateId !== state.stateId) {
+      this.preview?.close(false);
       this.pendingEdits.clear();
       this.lastCardClick = null;
     }
@@ -314,25 +332,21 @@ export class MapHost {
     this.state = state;
     this.metrics = state.metrics;
 
-    this.nodes = new Map(Object.entries(state.layout.nodes).map(([path, value]) => [path, { ...value }]));
-
-    for (const { path, changes } of this.pendingEdits.values()) {
-
-      const value = this.nodes.get(path);
-      if (value) {
-        Object.assign(value, changes);
+    if (!keepCoordinates) {
+      this.nodes = new Map(Object.entries(state.layout.nodes).map(([path, value]) => [path, { ...value }]));
+      for (const { path, changes } of this.pendingEdits.values()) {
+        const value = this.nodes.get(path);
+        if (value) {
+          Object.assign(value, changes);
+        }
       }
-
+      if (this.cardDrag?.moved) {
+        Object.assign(this.nodes.get(this.cardDrag.path) ?? {}, this.cardDrag.current);
+      }
+      if (this.cardResize?.moved) {
+        Object.assign(this.nodes.get(this.cardResize.path) ?? {}, this.cardResize.current);
+      }
     }
-
-    if (this.cardDrag?.moved) {
-      Object.assign(this.nodes.get(this.cardDrag.path) ?? {}, this.cardDrag.current);
-    }
-    if (this.cardResize?.moved) {
-      Object.assign(this.nodes.get(this.cardResize.path) ?? {}, this.cardResize.current);
-    }
-
-
 
     if (arranged && !this.reducedMotion.matches) {
       this.body.classList.add("map-rearranging");
@@ -378,6 +392,7 @@ export class MapHost {
     this.setHoveredEdge(null);
 
     if (changedWorkspace) {
+      this.preview?.close(false);
       this.pendingEdits.clear();
       this.lastCardClick = null;
     }
@@ -453,11 +468,14 @@ export class MapHost {
       localize(hitPath, "Connection from {0} to {1}. Source line {2}. {3}", "aria-label", edge.source, edge.target, edge.line, edge.excerpt);
       hitPath.addEventListener("focus", () => this.setHoveredEdge(item));
       hitPath.addEventListener("blur", () => this.setHoveredEdge(null));
+      // A connection is a navigation target, including when the viewport otherwise accepts background panning.
+      hitPath.addEventListener("pointerdown", event => event.stopPropagation());
+      hitPath.addEventListener("click", () => this.preview.open(edge.target, edge.anchor, true));
       hitPath.addEventListener("keydown", event => {
         if (event.key === "Enter" && !this.suspended && !this.arranging) {
           event.preventDefault();
           event.stopPropagation();
-          this.emit({ type: "navigate", path: edge.target, anchor: edge.anchor });
+          this.preview.open(edge.target, edge.anchor, true);
         } else if (event.key === "Escape") {
           hitPath.blur();
         }
@@ -639,6 +657,7 @@ export class MapHost {
     this.animateConnections();
     this.rendering = false;
     this.atlas.restoreCamera();
+    this.preview.selectionChanged(previousSelected);
 
   }
   /** Publish a managed map selection without navigating away from the current document. */
@@ -646,7 +665,10 @@ export class MapHost {
     if (this.suspended || this.arranging || this.cardResize || this.selected === path && !center) {
       return;
     }
-    this.emit({ type: "map-select", path, center, workspaceId: this.workspaceId, stateId: this.state?.stateId });
+    if (this.preview?.currentPath && this.preview.currentPath !== path) {
+      this.preview.close(false);
+    }
+    return this.emit({ type: "map-select", path, center, workspaceId: this.workspaceId, stateId: this.state?.stateId });
   }
   /** Select once or open on a second nearby click, even when selection changes the DOM target. */
   activateCard(path, event, center = false) {
@@ -697,23 +719,31 @@ export class MapHost {
     if (args.workspaceId !== this.workspaceId || args.state.stateId !== this.state?.stateId) {
       return;
     }
-    const incomingNodes = new Map(args.map.nodes.map(node => [node.path, node]));
-    const incomingEdges = JSON.stringify(args.map.edges);
-    const edgesChanged = incomingEdges !== JSON.stringify(this.map.edges);
-    if (edgesChanged || incomingNodes.size !== this.cards.size || [...this.cards.keys()].some(path => !incomingNodes.has(path))) {
-      this.render({ ...args, preserveCamera: true });
-      if (args.center) {
-        this.centerCard(args.selected);
+    const previousSelected = this.selected;
+    if (args.structureUnchanged !== true) {
+      const incomingNodes = new Map(args.map.nodes.map(node => [node.path, node]));
+      const edgesChanged = JSON.stringify(args.map.edges) !== JSON.stringify(this.map.edges);
+      if (edgesChanged || incomingNodes.size !== this.cards.size || [...this.cards.keys()].some(path => !incomingNodes.has(path))) {
+        this.render({ ...args, preserveCamera: true });
+        if (args.center) {
+          this.centerCard(args.selected);
+        }
+        return;
       }
-      return;
+      for (const [path, item] of this.cards) {
+        this.refreshCardContent(item, incomingNodes.get(path));
+      }
+      this.nodeSignature = args.map.nodes.map(node => node.path).join("\n");
     }
     this.map = args.map;
-    this.nodeSignature = args.map.nodes.map(node => node.path).join("\n");
     this.focused = args.focused;
     this.selected = args.selected;
     this.cancelReveal();
-    for (const [path, item] of this.cards) {
-      this.refreshCardContent(item, incomingNodes.get(path));
+    for (const path of new Set([previousSelected, args.selected])) {
+      const item = this.cards.get(path);
+      if (!item) {
+        continue;
+      }
       const selected = path === args.selected;
       item.container.classList.toggle("selected", selected);
       item.card.classList.toggle("selected", selected);
@@ -726,7 +756,8 @@ export class MapHost {
       item.path.setAttribute("stroke-width", highlighted ? 2.4 : 1.3);
     }
     this.depth = args.depth ?? this.depth;
-    this.setState(args.state);
+    this.setState(args.state, args.structureUnchanged);
+    this.preview.selectionChanged(previousSelected);
     this.toggleDetails(args.advanced ?? this.advanced);
     this.animateConnections();
     if (args.center) {
@@ -1169,6 +1200,7 @@ export class MapHost {
       return;
     }
 
+    this.preview?.close(false);
     this.lastCardClick = null;
     this.cancelCameraGesture();
     this.cancelScheduledTransform();
@@ -1242,6 +1274,7 @@ export class MapHost {
     this.syncCards();
     this.updateBounds();
     this.updateEdges();
+    this.preview?.place();
   }
 
   /** Fit logical card bounds plus selected-card magnification, retaining room for folder frames and shadows. */
@@ -1538,6 +1571,7 @@ export class MapHost {
       this.strokeScale = this.scale;
     }
     this.atlas.updateZoom(viewport);
+    this.preview?.place(viewport);
   }
   /** Stop an in-flight camera move immediately; the next user gesture continues from the current position. */
   cancelCamera() {
@@ -1664,6 +1698,7 @@ export class MapHost {
   }
   /** Cancel gestures and release observers, picker resources and the graph DOM root. */
   dispose() {
+    this.preview?.close(false);
     this.cancelCameraGesture();
     this.cancelScheduledTransform();
     this.cancelGeometryUpdate();

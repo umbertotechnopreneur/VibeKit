@@ -18,7 +18,7 @@ public static class Program
                 kind.EndsWith(".failure", StringComparison.Ordinal) || kind == "ui.unhandled"
                 ? LogEventLevel.Warning : LogEventLevel.Information;
             logger.Write(level, "Event {Kind} Bytes={Bytes}", kind, bytes);
-        });
+        }, VibeWareDiagnostics.GetLogDirectory(AppId));
         if (args.FirstOrDefault() == "--memory-guard") return WindowsMemoryGuard.Run(args);
         try
         {

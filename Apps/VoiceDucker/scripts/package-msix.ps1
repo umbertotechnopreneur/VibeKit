@@ -89,7 +89,7 @@ New-Item -ItemType Directory -Path $packageDirectory -Force | Out-Null
 $arguments = @(
     'msbuild', $project, '/restore', '/t:Clean,Build',
     "/p:Configuration=$Configuration", "/p:Platform=$Architecture",
-    "/p:RuntimeIdentifier=$runtime", '/p:SelfContained=true',
+    "/p:RuntimeIdentifier=$runtime", '/p:SelfContained=false',
     '/p:WindowsPackageType=MSIX', '/p:GenerateAppxPackageOnBuild=true',
     '/p:UapAppxPackageBuildMode=SideloadOnly', '/p:AppxBundle=Never',
     "/p:AppxPackageDir=$packageDirectory\", '/p:PublishReadyToRun=false',

@@ -1,3 +1,7 @@
+> **File name** `DEVELOPMENT.md`<br>
+> **Full path** `E:\vibekit\Apps\UlanziDeck\docs\DEVELOPMENT.md`<br>
+> **Path relative to the VibeKit repository** `Apps/UlanziDeck/docs/DEVELOPMENT.md`
+
 <!-- VBWR B
 
 Project: UlanziDeck
@@ -149,6 +153,83 @@ including its catalogue and Linux overrides, with this reference layout.
 Intentional differences appear as mismatches. Confirm application behavior
 separately by observing the desktop when you release the physical button.
 
+## Runtime architecture
+
+```mermaid
+flowchart TB
+    accTitle: UlanziDeck Rust modules and device boundary
+    accDescr: Slint and the CLI configure the shared model. The Rust controller routes dock events to page updates or permitted desktop actions.
+    subgraph HOST["Rust controller process"]
+        direction TB
+        UI["Slint settings and CLI<br/>Edit preferences or request a command"]
+        MODEL["Model and settings<br/>Pages, keys, themes and preferences"]
+        CONTROLLER["Controller<br/>Current page, focus and connection state"]
+        ROUTING["Button routing<br/>Availability and matching press and release"]
+        ART["Artwork renderer<br/>Pressed and released images"]
+        DOCK["Dock transport<br/>Decode reports and send images"]
+        ACTIONS["Platform actions<br/>Configured commands and shortcuts"]
+    end
+    SETTINGS["Local files<br/>settings.json and applications.yaml"]
+    DEVICE["D200H dock<br/>Buttons and displays"]
+    SYSTEM["Windows or Linux desktop<br/>Foreground applications and action targets"]
+
+    UI -->|"Settings change or run options"| MODEL
+    MODEL <-->|"Read and persist settings"| SETTINGS
+    MODEL -->|"Page and action definitions"| CONTROLLER
+    SYSTEM -->|"Foreground process when enabled"| CONTROLLER
+    DEVICE -->|"USB button reports"| DOCK
+    DOCK -->|"Decoded key and press state"| CONTROLLER
+    CONTROLLER <-->|"Event and accepted route"| ROUTING
+    CONTROLLER -->|"Page and visual state"| ART
+    ART -->|"Display images"| DOCK
+    DOCK -->|"USB display updates"| DEVICE
+    CONTROLLER -->|"Accepted desktop action"| ACTIONS
+    ACTIONS -->|"Send configured action"| SYSTEM
+
+    classDef ui fill:#e6effb,stroke:#315a92,color:#18334f
+    classDef model fill:#dcf0e9,stroke:#20766a,color:#143e38
+    classDef boundary fill:#fff0d8,stroke:#9b6218,color:#51330e
+    classDef storage fill:#ece8f7,stroke:#69518f,color:#302347
+    class UI,ART ui
+    class MODEL,CONTROLLER,ROUTING model
+    class DOCK,ACTIONS,DEVICE,SYSTEM boundary
+    class SETTINGS storage
+```
+
+### From dock button to action
+
+```mermaid
+sequenceDiagram
+    accTitle: Dock button press and release
+    accDescr: Routing checks the active page and records a valid press. Only a matching available release can navigate, change the dock or send a desktop action.
+    participant Dock as D200H
+    participant HID as Dock transport
+    participant Run as Controller
+    participant Route as Button routing
+    participant OS as Desktop action
+
+    Dock->>HID: Press report
+    HID-->>Run: Decoded key and pressed flag
+    Run->>Route: Check page and key availability
+    opt Accepted press
+        Route-->>Run: Record held key
+        Run->>HID: Show pressed art when applicable
+    end
+    Dock->>HID: Release report
+    HID-->>Run: Decoded key and release flag
+    Run->>Route: Match held key and recheck availability
+    alt Navigation, theme or dock control
+        Route-->>Run: Return control route
+        Run->>HID: Update page or display
+    else Permitted desktop action
+        Route-->>Run: Return configured action
+        Run->>OS: Dispatch action
+        Run->>HID: Refresh released art
+    else Unmatched, unavailable or disabled
+        Route-->>Run: Ignore or release visual state
+    end
+```
+
 ## Find the right file
 
 | File | What it does |
@@ -196,3 +277,7 @@ Open this repository as a local project in Codex, or run `codex` in its folder i
 The dock's Codex page sends configured keyboard shortcuts. It does not install Codex or call an AI API.
 
 Keep my name, original logo and [MIT notices](BRANDING.md). See [Windows editor ideas](design/README.md) for the planned WinUI 3 interface; it has not replaced Slint.
+
+> **File name** `DEVELOPMENT.md`<br>
+> **Full path** `E:\vibekit\Apps\UlanziDeck\docs\DEVELOPMENT.md`<br>
+> **Path relative to the VibeKit repository** `Apps/UlanziDeck/docs/DEVELOPMENT.md`

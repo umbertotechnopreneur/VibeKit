@@ -96,8 +96,7 @@ public sealed class DesktopLauncherService(AppPaths paths) : IDesktopLauncherSer
                 ?? throw new InvalidOperationException("Windows shortcut creation is unavailable.");
             shortcut = ((dynamic)shell).CreateShortcut(shortcutPath);
             dynamic link = shortcut;
-            link.TargetPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Microsoft", "WindowsApps", "hm.exe");
+            link.TargetPath = Path.Combine(AppContext.BaseDirectory, "hm.exe");
             link.WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             link.IconLocation = icon;
             link.Description = "HelpMe";

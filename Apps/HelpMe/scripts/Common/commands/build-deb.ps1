@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 <#
 .SYNOPSIS
-Build a self-contained Debian package, retaining only the package, checksum and metadata.
+Build a framework-dependent Debian package, retaining the package, checksum and metadata.
 #>
 [CmdletBinding()]
 param(
@@ -50,12 +50,12 @@ try {
     [IO.Directory]::CreateDirectory((Join-Path $staging 'DEBIAN')) | Out-Null
     [IO.Directory]::CreateDirectory($payload) | Out-Null
     $published = $true
-    & dotnet publish (Join-Path $repository 'HelpMe/HelpMe.csproj') --configuration $Configuration --runtime $Runtime --self-contained true `
+    & dotnet publish (Join-Path $repository 'HelpMe/HelpMe.csproj') --configuration $Configuration --runtime $Runtime --self-contained false `
         -p:PublishSingleFile=false -p:DebugType=None -p:DebugSymbols=false -p:TreatWarningsAsErrors=true --output $publish
     if ($LASTEXITCODE -ne 0) { throw 'Debian publish failed.' }
     & (Join-Path $PSScriptRoot 'export-third-party-notices.ps1') -OutputDirectory $publish -Runtime $Runtime `
         -AssetsFile (Join-Path $build 'obj/HelpMe/project.assets.json')
-    foreach ($required in @('hm', 'hm.dll', 'libcoreclr.so', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_INVENTORY.json', 'docs/helpme-quick-reference.pdf', 'prompt/query-system.yaml')) {
+    foreach ($required in @('hm', 'hm.dll', 'hm.runtimeconfig.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_INVENTORY.json', 'docs/helpme-quick-reference.pdf', 'prompt/query-system.yaml')) {
         if (-not (Test-Path -LiteralPath (Join-Path $publish $required) -PathType Leaf)) { throw "Missing package content: $required" }
     }
     Assert-HelpMeNoLinks $publish
@@ -85,11 +85,11 @@ Priority: optional
 Maintainer: Umberto Giacobbi <umberto.giacobbi@gmail.com>
 Homepage: https://github.com/umbertotechnopreneur/PromptMeUp
 Installed-Size: $installedSize
-Depends: bash, libc6 (>= 2.35), libgcc-s1, libstdc++6, zlib1g, libgssapi-krb5-2, libssl3t64 | libssl3, libicu78 | libicu76 | libicu74 | libicu72 | libicu70
+Depends: dotnet-runtime-10.0, bash, libc6 (>= 2.35), libgcc-s1, libstdc++6, zlib1g, libgssapi-krb5-2, libssl3t64 | libssl3, libicu78 | libicu76 | libicu74 | libicu72 | libicu70
 Suggests: powershell, wl-clipboard | xclip | xsel, xdg-utils
 Description: HelpMe console assistant ($Configuration)
  Ask about terminal commands and review them before execution.
- Includes the .NET runtime. AI features require your own OpenAI API account.
+ Requires the shared .NET 10 runtime. AI features require your own OpenAI API account.
  PowerShell 7 is required for PowerShell commands and generated workflow wrappers.
 "@ | Set-Content -LiteralPath (Join-Path $staging 'DEBIAN/control') -Encoding utf8NoBOM
     Get-ChildItem -LiteralPath $staging -Recurse -Force | Where-Object { -not $_.LinkType } | ForEach-Object {

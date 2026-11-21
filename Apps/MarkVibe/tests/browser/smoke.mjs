@@ -217,15 +217,29 @@ async function readerPosition(page) {
 
 try {
   await check("demo reader, local image and Mermaid render without remote requests", async page => {
-    await ready(page);
-    assert.equal(await page.locator(".reader h1").innerText(), "Welcome to your reading space");
-    await page.locator(".reader img").evaluate(image => {
-      if (!image.complete || !image.naturalWidth) {
-        throw new Error("The local demo image did not load.");
-      }
+    // The welcome document is readable even while its optional Mermaid frame is still unavailable.
+    let releaseDiagram;
+    const diagramGate = new Promise(resolve => { releaseDiagram = resolve; });
+    await page.route("**/js/diagram-frame.html", async route => {
+      await diagramGate;
+      await route.continue();
     });
+    try {
+      await page.goto(base, { waitUntil: "domcontentloaded" });
+      await page.locator(".reader h1").waitFor({ timeout: 90000 });
+      await page.locator("#startup").waitFor({ state: "hidden" });
+    } finally {
+      releaseDiagram();
+    }
+    assert.equal(await page.locator(".reader h1").innerText(), "Welcome to your reading space");
+    const image = page.locator(".reader img");
+    await image.scrollIntoViewIfNeeded();
+    await page.locator(".reader img[src]").evaluate(element => element.decode());
+    assert.ok(await image.evaluate(element => element.naturalWidth > 0), "The local demo image must load.");
+    await page.locator(".reader .mv-diagram").scrollIntoViewIfNeeded();
     await page.locator(".mv-diagram svg").waitFor({ state: "attached" });
     assert.notEqual(await page.locator(".mv-diagram .node rect").first().evaluate(node => getComputedStyle(node).fill), "rgb(0, 0, 0)");
+    await page.locator(".reader h1").scrollIntoViewIfNeeded();
     await page.screenshot({ path: join(artifacts, "desktop-read.png"), fullPage: true });
   });
 
@@ -295,6 +309,78 @@ try {
     await card.dblclick();
     await documentIs(page, "guide/setup.md");
     await page.locator(".reader h1").waitFor();
+  });
+
+  await check("Read here follows a section in one card and Back restores the passage and map camera", async page => {
+    await ready(page);
+    const paragraphs = Array.from({ length: 36 }, (_, index) =>
+      "Paragraph " + index + " provides enough text to distinguish a restored reading position."
+    ).join("\n\n");
+    const origin = [
+      "# Procedure", paragraphs, "[Read the second condition](policy.md#conditions-1)", paragraphs, "End of procedure."
+    ].join("\n\n");
+    const destination = [
+      "# Policy", "## Conditions", paragraphs, "## Conditions", "![Fixture pixel](pixel.png)",
+      "```mermaid\nflowchart LR\n A --> B\n```", paragraphs
+    ].join("\n\n");
+    await openFiles(page, [
+      { name: "README.md", mimeType: "text/markdown", buffer: Buffer.from(origin) },
+      { name: "policy.md", mimeType: "text/markdown", buffer: Buffer.from(destination) },
+      exportFiles().find(file => file.name === "pixel.png")
+    ]);
+    const readerUrl = page.url();
+    const readerEntry = await page.evaluate(() => history.state.markvibe.id);
+    await view(page, "Map");
+    await page.locator(".document-map:not([inert])").waitFor({ state: "visible" });
+    const viewport = page.locator(".map-viewport");
+    const world = page.locator(".map-world");
+    await viewport.press("ArrowLeft");
+    const originalCamera = await world.evaluate(element => element.style.transform);
+    await page.locator(".map-card.selected").getByRole("button", { name: "Read here", exact: true }).click();
+
+    const panel = page.locator(".map-reading-panel");
+    const article = panel.locator(".map-reading-page");
+    const passage = article.getByRole("link", { name: "Read the second condition" });
+    await article.getByText("End of procedure.", { exact: true }).waitFor({ state: "attached" });
+    await passage.scrollIntoViewIfNeeded();
+    const passageScroll = await article.evaluate(element => element.scrollTop);
+    assert.ok(passageScroll > 0, "The origin link must be below the start of its page.");
+    const passageCamera = await world.evaluate(element => element.style.transform);
+    await passage.click();
+
+    // Duplicate headings distinguish the requested anchor from both the first match and the page top.
+    const target = article.locator("#conditions-1");
+    await eventually(async () => {
+      assert.equal(await target.evaluate(element => element.getRootNode().activeElement === element), true);
+      const offset = await target.evaluate(element =>
+        element.getBoundingClientRect().top - element.closest("article").getBoundingClientRect().top);
+      assert.ok(offset >= 0 && offset < 32, "The second Conditions heading must be at the top of the preview.");
+    });
+    assert.equal(await panel.count(), 1);
+    assert.deepEqual(await article.locator("h1").allTextContents(), ["Policy"]);
+    assert.equal(await article.getByRole("button", { name: "Show image · Fixture pixel" }).count(), 1);
+    assert.equal(await article.getByRole("button", { name: "Show diagram" }).count(), 1);
+    assert.equal(await article.locator("img[src], .mv-diagram svg").count(), 0);
+    assert.equal(page.url(), readerUrl);
+    assert.equal(await page.evaluate(() => history.state.markvibe.id), readerEntry);
+
+    // Move the camera independently on B, so an unchanged transform cannot pass the return assertion.
+    const destinationCamera = await world.evaluate(element => element.style.transform);
+    await viewport.press("ArrowDown");
+    assert.notEqual(await world.evaluate(element => element.style.transform), destinationCamera);
+    await panel.getByRole("button", { name: "Back", exact: true }).click();
+    await eventually(async () => {
+      assert.deepEqual(await article.locator("h1").allTextContents(), ["Procedure"]);
+      assert.ok(Math.abs(await article.evaluate(element => element.scrollTop) - passageScroll) <= 2);
+      assert.equal(await world.evaluate(element => element.style.transform), passageCamera);
+    });
+    await panel.getByRole("button", { name: "Back", exact: true }).click();
+    await panel.waitFor({ state: "hidden" });
+    await eventually(async () => assert.equal(await world.evaluate(element => element.style.transform), originalCamera));
+    await view(page, "Read");
+    await documentIs(page, "README.md");
+    assert.equal(page.url(), readerUrl);
+    assert.equal(await page.evaluate(() => history.state.markvibe.id), readerEntry);
   });
 
   await check("card resize persists in downloads and resetting requires explicit confirmation", async page => {

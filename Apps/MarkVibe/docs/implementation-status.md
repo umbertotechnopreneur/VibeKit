@@ -1,7 +1,13 @@
+> **File name** `implementation-status.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\implementation-status.md`<br>
+> **Path relative to the MarkVibe application root** `docs/implementation-status.md`
+
 # Implementation status
 
-MarkVibe provides a Windows WPF/WebView2 desktop app and a shared OpenSilver
-WebAssembly browser app. Application code is MIT licensed by Umberto Giacobbi.
+MarkVibe provides a WinUI 3 desktop app and a separate OpenSilver WebAssembly
+browser app. On Windows, Win2D draws the link graph and WebView2 hosts the
+Markdown reader with Mermaid, Monaco and the isolated PDF renderer. Application
+code is MIT licensed by Umberto Giacobbi.
 
 ## Current capabilities
 
@@ -29,3 +35,7 @@ See [architecture](architecture.md) for ownership and data flow, and
 [active work](../.github/tasks/todo.md) for remaining tasks. Tests and interactive
 checks require a current explicit request. Microsoft Store submission and browser
 publication require separate authorization.
+
+> **File name** `implementation-status.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\implementation-status.md`<br>
+> **Path relative to the MarkVibe application root** `docs/implementation-status.md`

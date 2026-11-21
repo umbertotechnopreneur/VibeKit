@@ -9,6 +9,8 @@ import fcntl
 import math
 import os
 from pathlib import Path
+import random
+import shutil
 import sys
 import time
 from watchdog import start as start_watchdog, record as log_event, state_dir
@@ -73,7 +75,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MANIFESTO_URL = "https://umbertogiacobbi.biz/vibeware/manifesto"
 from backend import invoke
 from settings_ui import SettingsUiMixin
-from ui_helpers import text, box, about_mark, about_link, metric
+from ui_helpers import text, box, about_mark, about_link
 
 
 CSS = b"""
@@ -86,31 +88,24 @@ notebook > header > tabs > tab:checked { box-shadow: inset 0 -3px @accent_bg_col
 .huge { font-family: monospace; font-size: 64px; font-weight: 700; }
 .forecast { font-family: monospace; font-size: 32px; font-weight: 700; }
 .metric { font-family: monospace; font-size: 30px; font-weight: 650; }
-.summary .quota-low { font-weight: 800; }
-.reset-green { color: #689b78; }
-.reset-yellow { color: #c0ad38; }
-.reset-amber { color: #ca891e; }
-.reset-orange { color: #be5216; }
-.reset-red { color: #da4141; }
 .learning { font-size: 24px; opacity: .75; color: @window_fg_color; }
 .placeholder { font-size: 18px; opacity: .7; color: @window_fg_color; }
 .mono-detail { font-family: monospace; font-size: 12px; }
-.summary .huge { font-size: 40px; }
-.summary .metric { font-size: 25px; }
 window.micro {
     border-radius: 20px;
-    border: 1px solid alpha(@accent_bg_color, .32);
-    box-shadow: inset 0 0 3px alpha(@accent_bg_color, .09);
+    border: 1px solid alpha(#bc683d, .62);
+    box-shadow: inset 0 0 3px alpha(#bc683d, .12);
 }
 window.micro:backdrop { border-color: transparent; box-shadow: none; }
-.micro .summary .huge { font-size: 20px; }
-.micro .summary .metric { font-size: 16px; }
-.micro .summary .dim { font-size: 12px; opacity: .85; }
-.micro .day { font-size: 11px; }
-.micro.big .summary .huge { font-size: 25px; }
-.micro.big .summary .metric { font-size: 20px; }
-.micro.big .summary .dim { font-size: 15px; }
-.micro.big .day { font-size: 14px; }
+window.micro.details-open { background-color: transparent; border-color: transparent; box-shadow: none; }
+.micro.details-open .widget-band, .micro .details-band {
+    background-color: @window_bg_color;
+    border: 1px solid alpha(#bc683d, .62);
+    border-radius: 19px;
+}
+.micro .details-band { padding: 6px 12px; }
+.micro .flip-caption { font-size: 12px; opacity: .85; }
+.micro.big .flip-caption { font-size: 15px; }
 .micro.big button.icon-action { padding: 6px; min-width: 23px; min-height: 23px; }
 .micro.big button.icon-action image { -gtk-icon-size: 20px; }
 .micro button.icon-action { padding: 5px; min-width: 18px; min-height: 18px; }
@@ -131,15 +126,6 @@ button.icon-action:hover, button.icon-action:active { color: @window_fg_color; }
 button.icon-action:hover { background: alpha(@window_fg_color, .07); }
 button.icon-action:active { background: alpha(@accent_bg_color, .15); }
 button.icon-action:checked { color: @accent_bg_color; background: alpha(@accent_bg_color, .15); }
-button.vibeware-badge,
-button.vibeware-badge:hover,
-button.vibeware-badge:active,
-button.vibeware-badge:checked {
-    background: transparent; border: none; box-shadow: none;
-    padding: 0; min-width: 0; min-height: 0;
-}
-button.vibeware-badge image { opacity: .78; }
-button.vibeware-badge:hover image { opacity: 1; }
 window.widget-about, .widget-about .about-body { background-color: #fff4dc; color: #232a2f; }
 .widget-about .about-body { font-family: monospace; font-size: 15px; }
 .widget-about .about-body label { color: #232a2f; }
@@ -151,32 +137,77 @@ window.widget-about, .widget-about .about-body { background-color: #fff4dc; colo
 """
 
 
-class FlipTile(Gtk.Box):
-    def __init__(self, name, caption):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=3)
-        self.value = "--"
-        self.previous = "--"
+class LabeledDisplay(Gtk.Box):
+    def __init__(self, caption, display):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=3, valign=Gtk.Align.CENTER)
+        self.display = display
+        # The calendar keeps the caption row's height with its four words aligned to the other values.
+        self.caption = Gtk.Label(label=caption or "\u00a0", halign=Gtk.Align.CENTER)
+        self.caption.add_css_class("flip-caption")
+        self.append(self.caption)
+        self.append(display)
+
+    def set_label_position(self, position):
+        self.caption.set_visible(position != "hidden")
+        self.reorder_child_after(self.caption, self.display if position == "below" else None)
+
+
+class FlipTile(LabeledDisplay):
+    def __init__(self, name, caption, width, font_size=21, *, info=False):
+        face = Gtk.DrawingArea()
+        display = box(4, True)
+        display.set_halign(Gtk.Align.CENTER)
+        display.append(face)
+        super().__init__(caption, display)
+        self.face = face
+        self.name = name
+        self.base_width = width
+        self.base_font_size = font_size
+        self.info = None
+        if info:
+            self.info = Gtk.Label(label="ⓘ")
+            self.info.add_css_class("dim")
+            display.append(self.info)
+        self.value = "—"
+        self.accent = None
+        self.ink = (1, 1, 1)
+        self.previous = self.value
         self.started = None
         self.ticking = False
-        self.face = Gtk.DrawingArea(content_width=36, content_height=32, hexpand=True)
         self.face.set_draw_func(self.draw)
-        self.face.update_property([Gtk.AccessibleProperty.LABEL], [name + ": unavailable"])
-        self.name = name
-        self.append(self.face)
-        label = Gtk.Label(label=caption, tooltip_text=name)
-        label.add_css_class("day")
-        self.append(label)
+        self.face.update_property([Gtk.AccessibleProperty.LABEL], [f"{name}: unavailable"])
+        self.resize(1)
 
-    def update(self, value, animate):
-        if value == self.value:
+    def resize(self, scale):
+        self.face.set_content_width(round(self.base_width * scale))
+        self.face.set_content_height(round(34 * scale))
+        self.font_size = self.base_font_size * scale
+        self.face.queue_draw()
+
+    def set_detail(self, detail):
+        if self.face.get_tooltip_text() != detail:
+            self.face.set_tooltip_text(detail)
+            if self.info is not None:
+                self.info.set_tooltip_text(detail)
+
+    def update(self, value, animate, *, reveal=False):
+        if value == self.value and not reveal:
             return
-        self.previous, self.value = self.value, value
-        self.face.update_property([Gtk.AccessibleProperty.LABEL], [self.name + ": " + value])
+        self.previous, self.value = "" if reveal else self.value, value
+        accessible_value = "unavailable" if value == "—" else value
+        self.face.update_property([Gtk.AccessibleProperty.LABEL], [f"{self.name}: {accessible_value}"])
         self.started = time.monotonic() if animate else None
         self.face.queue_draw()
         if animate and not self.ticking:
             self.ticking = True
             self.face.add_tick_callback(self.tick)
+
+    def set_colors(self, *, accent=None, warning=False):
+        ink = (1, .71, .19) if warning else (1, 1, 1)
+        if self.ink == ink and self.accent == accent:
+            return
+        self.ink, self.accent = ink, accent
+        self.face.queue_draw()
 
     def tick(self, widget, frame):
         widget.queue_draw()
@@ -189,7 +220,7 @@ class FlipTile(Gtk.Box):
     def draw(self, area, cr, width, height):
         progress = min(1, (time.monotonic()-self.started)/.20) if self.started is not None else 1
         self.draw_face(cr, width, height, self.value)
-        if progress < 1 and self.previous != "--":
+        if progress < 1 and self.previous != "—":
             # Old bottom stays visible while the top flap falls; new bottom unfolds afterwards.
             self.draw_half(cr, width, height, self.previous, False, 1)
             if progress < .5:
@@ -216,36 +247,142 @@ class FlipTile(Gtk.Box):
                               (radius, radius, math.pi, 3*math.pi/2)):
             cr.arc(cx, cy, radius, a, b)
         cr.close_path()
-        dark = Adw.StyleManager.get_default().get_dark()
-        top, bottom = (.15, .05) if dark else (.99, .89)
-        edge = .02 if dark else .74
+        edge = .02
         gradient = cairo.LinearGradient(0, 0, 0, height)
-        gradient.add_color_stop_rgb(0, top, top, top)
-        gradient.add_color_stop_rgb(1, bottom, bottom, bottom)
+        gradient.add_color_stop_rgb(0, .15, .15, .15)
+        gradient.add_color_stop_rgb(1, .05, .05, .05)
         cr.set_source(gradient)
         cr.fill_preserve()
         cr.set_source_rgb(edge, edge, edge)
         cr.set_line_width(2)
         cr.stroke()
         layout = PangoCairo.create_layout(cr)
-        layout.set_font_description(Pango.FontDescription(f"Monospace Bold {max(12, min(48, int(width * .34)))}"))
+        font = Pango.FontDescription("Monospace Bold")
+        font.set_absolute_size(self.font_size * Pango.SCALE)
+        layout.set_font_description(font)
         layout.set_text(value, -1)
         tw, th = layout.get_pixel_size()
+        if tw > width - 10:
+            font.set_absolute_size(self.font_size * (width - 10) / tw * Pango.SCALE)
+            layout.set_font_description(font)
+            tw, th = layout.get_pixel_size()
         cr.move_to((width-tw)/2, (height-th)/2)
-        ink = 1 if dark else 0
-        cr.set_source_rgb(ink, ink, ink)
+        cr.set_source_rgb(*self.ink)
         PangoCairo.show_layout(cr, layout)
         cr.set_source_rgb(edge, edge, edge)
         cr.set_line_width(2)
         cr.move_to(2, height/2)
         cr.line_to(width-2, height/2)
         cr.stroke()
-        hinge = .42 if dark else .65
-        cr.set_source_rgb(hinge, hinge, hinge)
+        cr.set_source_rgb(.42, .42, .42)
         for x in (1, width-5):
             cr.rectangle(x, height/2-6, 4, 12)
             cr.fill()
+        if self.accent:
+            cr.set_source_rgb(*self.accent)
+            cr.set_line_width(2)
+            cr.set_line_cap(cairo.LINE_CAP_ROUND)
+            cr.move_to(width * .19, height - 3)
+            cr.line_to(width * .81, height - 3)
+            cr.stroke()
         cr.restore()
+
+
+class TrafficSignal(LabeledDisplay):
+    LIGHTS = ((.99, .20, .15), (1, .68, .06), (.22, .81, .39))
+
+    def __init__(self):
+        self.face = Gtk.DrawingArea(halign=Gtk.Align.CENTER)
+        super().__init__("Alert", self.face)
+        self.active = None
+        self.flicker_started = None
+        self.next_flicker = time.monotonic() + random.uniform(480, 1080)
+        self.face.set_draw_func(self.draw)
+        self.resize(1)
+        self.update(None, "Waiting for allowance or credit data")
+
+    def resize(self, scale):
+        self.face.set_content_width(round(30 * scale))
+        self.face.set_content_height(round(52 * scale))
+
+    def update(self, active, detail):
+        if self.active != active:
+            self.active = active
+            self.flicker_started = None
+            self.face.queue_draw()
+        if self.face.get_tooltip_text() != detail:
+            self.face.set_tooltip_text(detail)
+            self.face.update_property([Gtk.AccessibleProperty.LABEL], [detail])
+
+    def maybe_flicker(self, animations):
+        now = time.monotonic()
+        if not animations and self.flicker_started is not None:
+            self.flicker_started = None
+            self.face.queue_draw()
+        if now < self.next_flicker:
+            return
+        self.next_flicker = now + random.uniform(480, 1080)
+        if animations and self.active is not None:
+            self.flicker_started = now
+            self.face.add_tick_callback(self.flicker_frame)
+
+    def flicker_frame(self, area, _):
+        if self.flicker_started is not None and time.monotonic() - self.flicker_started >= .55:
+            self.flicker_started = None
+        area.queue_draw()
+        return self.flicker_started is not None
+
+    def draw(self, area, cr, width, height):
+        radius = width * .22
+        cr.new_sub_path()
+        for x, y, angle in ((width - radius - 1, radius + 1, -90), (width - radius - 1, height - radius - 1, 0),
+                            (radius + 1, height - radius - 1, 90), (radius + 1, radius + 1, 180)):
+            cr.arc(x, y, radius, math.radians(angle), math.radians(angle + 90))
+        cr.close_path()
+        housing = cairo.LinearGradient(0, 0, width, height)
+        housing.add_color_stop_rgb(0, .17, .17, .17)
+        housing.add_color_stop_rgb(.55, .08, .08, .08)
+        housing.add_color_stop_rgb(1, .12, .12, .12)
+        cr.set_source(housing)
+        cr.fill_preserve()
+        cr.set_line_width(1.25)
+        cr.set_source_rgb(.015, .015, .015)
+        cr.stroke()
+
+        radius = height * .117
+        x = width / 2
+        elapsed = time.monotonic() - self.flicker_started if self.flicker_started is not None else 1
+        level = 1
+        if elapsed < .17:
+            level -= .40 * math.sin(math.pi * elapsed / .17)
+        elif .28 <= elapsed < .46:
+            level -= .25 * math.sin(math.pi * (elapsed - .28) / .18)
+        for index, color in enumerate(self.LIGHTS):
+            y = height * (.20 + index * .30)
+            lit = index == self.active
+            if lit:
+                glow = cairo.RadialGradient(x, y, radius * .68, x, y, radius * 1.85)
+                glow.add_color_stop_rgba(0, *color, .72 * level)
+                glow.add_color_stop_rgba(1, *color, 0)
+                cr.set_source(glow)
+                cr.arc(x, y, radius * 1.85, 0, math.tau)
+                cr.fill()
+
+            cr.set_source_rgb(.012, .012, .012)
+            cr.arc(x, y, radius * 1.17, 0, math.tau)
+            cr.fill()
+            lens = cairo.RadialGradient(x - radius * .24, y - radius * .30, radius * .05, x, y, radius)
+            for offset, brightness in ((0, 1.30), (.55, 1), (1, .23)):
+                intensity = brightness * (level if lit else .36)
+                lens.add_color_stop_rgb(offset, *(min(1, channel * intensity) for channel in color))
+            cr.set_source(lens)
+            cr.arc(x, y, radius, 0, math.tau)
+            cr.fill()
+            cr.set_source_rgba(1, 1, 1, .54 if lit else .25)
+            cr.set_line_width(radius * .16)
+            cr.arc(x, y + radius * .03, radius * .72, math.radians(224), math.radians(294))
+            cr.stroke()
+            cr.fill()
 
 
 class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
@@ -254,14 +391,18 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         super().__init__(application=app, title="OpenAI Usage", default_height=62,
                          icon_name="biz.umbertogiacobbi.OpenAIUsage")
         self.state = {}
-        self.rotation_start = time.monotonic()
+        self.clock_cycle_start = None
         self.settings = {}
         self.settings_ready = False
         self.settings_dialog = None
+        self.settings_status_label = None
         self.settings_save_source = 0
         self.backend = invoke
         self.notified_thresholds = set()
         self.alert_window = None
+        self.credits_alert_threshold = None
+        self.credits_alert_notified = False
+        self.sound_process = None
         self.busy = False
         self.refresh_pending = False
         self.settings_revision = 0
@@ -275,7 +416,6 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.close_dialog = None
         self.about_dialog = None
         self.tray = None
-        self.labels = {}
         self.add_css_class("micro")
         self.set_decorated(False)
         self.set_resizable(False)
@@ -293,61 +433,34 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.brand.set_tooltip_text("Connecting to Codex…")
         strip.append(self.brand)
 
-        summary=Gtk.Grid(column_spacing=16, valign=Gtk.Align.CENTER)
-        summary.add_css_class("summary")
-        quota=box(4)
-        quota.append(self.label("allowanceLabel","Allowance remaining","dim"))
-        quota_row=box(5, True)
-        quota_row.append(self.label("remaining","—","metric"))
-        quota_info=self.label("quotaInfo", "ⓘ", "dim")
-        quota_info.set_opacity(0)
-        quota_row.append(quota_info)
-        quota.append(quota_row)
-        quota_motion=Gtk.EventControllerMotion()
-        quota_motion.connect("enter", lambda *_: quota_info.set_opacity(1))
-        quota_motion.connect("leave", lambda *_: quota_info.set_opacity(0))
-        quota.add_controller(quota_motion)
-        summary.attach(quota,0,0,1,1)
-        estimate = box(4)
-        estimate.append(text("Estimated time remaining", "dim"))
-        estimate_value = box(5, True)
-        estimate_value.append(self.label("forecastLabel", "—", "metric"))
-        estimate_value.append(self.label("forecastInfo", "ⓘ", "dim"))
-        estimate.append(estimate_value)
-        summary.attach(estimate,1,0,1,1)
-        credit = box(4)
-        credit.append(text("Credits left", "dim"))
-        credit_row = box(5, True)
-        credit_row.append(self.label("creditsLabel", "—", "metric"))
-        credit_info = self.label("creditInfo", "ⓘ", "dim")
-        credit_info.set_opacity(0)
-        credit_row.append(credit_info)
-        credit.append(credit_row)
-        motion = Gtk.EventControllerMotion()
-        motion.connect("enter", lambda *_: credit_info.set_opacity(1))
-        motion.connect("leave", lambda *_: credit_info.set_opacity(0))
-        credit.add_controller(motion)
-        summary.attach(credit,2,0,1,1)
-        resets_panel = box(4)
-        resets_panel.append(self.label("rotationHeading", "First reset", "dim"))
-        reset_row = box(5, True)
-        reset_row.append(self.label("resetValue", "—", "metric"))
-        reset_row.append(self.label("resetInfo", "ⓘ", "dim"))
-        resets_panel.append(reset_row)
-        summary.attach(resets_panel,3,0,1,1)
-        for i in range(4):
-            heading=summary.get_child_at(i,0).get_first_child()
-            heading.set_wrap(False)
-        strip.append(summary)
+        self.signal = TrafficSignal()
+        strip.append(self.signal)
+        self.allowance_tile = FlipTile("Allowance remaining", "Allowance remaining", 115)
+        self.voucher_tile = FlipTile("Available resets", "Available resets", 62)
+        self.credits_tile = FlipTile("Credits left", "Credits left", 101)
+        self.estimate_tile = FlipTile("Est. time Left", "Est. time Left", 100, 18)
+        self.reset_tile = FlipTile("First reset", "First reset", 123, 17, info=True)
+        self.metrics = (self.allowance_tile, self.voucher_tile, self.credits_tile, self.estimate_tile, self.reset_tile)
+        for tile in self.metrics:
+            strip.append(tile)
 
-        tile_row=box(5,True)
-        self.tile_row=tile_row
-        tile_row.set_homogeneous(True)
-        self.tiles = [FlipTile(name, caption) for name, caption in
+        self.tile_row = box(5, True)
+        self.tile_row.set_halign(Gtk.Align.CENTER)
+        self.tiles = [FlipTile(name, caption, 63) for name, caption in
                       (("Days", "DAYS"), ("Hours", "HRS"), ("Minutes", "MIN"), ("Seconds", "SEC"))]
         for tile in self.tiles:
-            tile_row.append(tile)
-        strip.append(tile_row)
+            self.tile_row.append(tile)
+        self.calendar_row = box(5, True)
+        self.calendar_row.set_halign(Gtk.Align.CENTER)
+        self.calendar_tiles = [FlipTile(name, None, width, 16) for name, width in
+                               (("Weekday", 96), ("Day of month", 32), ("Month", 96), ("Year", 52))]
+        for tile in self.calendar_tiles:
+            self.calendar_row.append(tile)
+        self.clock_views = Gtk.Stack(hhomogeneous=True, vhomogeneous=True, valign=Gtk.Align.CENTER,
+                                    transition_type=Gtk.StackTransitionType.CROSSFADE, transition_duration=400)
+        self.clock_views.add_child(self.tile_row)
+        self.clock_views.add_child(self.calendar_row)
+        strip.append(self.clock_views)
 
         actions=box(0,True)
         self.problem=Gtk.Button(icon_name="dialog-warning-symbolic",tooltip_text="Connection status")
@@ -361,15 +474,31 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.pin.set_tooltip_text("Always on top is available on X11 with a compatible window manager")
         self.syncing_pin = False
         self.pin.connect("toggled", self.on_pin_toggled)
+        self.details_icon = Gtk.DrawingArea(content_width=16, content_height=16,
+                                            halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+        self.details_icon.set_draw_func(self.draw_details_icon)
+        self.details_button = Gtk.ToggleButton(child=self.details_icon, tooltip_text="Usage details", valign=Gtk.Align.CENTER)
+        self.details_button.add_css_class("icon-action")
+        self.details_button.update_property([Gtk.AccessibleProperty.LABEL], ["Usage details"])
+        self.details_button.set_visible(False)
+        actions.append(self.details_button)
         actions.append(self.pin)
         self.connect("map", self.on_window_mapped)
         for icon,title,callback in [("emblem-system-symbolic","Settings",self.show_settings),
-                                    ("help-about-symbolic","About OpenAI Usage",self.show_about),
-                                    ("window-close-symbolic","Close",self.close)]:
+                                    ("help-about-symbolic","About OpenAI Usage",self.show_about)]:
             button=Gtk.Button(icon_name=icon,tooltip_text=title)
             button.add_css_class("icon-action")
             button.connect("clicked",lambda _,cb=callback:cb())
             actions.append(button)
+        manifesto = Gtk.LinkButton(uri=MANIFESTO_URL, tooltip_text="VibeWare manifesto")
+        manifesto.set_child(about_mark("VibeWare.png", 20))
+        manifesto.add_css_class("icon-action")
+        manifesto.update_property([Gtk.AccessibleProperty.LABEL], ["VibeWare manifesto"])
+        actions.append(manifesto)
+        close = Gtk.Button(icon_name="window-close-symbolic", tooltip_text="Close")
+        close.add_css_class("icon-action")
+        close.connect("clicked", lambda _: self.close())
+        actions.append(close)
         strip.append(actions)
         handle=Gtk.WindowHandle(child=strip)
         # Capture decorative content too, while preserving every button's click handling.
@@ -377,15 +506,16 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         drag.connect("pressed",self.begin_move)
         handle.add_controller(drag)
-        overlay = Gtk.Overlay(child=handle)
-        manifesto = Gtk.LinkButton(uri=MANIFESTO_URL, halign=Gtk.Align.END, valign=Gtk.Align.END,
-                                   margin_end=10, margin_bottom=3, tooltip_text="VibeWare manifesto")
-        manifesto.set_child(about_mark("VibeWare.png", 16))
-        manifesto.add_css_class("vibeware-badge")
-        manifesto.update_property([Gtk.AccessibleProperty.LABEL], ["VibeWare manifesto"])
-        overlay.add_overlay(manifesto)
-        self.set_child(overlay)
-        log_event("window.compact","Compact-only native widget; no full-mode or caption sizing controls.")
+        handle.add_css_class("widget-band")
+        bands = box(4)
+        bands.append(handle)
+        bands.append(self.build_details())
+        self.set_child(bands)
+        self.details_button.connect("toggled", self.details_toggled)
+        keys = Gtk.EventControllerKey()
+        keys.connect("key-pressed", self.details_key_pressed)
+        self.add_controller(keys)
+        self.apply_size()
         try:
             self.tray=StatusTray({"open":self.present,"about":self.show_about,"settings":self.show_settings,
                                  "website":lambda:Gio.AppInfo.launch_default_for_uri("https://umbertogiacobbi.biz",None),
@@ -393,15 +523,9 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
                                  "exit":self.exit_application})
         except Exception as error:
             log_event("tray.unavailable",type(error).__name__)
-        self.clock_id=GLib.timeout_add_seconds(1,self.tick)
+        self.clock_id=GLib.timeout_add(1000,self.tick)
         self.refresh_id=GLib.timeout_add_seconds(60,self.refresh)
         self.refresh()
-
-    def label(self,key,initial="Unavailable",style=None):
-        result=text(initial,style)
-        result.set_wrap(False)
-        self.labels[key]=result
-        return result
 
     def x11_surface(self):
         surface = self.get_surface()
@@ -447,9 +571,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
             log_event("window.topmost.failed", str(error))
             return
         button.set_tooltip_text("Always on top: " + ("on" if enabled else "off") + " (window manager permitting)")
-        self.settings["alwaysOnTop"] = enabled
-        self.settings_revision += 1
-        self.save_async()
+        self.update_settings(alwaysOnTop=enabled)
 
     def received(self,settings,state,revision):
         self.busy=False
@@ -465,76 +587,229 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         if self.refresh_pending:
             self.refresh_pending=False
             self.refresh()
-        self.labels["remaining"].set_text(f"{state['remaining']:g}%" if state.get("remaining") is not None else "—")
-        self.labels["allowanceLabel"].set_text("Allowance remaining")
-        self.labels["forecastLabel"].set_text(state.get("forecastCompact", "—") if state.get("forecastAvailable", False) else "—")
-        estimate_detail = ("Estimated time until the displayed allowance is exhausted at the observed usage rate; the allowance may reset first. "
-                           + state.get("forecastDetail", "Collecting quota history."))
-        self.labels["forecastLabel"].set_tooltip_text(estimate_detail)
-        self.labels["forecastInfo"].set_tooltip_text(estimate_detail)
+        self.update_metrics(state)
         self.check_alerts()
-        self.labels["creditsLabel"].set_text(state.get("creditsLabel","—"))
-        credit_detail = "Credits remaining as reported by Codex: " + state.get("creditsLabel", "Unavailable") + ". The displayed balance is rounded to a whole number."
-        self.labels["creditsLabel"].set_tooltip_text(credit_detail)
-        self.labels["creditInfo"].set_tooltip_text(credit_detail)
-        quota_detail="Percentage remaining for the selected Codex allowance. " + state.get("resetLabel", "Reset unavailable")
-        self.labels["remaining"].set_tooltip_text(quota_detail)
-        self.labels["quotaInfo"].set_tooltip_text(quota_detail)
-
         self.tick()
         return False
 
-    def check_alerts(self):
-        remaining = self.state.get("remaining")
-        window = self.state.get("selectedWindow")
-        if not self.state.get("connected") or remaining is None or window is None:
+    def update_metrics(self, state):
+        animate = self.animations_enabled()
+        remaining = state.get("remaining")
+        self.allowance_tile.update(f"{remaining:g}%" if remaining is not None else "—", animate)
+        self.allowance_tile.set_detail("Percentage remaining for the selected Codex allowance. "
+                                       + state.get("resetLabel", "Reset unavailable"))
+        forecast = state.get("forecastCompact", "—") if state.get("forecastAvailable", False) else "—"
+        self.estimate_tile.update(forecast, animate and self.estimate_tile.get_mapped())
+        estimate_detail = ("Estimated time until the displayed allowance is exhausted at the observed usage rate; the allowance may reset first. "
+                           + state.get("forecastDetail", "Collecting quota history."))
+        self.estimate_tile.set_detail(estimate_detail)
+        credits = state.get("creditsLabel", "Unavailable")
+        self.credits_tile.update({"Unavailable": "—", "Unlimited": "∞"}.get(credits, credits),
+                                 animate and self.credits_tile.get_mapped())
+        self.credits_tile.set_detail(f"Credits remaining as reported by Codex: {credits}. The displayed balance is rounded to a whole number.")
+        vouchers = state.get("resetVoucherCount")
+        self.voucher_tile.update(f"{vouchers:02}" if vouchers is not None else "—",
+                                 animate and self.voucher_tile.get_mapped())
+        voucher_detail = ["Earned vouchers that can reset the Codex allowance manually."]
+        voucher_detail.extend(expiry["detail"] for expiry in state.get("resetVoucherExpirations", []))
+        self.voucher_tile.set_detail("\n".join(voucher_detail))
+        scheduled = state.get("resetDisplays", [])
+        first = scheduled[0] if scheduled else {}
+        self.reset_tile.update(first.get("value") or state.get("selectedResetCompact") or "—", animate)
+        details = [item["detail"] for item in scheduled] or [state.get("resetLabel", "Reset unavailable")]
+        self.reset_tile.set_detail("\n".join(details))
+
+    def animations_enabled(self):
+        return self.get_mapped() and Gtk.Settings.get_default().get_property("gtk-enable-animations")
+
+    def build_details(self):
+        self.detail_tiles = (
+            FlipTile("5-hour allowance", "5-hour allowance", 97),
+            FlipTile("Resets in", "Resets in", 88),
+            FlipTile("Weekly allowance", "Weekly allowance", 106),
+            FlipTile("Resets at", "Resets at", 130, 18),
+            FlipTile("Est. time Left", "Est. time Left", 104, 18),
+            FlipTile("Time to reset", "Time to reset", 103, 18),
+            FlipTile("At the current rate", "At the current rate", 348, 20),
+        )
+        self.detail_stack = Gtk.Stack(hhomogeneous=True, vhomogeneous=True,
+                                      transition_type=Gtk.StackTransitionType.CROSSFADE, transition_duration=160)
+        for name, tiles in (("quotas", self.detail_tiles[:4]), ("forecast", self.detail_tiles[4:])):
+            row = box(9, True)
+            row.set_halign(Gtk.Align.CENTER)
+            for index, tile in enumerate(tiles):
+                if name == "quotas" and index == 2:
+                    row.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+                row.append(tile)
+            self.detail_stack.add_named(row, name)
+        selector = Gtk.DropDown.new_from_strings(["Allowances", "Reset forecast"])
+        selector.update_property([Gtk.AccessibleProperty.LABEL], ["Usage details view"])
+        selector.set_valign(Gtk.Align.CENTER)
+        selector.connect("notify::selected", self.details_view_changed)
+        surface = box(12, True)
+        surface.add_css_class("details-band")
+        surface.append(selector)
+        self.detail_stack.set_hexpand(True)
+        surface.append(self.detail_stack)
+        self.details_band = surface
+        surface.set_visible(False)
+        return surface
+
+    @staticmethod
+    def draw_details_icon(area, cr, width, height):
+        color = area.get_color()
+        cr.set_source_rgba(color.red, color.green, color.blue, color.alpha)
+        for index, fraction in enumerate((.38, .62, .88)):
+            cr.rectangle(width * (.15 + .26 * index), height * (.94 - fraction), width * .18, height * fraction)
+        cr.fill()
+
+    def details_view_changed(self, selector, _):
+        self.detail_stack.set_visible_child_name("forecast" if selector.get_selected() == 1 else "quotas")
+        self.update_details(int(time.time()))
+
+    def details_toggled(self, button):
+        opened = button.get_active() and self.settings.get("enableDetailsBar", False)
+        self.details_band.set_visible(opened)
+        (self.add_css_class if opened else self.remove_css_class)("details-open")
+        self.set_default_size(-1, -1)
+        if opened:
+            self.update_details(int(time.time()))
+
+    def details_key_pressed(self, _, key, *_args):
+        if key == Gdk.KEY_Escape and self.details_button.get_active():
+            self.details_button.set_active(False)
+            return True
+        return False
+
+    def update_details(self, now):
+        if not self.details_band.get_visible():
             return
-        if self.alert_window != window:
+        animate = self.animations_enabled()
+        if self.detail_stack.get_visible_child_name() == "quotas":
+            for name, percent_tile, reset_tile, countdown in (
+                ("fiveHourAllowance", *self.detail_tiles[:2], True),
+                ("weeklyAllowance", *self.detail_tiles[2:4], False),
+            ):
+                allowance = self.state.get(name) or {}
+                remaining, reset = allowance.get("remaining"), allowance.get("resetsAt")
+                percent_tile.update(f"{remaining:.1f}".removesuffix(".0") + "%" if remaining is not None else "—", animate)
+                active = [threshold for threshold in (5, 20, 50) if self.settings.get(f"alert{threshold}", False)
+                          and remaining is not None and remaining <= threshold]
+                lamp = 0 if 5 in active else 1 if active else 2
+                percent_tile.set_colors(accent=TrafficSignal.LIGHTS[lamp] if remaining is not None else None)
+                value = allowance.get("resetCompact")
+                if countdown and reset is not None:
+                    minutes = (max(0, reset - now) + 59) // 60
+                    value = f"{minutes // 60:02}:{minutes % 60:02}"
+                reset_tile.update(value or "—", animate)
+                reset_tile.set_detail(allowance.get("resetCompact") or "Reset time unavailable")
+            return
+
+        estimate, reset_tile, message = self.detail_tiles[4:]
+        reset = self.state.get("resetsAt")
+        prediction = self.state.get("resetForecast") or {}
+        remaining = self.state.get("remaining")
+        passed = reset is not None and reset <= now
+        estimate.update(self.state.get("forecastCompact", "—") if self.state.get("forecastAvailable") and not passed else "—", animate)
+        if reset is not None:
+            minutes = (max(0, reset - now) + 59) // 60
+            hours = minutes // 60
+            reset_value = f"{hours // 24:02}d {hours % 24:02}h" if hours >= 24 else f"{hours:02}h {minutes % 60:02}m"
+        else:
+            reset_value = "—"
+        reset_tile.update(reset_value, animate)
+        waiting = passed and (remaining is None or remaining > 0)
+        message.update("WAITING FOR RESET DATA" if waiting else prediction.get("message", "ALLOWANCE UNAVAILABLE"), animate)
+        message.set_colors(warning=not waiting and prediction.get("warning", False))
+        message.set_detail(self.state.get("forecastDetail", "Allowance data is unavailable."))
+
+    def check_alerts(self):
+        connected = self.state.get("connected")
+        window = self.state.get("selectedWindow")
+        remaining = self.state.get("remaining") if connected and window is not None else None
+        balance = self.state.get("creditsBalance") if connected else None
+        if remaining is not None and self.alert_window != window:
             self.alert_window = window
             self.notified_thresholds.clear()
-        enabled = {50: self.settings.get("alert50", False), 20: self.settings.get("alert20", False), 5: self.settings.get("alert5", False)}
-        for threshold, active in enabled.items():
-            if not active or remaining > threshold:
-                self.notified_thresholds.discard(threshold)
-        crossed = [threshold for threshold, active in enabled.items()
-                   if active and remaining <= threshold and threshold not in self.notified_thresholds]
+        enabled = {threshold for threshold in (50, 20, 5) if self.settings.get(f"alert{threshold}", False)}
+        self.notified_thresholds.intersection_update(enabled)
+        active = {threshold for threshold in enabled if remaining is not None and remaining <= threshold}
+        if remaining is not None:
+            self.notified_thresholds.intersection_update(active)
+        crossed = active - self.notified_thresholds
+        if remaining is None:
+            lamp, detail = None, "Waiting for allowance data"
+        else:
+            lamp = 0 if 5 in active else 1 if active else 2
+            detail = f"Allowance remaining: {remaining:g}%"
+            if active:
+                detail += f" (threshold: {min(active)}%)"
+        credit_limit = self.settings.get("creditsAlertThreshold")
+        if credit_limit != self.credits_alert_threshold:
+            self.credits_alert_threshold = credit_limit
+            self.credits_alert_notified = False
+        low_credits = credit_limit is not None and balance is not None and balance <= credit_limit
+        credits_crossed = low_credits and not self.credits_alert_notified
+        if balance is not None:
+            self.credits_alert_notified = low_credits
+        if low_credits:
+            detail += f"\nLow credits: {balance:g} remaining"
+        self.signal.update(lamp, detail)
         if crossed:
             threshold = min(crossed)
             notification = Gio.Notification.new("OpenAI Usage · Allowance alert")
             notification.set_body(f"{self.state.get('allowanceLabel', 'Allowance remaining')}: {remaining:g}% remaining (at or below {threshold}%).")
             self.get_application().send_notification("allowance-alert", notification)
             self.notified_thresholds.update(crossed)
+        if credits_crossed:
+            notification = Gio.Notification.new("OpenAI Usage · Credits alert")
+            notification.set_body(f"{balance:g} credits remaining (at or below {credit_limit}).")
+            self.get_application().send_notification("credits-alert", notification)
+        if (crossed or credits_crossed) and self.settings.get("alertSound", True):
+            self.play_alert_sound()
+
+    def play_alert_sound(self):
+        if self.sound_process is not None:
+            return
+        sound = ROOT / "Branding" / "alert-ding.wav"
+        players = (shutil.which(command) for command in ("pw-play", "paplay", "aplay")) if sound.is_file() else ()
+
+        def try_next(players):
+            for player in players:
+                if player is None:
+                    continue
+                try:
+                    self.sound_process = Gio.Subprocess.new(
+                        [player, str(sound)], Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_SILENCE)
+                except GLib.Error:
+                    continue
+                self.sound_process.wait_check_async(None, on_finished, players)
+                return
+            if (display := self.get_display()) is not None:
+                display.beep()
+
+        def on_finished(process, result, players):
+            self.sound_process = None
+            try:
+                process.wait_check_finish(result)
+            except GLib.Error:
+                if not self.closed and self.settings.get("alertSound", True):
+                    try_next(players)
+
+        try_next(iter(players))
 
     def tick(self):
         if self.closed:
             return False
-        resets = self.state.get("resetDisplays", [])
-        reset_index = (int(time.monotonic() - self.rotation_start) // 10) % max(2, len(resets))
-        if reset_index < len(resets):
-            reset = resets[reset_index]
-            heading, value, detail = reset["heading"], reset["value"], reset["detail"]
-            hours = (reset["resetsAt"] - time.time()) / 3600
-            color = "reset-red" if hours <= 6 else "reset-orange" if hours <= 24 else "reset-amber" if hours <= 72 else "reset-yellow" if hours <= 168 else "reset-green"
-        else:
-            heading = "Second reset" if reset_index == 1 else f"Reset {reset_index + 1}"
-            value, detail, color = "—", "Codex did not provide a reset time for this window.", None
-        for style in ("reset-green", "reset-yellow", "reset-amber", "reset-orange", "reset-red"):
-            (self.labels["resetValue"].add_css_class if style == color else self.labels["resetValue"].remove_css_class)(style)
-        self.labels["rotationHeading"].set_text(heading)
-        self.labels["resetValue"].set_text(value)
-        if self.labels["resetInfo"].get_tooltip_text() != detail:
-            self.labels["resetValue"].set_tooltip_text(detail)
-            self.labels["resetInfo"].set_tooltip_text(detail)
         if GUARD is not None and GUARD.poll() is not None:
             log_event("guard.failure","Separate guard exited unexpectedly; closing the widget.")
             self.get_application().quit()
             return False
         end=self.state.get("resetsAt")
         seconds=max(0,int(end-time.time())) if end is not None else None
-        values=[f"{seconds//86400:02}",f"{seconds//3600%24:02}",f"{seconds//60%60:02}",f"{seconds%60:02}"] if seconds is not None else ["--"]*4
-        animations = Gtk.Settings.get_default().get_property("gtk-enable-animations")
-        for tile,value in zip(self.tiles,values):
-            tile.update(value,animations)
+        self.update_clock(seconds)
+        self.update_details(int(time.time()))
+        self.signal.maybe_flicker(self.animations_enabled())
         status=self.state.get("status","Connecting to Codex…")
         updated=self.state.get("updatedAt")
         stale=False
@@ -553,6 +828,27 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
             self.refresh()
         return True
 
+    def update_clock(self, seconds):
+        now = time.monotonic()
+        date = (self.state.get("resetCalendarDate") or "").split()
+        if seconds is None or len(date) != 4:
+            self.clock_cycle_start = None
+        elif self.clock_cycle_start is None:
+            self.clock_cycle_start = now
+        show_date = self.clock_cycle_start is not None and int((now - self.clock_cycle_start) / 10) % 2 == 1
+        view = self.calendar_row if show_date else self.tile_row
+        switched = view != self.clock_views.get_visible_child()
+        if switched:
+            self.clock_views.set_visible_child(view)
+        animate = self.animations_enabled()
+        if show_date:
+            for tile, value in zip(self.calendar_tiles, date):
+                tile.update(value, animate, reveal=switched)
+        else:
+            values = [f"{seconds//86400:02}", f"{seconds//3600%24:02}", f"{seconds//60%60:02}", f"{seconds%60:02}"] if seconds is not None else ["—"] * 4
+            for tile, value in zip(self.tiles, values):
+                tile.update(value, animate)
+
     def apply_size(self):
         big = self.settings.get("bigSize", False)
         (self.add_css_class if big else self.remove_css_class)("big")
@@ -563,10 +859,26 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         for setter in (self.strip.set_margin_top, self.strip.set_margin_bottom):
             setter(9 if big else 7)
         self.tile_row.set_spacing(6 if big else 5)
-        for tile in self.tiles:
-            tile.face.set_content_width(45 if big else 36)
-            tile.face.set_content_height(40 if big else 32)
-        self.set_default_size(-1, 78 if big else 62)
+        self.calendar_row.set_spacing(6 if big else 5)
+        position = self.settings.get("labelPosition", "above")
+        scale = 1.25 if big else 1
+        for tile in (self.signal, *self.metrics, *self.tiles, *self.calendar_tiles):
+            tile.set_label_position(position)
+            tile.resize(scale)
+        self.voucher_tile.set_visible(self.settings.get("showAvailableResets", True))
+        self.credits_tile.set_visible(self.settings.get("showCredits", True))
+        self.estimate_tile.set_visible(self.settings.get("showEstimatedTime", True))
+        details_enabled = self.settings.get("enableDetailsBar", False)
+        icon_size = 20 if big else 16
+        self.details_icon.set_content_width(icon_size)
+        self.details_icon.set_content_height(icon_size)
+        self.details_button.set_visible(details_enabled)
+        if not details_enabled:
+            self.details_button.set_active(False)
+        for tile in self.detail_tiles:
+            tile.set_label_position(position)
+            tile.resize(scale)
+        self.set_default_size(-1, round((50 if position == "hidden" else 62) * scale))
 
     def show_about(self, *_):
         self.present()
@@ -596,7 +908,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         content.append(about_mark("app-icon-512.png", 100))
         identity = box(5)
         identity.append(centered("OpenAI Usage", "about-heading"))
-        identity.append(centered("Version 0.4.3", "about-note"))
+        identity.append(centered("Version 0.4.4", "about-note"))
         content.append(identity)
         content.append(centered("I built OpenAI Usage to see my Codex allowance, tokens and credits at a glance."))
         content.append(centered("I provide this software independently and as-is, without warranty.", "about-note"))
@@ -700,6 +1012,8 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
                 self.save_async()
             return True
         self.closed = True
+        if self.sound_process is not None:
+            self.sound_process.force_exit()
         if self.tray:
             self.tray.close()
         GLib.source_remove(self.clock_id)
@@ -721,12 +1035,7 @@ class UsageApp(Adw.Application):
             Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
             Gtk.IconTheme.get_for_display(Gdk.Display.get_default()).add_search_path(str(ROOT/"Branding/icons"))
             self.window = UsageWindow(self)
-            manager.connect("notify::dark", self.redraw_countdown)
         self.window.present()
-
-    def redraw_countdown(self, *_):
-        for tile in self.window.tiles:
-            tile.face.queue_draw()
 
 
 if __name__ == "__main__":

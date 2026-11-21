@@ -37,6 +37,7 @@ use std::sync::Arc;
 #[cfg(target_os = "windows")]
 const EXIT: u8 = 1;
 const RESTART: u8 = 2;
+const MEMORY_STOP: u8 = 3;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -121,6 +122,17 @@ impl Control {
     /// Ask the controller to leave its loop; this does not terminate a process.
     pub fn stop(&self) {
         self.running.store(false, Ordering::SeqCst);
+    }
+
+    /// Request ordinary controller shutdown and cancel a pending automatic relaunch.
+    pub(crate) fn stop_for_memory(&self) {
+        self.action.store(MEMORY_STOP, Ordering::SeqCst);
+        self.stop();
+    }
+
+    /// Identifies a shutdown requested by the memory watchdog.
+    pub(crate) fn memory_stop_requested(&self) -> bool {
+        self.action.load(Ordering::SeqCst) == MEMORY_STOP
     }
 
     /// Report whether the accepted lifecycle request is a restart.

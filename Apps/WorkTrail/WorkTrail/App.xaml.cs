@@ -231,6 +231,9 @@ public partial class App : Microsoft.UI.Xaml.Application
         return _applicationFacade = new RuntimeClient(installation, TimeSpan.FromSeconds(5), factory.CreateLogger<RuntimeClient>());
     }
 
+    /// <summary>Runs the normal application shutdown after the RAM watchdog requests it.</summary>
+    internal void RequestMemoryShutdown() => MainWindow_ExitRequested(this, EventArgs.Empty);
+
     /// <summary>Starts orderly shutdown after the launcher requests application exit.</summary>
     private async void MainWindow_ExitRequested(object? sender, EventArgs args)
     {

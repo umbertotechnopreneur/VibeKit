@@ -133,7 +133,7 @@ internal static class WindowsMemoryGuard
                     }
                     if (priorBytes > MaximumBytes || usage.PeakJobMemoryUsed.ToUInt64() > MaximumBytes - priorBytes)
                     {
-                        RecordStop("memory.limit", usage.PeakJobMemoryUsed.ToUInt64(), priorBytes);
+                        RecordStop("memory.limit", usage.PeakJobMemoryUsed.ToUInt64(), priorBytes, job, processId);
                         return StopWithNotice(job, "TermalRight VibeWare went over its 1 GB memory limit.\nThe app and its child processes will stop in 2 seconds.");
                     }
                 }
@@ -208,11 +208,14 @@ internal static class WindowsMemoryGuard
     /// <param name="token">Per-launch random token used to identify the local guard pipe.</param>
     private static string PipeName(string token) => "ThermalrightVibeWare.MemoryGuard." + token;
 
-    /// <summary>One bounded numeric record, only when the existing local diagnostics are enabled.</summary>
+    /// <summary>Records the job peak and available process measurements when local diagnostics are enabled.</summary>
     /// <param name="reason">Human-readable reason for stopping the guarded session.</param>
     /// <param name="jobPeakBytes">Peak memory reported for the guarded job, in bytes.</param>
     /// <param name="priorBytes">Earlier job memory observation in bytes.</param>
-    private static void RecordStop(string reason, ulong jobPeakBytes = 0, ulong priorBytes = 0)
+    /// <param name="job">Guarded job to inspect at a memory-limit event.</param>
+    /// <param name="rootPid">Studio process identifier.</param>
+    private static void RecordStop(string reason, ulong jobPeakBytes = 0, ulong priorBytes = 0,
+        SafeJobHandle? job = null, int rootPid = 0)
     {
         try
         {
@@ -225,9 +228,17 @@ internal static class WindowsMemoryGuard
                 using var json = JsonDocument.Parse(stream);
                 if (!json.RootElement.TryGetProperty("enabled", out var enabled) || enabled.ValueKind != JsonValueKind.True) { return; }
             }
+            var memorySnapshot = job is null ? null : JobMemorySnapshot.Capture(job, rootPid);
             Directory.CreateDirectory(directory);
             File.WriteAllText(Path.Combine(directory, "memory-guard.json"), JsonSerializer.Serialize(new
-            { atUtc = DateTimeOffset.UtcNow, reason, limitBytes = MaximumBytes, jobPeakBytes, priorBytes }));
+            {
+                atUtc = DateTimeOffset.UtcNow,
+                reason,
+                limitBytes = MaximumBytes,
+                jobPeakBytes,
+                priorBytes,
+                memorySnapshot
+            }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException) { }
     }

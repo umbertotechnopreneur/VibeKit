@@ -5,7 +5,9 @@ import Gio from 'gi://Gio';
 import St from 'gi://St';
 import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import ProductionExtension from './production-extension.js';
+import {applyValues, BUILTINS} from './settings-model.js';
 
 const delay = ms => new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
     resolve(); return GLib.SOURCE_REMOVE;
@@ -45,6 +47,11 @@ export default class SmokeTest extends ProductionExtension {
         const oversized = GLib.getenv('RETRO_TEST_OVERSIZED') === '1';
         if (oversized) await setFractionalTestScale();
         Main.overview.hide();
+        const trayItems = this._button.menu._getMenuItems();
+        if (trayItems[0].label.text !== 'Preferences' || trayItems.at(-1).label.text !== 'About' ||
+            trayItems.at(-2).label.text !== 'Mini Utilities' ||
+            trayItems.filter(item => item instanceof PopupMenu.PopupSeparatorMenuItem).length !== 3)
+            throw Error('The tray menu must group controls between Preferences and About');
         const demo = new St.BoxLayout({vertical: true, x: 160, y: 170, width: 960, height: 420,
             style: 'background-color: #101827; padding: 40px; border-radius: 14px; border: 1px solid #6d7b8f;'});
         demo.add_child(new St.Label({text: 'RETRO TERMINAL / GNOME GPU TEST',
@@ -59,16 +66,64 @@ export default class SmokeTest extends ProductionExtension {
             width: 120, height: 36, style: 'background-color: #ffffff;'}) : null;
         if (farMarker) Main.layoutManager.uiGroup.add_child(farMarker);
         try {
-            const shot = async (name, settle = 700) => {
+            const shot = async (name, settle = 700, crop = null) => {
                 await delay(settle);
                 const file = Gio.File.new_for_path(`${GLib.getenv('RETRO_TEST_OUTPUT')}/${name}.png`);
                 const stream = file.replace(null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
-                try { await new Shell.Screenshot().screenshot(false, stream); }
-                finally { stream.close(null); }
+                try {
+                    await new Promise((resolve, reject) => {
+                        let timer;
+                        const paintId = global.stage.connect('after-paint', (_stage, view) => {
+                            global.stage.disconnect(paintId);
+                            GLib.source_remove(timer);
+                            try {
+                                // Read the presented frame. An offscreen stage screenshot
+                                // can reuse a partially updated effect texture.
+                                const texture = view.get_framebuffer().get_texture();
+                                const area = crop ?? [0, 0, texture.get_width(), texture.get_height()];
+                                Shell.Screenshot.composite_to_stream(texture, ...area, 1, null, 0, 0, 1, stream)
+                                    .then(resolve, reject);
+                            } catch (error) {
+                                reject(error);
+                            }
+                        });
+                        timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
+                            global.stage.disconnect(paintId);
+                            reject(Error('No compositor frame was painted'));
+                            return GLib.SOURCE_REMOVE;
+                        });
+                        global.stage.queue_redraw();
+                    });
+                } finally { stream.close(null); }
             };
             await shot('gnome-original');
             this._settings.set_boolean('active', true);
             if (!this._effect) throw Error(this._settings.get_string('status'));
+            if (GLib.getenv('RETRO_TEST_PRESETS') === '1') {
+                // Leave a margin around the sampled flat patch for spatial glow.
+                const patch = new St.Widget({x: 560, y: 610, width: 160, height: 144,
+                    style: 'background-color: #808080;'});
+                Main.layoutManager.uiGroup.add_child(patch);
+                const crop = [576, 626, 128, 112];
+                const frames = [];
+                try {
+                    for (const {id, values} of BUILTINS) {
+                        const filename = id.slice('builtin:'.length);
+                        applyValues(this._settings, values);
+                        await shot(filename, 35, crop);
+                        if (id === 'builtin:tv-composite-pal' || id === 'builtin:trinitron-aperture-grille')
+                            await shot(`${filename}-desktop`, 0);
+                        this._settings.set_double('grain', 0);
+                        await shot(`${filename}-no-grain`, 35, crop);
+                        this._settings.set_double('scanlines', 0);
+                        await shot(`${filename}-no-raster`, 35, crop);
+                        frames.push(filename);
+                    }
+                    console.log(`RETRO_PRESET_FRAMES ${JSON.stringify(frames)}`);
+                    console.log('RETRO_SMOKE_PASS: built-in preset frames');
+                } finally { patch.destroy(); }
+                return;
+            }
             if (oversized) {
                 this._settings.set_double('persistence-duration', 0.5);
                 this._settings.set_double('persistence-strength', 0.6);
@@ -101,6 +156,12 @@ export default class SmokeTest extends ProductionExtension {
                 this._settings.set_int('preset', index);
                 await shot(`gnome-${name}`);
             }
+            let configurations = 0;
+            const configure = this._effect.configure.bind(this._effect);
+            this._effect.configure = (...args) => {
+                configurations++;
+                configure(...args);
+            };
             this._settings.set_boolean('custom-color', true);
             this._settings.set_string('phosphor-color', '#5bd8ff');
             this._settings.set_int('mask', 2);
@@ -108,10 +169,21 @@ export default class SmokeTest extends ProductionExtension {
             this._settings.set_double('scanline-width', 1.5);
             this._settings.set_double('glow-radius', 5);
             await shot('gnome-custom-cyan');
+            if (configurations !== 1) throw Error(`Expected one shader update for six settings, got ${configurations}`);
+            const paletteMenu = trayItems.find(item => item.label?.text === 'Palette').menu;
+            paletteMenu._getMenuItems().find(item => item.label.text === 'Amber terminal').activate(null);
+            await shot('gnome-tray-amber');
+            if (this._settings.get_boolean('custom-color') || configurations !== 2)
+                throw Error('Tray palette must override custom color in one shader update');
+            this._settings.set_boolean('custom-color', true);
+            await delay(60);
+            configurations = 0;
             this._settings.set_boolean('glitches-enabled', false);
             this._settings.set_double('glitch-duration-min', 400);
             this._settings.set_double('glitch-duration-max', 400);
             this._settings.set_double('glitch-intensity', 0.7);
+            await delay(60);
+            if (configurations) throw Error('Glitch timing must not reconfigure the base shader');
             let lastGlitch = 0;
             const setGlitch = this._effect.setGlitch.bind(this._effect);
             this._effect.setGlitch = (type, ...args) => { lastGlitch = type; setGlitch(type, ...args); };
@@ -150,11 +222,11 @@ export default class SmokeTest extends ProductionExtension {
             this._settings.set_boolean('persistence-enabled', true);
             // The same public settings path used by the native Stop button.
             this._settings.set_boolean('active', false);
-            if (this._effect || this._timer || this._previewTimer || this._glitchTimer || this._glitchWake || this._persistence)
+            if (this._effect || this._timer || this._settingsUpdate || this._previewTimer || this._glitchTimer || this._glitchWake || this._persistence)
                 throw Error('Stop retained resources');
             await delay(200);
             if (this._settings.get_boolean('active')) throw Error('Stop must not restart');
-            console.log('RETRO_SMOKE_PASS: palettes, custom optics, all glitches/reset, real history, random cancellation and complete stop');
+            console.log('RETRO_SMOKE_PASS: palettes, batched shader updates, custom optics, all glitches/reset, real history, random cancellation and complete stop');
         } finally {
             this._stop('Smoke test finished');
             demo.destroy();

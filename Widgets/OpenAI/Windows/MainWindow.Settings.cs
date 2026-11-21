@@ -1,18 +1,35 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using System.Globalization;
 using Windows.ApplicationModel;
 
 namespace OpenAIUsage.Windows;
 
 public sealed partial class MainWindow
 {
-    private void SaveSettings() => settingsWriter.Queue(settings);
-
     private void UpdateSettingsStatus()
     {
         if (settingsStatus is null) return;
         settingsStatus.Text = settingsError ?? "";
         settingsStatus.Visibility = settingsStatus.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void UpdateSettings(Action<WidgetSettings> edit)
+    {
+        var previous = settings;
+        var next = previous.Copy();
+        edit(next);
+        next.Validate();
+        if (next.WindowOpacityPercent != previous.WindowOpacityPercent)
+            ApplyOpacity(next.WindowOpacityPercent);
+
+        settings = next;
+        settingsWriter.Queue(next);
+        ApplyTaskbarVisibility();
+        ApplySize();
+        CheckAlerts();
+        if (next.CodexPath != previous.CodexPath || next.TimeZoneId != previous.TimeZoneId)
+            _ = RefreshAsync();
     }
 
     private static async Task AddStartupPreferenceAsync(StackPanel content)
@@ -108,6 +125,7 @@ public sealed partial class MainWindow
     {
         if (exitPending) return;
         ShowWindow();
+        if (activeDialog is not null) return;
         var executable = new TextBox { Header = "Codex executable", Text = settings.CodexPath };
         var timezone = new ComboBox { Header = "Time zone", HorizontalAlignment = HorizontalAlignment.Stretch,
             ItemsSource = TimeZoneInfo.GetSystemTimeZones(), DisplayMemberPath = "DisplayName", SelectedValuePath = "Id",
@@ -120,11 +138,40 @@ public sealed partial class MainWindow
             ItemsSource = WindowOpacityOptions.Select(percent => $"{percent}%").ToArray(),
             SelectedIndex = Array.IndexOf(WindowOpacityOptions, settings.WindowOpacityPercent)
         };
+        (string Id, string Text)[] labelPositions = [("above", "Above values"), ("below", "Below values"), ("hidden", "Hidden")];
+        var labelPosition = new ComboBox
+        {
+            Header = "Field labels",
+            ItemsSource = labelPositions.Select(position => position.Text).ToArray(),
+            SelectedIndex = Math.Max(0, Array.FindIndex(labelPositions, position => position.Id == settings.LabelPosition))
+        };
+        var showResets = new CheckBox { Content = "Show available resets", IsChecked = settings.ShowAvailableResets };
+        var showCredits = new CheckBox { Content = "Show remaining credits", IsChecked = settings.ShowCredits };
+        var showEstimatedTime = new CheckBox { Content = "Show estimated time left", IsChecked = settings.ShowEstimatedTime };
+        var enableDetailsBar = new CheckBox { Content = "Enable usage details bar", IsChecked = settings.EnableDetailsBar };
         var alert50 = new CheckBox { Content = "50% remaining", IsChecked = settings.Alert50 };
         var alert20 = new CheckBox { Content = "20% remaining", IsChecked = settings.Alert20 };
         var alert5 = new CheckBox { Content = "5% remaining", IsChecked = settings.Alert5 };
+        var alertSound = new CheckBox { Content = "Play a sound for alerts", IsChecked = settings.AlertSound };
+        var creditsThreshold = new TextBox
+        {
+            Header = "Credit alert threshold",
+            PlaceholderText = "Off",
+            Text = settings.CreditsAlertThreshold?.ToString(CultureInfo.CurrentCulture) ?? "",
+            Margin = new(0, 6, 0, 0)
+        };
+        var thresholdHint = Text("Leave blank to turn off credit alerts.", 12);
+        var thresholdError = Text("Enter a whole number from 0 to 2147483647.", 12);
+        thresholdError.Foreground = WarningText;
+        thresholdError.TextWrapping = TextWrapping.Wrap;
+        thresholdError.Visibility = Visibility.Collapsed;
+        var pathError = Text("Choose a Codex executable.", 12);
+        pathError.Foreground = WarningText;
+        pathError.Visibility = Visibility.Collapsed;
+
         var content = new StackPanel { Spacing = 10 };
         content.Children.Add(executable);
+        content.Children.Add(pathError);
         content.Children.Add(timezone);
         content.Children.Add(Text("Uses your existing Codex ChatGPT sign-in.", 12));
 
@@ -133,69 +180,122 @@ public sealed partial class MainWindow
         columns.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
         var windowOptions = new StackPanel { Spacing = 4 };
         windowOptions.Children.Add(Text("Widget", 16, true));
-        windowOptions.Children.Add(taskbar);
+        windowOptions.Children.Add(labelPosition);
+        windowOptions.Children.Add(showResets);
+        windowOptions.Children.Add(showCredits);
+        windowOptions.Children.Add(showEstimatedTime);
+        windowOptions.Children.Add(enableDetailsBar);
         windowOptions.Children.Add(bigSize);
-        await AddStartupPreferenceAsync(windowOptions);
         windowOptions.Children.Add(opacity);
+        var desktopHeading = Text("Desktop", 16, true);
+        desktopHeading.Margin = new(0, 10, 0, 0);
+        windowOptions.Children.Add(desktopHeading);
+        windowOptions.Children.Add(taskbar);
+        await AddStartupPreferenceAsync(windowOptions);
+        if (closed || exitPending || activeDialog is not null) return;
         columns.Children.Add(windowOptions);
 
         var notifications = new StackPanel { Spacing = 4 };
-        notifications.Children.Add(Text("Notify", 16, true));
+        notifications.Children.Add(Text("Alerts", 16, true));
         notifications.Children.Add(alert50);
         notifications.Children.Add(alert20);
         notifications.Children.Add(alert5);
+        notifications.Children.Add(alertSound);
+        notifications.Children.Add(creditsThreshold);
+        notifications.Children.Add(thresholdHint);
+        notifications.Children.Add(thresholdError);
         Grid.SetColumn(notifications, 1);
         columns.Children.Add(notifications);
         content.Children.Add(columns);
 
+        var footer = new StackPanel { Spacing = 4, Margin = new(24, 0, 24, 16) };
         var error = Text("", 12);
         error.Foreground = WarningText;
         error.Visibility = Visibility.Collapsed;
-        content.Children.Add(error);
-        settingsStatus = error;
+        footer.Children.Add(error);
+        var saveStatus = Text("", 12);
+        saveStatus.Foreground = WarningText;
+        footer.Children.Add(saveStatus);
+        footer.Children.Add(Text("Changes are saved automatically.", 12));
+        settingsStatus = saveStatus;
         UpdateSettingsStatus();
-        var retry = new Button { Content = "Save settings" };
-        retry.Click += (_, _) => SaveSettings();
-        content.Children.Add(retry);
-        void Apply()
+        void Apply(Action<WidgetSettings> edit)
         {
             try
             {
-                var next = new WidgetSettings
-                {
-                    CodexPath = string.IsNullOrWhiteSpace(executable.Text) ? settings.CodexPath : executable.Text.Trim(),
-                    TimeZoneId = timezone.SelectedValue as string ?? settings.TimeZoneId,
-                    AlwaysOnTop = settings.AlwaysOnTop,
-                    ShowInTaskbar = taskbar.IsChecked == true,
-                    BigSize = bigSize.IsChecked == true,
-                    WindowOpacityPercent = opacity.SelectedIndex >= 0
-                        ? WindowOpacityOptions[opacity.SelectedIndex] : settings.WindowOpacityPercent,
-                    Alert50 = alert50.IsChecked == true, Alert20 = alert20.IsChecked == true, Alert5 = alert5.IsChecked == true,
-                    SelectedWindow = settings.SelectedWindow
-                };
-                bool opacityChanged = next.WindowOpacityPercent != settings.WindowOpacityPercent;
-                if (opacityChanged) ApplyOpacity(next.WindowOpacityPercent);
-                next.Validate();
-                bool refreshNeeded = next.CodexPath != settings.CodexPath || next.TimeZoneId != settings.TimeZoneId;
-                settings = next;
-                SaveSettings();
-                error.Text = string.IsNullOrWhiteSpace(executable.Text) ? "Choose a Codex executable." : "";
-                ApplyTaskbarVisibility();
-                ApplySize();
-                CheckAlerts();
-                if(refreshNeeded)_=RefreshAsync();
+                UpdateSettings(edit);
+                error.Text = "";
             }
             catch (Exception ex) { error.Text = ex.Message; }
             error.Visibility = error.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         }
-        executable.TextChanged += (_, _) => Apply();
-        timezone.SelectionChanged += (_, _) => Apply();
-        taskbar.Click += (_, _) => Apply();
-        bigSize.Click += (_, _) => Apply();
-        opacity.SelectionChanged += (_, _) => Apply();
-        alert50.Click += (_, _) => Apply(); alert20.Click += (_, _) => Apply(); alert5.Click += (_, _) => Apply();
-        try { await ShowDialogAsync("OpenAI Usage · Preferences", content, width: 620, height: 510); }
-        finally { settingsStatus = null; }
+
+        creditsThreshold.TextChanged += (_, _) =>
+        {
+            string input = creditsThreshold.Text.Trim();
+            int? creditLimit = null;
+            if (input.Length > 0)
+            {
+                if (!int.TryParse(input, NumberStyles.None, CultureInfo.CurrentCulture, out int value))
+                {
+                    thresholdError.Visibility = Visibility.Visible;
+                    return;
+                }
+                creditLimit = value;
+            }
+            thresholdError.Visibility = Visibility.Collapsed;
+            if (creditLimit != settings.CreditsAlertThreshold)
+                Apply(next => next.CreditsAlertThreshold = creditLimit);
+        };
+        executable.TextChanged += (_, _) =>
+        {
+            string path = executable.Text.Trim();
+            pathError.Visibility = path.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (path.Length > 0 && path != settings.CodexPath)
+                Apply(next => next.CodexPath = path);
+        };
+        timezone.SelectionChanged += (_, _) =>
+        {
+            if (timezone.SelectedValue is string zone && zone != settings.TimeZoneId)
+                Apply(next => next.TimeZoneId = zone);
+        };
+        opacity.SelectionChanged += (_, _) =>
+        {
+            if (opacity.SelectedIndex >= 0)
+                Apply(next => next.WindowOpacityPercent = WindowOpacityOptions[opacity.SelectedIndex]);
+        };
+        labelPosition.SelectionChanged += (_, _) =>
+        {
+            if (labelPosition.SelectedIndex >= 0)
+                Apply(next => next.LabelPosition = labelPositions[labelPosition.SelectedIndex].Id);
+        };
+        void BindCheck(CheckBox check, Action<WidgetSettings, bool> edit) =>
+            check.Click += (_, _) => Apply(next => edit(next, check.IsChecked == true));
+        BindCheck(taskbar, (next, value) => next.ShowInTaskbar = value);
+        BindCheck(bigSize, (next, value) => next.BigSize = value);
+        BindCheck(showResets, (next, value) => next.ShowAvailableResets = value);
+        BindCheck(showCredits, (next, value) => next.ShowCredits = value);
+        BindCheck(showEstimatedTime, (next, value) => next.ShowEstimatedTime = value);
+        BindCheck(enableDetailsBar, (next, value) => next.EnableDetailsBar = value);
+        BindCheck(alert50, (next, value) => next.Alert50 = value);
+        BindCheck(alert20, (next, value) => next.Alert20 = value);
+        BindCheck(alert5, (next, value) => next.Alert5 = value);
+        BindCheck(alertSound, (next, value) => next.AlertSound = value);
+        try
+        {
+            await ShowDialogAsync("OpenAI Usage · Preferences", content, closeButtonText: null, width: 620, height: 590, footer: footer);
+            if (!exitPending && !closed)
+                await settingsWriter.FlushAsync();
+        }
+        catch (IOException failure)
+        {
+            settingsError = failure.Message;
+            Tick();
+        }
+        finally
+        {
+            if (settingsStatus == saveStatus) settingsStatus = null;
+        }
     }
 
 }

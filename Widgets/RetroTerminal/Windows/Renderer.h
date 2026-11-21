@@ -15,7 +15,8 @@ public:
     // Throws on unavailable capture, unsupported geometry, software adapters or GPU errors.
     void Start(HWND overlay, HMONITOR monitor, const std::wstring& shaderPath);
     // Returns true only after a new frame has been successfully presented.
-    bool Tick(const EffectSettings& settings, const GlitchFrame& glitch, bool settingsChanged, bool animationChanged);
+    bool Tick(const EffectSettings& settings, const GlitchFrame& glitch, bool settingsChanged, bool animationChanged,
+        int effectTarget = 0);
     void Stop() noexcept;
     std::wstring Description() const;
 private:

@@ -6,10 +6,12 @@
  * VBWR E */
 namespace MarkVibe.Core;
 
+/// <summary>Stores the logical map point at the viewport center and the zoom multiplier, where 1 is actual size.</summary>
 public sealed record MapCamera(
     [property: System.Text.Json.Serialization.JsonRequired] double CenterX,
     [property: System.Text.Json.Serialization.JsonRequired] double CenterY,
     [property: System.Text.Json.Serialization.JsonRequired] double Scale);
+/// <summary>Restores a named camera, workspace-relative selection and neighborhood filters without moving document cards.</summary>
 public sealed record MapViewpoint(
     [property: System.Text.Json.Serialization.JsonRequired] string Name,
     [property: System.Text.Json.Serialization.JsonRequired] MapCamera Camera,
@@ -17,9 +19,11 @@ public sealed record MapViewpoint(
     [property: System.Text.Json.Serialization.JsonRequired] int FocusDepth,
     [property: System.Text.Json.Serialization.JsonRequired] bool FolderGroups,
     [property: System.Text.Json.Serialization.JsonRequired] IReadOnlyList<string> CollapsedFolders);
+/// <summary>Persists atlas presentation. A focus depth of zero shows all distances; values 1–3 select that many link hops.</summary>
 public sealed record MapAtlasSettings(int FocusDepth = 0, bool FolderGroups = false,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? CollapsedFolders = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<MapViewpoint>? Views = null);
+/// <summary>Counts catalog documents directly in this workspace-relative folder; the empty path denotes the root.</summary>
 public sealed record MapFolder(string Path, int Count);
 
 /// <summary>Bounds persisted atlas presentation independently of document coordinates and source content.</summary>

@@ -34,9 +34,13 @@ const GLib = {
 const scheduleStartupGpuJoke = vm.runInNewContext(
     source('gpu-joke-notifications.js').replace(/^export /gm, '') + '\nscheduleStartupGpuJoke;',
     {GLib});
+const {shellPressure, watchMemory} = vm.runInNewContext(
+    source('ram-guard.js').replace(/^export /gm, '') + '\n({shellPressure, watchMemory});',
+    {GLib, TextDecoder});
 const Extension = vm.runInNewContext(source('extension.js')
     .replace('export default class RippleExtension', 'class RippleExtension') + '\nRippleExtension;', {
-    GLib, Extension: class {}, RecoveryPolicy, readResourceSample, retryDelay, FramePacer, scheduleStartupGpuJoke, TextDecoder,
+    GLib, Extension: class {}, RecoveryPolicy, readResourceSample, retryDelay, FramePacer, scheduleStartupGpuJoke,
+    shellPressure, watchMemory, TextDecoder,
     Clutter: {ModifierType: {BUTTON1_MASK: 1}},
     console: {log: message => logs.push(JSON.parse(message.slice('Ripple: '.length)))},
     Main: {wm: {removeKeybinding() {}}, overview: {}, layoutManager: {}, sessionMode: {},
@@ -185,6 +189,7 @@ assert.equal(gpuJokesChanged, undefined);
 
 function checkStartup(autostart) {
     let window, availability, actions;
+    const settingsSection = {expanded: false};
     const handlers = {};
     class Application {
         connect(signal, callback) { handlers[signal] = callback; }
@@ -209,7 +214,7 @@ function checkStartup(autostart) {
         Adw: {Application, ApplicationWindow: Window,
             HeaderBar: class {pack_end() {}}, ToolbarView: class {add_top_bar() {}}},
         Gtk: {Button},
-        buildControls: () => ({page: {}, active: {connect() {}, active: true, sensitive: true}}),
+        buildControls: () => ({page: {}, settingsSection, active: {connect() {}, active: true, sensitive: true}}),
         TrayIndicator: class {
             constructor(callbacks, callback) { actions = callbacks; availability = callback; }
             setEffect() {}
@@ -221,6 +226,10 @@ function checkStartup(autostart) {
     assert.equal(window.visible, !autostart, 'Tray startup must not reveal the panel');
     actions.show();
     assert.equal(window.visible, true, 'Explicit Open must restore the panel');
+    window.hide();
+    actions.preferences();
+    assert.equal(window.visible, true, 'Preferences must restore the panel');
+    assert.equal(settingsSection.expanded, true);
     window.hide();
     availability(false);
     assert.equal(window.visible, true, 'Tray loss after manual use must preserve access');

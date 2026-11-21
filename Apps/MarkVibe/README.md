@@ -1,3 +1,7 @@
+> **File name** `README.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\README.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\README.md`
+
 # MarkVibe
 
 [![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
@@ -25,8 +29,8 @@ I want a reader that respects your computer as well as your documents. I review 
 
 ## What it does
 
-- Opens local Markdown files, folders and documentation ZIPs, including relative
-  links, images and Mermaid diagrams.
+- Opens local Markdown files and folders with relative links, images and Mermaid
+  diagrams. The web edition also opens documentation ZIPs.
 - Offers Read, read-only Source, Split and Map views, with themes and saved layout.
 - Exports the current page as HTML or PDF with its images and diagrams.
 - Optionally revises Markdown through OpenAI API or the installed Codex CLI,
@@ -34,11 +38,11 @@ I want a reader that respects your computer as well as your documents. I review 
   be saved as a separate copy.
 
 Reading and navigation happen locally. Sending an AI request shares the prompt,
-current document or selection, and collected references with OpenAI. A configured
-API key also allows startup to fetch the available model list; that sends no
-documents. Choose the connection in Settings and use its Test button for an
-explicit pass/fail result. Codex CLI requires the Windows desktop host and an
-existing CLI login. See [AI editing and data handling](docs/ai-editing.md).
+current document or selection, and collected references with the selected provider.
+On Windows, the assistant checks available models when opened or refreshed. Choose
+the connection in Settings and use **Test connection** to verify it. Codex CLI
+requires the Windows desktop app and an existing CLI login. The Windows assistant
+lets you preview and apply proposed revisions. See [AI editing and data handling](docs/ai-editing.md).
 
 ## Follow the map
 
@@ -64,12 +68,14 @@ Binary downloads are not yet published in VibeKit. Use the source instructions b
 
 The desktop app targets **Windows 11, x64 and ARM64**. Windows packaging supports
 MSIX, an MSI installer and a portable ZIP; see the [packaging guide](docs/windows-packaging.md) to create a local package.
-The .NET runtime is included. Microsoft Edge WebView2 Runtime is required.
+The .NET and Windows App SDK runtimes are included. Microsoft Edge WebView2
+Runtime is required.
 Development-signed MSIX packages include their own installation instructions.
 
-The shared browser build runs through WebAssembly. Linux has no
-dedicated desktop packages. The Windows app uses WebView2 internally, even though
-it opens as its own application.
+The desktop window, toolbars and dialogs use WinUI 3. Win2D draws the document
+map. WebView2 renders Markdown, Mermaid and the Monaco source view, and generates
+PDF output. The separate web edition runs through WebAssembly. Linux users can
+use the web edition.
 
 > [!NOTE]
 > **A Mac reader needs a Mac maintainer**
@@ -82,9 +88,9 @@ it opens as its own application.
 
 In a VibeKit checkout, run the commands below from `Apps/MarkVibe`.
 
-I use **.NET 10 / C# / OpenSilver XAML**, with **WPF and WebView2** for Windows,
+I use **.NET 10 / C# / WinUI 3** for Windows, **Win2D** for the desktop map,
 **Markdig** for Markdown, **Monaco** for source and **Mermaid** for diagrams.
-The browser adapters use JavaScript modules; there is no Vue application.
+The web edition uses OpenSilver XAML with a Blazor WebAssembly host.
 
 With .NET SDK **10.0.402** and Node **22.12 or later**:
 
@@ -96,15 +102,17 @@ For the command line:
 
 ```powershell
 npm ci --ignore-scripts --no-audit --no-fund
-npm run bundle
-dotnet restore MarkVibe.slnx --locked-mode
-dotnet build MarkVibe.slnx --no-restore -c Release
+dotnet restore src/MarkVibe.Windows --locked-mode
+dotnet build src/MarkVibe.Windows --no-restore -c Release
 dotnet run --project src/MarkVibe.Windows --no-build -c Release
 ```
 
+The desktop build bundles its renderer modules automatically. Run `npm run bundle`
+before building the web edition or the whole solution from the command line.
+
 See [architecture](docs/architecture.md), [packaging](docs/windows-packaging.md)
 and [contributing](CONTRIBUTING.md) for development and delivery rules.
-Packaging cleans `artifacts/` before creating a new distribution.
+Packaging writes each distribution under its own directory in `artifacts/`.
 Local delivery defaults to Release x64.
 
 ## License and development
@@ -143,3 +151,7 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
   </a><br>
   <em>Human intent, AI execution, and plenty of tokens</em>
 </p>
+
+> **File name** `README.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\README.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\README.md`

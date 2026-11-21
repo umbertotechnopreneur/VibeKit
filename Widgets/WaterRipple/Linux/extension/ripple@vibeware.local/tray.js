@@ -24,7 +24,7 @@ const ITEM_INTERFACE = `
 </node>`;
 
 export class TrayIndicator {
-    constructor({show, toggleEffect, about, quit}, availabilityChanged) {
+    constructor({show, preferences, toggleEffect, about, quit}, availabilityChanged) {
         this.available = false;
         this._availabilityChanged = availabilityChanged;
         this._cancellable = new Gio.Cancellable();
@@ -37,11 +37,20 @@ export class TrayIndicator {
             menu.child_append(item);
             return item;
         };
+        const separator = () => {
+            const item = new Dbusmenu.Menuitem();
+            item.property_set('type', 'separator');
+            menu.child_append(item);
+        };
+        addItem('Preferences', preferences);
         addItem('Open', show);
+        separator();
         this._effect = addItem('Effect', toggleEffect);
         this._effect.property_set('toggle-type', 'checkmark');
-        addItem('About', about);
         addItem('Quit', quit);
+        separator();
+        addItem('Mini Utilities', () => Gio.AppInfo.launch_default_for_uri('https://umbertogiacobbi.biz/mini-utilities/', null));
+        addItem('About', about);
         this._server = Dbusmenu.Server.new(MENU_PATH);
         this._server.set_root(menu);
 

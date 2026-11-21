@@ -31,6 +31,7 @@ public partial class DocumentMapView : UserControl
     private bool _confirmingReset;
     private string _appearancePath = "";
     private JsonElement _state;
+    private MapLayout? _layout;
     /// <summary>Identifies the DOM renderer associated with this managed map view.</summary>
     public string HostId => Renderer.HostId;
 
@@ -86,13 +87,10 @@ public partial class DocumentMapView : UserControl
         AppearancePopup.IsOpen = false;
     }
     /// <summary>Publishes graph data to the specialized renderer and populates managed navigation links.</summary>
-    public Task DisplayAsync(MapSnapshot map, string selected, string workspaceId, object state, bool focused = false)
-    {
-        PreparePresentation(map, selected, workspaceId, state, focused);
-        return BrowserServices.CallAsync("map.render", new { hostId = HostId, map, selected, workspaceId, state, focused, advanced = _advanced, depth = _depth });
-    }
+    public Task DisplayAsync(MapSnapshot map, string selected, string workspaceId, MapPresentationState state, bool focused = false)
+        => PublishMapAsync(map, selected, workspaceId, state, focused, selection: false, center: false);
     /// <summary>Refreshes the common managed graph chrome for both full rendering and selection changes.</summary>
-    private void PreparePresentation(MapSnapshot map, string selected, string workspaceId, object state, bool focused)
+    private void PreparePresentation(MapSnapshot map, string selected, string workspaceId, MapPresentationState state, bool focused)
     {
         _focused = focused;
         if (_workspaceId != workspaceId)
@@ -103,25 +101,21 @@ public partial class DocumentMapView : UserControl
         }
         _workspaceId = workspaceId;
         _selectedPath = selected;
-        _state = JsonSerializer.SerializeToElement(state, Wire.Options);
+        _state = state.Controls;
+        _layout = state.Layout;
         Summary.Text = map.Nodes.Count + " / " + map.TotalDocuments + " · " + map.Edges.Count;
         PopulateInspector(map);
         var documentTitles = map.Nodes.ToDictionary(node => node.Path, node => node.Title, StringComparer.Ordinal);
-        AddLinks("Links from this page", "forward", map.Outgoing.Select(link =>
-            (link.Path, link.Anchor, documentTitles.GetValueOrDefault(link.Path, System.IO.Path.GetFileName(link.Path)))));
-        AddLinks("Links to this page", "back", map.Incoming.Select(node => (node.Path, "", node.Title)));
-        UpdateControls(state);
-    }
-    /// <summary>Updates managed action availability before forwarding a layout acknowledgment.</summary>
-    public Task DisplayStateAsync(string workspaceId, object state)
-    {
-        UpdateControls(state);
-        return BrowserServices.CallAsync("map.state", new { hostId = HostId, workspaceId, state });
+        AddLinks("Links from this page", "forward", map.Outgoing.Count, map.TotalOutgoingTargets,
+            map.Outgoing.Select(link => (link.Path, link.Anchor,
+                documentTitles.GetValueOrDefault(link.Path, System.IO.Path.GetFileName(link.Path)))));
+        AddLinks("Links to this page", "back", map.Incoming.Count, map.TotalIncomingDocuments,
+            map.Incoming.Select(node => (node.Path, "", node.Title)));
+        UpdateControls();
     }
     /// <summary>Applies managed layout capabilities without exposing legacy annotations.</summary>
-    private void UpdateControls(object state)
+    private void UpdateControls()
     {
-        _state = JsonSerializer.SerializeToElement(state, Wire.Options);
         var hasError = _state.TryGetProperty("hasError", out var errorValue) && errorValue.GetBoolean();
         MapNotice.Visibility = hasError ? Visibility.Visible : Visibility.Collapsed;
         AppLocalization.SetText(MapNoticeText, _state.GetProperty("message").GetString() ?? "");
@@ -170,12 +164,12 @@ public partial class DocumentMapView : UserControl
     {
         await CommandAsync("arrange-star");
     }
-    /// <summary>Arranges visible cards around a circular perimeter.</summary>
+    /// <summary>Arranges the complete catalog on rings around its most connected document.</summary>
     private async void ArrangeCircle(object sender, RoutedEventArgs arguments)
     {
         await CommandAsync("arrange-circle");
     }
-    /// <summary>Arranges visible cards in a regular grid.</summary>
+    /// <summary>Places the complete catalog on a grid around its most connected document.</summary>
     private async void ArrangeGrid(object sender, RoutedEventArgs arguments)
     {
         await CommandAsync("arrange-grid");
@@ -219,7 +213,7 @@ public partial class DocumentMapView : UserControl
 
         var workspaceId = _workspaceId;
         var stateId = _state.GetProperty("stateId").GetString();
-        var layout = _state.GetProperty("layout").GetRawText();
+        var layout = _layout;
         _confirmingReset = true;
         ResetButton.IsEnabled = false;
         try
@@ -228,7 +222,7 @@ public partial class DocumentMapView : UserControl
             // A modal approval belongs only to the unchanged map that the user reviewed.
             if (!accepted || !IsLoaded || _workspaceId != workspaceId ||
                 _state.GetProperty("stateId").GetString() != stateId ||
-                _state.GetProperty("layout").GetRawText() != layout ||
+                !ReferenceEquals(_layout, layout) ||
                 _state.GetProperty("busy").GetBoolean() || _state.GetProperty("readOnly").GetBoolean())
             {
                 return;
@@ -239,7 +233,7 @@ public partial class DocumentMapView : UserControl
         finally
         {
             _confirmingReset = false;
-            UpdateControls(_state);
+            UpdateControls();
         }
     }
     /// <summary>Saves map layout using the existing permission-aware adapter.</summary>

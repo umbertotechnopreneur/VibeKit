@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
+import {shellPressure, watchMemory} from './ram-guard.js';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
@@ -20,6 +21,7 @@ const now = () => GLib.get_monotonic_time() / 1e6;
 export default class RippleExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
+        this._startRamWatch();
         this._patches = [];
         this._signals = [];
         this._panicRegistered = false;
@@ -452,7 +454,20 @@ export default class RippleExtension extends Extension {
         catch (error) { console.warn('Ripple notification unavailable:', error.message); }
     }
 
+    _startRamWatch() {
+        this._ramTimer = watchMemory(
+            () => this._settings.get_boolean('active') ? shellPressure() : null,
+            event => {
+                this._ramTimer = 0;
+                console.warn(JSON.stringify({kind: 'guard.memory-pressure', app: 'WaterRipple', ...event}));
+                this._stop('Stopped because system memory is low. Enable the effect manually to resume.');
+                this._startRamWatch();
+            });
+    }
+
     disable() {
+        if (this._ramTimer) GLib.source_remove(this._ramTimer);
+        this._ramTimer = 0;
         this._cancelGpuJokes?.();
         this._cancelGpuJokes = null;
         this._cancelRecovery();

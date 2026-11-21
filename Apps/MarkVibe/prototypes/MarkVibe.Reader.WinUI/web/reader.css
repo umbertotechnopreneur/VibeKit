@@ -1,0 +1,39 @@
+/* VBWR B
+ * Project: MarkVibe | Creator: Umberto Giacobbi
+ * Created with AI: OpenAI Codex; make the embedded reader fill its native pane
+ * Human guidance: use one reading view with the shared MarkVibe renderer
+ * Copyright (c) 2026 Umberto Giacobbi | License: MIT (see LICENSE)
+ * VBWR E */
+
+:root {
+  --panel: #fff;
+  --text: #20283a;
+  --muted: #596579;
+  --line: #dde2ea;
+  --accent: #525ce8;
+  --accent-soft: #eceefe;
+  --code: #f3f5fa;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --panel: #191d23;
+  --text: #edf0f5;
+  --muted: #afb5c1;
+  --line: #30353f;
+  --accent: #a894f9;
+  --accent-soft: #252333;
+  --code: #14171c;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+#reader {
+  position: absolute;
+  inset: 0;
+}

@@ -81,6 +81,9 @@ internal static class Program
             shutdown.Cancel();
         };
         Console.CancelKeyPress += cancelHandler;
+        using var memoryWatchdog = new VibeWare.MemoryProtection.ProcessMemoryWatchdog(
+            "HelpMe", Path.GetDirectoryName(Path.GetFullPath(paths.LogFilePattern))!, 2_000_000_000,
+            () => { _ = shutdown.CancelAsync(); }, stopDescendants: true);
         IConsoleShellView? shell = null;
         ILocalizationService? text = null;
         var exitCode = 1;
@@ -94,11 +97,12 @@ internal static class Program
             text = provider.GetRequiredService<ILocalizationService>();
             exitCode = await provider.GetRequiredService<IHelpMeApplication>().RunAsync(args, shutdown.Token);
 
+            if (memoryWatchdog.Triggered) exitCode = 137;
             return exitCode;
         }
         catch (OperationCanceledException) when (shutdown.IsCancellationRequested)
         {
-            exitCode = 130;
+            exitCode = memoryWatchdog.Triggered ? 137 : 130;
 
             return exitCode;
         }

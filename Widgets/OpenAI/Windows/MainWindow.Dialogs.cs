@@ -11,8 +11,9 @@ namespace OpenAIUsage.Windows;
 public sealed partial class MainWindow
 {
     private async Task<ContentDialogResult> ShowDialogAsync(string title,UIElement content,
-        string closeButtonText="Close",string? primaryButtonText=null,string? secondaryButtonText=null,
-        bool isPrimaryEnabled=true,Func<bool>? onPrimary=null,double width=500,double height=590,bool about=false)
+        string? closeButtonText="Close",string? primaryButtonText=null,string? secondaryButtonText=null,
+        bool isPrimaryEnabled=true,Func<bool>? onPrimary=null,double width=500,double height=590,bool about=false,
+        FrameworkElement? footer=null)
     {
         if(!dialogGate.Wait(0))return ContentDialogResult.None;
         var host=new Window {Title=title};
@@ -29,7 +30,6 @@ public sealed partial class MainWindow
         };
         Grid.SetRow(body,1);surface.Children.Add(body);
         var buttons=new StackPanel {Orientation=Orientation.Horizontal,Spacing=10,HorizontalAlignment=HorizontalAlignment.Right,Margin=new(24,0,24,20)};
-        Grid.SetRow(buttons,2);surface.Children.Add(buttons);
         var loaded=new TaskCompletionSource();var result=new TaskCompletionSource<ContentDialogResult>();
         surface.Loaded+=(_,_)=>loaded.TrySetResult();
         bool dismissing=false;
@@ -44,7 +44,9 @@ public sealed partial class MainWindow
         }
         if(primaryButtonText is not null)buttons.Children.Add(Command(primaryButtonText,ContentDialogResult.Primary,isPrimaryEnabled));
         if(secondaryButtonText is not null)buttons.Children.Add(Command(secondaryButtonText,ContentDialogResult.Secondary));
-        buttons.Children.Add(Command(closeButtonText,ContentDialogResult.None));
+        if(closeButtonText is not null)buttons.Children.Add(Command(closeButtonText,ContentDialogResult.None));
+        var bottom=footer??(buttons.Children.Count>0?buttons:null);
+        if(bottom is not null){Grid.SetRow(bottom,2);surface.Children.Add(bottom);}
         host.Content=surface;activeDialog=host;
         host.AppWindow.Closing+=(_,e)=>{if(!dismissing){e.Cancel=true;Complete(ContentDialogResult.None);loaded.TrySetResult();}};
         nint owner=WinRT.Interop.WindowNative.GetWindowHandle(this);
@@ -65,7 +67,7 @@ public sealed partial class MainWindow
             double dpi=root.XamlRoot.RasterizationScale;var area=DisplayArea.GetFromWindowId(AppWindow.Id,DisplayAreaFallback.Primary).WorkArea;
             int w=(int)Math.Min(width*dpi,area.Width*.94),h=(int)Math.Min(height*dpi,area.Height*.94);
             host.AppWindow.MoveAndResize(new(area.X+(area.Width-w)/2,area.Y+(area.Height-h)/2,w,h));
-            if(host.AppWindow.Presenter is OverlappedPresenter p){p.IsMinimizable=false;p.IsMaximizable=false;p.IsResizable=about;p.IsAlwaysOnTop=settings.AlwaysOnTop;}
+            if(host.AppWindow.Presenter is OverlappedPresenter p){p.IsMinimizable=false;p.IsMaximizable=false;p.IsResizable=about;}
             host.Activate();await loaded.Task;
             if(result.Task.IsCompleted)return await result.Task;
             EnableWindow(owner,false);

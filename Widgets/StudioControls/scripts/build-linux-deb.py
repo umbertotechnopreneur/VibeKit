@@ -42,6 +42,7 @@ RUNTIME_FILES = (
     "configure_lab.py",
     "controlli-brio.py",
     "diagnostics.py",
+    "memory_watchdog.py",
     "lab_catalog.py",
     "lab_titles.py",
     "obs_remote.py",

@@ -79,7 +79,7 @@ internal sealed partial class StudioController : IDisposable
         startup = new StartupService(model.State);
         captureConsent = new CaptureConsentService(model.State);
         hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
-        tray = new TrayService(hwnd, Path.Combine(AppContext.BaseDirectory, "Assets", "WaterRipple.ico"), ShowFromTray, OpenSettings, ExitApp);
+        tray = new TrayService(hwnd, Path.Combine(AppContext.BaseDirectory, "Assets", "WaterRipple.ico"), ShowFromTray, OpenSettings, () => new AboutWindow(model.Settings).Activate(), ExitApp);
         window.AppWindow.Closing += MainWindowClosing;
         window.Activated += MainWindowActivated;
         RestartCommand = new DelegateCommand(CheckCapabilities);
@@ -385,6 +385,8 @@ internal sealed partial class StudioController : IDisposable
         startupBounds = null;
         Log.Information("Main window restored from tray");
     }
+    internal void RequestMemoryShutdown() => ExitApp();
+
     private async void ExitApp()
     {
         if (closeFailureOpen || closeSequence.IsPending) return;

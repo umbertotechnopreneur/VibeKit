@@ -148,12 +148,12 @@ function New-SyntheticPublish {
 
     $directory = Join-Path $fixtureRoot $Name
     [void][IO.Directory]::CreateDirectory((Join-Path $directory 'empty-directory'))
-    foreach ($file in @('WorkTrail.dll', 'WorkTrail.deps.json', 'hostpolicy.dll', 'System.Private.CoreLib.dll',
+    foreach ($file in @('WorkTrail.dll', 'WorkTrail.deps.json',
         'Microsoft.ui.xaml.dll', 'Microsoft.WindowsAppRuntime.dll', 'Microsoft.Windows.ApplicationModel.Resources.dll',
         'WorkTrail.pri', '.hidden-payload')) {
         [IO.File]::WriteAllText((Join-Path $directory $file), "Synthetic payload: $file", $utf8)
     }
-    foreach ($file in @('WorkTrail.exe', 'hostfxr.dll', 'coreclr.dll')) {
+    foreach ($file in @('WorkTrail.exe')) {
         Write-SyntheticPe -Path (Join-Path $directory $file) -Platform $Platform
     }
     $buildInfo = @{ schemaVersion = 1; semVer = '1.2.3'; packageVersion = '1.2.3.0'; platform = $Platform
@@ -161,7 +161,7 @@ function New-SyntheticPublish {
         gitCommit = ('1' * 40); gitDirty = $false }
     [IO.File]::WriteAllText((Join-Path $directory 'BuildInfo.json'), ($buildInfo | ConvertTo-Json), $utf8)
     [IO.File]::WriteAllText((Join-Path $directory 'WorkTrail.runtimeconfig.json'),
-        '{"runtimeOptions":{"tfm":"net10.0","includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"10.0.0"}]}}', $utf8)
+        '{"runtimeOptions":{"tfm":"net10.0","framework":{"name":"Microsoft.NETCore.App","version":"10.0.0"}}}', $utf8)
     return $directory
 }
 
@@ -262,13 +262,13 @@ foreach ($change in @(
     [IO.File]::WriteAllText($path, ($metadata | ConvertTo-Json), $utf8)
     Assert-Rejected -Name $change.Name -Source $source -Message 'Portable build information does not match'
 }
-foreach ($file in @('hostfxr.dll', 'coreclr.dll', 'Microsoft.WindowsAppRuntime.dll')) {
+foreach ($file in @('Microsoft.WindowsAppRuntime.dll')) {
     $name = 'missing-' + $file.Replace('/', '-')
     $source = New-SyntheticPublish -Name $name
     [IO.File]::Delete((Join-Path $source $file))
     Assert-Rejected -Name $name -Source $source -Message 'Missing or empty required portable publish file'
 }
-foreach ($file in @('WorkTrail.exe', 'hostfxr.dll', 'coreclr.dll')) {
+foreach ($file in @('WorkTrail.exe')) {
     $name = "wrong-machine-$file"
     $source = New-SyntheticPublish -Name $name
     Write-SyntheticPe -Path (Join-Path $source $file) -Platform 'ARM64'
@@ -277,15 +277,15 @@ foreach ($file in @('WorkTrail.exe', 'hostfxr.dll', 'coreclr.dll')) {
 $source = New-SyntheticPublish -Name 'invalid-pe'
 [IO.File]::WriteAllText((Join-Path $source 'WorkTrail.exe'), 'Not an executable.', $utf8)
 Assert-Rejected -Name 'invalid-pe' -Source $source -Message 'Invalid PE file'
-$source = New-SyntheticPublish -Name 'framework-dependent'
+$source = New-SyntheticPublish -Name 'self-contained'
 [IO.File]::WriteAllText((Join-Path $source 'WorkTrail.runtimeconfig.json'),
-    '{"runtimeOptions":{"framework":{"name":"Microsoft.NETCore.App","version":"10.0.0"}}}', $utf8)
-Assert-Rejected -Name 'framework-dependent' -Source $source -Message 'must describe a self-contained .NET application'
+    '{"runtimeOptions":{"includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"10.0.0"}]}}', $utf8)
+Assert-Rejected -Name 'self-contained' -Source $source -Message 'must require the shared .NET 10 runtime'
 $source = New-SyntheticPublish -Name 'reserved-file'
 [IO.File]::WriteAllText((Join-Path $source 'release.json'), '{}', $utf8)
 Assert-Rejected -Name 'reserved-file' -Source $source -Message 'reserved release filename'
 
-Assert-Rejected -Name 'missing-directory' -Source (Join-Path $fixtureRoot 'nonexistent') -Message 'must be an existing self-contained publish directory'
+Assert-Rejected -Name 'missing-directory' -Source (Join-Path $fixtureRoot 'nonexistent') -Message 'must be an existing framework-dependent publish directory'
 $outside = Join-Path $repositoryRoot "portable-test-outside-$([Guid]::NewGuid().ToString('N'))"
 Assert-Rejected -Name 'output-outside-artifacts' -Source $validSource -Output $outside -Message 'inside this repository artifacts/'
 Assert-Rejected -Name 'overlapping-output' -Source $validSource -Output (Join-Path $validSource 'nested-output') -Message 'must not overlap'

@@ -1,3 +1,7 @@
+> - **File name** `README.md`
+> - **Full path** `/run/media/umberto/Repo/vibekit/Widgets/RetroTerminal/README.md`
+> - **Path relative to the VibeKit repository root** `Widgets/RetroTerminal/README.md`
+
 # Retro Terminal
 
 [![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
@@ -47,23 +51,12 @@ available above the sections. Preferences expose:
 - Four individually allowed glitches: local RGB separation, horizontal tear,
   line interference and a soft scanning band.
 
-**Pipelines** includes 20 subtle looks alongside the original Clean green,
-Worn terminal, Arcade and Long phosphor. The new looks use a 12–30% effect mix,
-with random glitches and temporal afterglow disabled. They keep the original
-desktop colors dominant, with light raster, glass, texture or phosphor tints.
-
-| Finish | Subtle pipelines |
-| --- | --- |
-| Original colors | Almost clear, Fine raster, Wide raster, Quiet RGB, Quiet dots |
-| Glass and texture | Soft glass, Edge shade, Paper grain, Lifted shadows, Gentle contrast |
-| Green and mint | Green whisper, Green glass, Sage tint, Mint raster |
-| Warm | Amber whisper, Warm glass, Ivory phosphor, Peach tint |
-| Cool | Ice phosphor, Lavender dusk |
-
-Start with **Almost clear** for a faint raster or **Green whisper** for a light
-green tint. These presets are available in the GNOME preferences; the Windows
-edition has its own controls. Adding presets does not change the current look
-or turn the effect on.
+**Pipelines** includes 40 CRT looks with light scanlines and fine static grain.
+Try **Commodore PET Green** for green phosphor, **Amiga Workbench Blue** for cool
+tints, **TV Composite PAL** for a soft composite signal, or **Trinitron Aperture
+Grille** for subtle vertical RGB stripes. The built-ins keep random glitches and
+temporal afterglow disabled. Choosing a preset changes the appearance without
+turning the effect on.
 
 Select a pipeline from the Effect page or the library. Built-ins are protected;
 duplicate one to keep your changes. Personal pipelines update automatically as
@@ -174,6 +167,7 @@ node tests/capture-plan-checks.mjs
 node tests/pipeline-checks.mjs
 python3 scripts/benchmark-shader.py --output-dir /tmp/retro-terminal-benchmark
 python3 scripts/smoke-gnome.py --mode ubuntu --output-dir /tmp/retro-terminal-smoke
+python3 scripts/smoke-gnome.py --mode ubuntu --presets --output-dir /tmp/retro-terminal-preset-smoke
 python3 scripts/smoke-gnome.py --mode ubuntu --oversized-capture --output-dir /tmp/retro-terminal-large-smoke
 ```
 
@@ -233,3 +227,7 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
   </a><br>
   <em>Human intent, AI execution, and plenty of tokens</em>
 </p>
+
+> - **File name** `README.md`
+> - **Full path** `/run/media/umberto/Repo/vibekit/Widgets/RetroTerminal/README.md`
+> - **Path relative to the VibeKit repository root** `Widgets/RetroTerminal/README.md`

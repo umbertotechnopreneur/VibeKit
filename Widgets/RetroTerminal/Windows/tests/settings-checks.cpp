@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-#include "../EffectSettings.h"
+#include "../BuiltInPresets.h"
 #include "../PerformanceRecovery.h"
 #include <cassert>
 #include <limits>
+#include <set>
 #include <iostream>
+#include <string_view>
 int main()
 {
     EffectSettings s;
@@ -48,7 +50,20 @@ int main()
     assert(schedule.Sample(1002, s).type == GlitchType::None);
     s.glitchIntensity = .25f;
     assert(schedule.Trigger(1002, s));
-    assert(BuiltInPreset(1).randomGlitches && BuiltInPreset(2).mask == PhosphorMask::RgbStripes);
+    assert(BuiltInPresetCount == 40);
+    std::set<std::wstring_view> names;
+    for (const auto& [name, settings] : BuiltInPresets) {
+        assert(names.emplace(name).second);
+        auto clamped = settings;
+        clamped.Clamp();
+        for (const auto& control : FloatControls)
+            assert(settings.*(control.field) == clamped.*(control.field));
+        assert(settings.intensity * settings.scanStrength <= .055f);
+        assert(settings.intensity * settings.grain >= .015f);
+        assert(!settings.randomGlitches && !settings.persistence);
+        if (std::wstring_view(name).starts_with(L"Trinitron "))
+            assert(settings.mask == PhosphorMask::RgbStripes);
+    }
     using namespace std::chrono_literals;
     PerformanceRecovery recovery;
     auto now = PerformanceRecovery::TimePoint{} + 1s;

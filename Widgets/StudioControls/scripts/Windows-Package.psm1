@@ -28,17 +28,18 @@ function Assert-PublishLayout {
     foreach ($relative in @(
         'StudioControls.Windows.exe', 'StudioControls.Windows.dll',
         'StudioControls.Windows.deps.json', 'StudioControls.Windows.runtimeconfig.json',
-        'StudioControls.Windows.pri', 'App.xbf', 'coreclr.dll', 'hostfxr.dll',
+        'StudioControls.Windows.pri', 'App.xbf',
         'Microsoft.WinUI.dll', 'Assets/CREDITS.txt', 'Assets/CRT-test.mp4',
         'Assets/OBS-logo.png', 'Assets/VibeWare-logo.png', 'Scenes/studio-windows.json',
         'README.txt', 'LICENSE', 'THIRD-PARTY-NOTICES.md', 'Licenses/dependencies.json'
     )) {
         if (-not (Test-Path -LiteralPath (Join-Path $Directory $relative) -PathType Leaf)) {
-            throw "Required self-contained package file is missing: $relative"
+            throw "Required package file is missing: $relative"
         }
     }
     $runtime = Get-Content -LiteralPath (Join-Path $Directory 'StudioControls.Windows.runtimeconfig.json') -Raw | ConvertFrom-Json -AsHashtable
-    if (-not $runtime.runtimeOptions.ContainsKey('includedFrameworks')) { throw 'Expected a self-contained .NET publish, not a framework-dependent application.' }
+    if ($runtime.runtimeOptions.framework.name -ne 'Microsoft.NETCore.App' -or $runtime.runtimeOptions.framework.version -notlike '10.*') { throw 'Expected a framework-dependent .NET 10 publish.' }
+    foreach ($file in @('coreclr.dll', 'hostfxr.dll')) { if (Test-Path -LiteralPath (Join-Path $Directory $file)) { throw "Bundled .NET runtime file: $file" } }
 }
 
 function Copy-DependencyNotices {

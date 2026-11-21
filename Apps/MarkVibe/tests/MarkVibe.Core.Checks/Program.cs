@@ -44,6 +44,58 @@ var checks = new (string Name, Func<Task> Run)[]
         Equal(2, indexed.Count);
         Equal("First", indexed[0].Title);
     }),
+    ("repeated links do not hide later sections and partial indexes qualify route results", async () =>
+    {
+        var repeated = string.Join("\n", Enumerable.Repeat("[B](b.md#first)", 100));
+        await using var workspace = new MemoryWorkspace(new()
+        {
+            ["a.md"] = repeated + "\n[B again](b.md#second)\n[C](c.md)",
+            ["b.md"] = "# First\n\n# Second",
+            ["c.md"] = "[B](b.md)"
+        });
+        var catalog = new DocumentCatalog(new());
+        catalog.Seed(await workspace.EnumerateAsync(default));
+        var unknown = catalog.Map("a.md", false, "a.md", "b.md");
+        Equal("No route found in the indexed documents", unknown.RouteMessage);
+
+        await catalog.OpenAsync(workspace, "a.md", default);
+        var partial = catalog.Map("a.md", false, "a.md", "b.md");
+        Equal("Known route in the indexed documents: {0} links", partial.RouteMessage);
+        Equal(3, partial.TotalOutgoingTargets);
+        Equal(3, partial.Outgoing.Count);
+        Equal("second", partial.Outgoing[1].Anchor);
+        Equal("c.md", partial.Outgoing[2].Path);
+
+        await catalog.IndexAsync(workspace, (_, _) => { }, default);
+        var complete = catalog.Map("b.md", false, "a.md", "b.md");
+        Equal("Shortest route: {0} links", complete.RouteMessage);
+        Equal(2, complete.TotalIncomingDocuments);
+    }),
+    ("document relations include indexed pages beyond the visible map limit", async () =>
+    {
+        const int relatedCount = 128;
+        var documents = Enumerable.Range(0, relatedCount).ToDictionary(index => $"page-{index:D3}.md", _ => "# Section\n\n[Back](hub.md)");
+        var links = string.Join("\n", documents.Keys.Select(path => $"[Page]({path}#section)"));
+        documents.Add("hub.md", links + "\n[Duplicate](page-000.md#section)\n[Other anchor](page-000.md#other)\n[Unavailable](missing.md)");
+        await using var workspace = new MemoryWorkspace(documents);
+        var catalog = new DocumentCatalog(new());
+        catalog.Seed(await workspace.EnumerateAsync(default));
+        await catalog.IndexAsync(workspace, (_, _) => { }, default);
+
+        var visible = catalog.Map("hub.md", neighborhood: false);
+        True(visible.Nodes.Count < documents.Count);
+        True(visible.Incoming.Count < relatedCount);
+        True(visible.Outgoing.Count < relatedCount);
+
+        var relations = catalog.DocumentRelations("hub.md");
+        Equal(relatedCount, relations.Incoming.Count);
+        Equal(relatedCount + 2, relations.Outgoing.Count);
+        True(relations.Incoming.Any(card => card.Path == "page-127.md"));
+        True(relations.Outgoing.Any(link => link.Path == "page-127.md" && link.Anchor == "section"));
+        True(relations.Outgoing.Any(link => link.Path == "page-000.md" && link.Anchor == "other"));
+        True(relations.Outgoing.Any(link => link.Path == "missing.md"));
+        Equal(0, catalog.DocumentRelations("missing.md").Outgoing.Count);
+    }),
     ("unchanged indexing reuses metadata while external changes invalidate graph and cached source", async () =>
     {
         var documents = new Dictionary<string, string> { ["a.md"] = "# First", ["b.md"] = "# Second" };

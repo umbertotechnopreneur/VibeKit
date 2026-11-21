@@ -30,6 +30,8 @@ using Markdig.Syntax.Inlines;
 using Markdig.Extensions.Yaml;
 
 namespace MarkVibe.Core;
+
+/// <summary>Captures one effective Markdown revision. Heading IDs, block IDs and source ranges refer to this snapshot.</summary>
 public sealed record MarkdownModel(
     string Path,
     string Title,

@@ -80,7 +80,8 @@ public sealed record WorkspaceInfo(
     string Name,
     string Mode,
     WorkspaceCapabilities Capabilities,
-    bool SkippedNames = false
+    bool SkippedNames = false,
+    string? InitialDocumentPath = null
 );
 
 /// <summary>Describes a canonical workspace resource before its content is read.</summary>

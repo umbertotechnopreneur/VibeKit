@@ -99,7 +99,7 @@ public sealed class MapExploration
         }
 
         // Failed or budget-limited indexing must not manufacture isolated-document warnings.
-        IndexComplete = catalog.IndexComplete && _cards.Keys.All(path => catalog.FingerprintFor(path) != null);
+        IndexComplete = catalog.HasCompleteLinkIndex;
         RemoveUnavailableDocuments();
         CompareOpen &= _picked.Count >= 2;
         Attention = _cards.Keys.ToDictionary(

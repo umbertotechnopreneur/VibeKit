@@ -1,6 +1,12 @@
+> **File name** `archive.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\.github\tasks\archive.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\.github\tasks\archive.md`
+
 # Latest delivery
 
-Release x64 MSIX **0.1.0.35** was built from source, installed and launched on
-2026-10-25. It includes the sidebar workspace refresh action.
+WinUI 3 Release x64 MSIX **0.1.0.37** was built from source, installed and launched
+on 2026-11-20. It includes the native WinUI shell and Win2D document graph.
 
-Replace this summary on the next delivery; keep only the latest round.
+> **File name** `archive.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\.github\tasks\archive.md`<br>
+> **Path relative to the VibeKit repository** `Apps\MarkVibe\.github\tasks\archive.md`

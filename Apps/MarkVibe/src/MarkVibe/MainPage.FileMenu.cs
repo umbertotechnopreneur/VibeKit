@@ -114,6 +114,12 @@ public partial class MainPage
             return;
         }
 
+        if (context.InventoryPending && context.InventoryLoad is { IsCompleted: false } loading)
+        {
+            // An early refresh joins the initial scan rather than invalidating the reader's live assets.
+            await loading;
+            return;
+        }
         await _documentServices.WorkspaceRefresh.ExecuteAsync(
             context.Provider,
             () => ReferenceEquals(context, _active)
@@ -231,6 +237,11 @@ public partial class MainPage
             {
                 throw new WorkspaceException("file-busy", "Stop the AI request before deleting a file.");
             }
+            await EnsureInventoryAsync(context);
+            if (!ReferenceEquals(context, _active) || generation != _generation)
+            {
+                return;
+            }
             var revision = await BrowserServices.CallAsync<string>("file.deleteRevision", new { workspaceId = target.WorkspaceId, path = target.Path });
             if (!ReferenceEquals(context, _active) || generation != _generation)
             {
@@ -248,6 +259,8 @@ public partial class MainPage
             _fileMutationBusy = true;
             try
             {
+                // Deletion reconciles saved card membership even when the map has never been shown.
+                await EnsureMapLayoutAsync(context, _opening.Token);
                 await BrowserServices.CallAsync("map.flush");
                 if (!ReferenceEquals(context, _active) || generation != _generation || _workspaceTransitionBusy)
                 {
@@ -280,7 +293,7 @@ public partial class MainPage
         await context.Provider.RefreshAsync(CancellationToken.None);
         var entries = await context.Provider.EnumerateAsync(CancellationToken.None);
         context.Catalog.Seed(entries);
-        context.Map.Session.EnsureDocuments(context.Catalog.Cards);
+        context.Map.EnsureDocuments(context.Catalog);
         if (context.Map.SelectedPath == deletedPath)
         {
             context.Map.SelectedPath = "";

@@ -20,7 +20,7 @@ internal sealed class WebViewDiagnostics
 {
     private readonly List<CoreWebView2DevToolsProtocolEventReceiver> _receivers = new();
 
-    /// <summary>Registers before navigation so failures during Blazor and OpenSilver startup are included.</summary>
+    /// <summary>Registers before navigation so failures during the embedded document renderer's startup are included.</summary>
     internal async Task AttachAsync(CoreWebView2 core)
     {
         core.NavigationCompleted += (_, args) => DesktopLog.Write(

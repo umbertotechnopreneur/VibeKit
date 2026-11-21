@@ -26,6 +26,7 @@
     <Compile Include="../Shared/EffectStudioLayout.cs" Link="EffectStudioLayout.cs" />
     <Compile Include="../Shared/DisplayTarget.cs" Link="DisplayTarget.cs" />
     <Compile Include="../Shared/VibeWareDiagnostics.cs" Link="VibeWareDiagnostics.cs" />
+    <Compile Include="../Shared/ProcessMemoryWatchdog.cs" Link="ProcessMemoryWatchdog.cs" />
     <Compile Include="../Shared/DiagnosticAboutActions.cs" Link="DiagnosticAboutActions.cs" />
     <EmbeddedResource Include="Shared/pipeline-catalog.json" LogicalName="WaterRipple.pipeline-catalog.json" />
     <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.6.5" />

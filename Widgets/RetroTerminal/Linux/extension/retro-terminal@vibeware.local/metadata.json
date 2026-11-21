@@ -5,6 +5,6 @@
   "description": "Turn the desktop into a phosphor CRT. Green, amber and arcade color, with a manual stop and bounded rendering.",
   "shell-version": ["50"],
   "settings-schema": "org.gnome.shell.extensions.vibeware-retro-terminal",
-  "version": 6,
-  "version-name": "0.4.1"
+  "version": 9,
+  "version-name": "0.4.4"
 }

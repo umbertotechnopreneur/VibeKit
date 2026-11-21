@@ -61,6 +61,12 @@ public sealed record MapSnapshot(
     public IReadOnlyDictionary<string, MapAttention> Attention { get; init; } = new Dictionary<string, MapAttention>();
     /// <summary>Reports whether isolation and incoming links cover the completed index.</summary>
     public bool IndexComplete { get; init; }
+    /// <summary>Counts distinct outgoing path and anchor pairs before limiting the inspector rows.</summary>
+    public int TotalOutgoingTargets { get; init; }
+    /// <summary>Counts known incoming documents before limiting the inspector rows.</summary>
+    public int TotalIncomingDocuments { get; init; }
+    /// <summary>Identifies the catalog metadata used to build this projection within its workspace.</summary>
+    public long MetadataRevision { get; init; }
 }
 /// <summary>Owns parsed metadata, bounded read caches and authoritative local document revisions.</summary>
 public sealed class DocumentCatalog(MarkdownParser parser)
@@ -94,6 +100,9 @@ public sealed class DocumentCatalog(MarkdownParser parser)
     public IReadOnlyCollection<DocumentSession> Sessions => _sessions.Values;
     public List<string> Warnings { get; } = new();
     public bool IndexComplete { get; private set; }
+    /// <summary>Indicates that all catalog documents supplied current link metadata in a completed indexing pass.</summary>
+    public bool HasCompleteLinkIndex =>
+        IndexComplete && _failedIndexPaths.Count == 0 && _fingerprints.Count == _cards.Count;
     /// <summary>Invalidates derived graph facts when catalog membership or parsed metadata changes.</summary>
     public long MetadataRevision { get; private set; }
     public int IndexedCount { get; private set; }
@@ -168,6 +177,20 @@ public sealed class DocumentCatalog(MarkdownParser parser)
         IndexComplete = false;
         IndexedCount = 0;
         MetadataRevision++;
+    }
+
+    /// <summary>Completes an initial single-file enumeration while retaining its parsed page and any local revision.</summary>
+    public void CompleteInitialEnumeration(IReadOnlyList<WorkspaceEntry> entries)
+    {
+        var opened = _cache.Values.ToArray();
+        Seed(entries);
+        foreach (var model in opened)
+        {
+            if (_cards.ContainsKey(model.Path) && (TryGetSession(model.Path) is not { } session || session.CurrentSource == model.Source))
+            {
+                UpdateDocument(model);
+            }
+        }
     }
 
     /// <summary>Indexes document content within the byte budget while reporting progress and retaining readable failures.</summary>
@@ -292,6 +315,7 @@ public sealed class DocumentCatalog(MarkdownParser parser)
     {
         _sessions.Remove(path);
         _workspaceDocumentPaths.Remove(path);
+        _failedIndexPaths.Remove(path);
         _cards.Remove(path);
         _fingerprints.Remove(path);
         _cache.Remove(path);
@@ -477,6 +501,24 @@ public sealed class DocumentCatalog(MarkdownParser parser)
         return _graph;
     }
 
+    /// <summary>Finds the shortest route among known links, independently of the visible map projection.</summary>
+    public IReadOnlyList<string> FindRoute(string start, string end) => CurrentGraph().ShortestPath(start, end);
+
+    /// <summary>Returns indexed or pending metadata for an exact canonical document path.</summary>
+    public DocumentCard? FindCard(string path) => _cards.GetValueOrDefault(path);
+
+    /// <summary>Lists all known incoming pages and distinct outgoing targets, including unavailable files.</summary>
+    public (IReadOnlyList<DocumentCard> Incoming, IReadOnlyList<DocumentLink> Outgoing) DocumentRelations(string path)
+    {
+        if (!_cards.TryGetValue(path, out var document))
+        {
+            return ([], []);
+        }
+        var incoming = CurrentGraph().IncomingPaths(path).Select(source => _cards[source]).ToArray();
+        var outgoing = document.Links.DistinctBy(link => (link.Path, link.Anchor)).ToArray();
+        return (incoming, outgoing);
+    }
+
     /// <summary>Projects a bounded document graph that retains its hub and selected card, optionally limited to its neighborhood.</summary>
     public MapSnapshot Map(string selected, bool neighborhood, string routeStart = "", string routeEnd = "", int focusDepth = 0,
         IReadOnlyList<string>? priorityPaths = null)
@@ -485,9 +527,11 @@ public sealed class DocumentCatalog(MarkdownParser parser)
         var cards = Cards;
         var distances = graph.DistancesFrom(selected);
         var route = graph.ShortestPath(routeStart, routeEnd);
-        var outgoing = _cards.TryGetValue(selected, out var card) ? card.Links : [];
-        var incoming = cards.Where(c => c.Links.Any(l => l.Path == selected)).ToList();
-        var neighbors = outgoing.Select(l => l.Path).Concat(incoming.Select(c => c.Path)).Append(selected).ToHashSet(StringComparer.Ordinal);
+        var outgoing = _cards.TryGetValue(selected, out var card)
+            ? card.Links.DistinctBy(link => (link.Path, link.Anchor)).ToArray()
+            : Array.Empty<DocumentLink>();
+        var incoming = graph.IncomingPaths(selected);
+        var neighbors = outgoing.Select(link => link.Path).Concat(incoming).Append(selected).ToHashSet(StringComparer.Ordinal);
         var filtered = cards
             .Where(c => !neighborhood || neighbors.Contains(c.Path))
             .ToList();
@@ -508,29 +552,95 @@ public sealed class DocumentCatalog(MarkdownParser parser)
             nodes[^1] = _cards[selected];
         }
 
-        var visible = nodes.Select(c => c.Path).ToHashSet(StringComparer.Ordinal);
-        var routePairs = route.Zip(route.Skip(1)).ToHashSet();
-        var allEdges = nodes.SelectMany(c => c.Links.Where(l => visible.Contains(l.Path))
-            .Select(l => new MapEdge(c.Path, l.Path, l.Anchor, l.Line, c.LinkExcerpts.GetValueOrDefault(l.Line, ""))))
-            .DistinctBy(edge => (edge.Source, edge.Target, edge.Anchor))
-            .OrderByDescending(edge => routePairs.Contains((edge.Source, edge.Target)) || routePairs.Contains((edge.Target, edge.Source)))
-            .ToList();
-        var routeMessage = routeStart.Length == 0 || routeEnd.Length == 0 ? ""
-            : route.Count == 0 ? "No connection between these documents"
-            : route.Count > Limits.MapNodes ? "Route exceeds the visible document limit"
-            : "Shortest route: {0} links";
+        var edges = ProjectEdges(nodes, route);
+        var edgesTruncated = edges.Count > Limits.MapEdges;
+        if (edgesTruncated)
+        {
+            edges.RemoveAt(Limits.MapEdges);
+        }
+
+        var routeMessage = routeStart.Length == 0 || routeEnd.Length == 0 ? "" : DescribeRoute(route.Count);
         return new(
             nodes.Select(c => c with { Links = [], LinkExcerpts = new Dictionary<int, string>() }).ToList(),
-            allEdges.Take(Limits.MapEdges).ToList(),
+            edges,
             outgoing.Take(100).ToList(),
-            incoming.Take(100).Select(c => c with { Links = [] }).ToList(),
+            incoming.Take(100).Select(path => _cards[path] with { Links = [] }).ToList(),
             cards.Count,
-            filtered.Count > nodes.Count || allEdges.Count > Limits.MapEdges,
+            filtered.Count > nodes.Count || edgesTruncated,
             nodes.ToDictionary(node => node.Path, node => distances.GetValueOrDefault(node.Path, -1), StringComparer.Ordinal),
             route,
             routeMessage,
             cards.GroupBy(document => document.Path.Contains('/') ? document.Path[..document.Path.LastIndexOf('/')] : "")
                 .Select(group => new MapFolder(group.Key, group.Count())).OrderBy(folder => folder.Path, StringComparer.Ordinal).ToArray()
-        );
+        )
+        {
+            IndexComplete = HasCompleteLinkIndex,
+            MetadataRevision = this.MetadataRevision,
+            TotalOutgoingTargets = outgoing.Length,
+            TotalIncomingDocuments = incoming.Count
+        };
+    }
+
+    /// <summary>Reports route length or absence with the certainty supported by the indexed links.</summary>
+    private string DescribeRoute(int documentsOnRoute)
+    {
+        if (documentsOnRoute == 0)
+        {
+            return HasCompleteLinkIndex ? "No connection between these documents" : "No route found in the indexed documents";
+        }
+
+        if (documentsOnRoute > Limits.MapNodes)
+        {
+            return "Route exceeds the visible document limit";
+        }
+
+        return HasCompleteLinkIndex ? "Shortest route: {0} links" : "Known route in the indexed documents: {0} links";
+    }
+
+    /// <summary>Retains visible links in stable source order, emitting route links first and one extra edge to detect truncation.</summary>
+    private static List<MapEdge> ProjectEdges(IReadOnlyList<DocumentCard> nodes, IReadOnlyList<string> route)
+    {
+        var visible = nodes.Select(node => node.Path).ToHashSet(StringComparer.Ordinal);
+        var routePairs = route.Zip(route.Skip(1)).ToHashSet();
+        var seen = new HashSet<(string Source, string Target, string Anchor)>();
+        var result = new List<MapEdge>();
+
+        if (routePairs.Count > 0)
+        {
+            CollectEdges(onRouteOnly: true);
+        }
+        if (result.Count <= Limits.MapEdges)
+        {
+            CollectEdges(onRouteOnly: false);
+        }
+        return result;
+
+        // Append one priority group and stop as soon as the projection is known to be truncated.
+        void CollectEdges(bool onRouteOnly)
+        {
+            foreach (var node in nodes)
+            {
+                foreach (var link in node.Links)
+                {
+                    if (!visible.Contains(link.Path))
+                    {
+                        continue;
+                    }
+
+                    var onRoute = routePairs.Count > 0 &&
+                        (routePairs.Contains((node.Path, link.Path)) || routePairs.Contains((link.Path, node.Path)));
+                    if (onRoute != onRouteOnly || !seen.Add((node.Path, link.Path, link.Anchor)))
+                    {
+                        continue;
+                    }
+
+                    result.Add(new(node.Path, link.Path, link.Anchor, link.Line, node.LinkExcerpts.GetValueOrDefault(link.Line, "")));
+                    if (result.Count > Limits.MapEdges)
+                    {
+                        return;
+                    }
+                }
+            }
+        }
     }
 }

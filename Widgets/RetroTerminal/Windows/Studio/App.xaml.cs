@@ -10,17 +10,34 @@ public partial class App : Application
     private MainWindow? window;
     private EventWaitHandle? activationRequested;
     private RegisteredWaitHandle? activationWait;
+    private bool startAtSignIn;
+    internal static readonly WindowsSignIn SignIn = new("Retro Terminal");
 
     [STAThread] private static void Main()
     {
+        var arguments = Environment.GetCommandLineArgs();
+        if (Array.IndexOf(arguments, WindowsSignIn.RemoveArgument) >= 0)
+        {
+            SignIn.Remove();
+            return;
+        }
+        bool atSignIn = Array.IndexOf(arguments, WindowsSignIn.StartArgument) >= 0;
         using var activation = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\VibeWare.RetroTerminal.Activate");
         using var singleton = new Mutex(false, @"Local\VibeWare.RetroTerminal", out bool created);
         if (!created)
         {
-            activation.Set();
+            if (!atSignIn) activation.Set();
             return;
         }
         using var logger = VibeWareDiagnostics.CreateLogger("RetroTerminal");
+        DispatcherQueue? dispatcher = null;
+        using var memoryWatchdog = new VibeWare.MemoryProtection.ProcessMemoryWatchdog(
+            "Retro Terminal", VibeWareDiagnostics.GetLogDirectory("RetroTerminal"), 1_000_000_000,
+            () => Volatile.Read(ref dispatcher)?.TryEnqueue(() =>
+            {
+                if (Current is App app && app.window is { } mainWindow) mainWindow.RequestMemoryShutdown();
+                else Current.Exit();
+            }), showWindowsNotice: true);
         Log.Logger = logger;
         Log.Information("Retro Terminal starting Version={Version}", typeof(App).Assembly.GetName().Version);
         try
@@ -28,8 +45,10 @@ public partial class App : Application
             WinRT.ComWrappersSupport.InitializeComWrappers();
             Start(_ =>
             {
-                SynchronizationContext.SetSynchronizationContext(new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread()));
-                new App { activationRequested = activation };
+                var queue = DispatcherQueue.GetForCurrentThread();
+                SynchronizationContext.SetSynchronizationContext(new DispatcherQueueSynchronizationContext(queue));
+                new App { activationRequested = activation, startAtSignIn = atSignIn };
+                Volatile.Write(ref dispatcher, queue);
             });
         }
         finally { Log.Information("Retro Terminal stopped"); }
@@ -59,6 +78,6 @@ public partial class App : Application
             window = null;
             activationWait?.Unregister(null);
         };
-        window.Activate();
+        if (!startAtSignIn || !window.HideToTray()) window.Activate();
     }
 }

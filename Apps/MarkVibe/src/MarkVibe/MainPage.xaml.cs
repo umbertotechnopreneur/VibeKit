@@ -51,6 +51,8 @@ public partial class MainPage : UserControl
     private sealed record Context(BrowserWorkspaceProvider Provider, DocumentCatalog Catalog, MapWorkspaceState Map)
     {
         public AiDocumentCollection AiContext { get; } = new();
+        public bool InventoryPending { get; set; } = !string.IsNullOrEmpty(Provider.Info.InitialDocumentPath);
+        public Task? InventoryLoad { get; set; }
     }
 
     /// <summary>Describes a recoverable workspace and its last saved document position.</summary>
@@ -75,7 +77,9 @@ public partial class MainPage : UserControl
     private Context? _active;
     private MarkdownModel? _document;
     private CancellationTokenSource _navigation = new(), _indexing = new(), _opening = new(), _exporting = new();
-    private bool _exportBusy, _documentBusy, _desktop, _acrylicAvailable;
+    private bool _exportBusy, _navigationBusy, _desktop, _acrylicAvailable;
+    /// <summary>Opening a provider and navigating its document may overlap; both must finish before document actions are available.</summary>
+    private bool _documentBusy => _workspaceTransitionBusy || _navigationBusy;
     /// <summary>Projects the persistence result owned by the reader preference service.</summary>
     private bool _preferencesPersisted => _readerPresentation.State.PreferencesPersisted;
     private bool _workspaceTransitionBusy;
@@ -105,7 +109,7 @@ public partial class MainPage : UserControl
         AiWaitHost.CancelRequested += CancelMarkdownAi;
         SourceHost.ActionRequested += ExecuteAsync;
         MapHost.ActionRequested += ExecuteAsync;
-        MapHost.NavigateRequested += (path, anchor) => ExecuteAsync(async () => { await SetViewAsync("read"); await NavigateAsync(path, anchor); });
+        MapHost.NavigateRequested += (path, anchor) => ExecuteAsync(() => OpenMapDocumentInReaderAsync(path, anchor));
         MapHost.AddToAiRequested += (workspaceId, path) => ExecuteAsync(() => ToggleAiContextAsync(workspaceId, path));
         MapHost.FindDocumentsRequested += FindMapDocuments;
         MapHost.CenterDocumentRequested += (workspaceId, path) => ExecuteAsync(() => CenterMapDocumentAsync(workspaceId, path));
@@ -180,6 +184,7 @@ public partial class MainPage : UserControl
     /// <summary>Cancels outstanding work and releases workspace providers and browser resources on unload.</summary>
     private async void Stop(object sender, RoutedEventArgs arguments)
     {
+        CancelMapPreview();
         _documentWatchId = "";
         _pendingDiskChange = null;
         _diskChangeTimer.Stop();
@@ -231,9 +236,13 @@ public partial class MainPage : UserControl
         }
     }
 
-    /// <summary>Freezes graph input around provider replacement, resuming it when opening fails.</summary>
-    private async Task OpenWorkspaceAsync(string mode, string initialPath = "", string anchor = "", ReadingPosition? position = null,
+    /// <summary>Opens a workspace under the same input and history guards as a cross-workspace traversal.</summary>
+    private Task OpenWorkspaceAsync(string mode, string initialPath = "", string anchor = "", ReadingPosition? position = null,
         string recentPath = "", string recentKind = "")
+        => RunWorkspaceTransitionAsync(() => OpenWorkspaceCoreAsync(mode, initialPath, anchor, position, recentPath, recentKind));
+
+    /// <summary>Freezes graph input until the provider change completes, then handles the latest queued browser traversal.</summary>
+    private async Task RunWorkspaceTransitionAsync(Func<Task> transition)
     {
         AssertMarkdownEditIdle();
         if (_workspaceTransitionBusy)
@@ -243,13 +252,15 @@ public partial class MainPage : UserControl
         _workspaceTransitionBusy = true;
         OpenFileButton.IsEnabled = false;
         OpenFolderButton.IsEnabled = false;
+        CompactOpenButton.IsEnabled = false;
+        UpdateExportButtons();
         UpdateParentFolderActions();
         var mapSuspended = false;
         try
         {
             await BrowserServices.CallAsync("map.suspend");
             mapSuspended = true;
-            await OpenWorkspaceCoreAsync(mode, initialPath, anchor, position, recentPath, recentKind);
+            await transition();
         }
         finally
         {
@@ -265,12 +276,15 @@ public partial class MainPage : UserControl
                 _workspaceTransitionBusy = false;
                 OpenFileButton.IsEnabled = true;
                 OpenFolderButton.IsEnabled = true;
+                CompactOpenButton.IsEnabled = true;
+                UpdateExportButtons();
                 UpdateParentFolderActions();
                 if (_pendingHistory is { } pendingHistory)
                 {
                     _pendingHistory = null;
                     await RestoreHistoryAsync(pendingHistory);
                 }
+                await RenderMarkdownAiAsync();
             }
         }
     }
@@ -287,8 +301,6 @@ public partial class MainPage : UserControl
         CancelMarkdownAi();
         await FlushMapAsync(changingWorkspace: true);
         _exporting.Cancel();
-        _documentBusy = true;
-        UpdateExportButtons();
         _opening.Cancel();
         _opening.Dispose();
         _opening = new();
@@ -307,11 +319,19 @@ public partial class MainPage : UserControl
             {
                 throw new WorkspaceException("markdown-unsaved", "Save a Markdown copy or restore edited documents before opening another workspace.");
             }
+
+            // The picker can replace any retained provider with the same stable ID. Check all layouts
+            // under the edit gate before asking the host to open or evict any of those providers.
+            if (_contexts.Values.Any(context => context.Map.Session.Dirty))
+            {
+                throw new WorkspaceException("map-unsaved", "Save or download your map layout before opening another workspace, or discard its changes in Map.");
+            }
             var info = await BrowserServices.CallAsync<WorkspaceInfo>("workspace.open", new
             {
                 mode,
                 recentPath,
                 recentKind,
+                priorityDocumentPath = mode == "resume" ? initialPath : "",
                 workspaceId = _active?.Provider.Info.Id ?? ""
             }, cancellation);
             if (initialPath.Length == 0 && mode != "demo")
@@ -339,8 +359,12 @@ public partial class MainPage : UserControl
             }
 
             // The browser owns replacement of a provider with the same stable workspace id.
-            var map = await LoadMapAsync(provider, catalog, cancellation);
-            _contexts[info.Id] = new(provider, catalog, map);
+            var firstWorkspace = _active == null;
+            if (_view == "map")
+            {
+                await CloseMapPreviewAsync();
+            }
+            _contexts[info.Id] = new(provider, catalog, new());
             _active = _contexts[info.Id];
             await StopDocumentWatchAsync();
             await LoadReaderAppearanceAsync(cancellation);
@@ -359,9 +383,12 @@ public partial class MainPage : UserControl
             _settingsDialog?.Close();
             ResumeWorkspaceButton.Visibility = Visibility.Collapsed;
             _resume = null;
-            RefreshSidebar();
             UpdateWorkspaceLabels();
             var initialDocumentPath = catalog.Cards.FirstOrDefault(c => c.Path == initialPath)?.Path ?? catalog.Cards.FirstOrDefault(c => c.Path.Equals("README.md", StringComparison.OrdinalIgnoreCase))?.Path ?? catalog.Cards.FirstOrDefault()?.Path;
+            if (!firstWorkspace || initialDocumentPath == null)
+            {
+                RefreshSidebar();
+            }
             if (initialDocumentPath == null)
             {
                 _document = null;
@@ -372,7 +399,10 @@ public partial class MainPage : UserControl
                 await NavigateAsync(initialDocumentPath, initialDocumentPath == initialPath ? anchor : "", true, initialDocumentPath == initialPath ? position : null);
             }
 
-            _ = IndexAsync(_active);
+            if (_active is { } active && ReferenceEquals(active.Provider, provider))
+            {
+                _ = IndexAsync(active);
+            }
         }
         finally
         {
@@ -381,15 +411,45 @@ public partial class MainPage : UserControl
                 _mapGate.Release();
             }
 
-            _documentBusy = false;
             CancelButton.Visibility = Visibility.Collapsed;
             StatusNotice.Visibility = Visibility.Collapsed;
-            UpdateExportButtons();
-            await RenderMarkdownAiAsync();
         }
     }
 
-    /// <summary>Indexes a context in the background and updates progress only while it is still active.</summary>
+    /// <summary>Shares one cancellable folder scan among indexing, early link clicks and the first map visit.</summary>
+    private Task EnsureInventoryAsync(Context context)
+    {
+        if (!context.InventoryPending)
+        {
+            return Task.CompletedTask;
+        }
+        if (context.InventoryLoad is not { IsCompleted: false })
+        {
+            context.InventoryLoad = CompleteInventoryAsync(context, _opening.Token);
+        }
+        return context.InventoryLoad;
+    }
+
+    /// <summary>Publishes a complete validated enumeration only to the retained provider that initiated it.</summary>
+    private async Task CompleteInventoryAsync(Context context, CancellationToken cancellation)
+    {
+        await context.Provider.RefreshAsync(cancellation);
+        var entries = await context.Provider.EnumerateAsync(cancellation);
+        cancellation.ThrowIfCancellationRequested();
+        if (!_contexts.TryGetValue(context.Provider.Info.Id, out var retained) || !ReferenceEquals(context, retained))
+        {
+            throw new OperationCanceledException();
+        }
+
+        context.Catalog.CompleteInitialEnumeration(entries);
+        context.InventoryPending = false;
+        if (ReferenceEquals(context, _active))
+        {
+            RefreshSidebar();
+        }
+    }
+
+    /// <summary>Completes the initial folder inventory, then indexes documents while the first page remains readable.</summary>
     private async Task IndexAsync(Context context)
     {
         _indexing.Dispose();
@@ -397,6 +457,8 @@ public partial class MainPage : UserControl
         var cancellation = _indexing.Token;
         try
         {
+            await EnsureInventoryAsync(context).WaitAsync(cancellation);
+            cancellation.ThrowIfCancellationRequested();
             await context.Catalog.IndexAsync(context.Provider, (indexedDocuments, totalDocuments) =>
             {
                 if (context != _active)
@@ -444,35 +506,64 @@ public partial class MainPage : UserControl
         await NavigateCoreAsync(path, anchor, push, position);
     }
 
-    /// <summary>Loads Markdown while rejecting obsolete navigation results.</summary>
-    private async Task NavigateCoreAsync(string path, string anchor, bool push, ReadingPosition? position)
+    /// <summary>Opens a graph destination in the reader at its anchor or saved position, rendering only the destination.</summary>
+    private async Task OpenMapDocumentInReaderAsync(string path, string anchor = "", ReadingPosition? position = null)
     {
-        if (_active == null)
+        if (_view != "map" || _workspaceTransitionBusy)
         {
             return;
         }
 
-        await CloseDocumentFindAsync();
-        CancelMarkdownAi();
-        await FlushMapAsync();
-        _exporting.Cancel();
-        _documentBusy = true;
-        UpdateExportButtons();
+        AssertMarkdownEditIdle();
+        await NavigateCoreAsync(path, anchor, push: true, position: position, openInReader: true);
+    }
+
+    /// <summary>Loads the requested document and commits its view and status only while this navigation owns the active workspace.</summary>
+    private async Task NavigateCoreAsync(string path, string anchor, bool push, ReadingPosition? position, bool openInReader = false)
+    {
+        var context = _active;
+        if (context == null)
+        {
+            return;
+        }
+
         _navigation.Cancel();
         _navigation.Dispose();
         _navigation = new();
         var cancellation = _navigation.Token;
         var generation = ++_generation;
-        var context = _active;
-        path = WorkspacePath.Normalize(path);
-        if (push)
-        {
-            await CaptureHistoryAsync();
-        }
-
-        SetStatus("Opening page…");
+        _navigationBusy = true;
+        UpdateExportButtons();
+        var openingDocument = false;
         try
         {
+            if (_view == "map" && !openInReader)
+            {
+                await CloseSupersededMapPreviewAsync(path);
+            }
+            await CloseDocumentFindAsync();
+            cancellation.ThrowIfCancellationRequested();
+            CancelMarkdownAi();
+            await FlushMapAsync();
+            cancellation.ThrowIfCancellationRequested();
+            if (!ReferenceEquals(context, _active))
+            {
+                return;
+            }
+
+            _exporting.Cancel();
+            path = WorkspacePath.Normalize(path);
+            if (push)
+            {
+                await CaptureHistoryAsync(cancellation);
+            }
+
+            SetStatus("Opening page…");
+            openingDocument = true;
+            if (context.InventoryPending && path != context.Provider.Info.InitialDocumentPath)
+            {
+                await EnsureInventoryAsync(context).WaitAsync(cancellation);
+            }
             var model = await context.Catalog.OpenAsync(context.Provider, path, cancellation);
             cancellation.ThrowIfCancellationRequested();
             if (generation != _generation || context != _active)
@@ -480,6 +571,17 @@ public partial class MainPage : UserControl
                 return;
             }
 
+            if (openInReader && _view == "map")
+            {
+                await CloseMapPreviewAsync();
+                cancellation.ThrowIfCancellationRequested();
+                if (!ReferenceEquals(context, _active))
+                {
+                    return;
+                }
+                _view = "read";
+            }
+            var deferTrees = _document == null && _view is ("read" or "split");
             _document = model;
             context.Map.SelectedPath = model.Path;
             context.Map.Exploration.RecordVisit(model.Path);
@@ -492,8 +594,11 @@ public partial class MainPage : UserControl
             MessageOverlay.Visibility = Visibility.Collapsed;
             UpdateExportButtons();
             UpdateDocumentTitle(model.Path, IsMarkdownDraft());
-            RefreshOutline(model);
-            RefreshSidebar();
+            if (!deferTrees)
+            {
+                RefreshOutline(model);
+                RefreshSidebar();
+            }
             UpdateWorkspaceLabels();
             if (push)
             {
@@ -519,6 +624,12 @@ public partial class MainPage : UserControl
             if (_view is "read" or "split")
             {
                 await ReaderHost.DisplayAsync(model, context.Provider.Info.Id, position, position == null ? anchor : "", cancellation);
+                cancellation.ThrowIfCancellationRequested();
+                if (deferTrees && ReferenceEquals(context, _active) && generation == _generation)
+                {
+                    RefreshOutline(model);
+                    RefreshSidebar();
+                }
             }
             if (_view is "source" or "split")
             {
@@ -549,69 +660,86 @@ public partial class MainPage : UserControl
         catch (OperationCanceledException)
         {
         }
-        catch (Exception error)
+        catch (Exception error) when (openingDocument)
         {
-            if (generation != _generation)
+            if (generation != _generation || !ReferenceEquals(context, _active))
             {
                 return;
             }
 
             _missingPath = path;
+            if (_document == null)
+            {
+                RefreshSidebar();
+            }
             ShowMessage("This page could not be opened", error is WorkspaceException ? error.Message : "Reopen the folder or choose this page again.");
             SetStatus("Choose the missing file or reopen its folder.");
         }
         finally
         {
-            _documentBusy = false;
-            UpdateExportButtons();
-            await RenderMarkdownAiAsync();
+            if (generation == _generation)
+            {
+                _navigationBusy = false;
+                UpdateExportButtons();
+                await RenderMarkdownAiAsync();
+            }
         }
     }
 
     /// <summary>Captures the visible reader or source position before replacing the current history entry.</summary>
-    private async Task CaptureHistoryAsync()
+    private async Task CaptureHistoryAsync(CancellationToken cancellationToken = default)
     {
-        if (_document == null || _history.Current == null || _view == "map" || (_narrow && _sidebarOpen))
+        var entry = _history.Current;
+        if (_document == null || entry == null || _view == "map" || (_narrow && _sidebarOpen))
         {
             return;
         }
 
-        var position = await ReaderHost.CaptureAsync();
-        if (_view == "source")
+        var position = _view == "source"
+            ? await BrowserServices.CallAsync<ReadingPosition>("source.capture", new { hostId = SourceHost.HostId }, cancellationToken)
+            : await ReaderHost.CaptureAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_history.Current?.Id != entry.Id)
         {
-            position = await BrowserServices.CallAsync<ReadingPosition>("source.capture", new { hostId = SourceHost.HostId });
+            return;
         }
 
         _history.Capture(position);
-        await BrowserServices.CallAsync("history.replace", _history.Current);
+        await BrowserServices.CallAsync("history.replace", _history.Current, cancellationToken);
     }
 
     /// <summary>Displays the active document's source when both document and workspace are available.</summary>
     private Task ShowSourceAsync(CancellationToken cancellationToken = default) => _document == null || _active == null ? Task.CompletedTask : SourceHost.DisplayAsync(_document, _active.Provider.Info.Id, _preferences, cancellationToken);
     /// <summary>Displays the graph, retaining its visual elements when navigation only updates the selected document.</summary>
-    private Task ShowMapAsync(bool updateSelection = false)
+    private async Task ShowMapAsync(bool updateSelection = false)
     {
-        if (_active == null)
+        var context = _active;
+        if (context == null || _view != "map")
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        _active.Map.Session.EnsureDocuments(_active.Catalog.Cards);
-        var selected = _active.Map.SelectedPath;
-        var map = BuildAtlasMap(_active, selected);
-        var presentation = MapPresentation(_active.Map);
-        var focused = _active.Map.Session.Value.Atlas?.FocusDepth > 0;
+        await EnsureMapLayoutAsync(context, _opening.Token);
+        if (!ReferenceEquals(context, _active) || _view != "map")
+        {
+            return;
+        }
+        var selected = context.Map.SelectedPath;
+        var map = BuildAtlasMap(context, selected);
+        var presentation = MapPresentation(context.Map);
+        var focused = context.Map.Session.Value.Atlas?.FocusDepth > 0;
 
         if (updateSelection)
         {
-            return MapHost.DisplaySelectionAsync(
-                map, selected, _active.Provider.Info.Id, presentation, focused, center: true);
+            await MapHost.DisplaySelectionAsync(
+                map, selected, context.Provider.Info.Id, presentation, focused, center: true);
+            return;
         }
 
-        return MapHost.DisplayAsync(
+        await MapHost.DisplayAsync(
             map,
             selected,
-            _active.Provider.Info.Id,
+            context.Provider.Info.Id,
             presentation,
             focused
         );
@@ -631,6 +759,10 @@ public partial class MainPage : UserControl
         await CloseDocumentFindAsync();
         await BrowserServices.CallAsync("map.flush");
         await CaptureHistoryAsync();
+        if (_view == "map" && view != "map")
+        {
+            await CloseMapPreviewAsync();
+        }
         var position = _history.Current?.Position;
         _view = view == "split" && ActualWidth < 1050 ? "source" : view;
         _sidebarOpen = !_narrow && _sidebarOpen;
@@ -653,6 +785,13 @@ public partial class MainPage : UserControl
         {
             await ShowMapAsync();
         }
+    }
+
+    /// <summary>Cancels an outstanding graph preview and releases the expanded DOM card before hiding or replacing the graph.</summary>
+    private async Task CloseMapPreviewAsync()
+    {
+        CancelMapPreview();
+        await BrowserServices.CallAsync("map.previewClose", new { hostId = MapHost.HostId });
     }
 
     /// <summary>Applies the shell's wide or narrow layout and updates compact toolbar controls.</summary>
@@ -687,8 +826,9 @@ public partial class MainPage : UserControl
         SidebarSplitter.Visibility = sidebarVisible && !_narrow ? Visibility.Visible : Visibility.Collapsed;
         BrandBadge.Visibility = _narrow ? Visibility.Collapsed : Visibility.Visible;
         TitlePanel.Visibility = ActualWidth < 900 ? Visibility.Collapsed : Visibility.Visible;
-        OpenFolderButton.Visibility = _narrow ? Visibility.Collapsed : Visibility.Visible;
-        ButtonIcons.SetText(OpenFileButton, _narrow ? "Open" : "Open file");
+        OpenFileButton.Visibility = _narrow ? Visibility.Collapsed : Visibility.Visible;
+        OpenFolderButton.Visibility = OpenFileButton.Visibility;
+        CompactOpenButton.Visibility = _narrow ? Visibility.Visible : Visibility.Collapsed;
         ButtonIcons.SetCompact(SettingsButton, true);
         LayoutDocumentToolbar();
 
@@ -1022,13 +1162,23 @@ public partial class MainPage : UserControl
             case "map-explore":
                 await HandleMapExplorationAsync(root);
                 break;
+            case "map-preview":
+                await HandleMapPreviewAsync(root);
+                break;
+            case "map-preview-open":
+                await OpenMapPreviewInReaderAsync(root);
+                break;
             case "navigate":
+                var path = root.GetProperty("path").GetString() ?? "";
+                var anchor = root.TryGetProperty("anchor", out var targetAnchor) ? targetAnchor.GetString() ?? "" : "";
                 if (_view == "map")
                 {
-                    await SetViewAsync("read");
+                    await OpenMapDocumentInReaderAsync(path, anchor);
                 }
-
-                await NavigateAsync(root.GetProperty("path").GetString() ?? "", root.TryGetProperty("anchor", out var anchor) ? anchor.GetString() ?? "" : "");
+                else
+                {
+                    await NavigateAsync(path, anchor);
+                }
                 break;
             case "history":
                 var entry = Wire.Decode<HistoryEntry>(root.GetProperty("entry").GetRawText());
@@ -1083,12 +1233,47 @@ public partial class MainPage : UserControl
             return;
         }
 
-        _active = context;
+        if (ReferenceEquals(context, _active))
+        {
+            await RestoreWorkspaceEntryAsync(context, entry);
+            return;
+        }
+
+        var departure = _history.Current;
+        try
+        {
+            await RunWorkspaceTransitionAsync(async () =>
+            {
+                // Finish writable layouts or leave the current workspace available for download.
+                await FlushMapAsync(changingWorkspace: true);
+                if (_view == "map")
+                {
+                    await CloseMapPreviewAsync();
+                }
+                _active = context;
+                await RestoreWorkspaceEntryAsync(context, entry);
+            });
+        }
+        catch when (departure != null && _active?.Provider.Info.Id == departure.WorkspaceId)
+        {
+            // popstate arrives after the browser moves. Undo that move if this destination still owns the URL.
+            var entries = _history.Entries.ToList();
+            var departureIndex = entries.FindIndex(item => item.Id == departure.Id);
+            var targetIndex = entries.FindIndex(item => item.Id == entry.Id);
+            var delta = targetIndex >= 0 && departureIndex >= 0 ? departureIndex - targetIndex : 0;
+            await BrowserServices.CallAsync("history.cancelTraversal", new { targetId = entry.Id, departure, delta });
+            throw;
+        }
+    }
+
+    /// <summary>Restores the selected entry and its reading position after the workspace has been accepted.</summary>
+    private async Task RestoreWorkspaceEntryAsync(Context context, HistoryEntry entry)
+    {
         await LoadReaderAppearanceAsync();
         await ApplyPreferencesAsync();
         _history.Restore(entry);
         await NavigateAsync(entry.Path, entry.Anchor, false, entry.Position);
-        if (!context.Catalog.IndexComplete)
+        if (ReferenceEquals(context, _active) && !context.Catalog.IndexComplete)
         {
             _indexing.Cancel();
             _ = IndexAsync(context);
@@ -1117,7 +1302,12 @@ public partial class MainPage : UserControl
         }
         AssertMarkdownEditIdle();
         context.Catalog.Seed(entries);
-        context.Map.Session.EnsureDocuments(context.Catalog.Cards);
+        context.InventoryPending = false;
+        await EnsureMapLayoutAsync(context, _opening.Token);
+        if (!ReferenceEquals(context, _active) || generation != _generation || _workspaceTransitionBusy)
+        {
+            return;
+        }
         await NavigateAsync(path, "", !samePage, position);
         if (ReferenceEquals(context, _active))
         {
@@ -1286,9 +1476,11 @@ public partial class MainPage : UserControl
         await BrowserServices.CallAsync("history.go", new { delta = 1 });
     });
     /// <summary>Opens selected Markdown files as a workspace.</summary>
-    private async void OpenFiles(object sender, RoutedEventArgs arguments) => await ExecuteAsync(() => ShowRecentLocationsAsync("files", OpenFileButton));
+    private async void OpenFiles(object sender, RoutedEventArgs arguments) =>
+        await ExecuteAsync(() => ShowRecentLocationsAsync("files", _narrow ? CompactOpenButton : OpenFileButton));
     /// <summary>Opens a connected documentation folder with its provider capabilities.</summary>
-    private async void OpenFolder(object sender, RoutedEventArgs arguments) => await ExecuteAsync(() => ShowRecentLocationsAsync("folder", OpenFolderButton));
+    private async void OpenFolder(object sender, RoutedEventArgs arguments) =>
+        await ExecuteAsync(() => ShowRecentLocationsAsync("folder", _narrow ? CompactOpenButton : OpenFolderButton));
     /// <summary>Opens the application's local demo workspace.</summary>
     private async void OpenDemo(object sender, RoutedEventArgs arguments) => await ExecuteAsync(() => OpenWorkspaceAsync("demo"));
     /// <summary>Switches the shell to the Markdown reader.</summary>

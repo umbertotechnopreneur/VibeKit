@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 Texture2D Desktop : register(t0);
 Texture2D History : register(t1);
+Texture2D<float> WindowCoverage : register(t2);
 SamplerState LinearClamp : register(s0);
 cbuffer Parameters : register(b0)
 {
@@ -10,6 +11,7 @@ cbuffer Parameters : register(b0)
     float4 Tone; // glow radius, glow strength, black level, contrast
     float4 Finish; // vignette, grain, history decay, history mix
     float4 Glitch; // type (-1 disabled), amount, vertical position, phase
+    float4 Target; // 0: all, 1: windows, 2: wallpaper
 };
 struct Vertex { float4 Position : SV_POSITION; float2 UV : TEXCOORD0; };
 Vertex VSMain(uint id : SV_VertexID)
@@ -25,6 +27,16 @@ Pixel PSMain(Vertex v)
 {
     float2 texel = 1.0 / Surface.xy;
     float3 original = Desktop.Sample(LinearClamp, v.UV).rgb;
+    Pixel result;
+    [branch] if (Target.x != 0)
+    {
+        bool overWindow = WindowCoverage.Load(int3(int2(v.Position.xy), 0)) > 0.5;
+        if (overWindow != (Target.x == 1))
+        {
+            result.Memory = result.Display = float4(original, 1);
+            return result;
+        }
+    }
     float2 uv = v.UV;
     float local = 1.0 - smoothstep(0.012, 0.035, abs(uv.y - Glitch.z));
     if (Glitch.x > 0.5 && Glitch.x < 1.5)
@@ -76,7 +88,6 @@ Pixel PSMain(Vertex v)
     float3 memory = current;
     if (Finish.w > 0 && Finish.z > 0 && Surface.z > 0)
         memory = max(current, History.Sample(LinearClamp, v.UV).rgb * Finish.z);
-    Pixel result;
     result.Memory = float4(memory, 1);
     result.Display = float4(lerp(current, memory, Finish.w * Surface.z), 1);
     return result;

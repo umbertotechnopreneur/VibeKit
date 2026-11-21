@@ -23,6 +23,7 @@ from localization import LANGUAGES, load_language, save_language
 from studio_paths import working_assets
 from panel_theme import SCENE_COLORS, THEMES, load_theme, save_theme, resolve_theme, theme_css
 from diagnostics import configure_diagnostics, export_diagnostics, get_logger
+from memory_watchdog import start_watchdog
 
 import gi
 
@@ -1206,4 +1207,20 @@ class BrioPanel(Gtk.Application):
 
 if __name__ == "__main__":
     configure_diagnostics()
-    BrioPanel().run()
+    panel = BrioPanel()
+
+    def close_for_memory():
+        try:
+            if panel.get_is_registered():
+                notice = Gio.Notification.new("Studio Controls closed")
+                notice.set_body("The panel exceeded its memory limit. See the local diagnostic log.")
+                panel.send_notification("memory-limit", notice)
+        finally:
+            panel.quit()
+        return GLib.SOURCE_REMOVE
+
+    watchdog_stop = start_watchdog(get_logger("memory"), lambda: GLib.idle_add(close_for_memory))
+    try:
+        panel.run()
+    finally:
+        watchdog_stop.set()

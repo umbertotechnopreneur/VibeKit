@@ -19,13 +19,20 @@
 
 import { build } from "esbuild";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile, readdir, copyFile, rm, lstat } from "node:fs/promises";
-import { dirname, resolve, join, relative } from "node:path";
+import { access, mkdir, readFile, writeFile, readdir, copyFile, rm, lstat } from "node:fs/promises";
+import { dirname, resolve, join, relative, sep } from "node:path";
 import { clientFingerprint, verifyInstalledPackages } from "./client-inputs.mjs";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
 const debug = process.argv.includes("--debug");
-const bundleDirectory = join(repositoryRoot, "src/MarkVibe.Browser/wwwroot/js");
+const readerPrototype = process.argv.includes("--reader-prototype");
+const windowsDesktop = process.argv.includes("--windows-desktop");
+const desktopEntrypoints = ["markvibe.js", "markvibe.css", "editor.worker.js", "diagram-frame.html"];
+const bundleDirectory = join(repositoryRoot, windowsDesktop
+  ? "src/MarkVibe.Windows/obj/desktop-js/" + (debug ? "debug" : "release")
+  : readerPrototype
+  ? "prototypes/MarkVibe.Reader.WinUI/obj/reader/js"
+  : "src/MarkVibe.Browser/wwwroot/js");
 await verifyInstalledPackages();
 const inputFingerprint = await clientFingerprint();
 if (!bundleDirectory.startsWith(repositoryRoot + "/") && !bundleDirectory.startsWith(repositoryRoot + "\\")) {
@@ -40,7 +47,13 @@ const previousOutputInfo = await lstat(bundleDirectory).catch(error => {
 if (previousOutputInfo?.isSymbolicLink()) {
   throw new Error("Generated client output must not be a link");
 }
-await rm(bundleDirectory, { recursive: true, force: true });
+if (windowsDesktop && await desktopBundleCurrent()) {
+  console.log("Windows document renderers are current.");
+  process.exit(0);
+}
+if (!readerPrototype && !windowsDesktop) {
+  await rm(bundleDirectory, { recursive: true, force: true });
+}
 await mkdir(bundleDirectory, { recursive: true });
 // The opaque diagram frame cannot import modules from the application's origin.
 // Inline only this source-built runtime and authorize its exact bytes in the frame CSP.
@@ -76,7 +89,11 @@ await writeFile(framePath, frameHtml);
 
 const result = await build({
   absWorkingDir: repositoryRoot,
-  entryPoints: { markvibe: "client/main.js", "editor.worker": "client/editor.worker.js" },
+  entryPoints: windowsDesktop
+    ? { markvibe: "client/windows-document-view.js", "editor.worker": "client/editor.worker.js" }
+    : readerPrototype
+    ? { reader: "prototypes/MarkVibe.Reader.WinUI/web/reader.js" }
+    : { markvibe: "client/main.js", "editor.worker": "client/editor.worker.js" },
   outdir: bundleDirectory,
   bundle: true,
   splitting: true,
@@ -139,10 +156,42 @@ for (const folder of [...bundledPackages].sort()) {
   notices.push("");
 }
 await writeFile(join(bundleDirectory, "THIRD_PARTY_NOTICES.txt"), notices.join("\n"));
+if (windowsDesktop) {
+  const files = Object.keys(result.metafile.outputs).map(output => relative(bundleDirectory, resolve(repositoryRoot, output)));
+  const licenseFiles = (await readdir(join(bundleDirectory, "licenses"))).map(name => join("licenses", name));
+  files.push(...licenseFiles, "THIRD_PARTY_NOTICES.txt");
+  for (const expected of desktopEntrypoints) {
+    if (!files.includes(expected)) {
+      throw new Error("Windows bundle is missing " + expected + ".");
+    }
+  }
+  await writeFile(join(bundleDirectory, "runtime-files.txt"), files.map(file => file.split(sep).join("/")).sort().join("\n") + "\n");
+}
 // Publish freshness evidence only after every bundle output and notice has been written.
 await writeFile(join(bundleDirectory, "input-fingerprint.json"), JSON.stringify({
   fingerprint: inputFingerprint,
   configuration: debug ? "Debug" : "Release",
   outputs: Object.keys(result.metafile.outputs)
 }, null, 2));
-console.log("Client modules, editor worker, CSS, fonts and third-party notices bundled at " + relative(repositoryRoot, bundleDirectory));
+console.log("Client modules and third-party notices bundled at " + relative(repositoryRoot, bundleDirectory));
+
+/** Reuse the desktop bundle only if its input fingerprint and every staged file still agree. */
+async function desktopBundleCurrent() {
+  try {
+    const saved = JSON.parse(await readFile(join(bundleDirectory, "input-fingerprint.json"), "utf8"));
+    if (saved.fingerprint !== inputFingerprint || saved.configuration !== (debug ? "Debug" : "Release")) {
+      return false;
+    }
+    const files = (await readFile(join(bundleDirectory, "runtime-files.txt"), "utf8")).trim().split(/\r?\n/u);
+    for (const file of files) {
+      const path = resolve(bundleDirectory, file);
+      if (!path.startsWith(bundleDirectory + sep)) {
+        return false;
+      }
+      await access(path);
+    }
+    return desktopEntrypoints.every(file => files.includes(file));
+  } catch {
+    return false;
+  }
+}

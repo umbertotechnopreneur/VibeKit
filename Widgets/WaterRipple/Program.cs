@@ -71,6 +71,14 @@ public partial class App : Application
     private static void RunApplication(EventWaitHandle activation, bool startAtSignIn)
     {
         LoggingService.Initialize();
+        DispatcherQueue? dispatcher = null;
+        using var memoryWatchdog = new VibeWare.MemoryProtection.ProcessMemoryWatchdog(
+            "Water Ripple Studio", Tools.Widgets.VibeWareDiagnostics.GetLogDirectory(LoggingService.AppId),
+            1_000_000_000, () => Volatile.Read(ref dispatcher)?.TryEnqueue(() =>
+            {
+                if (Current is App app && app.window is { } mainWindow) mainWindow.Controller.RequestMemoryShutdown();
+                else Current.Exit();
+            }), showWindowsNotice: true);
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
             var ex = e.ExceptionObject as Exception;
@@ -84,9 +92,11 @@ public partial class App : Application
                 RuntimeInformation.ProcessArchitecture, startAtSignIn);
             Start(_ =>
             {
+                var queue = DispatcherQueue.GetForCurrentThread();
                 Log.Information("WinUI dispatcher started");
                 SynchronizationContext.SetSynchronizationContext(new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread()));
                 new App { relaunchSignal = activation, startAtSignIn = startAtSignIn };
+                Volatile.Write(ref dispatcher, queue);
             });
         }
         catch (Exception ex) { Log.Fatal(ex, "Application startup failed HRESULT={HResult:X8}", ex.HResult); throw; }

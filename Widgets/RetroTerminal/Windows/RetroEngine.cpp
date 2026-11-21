@@ -3,6 +3,7 @@
 // must run on the same UI thread. The window owns safety notifications and timers.
 #include "Renderer.h"
 #include "ControllerState.h"
+#include "BuiltInPresets.h"
 #include "PerformanceRecovery.h"
 #include "GpuJokeNotifications.h"
 #include <windows.h>
@@ -20,6 +21,7 @@ using Clock = std::chrono::steady_clock;
 constexpr wchar_t EngineClass[] = L"VibeWareRetroEngineMessage";
 constexpr wchar_t OverlayClass2[] = L"VibeWareRetroEngineOverlay";
 constexpr UINT_PTR RenderTimer = 1, RecoveryTimer = 2;
+enum class SystemClose { None, Saved, SaveFailed };
 
 class HealthSampler
 {
@@ -65,52 +67,70 @@ struct Engine {
     PerformanceRecovery recovery;
     HealthSampler health;
     HMONITOR monitor{};
-    bool confirmingResume{};
+    bool firstFrame{};
     bool running{}, hotkey{}, dirty{};
+    SystemClose systemClose{};
     int slowFrames{}, frames{};
+    int effectTarget{};
     float cpuTotal{};
     Clock::time_point previousTick{}, statsSince{};
     std::wstring status = L"Stopped. Your desktop is unchanged.";
     double Time() const { return std::chrono::duration<double>(Clock::now().time_since_epoch()).count(); }
     void Change() { model.Change(Time()); dirty = true; }
-    void Stop(const std::wstring& reason) {
+    void Stop(const std::wstring& reason, bool notify = true) {
+        const bool wasRunning = running;
         recovery.Cancel();
-        confirmingResume = false;
+        firstFrame = false;
         KillTimer(window, RecoveryTimer);
         running=false; model.glitches.Cancel(Time(),model.settings); KillTimer(window, RenderTimer);
         if(overlay) ShowWindow(overlay,SW_HIDE);
         renderer.Stop(); if(overlay) { DestroyWindow(overlay); overlay=nullptr; }
         status=reason;
+        if (wasRunning && notify) tray.Notify(L"CRT effect off", status.c_str());
+    }
+    void PrepareForSystemClose() {
+        if (systemClose != SystemClose::None) return;
+        systemClose = SystemClose::SaveFailed;
+        Stop(L"Stopped for Windows servicing.", false);
+        gpuJokes.Cancel(window);
+        if (model.Save()) systemClose = SystemClose::Saved;
+        PostMessageW(owner, WM_CLOSE, 0, 0);
     }
     std::wstring ShaderPath() {
         std::wstring path(32768,L'\0'); DWORD n=GetModuleFileNameW(nullptr,path.data(),DWORD(path.size()));
         if(!n || n>=path.size()) winrt::throw_last_error(); path.resize(n);
         return path.substr(0,path.find_last_of(L"\\/"))+L"\\Shaders\\Retro.hlsl";
     }
-    void Start(bool automatic = false) {
-        if(running || !hotkey) return;
+    void Start(bool automatic = false, HMONITOR requestedDisplay = nullptr) {
+        if(running || !hotkey || systemClose != SystemClose::None) return;
         if (!automatic) recovery.Reset();
         KillTimer(window, RecoveryTimer);
-        confirmingResume = automatic;
+        firstFrame = true;
+        const wchar_t* stage = L"checking the control and display";
         try {
             if(!IsWindow(owner)) throw winrt::hresult_error(E_FAIL,L"The control window is unavailable.");
-            if (!automatic) monitor = MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST);
+            if(!IsWindow(window)) throw winrt::hresult_error(E_FAIL,L"The internal message window is unavailable.");
+            if (!automatic) monitor = requestedDisplay ? requestedDisplay : MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST);
             MONITORINFO info{sizeof(info)}; if(!GetMonitorInfoW(monitor,&info)) winrt::throw_last_error();
+            stage = L"creating the overlay";
             overlay=CreateWindowExW(WS_EX_LAYERED|WS_EX_TRANSPARENT|WS_EX_TOOLWINDOW|WS_EX_NOACTIVATE|WS_EX_TOPMOST,
                 OverlayClass2,L"Retro Terminal screen effect",WS_POPUP,info.rcMonitor.left,info.rcMonitor.top,
                 info.rcMonitor.right-info.rcMonitor.left,info.rcMonitor.bottom-info.rcMonitor.top,nullptr,nullptr,instance,nullptr);
             if(!overlay) winrt::throw_last_error();
             if(!SetLayeredWindowAttributes(overlay,0,0,LWA_ALPHA)) winrt::throw_last_error();
             if(!SetWindowDisplayAffinity(overlay,WDA_EXCLUDEFROMCAPTURE)) throw winrt::hresult_error(HRESULT_FROM_WIN32(GetLastError()),L"Capture exclusion unavailable.");
-            ShowWindow(overlay,SW_SHOWNOACTIVATE); renderer.Start(overlay,monitor,ShaderPath());
+            ShowWindow(overlay,SW_SHOWNOACTIVATE);
+            stage = L"initializing capture and rendering";
+            renderer.Start(overlay,monitor,ShaderPath());
             previousTick=statsSince=Clock::now(); slowFrames=frames=0; cpuTotal=0; dirty=true; model.glitches.Reset(Time(),model.settings);
+            stage = L"starting the render timer";
             if(!SetTimer(window,RenderTimer,34,nullptr)) winrt::throw_last_error(); running=true; status=L"Waiting for a screen frame…";
-        } catch(const winrt::hresult_error& e) { Stop(L"Stopped: "+std::wstring(e.message().c_str())); }
+        } catch(const winrt::hresult_error& e) { Stop(L"Stopped while "+std::wstring(stage)+L": "+e.message().c_str()); }
         catch(...) { Stop(L"Stopped: the effect could not start. No automatic restart."); }
         if (automatic && !running) tray.Notify(L"CRT restart failed", status.c_str());
     }
     void PauseForPerformance(const wchar_t* reason) {
-        Stop(reason);
+        Stop(reason, false);
         health = {};
         if (recovery.Pause(Clock::now()) && SetTimer(window, RecoveryTimer, 1000, nullptr)) {
             status += L" Waiting for system stability.";
@@ -118,7 +138,7 @@ struct Engine {
             recovery.Cancel();
             status += L" Turn CRT on when ready.";
         }
-        tray.Notify(L"CRT paused for performance", status.c_str());
+        tray.Notify(L"CRT effect off", status.c_str());
     }
     void TickRecovery() {
         if (!recovery.Pending() || !recovery.Ready(Clock::now(), health.Healthy())) return;
@@ -139,15 +159,15 @@ struct Engine {
         previousTick=start;
         try {
             auto glitch=model.glitches.Sample(Time(),model.settings); bool animated=model.glitches.Changed(glitch);
-            bool presented=renderer.Tick(model.settings,glitch,dirty,animated);
+            bool presented=renderer.Tick(model.settings,glitch,dirty,animated,effectTarget);
             float ms=std::chrono::duration<float,std::milli>(Clock::now()-start).count();
             slowFrames=ms>80?slowFrames+1:0; if(slowFrames>=3) { PauseForPerformance(L"Rendering was repeatedly slow."); return; }
             if(presented) {
                 dirty=false;
                 if(!SetLayeredWindowAttributes(overlay,0,255,LWA_ALPHA)) winrt::throw_last_error();
-                if (confirmingResume) {
-                    confirmingResume = false;
-                    tray.Notify(L"CRT effect resumed", L"The system is stable and CRT is active again.");
+                if (firstFrame) {
+                    firstFrame = false;
+                    tray.Notify(L"CRT effect on", L"The screen effect is active.");
                 }
                 ++frames;
                 cpuTotal+=ms;
@@ -157,17 +177,14 @@ struct Engine {
                 if(frames) status+=L" · CPU submission "+std::to_wstring(cpuTotal/frames).substr(0,4)+L" ms/frame";
                 status+=L"\nGPU frame time is not measured here."; statsSince=start; frames=0; cpuTotal=0; }
         } catch(const winrt::hresult_error& e) {
-            const bool failedResume = confirmingResume;
             Stop(L"Stopped: "+std::wstring(e.message().c_str()));
-            if (failedResume) tray.Notify(L"CRT restart failed", status.c_str());
         } catch(...) {
-            const bool failedResume = confirmingResume;
             Stop(L"Stopped after an unexpected renderer error. Enable manually to retry.");
-            if (failedResume) tray.Notify(L"CRT restart failed", status.c_str());
         }
     }
 };
 LRESULT CALLBACK OverlayProc(HWND w,UINT m,WPARAM a,LPARAM b) {
+    if(m==WM_CLOSE) return 0; // The engine owns the overlay lifetime.
     if(m==WM_NCHITTEST) return HTTRANSPARENT; if(m==WM_MOUSEACTIVATE) return MA_NOACTIVATE;
     if(m==WM_ERASEBKGND) return 1; return DefWindowProcW(w,m,a,b);
 }
@@ -177,6 +194,17 @@ LRESULT CALLBACK EngineProc(HWND w,UINT m,WPARAM a,LPARAM b) {
     if(!e) return DefWindowProcW(w,m,a,b);
     if (e->tray.HandleMessage(m,a,b)) return 0;
     switch(m) {
+    case WM_CLOSE:
+        // A servicing fallback can broadcast WM_CLOSE to hidden top-level windows.
+        // Keep the timer and tray target alive until RetroDestroy.
+        return 0;
+    case WM_QUERYENDSESSION: if(b & ENDSESSION_CLOSEAPP) return TRUE; break;
+    case WM_ENDSESSION:
+        if(b & ENDSESSION_CLOSEAPP) {
+            if(a) e->PrepareForSystemClose();
+            return 0;
+        }
+        break;
     case WM_TIMER:
         if(a==RenderTimer) e->Tick();
         else if (a==RecoveryTimer) e->TickRecovery();
@@ -191,6 +219,11 @@ LRESULT CALLBACK EngineProc(HWND w,UINT m,WPARAM a,LPARAM b) {
 }
 LRESULT CALLBACK OwnerSubclass(HWND w,UINT m,WPARAM a,LPARAM b,UINT_PTR id,DWORD_PTR data) {
     auto* e=reinterpret_cast<Engine*>(data);
+    if(m==WM_QUERYENDSESSION && (b & ENDSESSION_CLOSEAPP)) return TRUE;
+    if(m==WM_ENDSESSION && (b & ENDSESSION_CLOSEAPP)) {
+        if(a) e->PrepareForSystemClose();
+        return 0;
+    }
     if(m==WM_DPICHANGED) e->Stop(L"Stopped after a display scale change. Enable manually to resume.");
     if(m==WM_DESTROY) { e->Stop(L"Stopped because the control window closed."); RemoveWindowSubclass(w,OwnerSubclass,id); e->owner=nullptr; }
     return DefSubclassProc(w,m,a,b);
@@ -218,11 +251,17 @@ API void* __cdecl RetroCreate(HWND owner) {
 }
 API void __cdecl RetroDestroy(void* p) { if(!p) return; auto* e=E(p); e->Stop(L"Stopped"); e->gpuJokes.Cancel(e->window); e->tray.Remove(); if(e->owner) RemoveWindowSubclass(e->owner,OwnerSubclass,1); UnregisterHotKey(e->window,1); WTSUnRegisterSessionNotification(e->window); DestroyWindow(e->window); delete e; }
 API int __cdecl RetroSave(void* p) { return p&&E(p)->model.Save(); }
-API int __cdecl RetroStart(void* p) { if(!p) return 0; E(p)->Start(); return E(p)->running; }
+API int __cdecl RetroStart(void* p, HMONITOR monitor) { if(!p) return 0; E(p)->Start(false, monitor); return E(p)->running; }
 API void __cdecl RetroStop(void* p) { if(p) E(p)->Stop(L"Stopped by you."); }
+API int __cdecl RetroSystemClose(void* p) { return p ? static_cast<int>(E(p)->systemClose) : 0; }
 API int __cdecl RetroRunning(void* p) { return p&&E(p)->running; }
 API int __cdecl RetroRecoveryPending(void* p) { return p && E(p)->recovery.Pending(); }
 API void __cdecl RetroSetRecovery(void* p, int enabled, int seconds) { if (p) E(p)->SetRecovery(enabled != 0, seconds); }
+API void __cdecl RetroSetTarget(void* p, int target) {
+    if (!p || target < 0 || target > 2) return;
+    E(p)->effectTarget = target;
+    E(p)->dirty = true;
+}
 API const wchar_t* __cdecl RetroGpuJoke(unsigned index) { return GpuJokeNotifications::Caption(index); }
 API int __cdecl RetroSetGpuJokes(void* p, int enabled) {
     if (!p) return 0;
@@ -242,7 +281,26 @@ GETSET(Random,randomGlitches,bool)
 GETSET(GlitchTypes,glitchTypes,unsigned)
 API float __cdecl RetroGetColor(void* p,int i) { return p&&i>=0&&i<3?E(p)->model.settings.color[i]:0; }
 API void __cdecl RetroSetColor(void* p,int i,float v) { if(p&&i>=0&&i<3) { E(p)->model.settings.color[i]=v; E(p)->Change(); } }
-API int __cdecl RetroPreset(void* p,int i) { if(!p||i<1||i>6) return 0; auto& m=E(p)->model; if(i<=3) m.settings=BuiltInPreset(i-1); else if(!m.LoadPersonalPreset(i-3)) return 0; E(p)->Change(); return 1; }
+API int __cdecl RetroBuiltInPresetCount() { return BuiltInPresetCount; }
+API const wchar_t* __cdecl RetroBuiltInPresetName(int index)
+{
+    return index >= 0 && index < BuiltInPresetCount ? BuiltInPresets[index].name : nullptr;
+}
+API int __cdecl RetroApplyBuiltInPreset(void* p, int index)
+{
+    if (!p || index < 0 || index >= BuiltInPresetCount) return 0;
+    E(p)->model.settings = BuiltInPresets[index].settings;
+    E(p)->Change();
+    return 1;
+}
+API int __cdecl RetroPreset(void* p, int index)
+{
+    if (!p || index < 1 || index > 6) return 0;
+    if (index <= 3) return RetroApplyBuiltInPreset(p, index - 1);
+    if (!E(p)->model.LoadPersonalPreset(index - 3)) return 0;
+    E(p)->Change();
+    return 1;
+}
 API int __cdecl RetroSavePreset(void* p,int i) { return p&&i>=1&&i<=3&&E(p)->model.SavePersonalPreset(i); }
 API int __cdecl RetroTryGlitch(void* p) { return p&&E(p)->running&&E(p)->model.glitches.Trigger(E(p)->Time(),E(p)->model.settings); }
 API void __cdecl RetroStatus(void* p,wchar_t* buffer,int capacity) { if(buffer&&capacity>0) { buffer[0]=0; if(p) wcsncpy_s(buffer,size_t(capacity),E(p)->status.c_str(),_TRUNCATE); } }

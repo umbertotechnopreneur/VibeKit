@@ -2,6 +2,7 @@
 import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk?version=4.0';
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import {createControlBuilders, createPhosphorColor} from './settings-controls.js';
 import {createAbout} from './about.js';
 import {createAccordion, addThemeSetting} from './preferences-layout.js';
@@ -30,9 +31,18 @@ export function buildControls(window, settings) {
     const about = createAbout(window);
     window.add(page);
     const signals = [];
+    const showRequestedAbout = () => {
+        const requested = settings.get_int64('about-request');
+        if (!requested || !window.get_mapped()) return;
+        settings.reset('about-request');
+        const age = GLib.get_monotonic_time() - requested;
+        if (age >= 0 && age < 10 * GLib.USEC_PER_SEC) about.show();
+    };
+    signals.push(settings.connect('changed::about-request', showRequestedAbout));
+    const aboutMap = window.connect('map', showRequestedAbout);
     const {controls, expanders, group, section, switchRow, spinRow} = createControlBuilders(effect, settings);
 
-    const active = switchRow(power, 'active', 'CRT effect');
+    const active = switchRow(power, 'active', 'CRT effect', 'Turn on CRT to preview changes on the desktop.');
     const status = new Adw.ActionRow({title: settings.get_string('status'), use_markup: false, title_lines: 0});
     const stop = new Gtk.Button({label: 'Stop', css_classes: ['destructive-action'], valign: Gtk.Align.CENTER});
     stop.connect('clicked', () => settings.set_boolean('active', false));
@@ -86,6 +96,15 @@ export function buildControls(window, settings) {
     settings.bind('mask', mask, 'selected', Gio.SettingsBindFlags.DEFAULT);
     surface.add_row(mask); controls.mask = mask;
     for (const key of ['mask-strength', 'vignette', 'grain']) spinRow(surface, key);
+    const syncSurface = () => {
+        const hasScanlines = settings.get_double('scanlines') > 0;
+        controls['scanline-spacing'].sensitive = controls['scanline-width'].sensitive = hasScanlines;
+        controls['glow-radius'].sensitive = settings.get_double('glow') > 0;
+        controls['mask-strength'].sensitive = settings.get_int('mask') !== 0;
+    };
+    for (const key of ['scanlines', 'glow', 'mask'])
+        signals.push(settings.connect(`changed::${key}`, syncSurface));
+    syncSurface();
 
     const persistence = section('persistence', 'Phosphor persistence', 'A fading trail behind moving content', 'view-reveal-symbolic');
     switchRow(persistence, 'persistence-enabled', 'Temporal afterglow',
@@ -119,6 +138,7 @@ export function buildControls(window, settings) {
     const dispose = () => {
         if (disposed) return;
         disposed = true;
+        window.disconnect(aboutMap);
         for (const signal of signals) settings.disconnect(signal);
         unsubscribePipeline(); library.dispose(); pipelines.dispose();
         jokes.dispose(); about.dispose();

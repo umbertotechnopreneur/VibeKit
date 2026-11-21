@@ -29,7 +29,8 @@ XML = """<node>
 
 class StatusTray:
     def __init__(self, callbacks):
-        self.callbacks = callbacks
+        self.callbacks = {**callbacks, "utilities": lambda: Gio.AppInfo.launch_default_for_uri(
+            "https://umbertogiacobbi.biz/mini-utilities/", None)}
         self.connection = Gio.bus_get_sync(Gio.BusType.SESSION, None)
         self.ids = []
         self.watch_id = 0
@@ -67,7 +68,18 @@ class StatusTray:
 
     @staticmethod
     def items():
-        return {1: "Open", 3: "About OpenAI Usage", 4: "Settings", 5: "Website", 6: "VibeWare manifesto", 7: "Exit"}
+        return {
+            4: ("Preferences", "settings"),
+            1: ("Open", "open"),
+            8: (None, None),
+            5: ("Website", "website"),
+            6: ("VibeWare manifesto", "manifesto"),
+            9: (None, None),
+            7: ("Quit", "exit"),
+            10: (None, None),
+            11: ("Mini Utilities", "utilities"),
+            3: ("About OpenAI Usage", "about"),
+        }
 
     @property
     def available(self):
@@ -76,10 +88,13 @@ class StatusTray:
     def props(self, item):
         if item == 0:
             return {"children-display": GLib.Variant("s", "submenu")}
-        return {"label": GLib.Variant("s", self.items()[item]), "enabled": GLib.Variant("b", True), "visible": GLib.Variant("b", True)}
+        label, _ = self.items()[item]
+        if label is None:
+            return {"type": GLib.Variant("s", "separator")}
+        return {"label": GLib.Variant("s", label), "enabled": GLib.Variant("b", True), "visible": GLib.Variant("b", True)}
 
     def activate(self, item):
-        key = {1: "open", 3: "about", 4: "settings", 5: "website", 6: "manifesto", 7: "exit"}.get(item)
+        _, key = self.items().get(item, (None, None))
         if key:
             GLib.idle_add(lambda: (self.callbacks[key](), False)[1])
 

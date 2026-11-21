@@ -57,7 +57,9 @@ else:
 
     if args.target:
         runtime_config = root / 'artifacts' / 'app' / args.target / 'VoiceDucker.runtimeconfig.json'
-        runtime = json.loads(runtime_config.read_text())['runtimeOptions']['includedFrameworks']
+        # Framework-dependent builds declare prerequisites, while only self-contained
+        # builds include the .NET runtime in the distribution.
+        runtime = json.loads(runtime_config.read_text())['runtimeOptions'].get('includedFrameworks', [])
         for framework in runtime:
             if framework['name'] == 'Microsoft.NETCore.App':
                 name = 'Microsoft.NETCore.App.Runtime.' + args.target

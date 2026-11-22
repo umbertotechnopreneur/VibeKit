@@ -7,6 +7,7 @@ namespace OpenAIUsage.Windows;
 public sealed class TrayIcon : IDisposable
 {
     private const uint Callback = 0x8001;
+    private const uint ActivateInstance = 0x8002;
     private readonly WindowProc procedure;
     private readonly string className = "OpenAIUsage.Tray." + Environment.ProcessId;
     private readonly nint window;
@@ -50,6 +51,7 @@ public sealed class TrayIcon : IDisposable
     }
     private nint OnMessage(nint hwnd,uint message,nint wParam,nint lParam)
     {
+        if (message == ActivateInstance) { show(); return 0; }
         if(message==taskbarCreated && taskbarCreated!=0) { if(!Add())show(); return 0; }
         if(message==Callback)
         {
@@ -66,8 +68,8 @@ public sealed class TrayIcon : IDisposable
         try
         {
             const uint separator = 0x800;
-            if (!AppendMenu(menu, 0, 4, "Preferences") ||
-                !AppendMenu(menu, 0, 1, "Open") ||
+            if (!AppendMenu(menu, 0, 1, "Open application") ||
+                !AppendMenu(menu, 0, 4, "Preferences") ||
                 !AppendMenu(menu, separator, 0, null) ||
                 !AppendMenu(menu, 0, 5, "Website") ||
                 !AppendMenu(menu, 0, 6, "VibeWare manifesto") ||
@@ -96,6 +98,23 @@ public sealed class TrayIcon : IDisposable
         catch(Exception error) { Diagnostics.Record("tray.command.failed",error.GetType().Name+": "+error.Message); }
         finally { DestroyMenu(menu); }
     }
+
+    internal static void ActivateRunningInstance()
+    {
+        using var current = System.Diagnostics.Process.GetCurrentProcess();
+        foreach (var process in System.Diagnostics.Process.GetProcessesByName(current.ProcessName))
+        {
+            using (process)
+            {
+                if (process.Id == current.Id || process.SessionId != current.SessionId) continue;
+                nint target = FindWindow("OpenAIUsage.Tray." + process.Id, "OpenAI Usage tray");
+                if (target == 0) continue;
+                AllowSetForegroundWindow((uint)process.Id);
+                if (PostMessage(target, ActivateInstance, 0, 0)) return;
+            }
+        }
+    }
+
     public void Dispose()
     {
         if(disposed)return; disposed=true;
@@ -123,5 +142,7 @@ public sealed class TrayIcon : IDisposable
     [DllImport("user32.dll")] private static extern bool DestroyMenu(nint menu);
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out Point point);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(nint window);
+    [DllImport("user32.dll")] private static extern bool AllowSetForegroundWindow(uint processId);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern nint FindWindow(string className, string title);
     [DllImport("user32.dll",CharSet=CharSet.Unicode)] private static extern bool PostMessage(nint window,uint message,nint wParam,nint lParam);
 }

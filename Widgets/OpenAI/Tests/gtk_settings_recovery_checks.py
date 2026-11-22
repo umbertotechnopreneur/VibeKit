@@ -55,8 +55,10 @@ def poll():
                        for control in controls)
             assert not any(isinstance(control, widget.Gtk.Button) and control.get_label() in ("Save settings", "Close")
                            for control in controls)
-            toggle = next(control for control in controls if isinstance(control, widget.Gtk.CheckButton)
-                          and control.get_label() == "Show Credits left")
+            credits_row = next(control for control in controls if isinstance(control, widget.Gtk.ListBoxRow)
+                               and any(isinstance(child, widget.Gtk.Label) and child.get_text() == "Remaining Credits"
+                                       for child in descendants(control)))
+            toggle = next(child for child in descendants(credits_row) if isinstance(child, widget.Gtk.Switch))
             toggle.set_active(False)
             phase = 1
         elif phase == 1 and saved and not window.saving:

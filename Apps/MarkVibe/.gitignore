@@ -1,7 +1,6 @@
 **/bin/
 **/obj/
 node_modules/
-src/MarkVibe.Browser/wwwroot/js/
 artifacts/
 .vs/
 .vscode/

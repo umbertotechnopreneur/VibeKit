@@ -6,7 +6,7 @@
 # Copyright (c) 2026 Umberto Giacobbi | License: MIT (see LICENSE)
 # VBWR E
 <# .SYNOPSIS
-Restore the exact npm lock and optionally bundle browser assets; never download browsers or run tests.
+Restore the exact npm lock and optionally bundle native renderer assets; never download browsers or run tests.
 #>
 [CmdletBinding()]
 param([switch]$DependenciesOnly)

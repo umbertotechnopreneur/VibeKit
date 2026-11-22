@@ -121,7 +121,7 @@ export class SourceHost {
   async render({ workspaceId, path, source, fingerprint, preferences, desktopMonaco = false }, signal) {
     const revision = ++this.revision;
 
-    // A newly visible OpenSilver presenter can still have a zero width until layout.
+    // A newly visible document surface can still have a zero width until layout.
     // That transient state must not force the mobile fallback on a desktop.
     for (let frame = 0; frame < 32 && this.container.clientWidth === 0; frame++) {
       await nextFrame();

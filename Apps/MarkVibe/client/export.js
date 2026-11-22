@@ -19,12 +19,10 @@
 import { prepareMarkdown, highlightCode, textElement } from "./markdown.js";
 import { readExportImage } from "./workspaces.js";
 import { WorkspaceError, checkCancelled, limits, resourceUrl } from "./path.js";
-import { isDesktop, nativeCall } from "./native.js";
+import { nativeCall } from "./native.js";
 import { t } from "./i18n.js";
 import { resolveReaderTheme, decorateThemeArticle } from "./themes.js";
 
-const downloads = new Set();
-const printFrames = new Map();
 const maximumBytes = 32 * 1048576;
 const svgNamespace = "http://www.w3.org/2000/svg";
 const exportCss = `
@@ -196,80 +194,6 @@ async function prepareDocument(model, workspaceId, preferences, signal, expandDe
   return { html, stem, warnings };
 }
 
-/** Downloads the completed HTML and releases its temporary object URL. */
-function downloadHtml(html, filename) {
-  const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
-  downloads.add(url);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-    downloads.delete(url);
-  }, 10000);
-}
-
-/** Prints the exported document in a separate script-free sandboxed frame. */
-async function printDocument(html, signal) {
-  // A separate, script-free document keeps OpenSilver and editor chrome out of print.
-  const frame = document.createElement("iframe");
-  frame.className = "mv-print-document";
-  frame.title = t("Document print preview");
-  frame.setAttribute("aria-hidden", "true");
-  frame.tabIndex = -1;
-  frame.setAttribute("sandbox", "allow-same-origin allow-modals");
-  frame.style.cssText = "position:fixed;left:-100000px;top:0;width:960px;height:900px;border:0;";
-  let timer;
-  /** Release the prepared print frame and its event listeners after printing or cancellation. */
-  const cleanup = () => {
-    clearTimeout(timer);
-    signal?.removeEventListener("abort", cleanup);
-    frame.remove();
-    printFrames.delete(frame);
-  };
-  printFrames.set(frame, cleanup);
-  signal?.addEventListener("abort", cleanup, { once: true });
-  try {
-    await new Promise((resolve, reject) => {
-      /** Cancel the pending print preparation and release its retained frame. */
-      const abort = () => {
-        clearTimeout(timeout);
-        reject(new WorkspaceError("cancelled", "Action cancelled."));
-      };
-      const timeout = setTimeout(() => {
-        signal?.removeEventListener("abort", abort);
-        reject(new WorkspaceError("print-unavailable", "The print preview could not be prepared. Try exporting HTML instead."));
-      }, 15000);
-      frame.onload = () => {
-        clearTimeout(timeout);
-        signal?.removeEventListener("abort", abort);
-        resolve();
-      };
-      signal?.addEventListener("abort", abort, { once: true });
-      frame.srcdoc = html;
-      document.body.append(frame);
-    });
-    checkCancelled(signal);
-    const printWindow = frame.contentWindow;
-    await Promise.race([
-      Promise.all([printWindow.document.fonts.ready, ...[...printWindow.document.images].map(image => image.decode().catch(() => {
-      }))]),
-      new Promise(resolve => setTimeout(resolve, 5000))
-    ]);
-    checkCancelled(signal);
-    printWindow.addEventListener("afterprint", cleanup, { once: true });
-    timer = setTimeout(cleanup, 60000);
-    printWindow.focus();
-    printWindow.print();
-  } catch (error) {
-    cleanup();
-    throw error;
-  }
-}
-
 /** Exports rendered document content through the selected save route. */
 export async function exportDocument({ document: model, workspaceId, preferences, format }, signal) {
   if (!["html", "pdf"].includes(format)) {
@@ -277,17 +201,8 @@ export async function exportDocument({ document: model, workspaceId, preferences
   }
   const { html, stem, warnings } = await prepareDocument(model, workspaceId, preferences, signal, format === "pdf");
   checkCancelled(signal);
-  if (isDesktop()) {
-    const result = await nativeCall("export.save", { html, filename: stem + "." + format, format }, signal);
-    return { ...result, warnings };
-  }
-  if (format === "html") {
-    downloadHtml(html, stem + ".html");
-  }
-  else {
-    await printDocument(html, signal);
-  }
-  return { filename: stem + "." + format, warnings };
+  const result = await nativeCall("export.save", { html, filename: stem + "." + format, format }, signal);
+  return { ...result, warnings };
 }
 
 /** Open the same sanitized, self-contained rendering in the system browser without an export picker. */
@@ -296,16 +211,4 @@ export async function openBrowserPreview({ document: model, workspaceId, prefere
   checkCancelled(signal);
   await nativeCall("file.browser", { html }, signal);
   return { opened: true, warnings };
-}
-
-/** Releases pending browser download URLs and print frames. */
-export function disposeExports() {
-  for (const url of downloads) {
-    URL.revokeObjectURL(url);
-  }
-  downloads.clear();
-  for (const cleanup of printFrames.values()) {
-    cleanup();
-  }
-  printFrames.clear();
 }

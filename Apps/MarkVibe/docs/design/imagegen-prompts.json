@@ -79,7 +79,7 @@
     "reference": "WorkTrail About hero; user's app, style reference"
   },
   "branding": {
-    "asset": "src/MarkVibe.Browser/wwwroot/images/vibeware-logo.png",
+    "asset": "src/MarkVibe.Windows/Rendering/web/images/vibeware-logo.png",
     "source": "VibeWare/Branding/vibeware-logo.png",
     "owner": "Umberto Giacobbi"
   }

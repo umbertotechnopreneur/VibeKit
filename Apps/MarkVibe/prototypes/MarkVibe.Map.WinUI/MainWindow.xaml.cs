@@ -1,7 +1,7 @@
 /* VBWR B
  * Project: MarkVibe | Creator: Umberto Giacobbi
  * Created with AI: OpenAI Codex; workspace picker and reproducible native graph timing
- * Human guidance: keep the OpenSilver reader separate and compare the same map
+ * Human guidance: keep the embedded document reader separate and compare the same map
  * Copyright (c) 2026 Umberto Giacobbi | License: MIT (see LICENSE)
  * VBWR E */
 using System.Diagnostics;
@@ -92,7 +92,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>Creates the map after indexing, timing the same post-catalog work as the OpenSilver map command.</summary>
+    /// <summary>Creates the map after indexing, timing the same post-catalog work as the document map command.</summary>
     private async Task OpenWorkspaceAsync(string directory)
     {
         var cancellation = _lifetime.Token;

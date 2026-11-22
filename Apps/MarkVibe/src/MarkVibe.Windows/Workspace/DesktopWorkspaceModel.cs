@@ -434,6 +434,7 @@ internal sealed class DesktopWorkspaceModel : IDisposable
     /// <summary>Publishes bounded progress notifications while rejecting obsolete workspace results.</summary>
     private async Task IndexAsync(DesktopWorkspace workspace, CancellationToken token)
     {
+        var measuredAt = MapPerformanceProbe.Enabled ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         try
         {
             await workspace.Catalog.IndexAsync(workspace.Provider, (done, count) =>
@@ -443,6 +444,16 @@ internal sealed class DesktopWorkspaceModel : IDisposable
                     CatalogChanged?.Invoke();
                 }
             }, token);
+            if (measuredAt != 0)
+            {
+                DesktopLog.Write("info", "workspace.performance", new
+                {
+                    elapsedMs = System.Diagnostics.Stopwatch.GetElapsedTime(measuredAt).TotalMilliseconds,
+                    documents = workspace.Catalog.Cards.Count,
+                    indexed = workspace.Catalog.IndexedCount,
+                    complete = workspace.Catalog.IndexComplete
+                });
+            }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {

@@ -1,5 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Automation;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using Windows.ApplicationModel;
 
@@ -26,6 +28,7 @@ public sealed partial class MainWindow
         settings = next;
         settingsWriter.Queue(next);
         ApplyTaskbarVisibility();
+        ApplyTopmost();
         ApplySize();
         CheckAlerts();
         if (next.CodexPath != previous.CodexPath || next.TimeZoneId != previous.TimeZoneId)
@@ -34,7 +37,8 @@ public sealed partial class MainWindow
 
     private static async Task AddStartupPreferenceAsync(StackPanel content)
     {
-        var startup = new CheckBox { Content = "Start with Windows", IsEnabled = false };
+        var startup = Switch("Start with Windows", false);
+        startup.IsEnabled = false;
         var hint = Text("Available with the MSIX installation.", 12);
         content.Children.Add(startup);
         content.Children.Add(hint);
@@ -53,30 +57,36 @@ public sealed partial class MainWindow
                 return;
             }
             string command = "\"" + executable + "\"";
+            bool registered;
             try
             {
                 using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(runPath);
-                bool registered = string.Equals(key?.GetValue(valueName) as string, command, StringComparison.OrdinalIgnoreCase);
+                registered = string.Equals(key?.GetValue(valueName) as string, command, StringComparison.OrdinalIgnoreCase);
                 using var approved = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run");
                 var approval = approved?.GetValue(valueName) as byte[];
                 bool disabledByUser = registered && approval is { Length: > 0 } && (approval[0] & 1) != 0;
-                startup.IsChecked = registered && !disabledByUser;
+                startup.IsOn = registered && !disabledByUser;
                 startup.IsEnabled = !disabledByUser;
-                hint.Text = disabledByUser ? "Re-enable OpenAI Usage in Windows Settings > Apps > Startup." : "Applies immediately when changed.";
+                hint.Text = disabledByUser ? "Re-enable OpenAI Usage in Windows Settings > Apps > Startup." : "";
             }
             catch (Exception registryError) { hint.Text = "Could not read the Windows startup setting."; Diagnostics.Record("startup.failed", registryError.GetType().Name); return; }
-            startup.Click += (_, _) =>
+            bool updatingStartup = false;
+            startup.Toggled += (_, _) =>
             {
+                if (updatingStartup) return;
                 try
                 {
                     using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(runPath);
-                    if (startup.IsChecked == true) key.SetValue(valueName, command);
+                    if (startup.IsOn == true) key.SetValue(valueName, command);
                     else key.DeleteValue(valueName, false);
-                    hint.Text = "Applies immediately when changed.";
+                    registered = startup.IsOn;
+                    hint.Text = "";
                 }
                 catch (Exception registryError)
                 {
-                    startup.IsChecked = startup.IsChecked != true;
+                    updatingStartup = true;
+                    startup.IsOn = registered;
+                    updatingStartup = false;
                     hint.Text = "Could not change the Windows startup setting.";
                     Diagnostics.Record("startup.failed", registryError.GetType().Name);
                 }
@@ -86,26 +96,27 @@ public sealed partial class MainWindow
 
         void ShowState(StartupTaskState state)
         {
-            startup.IsChecked = state is StartupTaskState.Enabled or StartupTaskState.EnabledByPolicy;
+            startup.IsOn = state is StartupTaskState.Enabled or StartupTaskState.EnabledByPolicy;
             startup.IsEnabled = state is StartupTaskState.Enabled or StartupTaskState.Disabled;
             hint.Text = state switch
             {
                 StartupTaskState.DisabledByUser => "Re-enable OpenAI Usage in Windows Settings > Apps > Startup.",
                 StartupTaskState.DisabledByPolicy or StartupTaskState.EnabledByPolicy => "Managed by Windows policy.",
-                _ => "Applies immediately when changed."
+                _ => ""
             };
         }
 
         ShowState(task.State);
-        startup.Click += async (_, _) =>
+        startup.Toggled += async (_, _) =>
         {
+            if (!startup.IsEnabled) return;
             startup.IsEnabled = false;
             var state = task.State;
             try
             {
-                if (startup.IsChecked == true && state == StartupTaskState.Disabled)
+                if (startup.IsOn == true && state == StartupTaskState.Disabled)
                     state = await task.RequestEnableAsync();
-                else if (startup.IsChecked == false && state == StartupTaskState.Enabled)
+                else if (startup.IsOn == false && state == StartupTaskState.Enabled)
                 {
                     task.Disable();
                     state = task.State;
@@ -130,8 +141,8 @@ public sealed partial class MainWindow
         var timezone = new ComboBox { Header = "Time zone", HorizontalAlignment = HorizontalAlignment.Stretch,
             ItemsSource = TimeZoneInfo.GetSystemTimeZones(), DisplayMemberPath = "DisplayName", SelectedValuePath = "Id",
             SelectedValue = settings.TimeZoneId };
-        var taskbar = new CheckBox { Content = "Show in taskbar", IsChecked = settings.ShowInTaskbar };
-        var bigSize = new CheckBox { Content = "Larger widget (+25%)", IsChecked = settings.BigSize };
+        var taskbar = Switch("Show in taskbar", settings.ShowInTaskbar);
+        var bigSize = Switch("Larger widget (+25%)", settings.BigSize);
         var opacity = new ComboBox
         {
             Header = "Window opacity",
@@ -145,22 +156,19 @@ public sealed partial class MainWindow
             ItemsSource = labelPositions.Select(position => position.Text).ToArray(),
             SelectedIndex = Math.Max(0, Array.FindIndex(labelPositions, position => position.Id == settings.LabelPosition))
         };
-        var showResets = new CheckBox { Content = "Show available resets", IsChecked = settings.ShowAvailableResets };
-        var showCredits = new CheckBox { Content = "Show remaining credits", IsChecked = settings.ShowCredits };
-        var showEstimatedTime = new CheckBox { Content = "Show estimated time left", IsChecked = settings.ShowEstimatedTime };
-        var enableDetailsBar = new CheckBox { Content = "Enable usage details bar", IsChecked = settings.EnableDetailsBar };
-        var alert50 = new CheckBox { Content = "50% remaining", IsChecked = settings.Alert50 };
-        var alert20 = new CheckBox { Content = "20% remaining", IsChecked = settings.Alert20 };
-        var alert5 = new CheckBox { Content = "5% remaining", IsChecked = settings.Alert5 };
-        var alertSound = new CheckBox { Content = "Play a sound for alerts", IsChecked = settings.AlertSound };
+        var enableDetailsBar = Switch("Enable usage details", settings.EnableDetailsBar);
+        var alert50 = Switch("50% remaining", settings.Alert50);
+        var alert20 = Switch("20% remaining", settings.Alert20);
+        var alert5 = Switch("5% remaining", settings.Alert5);
+        var alertSound = Switch("Play a sound for alerts", settings.AlertSound);
         var creditsThreshold = new TextBox
         {
             Header = "Credit alert threshold",
-            PlaceholderText = "Off",
+            PlaceholderText = "Example: 1000",
             Text = settings.CreditsAlertThreshold?.ToString(CultureInfo.CurrentCulture) ?? "",
             Margin = new(0, 6, 0, 0)
         };
-        var thresholdHint = Text("Leave blank to turn off credit alerts.", 12);
+        var thresholdHint = Text("Send a notification when remaining credits reach this number or fall below it. Enter a whole number of credits, such as 1000. An empty field disables credit alerts.", 12);
         var thresholdError = Text("Enter a whole number from 0 to 2147483647.", 12);
         thresholdError.Foreground = WarningText;
         thresholdError.TextWrapping = TextWrapping.Wrap;
@@ -169,10 +177,17 @@ public sealed partial class MainWindow
         pathError.Foreground = WarningText;
         pathError.Visibility = Visibility.Collapsed;
 
-        var content = new StackPanel { Spacing = 10 };
-        content.Children.Add(executable);
-        content.Children.Add(pathError);
-        content.Children.Add(timezone);
+        // The native scrollbar overlays the viewport. Reserve its gutter before adding the content gap.
+        const double scrollbarGutter = 14;
+        var content = new StackPanel { Spacing = 10, Padding = new(0, 0, scrollbarGutter + 8, 0) };
+        var connection = new Grid { ColumnSpacing = 24 };
+        connection.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
+        connection.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
+        var executableSettings = new StackPanel { Spacing = 4, Children = { executable, pathError } };
+        connection.Children.Add(executableSettings);
+        Grid.SetColumn(timezone, 1);
+        connection.Children.Add(timezone);
+        content.Children.Add(connection);
         content.Children.Add(Text("Uses your existing Codex ChatGPT sign-in.", 12));
 
         var columns = new Grid { ColumnSpacing = 24, Margin = new(0, 8, 0, 0) };
@@ -181,9 +196,6 @@ public sealed partial class MainWindow
         var windowOptions = new StackPanel { Spacing = 4 };
         windowOptions.Children.Add(Text("Widget", 16, true));
         windowOptions.Children.Add(labelPosition);
-        windowOptions.Children.Add(showResets);
-        windowOptions.Children.Add(showCredits);
-        windowOptions.Children.Add(showEstimatedTime);
         windowOptions.Children.Add(enableDetailsBar);
         windowOptions.Children.Add(bigSize);
         windowOptions.Children.Add(opacity);
@@ -216,7 +228,6 @@ public sealed partial class MainWindow
         var saveStatus = Text("", 12);
         saveStatus.Foreground = WarningText;
         footer.Children.Add(saveStatus);
-        footer.Children.Add(Text("Changes are saved automatically.", 12));
         settingsStatus = saveStatus;
         UpdateSettingsStatus();
         void Apply(Action<WidgetSettings> edit)
@@ -269,21 +280,26 @@ public sealed partial class MainWindow
             if (labelPosition.SelectedIndex >= 0)
                 Apply(next => next.LabelPosition = labelPositions[labelPosition.SelectedIndex].Id);
         };
-        void BindCheck(CheckBox check, Action<WidgetSettings, bool> edit) =>
-            check.Click += (_, _) => Apply(next => edit(next, check.IsChecked == true));
+        void BindCheck(ToggleSwitch control, Action<WidgetSettings, bool> edit) =>
+            control.Toggled += (_, _) => Apply(next => edit(next, control.IsOn));
         BindCheck(taskbar, (next, value) => next.ShowInTaskbar = value);
         BindCheck(bigSize, (next, value) => next.BigSize = value);
-        BindCheck(showResets, (next, value) => next.ShowAvailableResets = value);
-        BindCheck(showCredits, (next, value) => next.ShowCredits = value);
-        BindCheck(showEstimatedTime, (next, value) => next.ShowEstimatedTime = value);
-        BindCheck(enableDetailsBar, (next, value) => next.EnableDetailsBar = value);
+        enableDetailsBar.Toggled += (_, _) =>
+        {
+            Apply(next => next.EnableDetailsBar = enableDetailsBar.IsOn);
+            SetDetailsOpen(enableDetailsBar.IsOn);
+        };
         BindCheck(alert50, (next, value) => next.Alert50 = value);
         BindCheck(alert20, (next, value) => next.Alert20 = value);
         BindCheck(alert5, (next, value) => next.Alert5 = value);
         BindCheck(alertSound, (next, value) => next.AlertSound = value);
+        content.Children.Add(Text("Widget modules", 16, true));
+        content.Children.Add(Text("Drag the grip to change the order. Use the switch to show or hide a module.", 12));
+        content.Children.Add(BuildModuleList(Apply));
         try
         {
-            await ShowDialogAsync("OpenAI Usage · Preferences", content, closeButtonText: null, width: 620, height: 590, footer: footer);
+            await ShowDialogAsync("OpenAI Usage · Preferences", content, closeButtonText: null,
+                width: 620, height: 590, footer: footer, showScrollbarOnHover: true);
             if (!exitPending && !closed)
                 await settingsWriter.FlushAsync();
         }
@@ -298,4 +314,83 @@ public sealed partial class MainWindow
         }
     }
 
+    private static ToggleSwitch Switch(string label, bool isOn)
+    {
+        var control = new ToggleSwitch { OnContent = label, OffContent = label, IsOn = isOn, MinWidth = 0 };
+        AutomationProperties.SetName(control, label);
+        return control;
+    }
+
+    private ListView BuildModuleList(Action<Action<WidgetSettings>> apply)
+    {
+        ListViewItem BuildItem(Module module)
+        {
+            var toggle = Switch(module.Label, ModuleEnabled(module.Key));
+            toggle.OnContent = toggle.OffContent = "";
+            toggle.HorizontalAlignment = HorizontalAlignment.Right;
+            toggle.VerticalAlignment = VerticalAlignment.Center;
+            toggle.Toggled += (_, _) => apply(next =>
+            {
+                switch (module.Key)
+                {
+                    case "credits": next.ShowCredits = toggle.IsOn; break;
+                    case "estimate": next.ShowEstimatedTime = toggle.IsOn; break;
+                    case "vouchers": next.ShowAvailableResets = toggle.IsOn; break;
+                    default:
+                        var hidden = (next.HiddenFields ?? []).Where(key => key != module.Key);
+                        next.HiddenFields = toggle.IsOn ? hidden.ToArray() : hidden.Append(module.Key).ToArray();
+                        break;
+                }
+            });
+            var grip = Text("⠿", 23);
+            grip.VerticalAlignment = VerticalAlignment.Center;
+            grip.Foreground = SecondaryText;
+            ToolTipService.SetToolTip(grip, "Drag to move " + module.Label);
+            var description = Text(module.Description, 12);
+            description.Foreground = SecondaryText;
+            var fields = new StackPanel { Spacing = 2, Children = { Text(module.Label, 14), description } };
+            var row = new Grid { ColumnSpacing = 12, Padding = new(0, 6, 0, 6) };
+            row.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+            row.Children.Add(grip);
+            Grid.SetColumn(fields, 1);
+            row.Children.Add(fields);
+            Grid.SetColumn(toggle, 2);
+            row.Children.Add(toggle);
+            var item = new ListViewItem
+            {
+                Content = row, Tag = module.Key,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch
+            };
+            AutomationProperties.SetName(item, module.Label);
+            return item;
+        }
+
+        var list = new ListView
+        {
+            SelectionMode = ListViewSelectionMode.None, CanDragItems = true,
+            CanReorderItems = true, AllowDrop = true, MinHeight = 0
+        };
+        ScrollViewer.SetVerticalScrollMode(list, ScrollMode.Disabled);
+        ScrollViewer.SetVerticalScrollBarVisibility(list, ScrollBarVisibility.Disabled);
+        AutomationProperties.SetName(list, "Widget module order");
+        AttachRows();
+        return list;
+
+        void AttachRows()
+        {
+            var items = new ObservableCollection<ListViewItem>(OrderedModules().Select(BuildItem));
+            list.ItemsSource = items;
+            items.CollectionChanged += (_, _) => DispatcherQueue.TryEnqueue(() =>
+            {
+                if (closed || list.ItemsSource != items || items.Count != modules.Length) return;
+                string[] order = items.Select(item => (string)item.Tag).ToArray();
+                if (order.SequenceEqual(OrderedModules().Select(module => module.Key))) return;
+                apply(next => next.FieldOrder = order);
+                // Discard the displaced WinUI drag container and render fresh rows in the new order.
+                AttachRows();
+            });
+        }
+    }
 }

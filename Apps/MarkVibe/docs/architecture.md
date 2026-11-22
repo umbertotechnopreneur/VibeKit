@@ -1,6 +1,6 @@
 > **File name** `architecture.md`<br>
 > **Full path** `E:\vibekit\Apps\MarkVibe\docs\architecture.md`<br>
-> **Path relative to the VibeKit repository** `Apps\MarkVibe\docs\architecture.md`
+> **Path relative to the MarkVibe application root** `docs/architecture.md`
 
 # MarkVibe architecture
 
@@ -237,19 +237,18 @@ It preserves same-page anchors and marks links to neighboring Markdown documents
 as unavailable. Native file dialogs select the output destination. The isolated
 PDF host has page scripts and web messaging disabled. [Export and native hosts](desktop-and-export.md)
 
-## Browser edition
+## Build boundary
 
-`MarkVibe.Browser` is the separate Blazor WebAssembly host for the `MarkVibe`
-OpenSilver application. It uses browser file permissions for connected folders and
-session providers for imports, files and ZIPs. The web edition's JS adapter uses
-the shared reader modules and its own bootstrap and graph presentation. An
-existing read grant is required for automatic resumption of a connected folder.
-The web edition resolves resource URLs relative to its static deployment path.
-It downloads HTML or opens a browser print document for PDF export.
+WinUI 3 is the only application frontend. The document renderer's maintained
+assets live under `src/MarkVibe.Windows/Rendering/web`; JavaScript source lives
+under `client`. There is no standalone browser application or WebAssembly host.
+The native build bundles only renderer entrypoints into `obj/desktop-js` and
+stages them under `app/`. Core and Native remain UI-independent libraries.
 
-Use the stable .NET 10 SDK configured in `global.json` and the supported Node
-version. See [Visual Studio and command-line builds](visual-studio.md).
+Use the stable .NET 10 SDK configured in `global.json` and supported Node version.
+Distribution shares the separately installed .NET Runtime 10.0 while retaining
+required Windows App SDK application libraries. See [builds](visual-studio.md).
 
 > **File name** `architecture.md`<br>
 > **Full path** `E:\vibekit\Apps\MarkVibe\docs\architecture.md`<br>
-> **Path relative to the VibeKit repository** `Apps\MarkVibe\docs\architecture.md`
+> **Path relative to the MarkVibe application root** `docs/architecture.md`

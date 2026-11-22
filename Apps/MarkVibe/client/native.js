@@ -25,18 +25,6 @@ const pending = new Map();
 export const isDesktop = () => window.markvibeDesktop?.version === 1 && !!window.chrome?.webview;
 window.chrome?.webview?.addEventListener("message", event => {
   const reply = event.data;
-  if (reply?.version === 1 && reply.notification === "activated") {
-    window.dispatchEvent(new CustomEvent("markvibe-native-activated"));
-    return;
-  }
-  if (reply?.version === 1 && reply.notification === "appearance") {
-    window.dispatchEvent(new CustomEvent("markvibe-native-appearance"));
-    return;
-  }
-  if (reply?.version === 1 && reply.notification === "document-changed") {
-    window.dispatchEvent(new CustomEvent("markvibe-native-document-changed", { detail: reply }));
-    return;
-  }
   if (reply?.version !== 1 || typeof reply.id !== "string") {
     return;
   }
@@ -85,49 +73,4 @@ export function nativeCall(operation, args = {}, signal) {
     }, 300000);
     send(operation, args);
   });
-}
-
-/** Read native startup state and seed remembered browser metadata for its restored document. */
-export async function initializeDesktop() {
-  if (!isDesktop()) {
-    return null;
-  }
-  const initial = await nativeCall("initialize");
-  if (initial.session?.entry) {
-    const entry = initial.session.entry;
-    localStorage.setItem("markvibe.lastDocument", JSON.stringify(entry));
-    localStorage.setItem("markvibe.lastWorkspace", JSON.stringify({ version: 1, id: entry.workspaceId, name: "Local documentation", mode: "native" }));
-  }
-  return initial;
-}
-
-/** Persist or clear native document memory through the desktop session operation. */
-export function rememberNative(entry, enabled = true) {
-  if (!isDesktop()) {
-    return;
-  }
-  // Navigation is persisted immediately; scrolling updates already have a debounce.
-  return nativeCall("session.remember", { entry, enabled });
-}
-
-/** Download a JSON sidecar copy and release its temporary object URL after the save gesture. */
-export function downloadSidecar(json, filename) {
-  downloadText(json, filename, "application/json");
-}
-
-/** Start an explicit Markdown-copy download; browser initiation does not establish a completed save. */
-export function downloadMarkdown(source, filename) {
-  downloadText(source, filename, "text/markdown;charset=utf-8");
-}
-
-/** Initiate one explicit local text download and release the temporary browser URL. */
-function downloadText(source, filename, contentType) {
-  const url = URL.createObjectURL(new Blob([source], { type: contentType }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }

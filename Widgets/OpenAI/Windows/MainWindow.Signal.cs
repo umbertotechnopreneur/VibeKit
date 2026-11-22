@@ -4,131 +4,143 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace OpenAIUsage.Windows;
 
 public sealed partial class MainWindow
 {
-    private const double SignalHeight = 62;
-    private readonly Grid signal = new() { VerticalAlignment = VerticalAlignment.Center };
-    private readonly TextBlock signalCaption = FlipTile.CreateCaption("Alert", SecondaryText);
-    private readonly Border signalHousing = new()
+    private readonly Grid signalHousing = new()
     {
-        Width = 33, Height = SignalHeight, CornerRadius = new(8),
-        BorderThickness = new(1.5), BorderBrush = new SolidColorBrush(Rgb(0x080808)),
-        HorizontalAlignment = HorizontalAlignment.Center,
-        Background = new LinearGradientBrush
+        Width = 44, Height = 128, Margin = new(12, 8, 10, 0),
+        VerticalAlignment = VerticalAlignment.Center
+    };
+    private readonly Grid signalPictures = new();
+    private readonly Image[] signalLayers = [SignalLayer("green"), SignalLayer("amber"), SignalLayer("red")];
+    private readonly Border[] glows = [SignalGlow(0x44E85E), SignalGlow(0xFFC336), SignalGlow(0xFF4330)];
+    private string? displayedSignal;
+    private double? displayedAllowance;
+    private Storyboard? signalTransition;
+    private Storyboard? signalFlicker;
+    private long nextFlicker = Environment.TickCount64 + 300_000;
+
+    private static Image SignalLayer(string color) => new()
+    {
+        Opacity = 0,
+        Stretch = Stretch.Uniform,
+        Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Branding", $"signal-{color}.png")))
         {
-            StartPoint = new(0, 0), EndPoint = new(1, 1),
-            GradientStops = { new() { Color = Rgb(0x313131) }, new() { Offset = .63, Color = Rgb(0x141414) },
-                new() { Offset = 1, Color = Rgb(0x202020) } }
+            DecodePixelHeight = 384
         }
     };
-    private readonly Grid[] litLamps = [new(), new(), new()];
-    private int displayedLamp = -1;
-    private string? displayedSignal;
-    private long nextFlicker = NextFlickerTime();
-    private Storyboard? flicker;
+
+    private static Border SignalGlow(uint tint)
+    {
+        var color = Rgb(tint);
+        return new Border
+        {
+            Width = 30, Height = 29, Opacity = 0, IsHitTestVisible = false,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            RenderTransformOrigin = new(.5, .5),
+            RenderTransform = new ScaleTransform { ScaleX = 1.95, ScaleY = 1.8 },
+            Background = new RadialGradientBrush
+            {
+                GradientStops =
+                {
+                    new() { Color = ColorHelper.FromArgb(170, color.R, color.G, color.B), Offset = 0 },
+                    new() { Color = ColorHelper.FromArgb(125, color.R, color.G, color.B), Offset = .33 },
+                    new() { Color = ColorHelper.FromArgb(74, color.R, color.G, color.B), Offset = .55 },
+                    new() { Color = ColorHelper.FromArgb(0, color.R, color.G, color.B), Offset = 1 }
+                }
+            }
+        };
+    }
 
     private void BuildSignal()
     {
-        var lights = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
-        uint[] dim = [0x6D2019, 0x6B470C, 0x1B5340];
-        uint[] lit = [0xF83C24, 0xFFC233, 0x36CD73];
-        for (int index = 0; index < litLamps.Length; index++)
+        var glowLayout = new Grid { IsHitTestVisible = false };
+        for (int i = 0; i < glows.Length; i++)
         {
-            var cell = new Grid { Height = 19, Width = 29 };
-            cell.Children.Add(Lens(dim[index]));
-            var on = litLamps[index];
-            on.Opacity = 0;
-            var tint = Rgb(lit[index]);
-            var glow = new RadialGradientBrush
-            {
-                RadiusX = .5, RadiusY = .5,
-                GradientStops =
-                {
-                    new() { Color = ColorHelper.FromArgb(144, tint.R, tint.G, tint.B), Offset = .35 },
-                    new() { Color = ColorHelper.FromArgb(0, tint.R, tint.G, tint.B), Offset = 1 }
-                }
-            };
-            on.Children.Add(new Border { Background = glow });
-            on.Children.Add(Lens(lit[index]));
-            cell.Children.Add(on);
-            lights.Children.Add(cell);
+            glowLayout.RowDefinitions.Add(new() { Height = new(1, GridUnitType.Star) });
+            Grid.SetRow(glows[i], 2 - i);
+            glowLayout.Children.Add(glows[i]);
         }
-        signalHousing.Child = lights;
-        signal.RowDefinitions.Add(new());
-        signal.RowDefinitions.Add(new());
-        signal.Children.Add(signalCaption);
-        signal.Children.Add(signalHousing);
-        strip.Children.Add(signal);
+        foreach (var layer in signalLayers) signalPictures.Children.Add(layer);
+        signalHousing.Children.Add(signalPictures);
+        signalHousing.Children.Add(glowLayout);
         UpdateSignal(null, false, null);
     }
 
-    private static Border Lens(uint color) => new()
-    {
-        Width = 17, Height = 17, CornerRadius = new(8.5), BorderThickness = new(1.25),
-        BorderBrush = new SolidColorBrush(Rgb(0x0A0A0A)),
-        HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-        Background = new RadialGradientBrush
-        {
-            Center = new(.48, .48), GradientOrigin = new(.34, .26), RadiusX = .55, RadiusY = .55,
-            GradientStops =
-            {
-                new() { Color = ColorHelper.FromArgb(255, (byte)(0x33 + ((color >> 16) & 0xff) * .8),
-                    (byte)(0x33 + ((color >> 8) & 0xff) * .8), (byte)(0x33 + (color & 0xff) * .8)) },
-                new() { Color = Rgb(color), Offset = .46 },
-                new() { Color = Rgb(0x100B0A), Offset = 1 }
-            }
-        }
-    };
-
     private void UpdateSignal(int? allowanceThreshold, bool creditsLow, double? allowance)
     {
-        int lamp = allowanceThreshold == 5 ? 0 : allowanceThreshold.HasValue ? 1 : allowance.HasValue ? 2 : -1;
         string description = allowance.HasValue
             ? FormattableString.Invariant($"Allowance remaining: {allowance:0.#}%.")
             : "Waiting for allowance data.";
         if (allowanceThreshold.HasValue) description += $" Allowance threshold reached: {allowanceThreshold}%.";
         if (creditsLow) description += $" Low credits: {state.CreditsLabel} remaining.";
-        if (displayedLamp != lamp)
+        if (displayedSignal != description)
         {
-            StopFlicker();
-            for (int index = 0; index < litLamps.Length; index++) litLamps[index].Opacity = index == lamp ? 1 : 0;
-            displayedLamp = lamp;
+            displayedSignal = description;
+            ToolTipService.SetToolTip(signalHousing, description);
+            AutomationProperties.SetName(signalHousing, description);
         }
-        if (displayedSignal == description) return;
-        displayedSignal = description;
-        ToolTipService.SetToolTip(signal, description);
-        AutomationProperties.SetName(signal, description);
-    }
+        if (displayedAllowance == allowance && signalLayers[0].Opacity != 0) return;
 
-    private static long NextFlickerTime() => Environment.TickCount64 + Random.Shared.Next(480_000, 1_080_001);
+        displayedAllowance = allowance;
+        signalHousing.Opacity = allowance.HasValue ? 1 : .35;
+        double remaining = Math.Clamp(allowance.GetValueOrDefault(100), 0, 100);
+        // Source-over blend of the two adjacent states. The housing stays opaque.
+        double[] next = [1, Math.Clamp((100 - remaining) / 50, 0, 1), Math.Clamp((50 - remaining) / 50, 0, 1)];
+        double[] glowWeights = [(1 - next[1]) * (1 - next[2]), next[1] * (1 - next[2]), next[2]];
+        StopSignalTransition();
+        var transition = new Storyboard();
+        for (int i = 0; i < signalLayers.Length; i++)
+        {
+            Blend(signalLayers[i], next[i]);
+            Blend(glows[i], allowance.HasValue ? Math.Sqrt(glowWeights[i]) : 0);
+        }
+        if (transition.Children.Count == 0) return;
+        signalTransition = transition;
+        transition.Completed += (_, _) => { if (signalTransition == transition) signalTransition = null; };
+        transition.Begin();
+
+        void Blend(UIElement item, double opacity)
+        {
+            double previous = item.Opacity;
+            item.Opacity = opacity;
+            if (!CanAnimateWidget || previous == opacity) return;
+            var animation = new DoubleAnimation
+            {
+                From = previous, To = opacity, Duration = new(TimeSpan.FromMilliseconds(260)),
+                FillBehavior = FillBehavior.Stop
+            };
+            Storyboard.SetTarget(animation, item);
+            Storyboard.SetTargetProperty(animation, nameof(UIElement.Opacity));
+            transition.Children.Add(animation);
+        }
+    }
 
     private void MaybeFlicker()
     {
-        bool animate = CanAnimateWidget;
-        if (!animate) StopFlicker();
-        if (Environment.TickCount64 < nextFlicker) return;
-        nextFlicker = NextFlickerTime();
-        if (!animate || displayedLamp < 0) return;
-
-        var dim = new DoubleAnimationUsingKeyFrames { EnableDependentAnimation = true, FillBehavior = FillBehavior.Stop };
-        (double milliseconds, double brightness)[] points = [(0, 1), (55, .58), (165, 1), (285, 1), (337, .75), (455, 1)];
-        foreach (var (milliseconds, brightness) in points)
-            dim.KeyFrames.Add(new LinearDoubleKeyFrame { KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(milliseconds)), Value = brightness });
-        Storyboard.SetTarget(dim, litLamps[displayedLamp]);
-        Storyboard.SetTargetProperty(dim, nameof(UIElement.Opacity));
-        var effect = new Storyboard();
-        effect.Children.Add(dim);
-        effect.Completed += (_, _) => { if (flicker == effect) flicker = null; };
-        flicker = effect;
-        effect.Begin();
+        long now = Environment.TickCount64;
+        if (now < nextFlicker) return;
+        nextFlicker = now + 300_000;
+        if (!CanAnimateWidget || !displayedAllowance.HasValue) return;
+        var animation = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.Stop };
+        foreach (var (ms, opacity) in new[] { (0, 1d), (45, .93), (115, 1d), (185, .96), (280, 1d) })
+            animation.KeyFrames.Add(new LinearDoubleKeyFrame { KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(ms)), Value = opacity });
+        Storyboard.SetTarget(animation, signalPictures);
+        Storyboard.SetTargetProperty(animation, nameof(UIElement.Opacity));
+        signalFlicker?.Stop();
+        signalFlicker = new();
+        signalFlicker.Children.Add(animation);
+        signalFlicker.Begin();
     }
 
-    private void StopFlicker()
+    private void StopSignalTransition()
     {
-        flicker?.Stop();
-        flicker = null;
+        signalTransition?.Stop();
+        signalTransition = null;
     }
 }

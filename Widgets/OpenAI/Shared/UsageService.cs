@@ -50,7 +50,7 @@ public sealed class UsageService(Storage storage)
         if (usage.ResetVouchers is { } vouchers)
         {
             state.ResetVoucherCount = vouchers.AvailableCount;
-            state.ResetVoucherExpirations = vouchers.Expirations.Take(2).Select(expiry =>
+            state.ResetVoucherExpirations = vouchers.Expirations.Select(expiry =>
             {
                 if (expiry is null) return new ResetVoucherDisplay("—", "Codex did not provide an expiration date for this voucher.");
                 var local = TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeSeconds(expiry.Value), zone);

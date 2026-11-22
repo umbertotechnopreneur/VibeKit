@@ -25,7 +25,7 @@ VBWR E -->
     <ProjectReference Include="../../src/MarkVibe.Core/MarkVibe.Core.csproj" />
     <ProjectReference Include="../../src/MarkVibe.Native/MarkVibe.Native.csproj" />
     <None Update="web/index.html;web/reader.css" CopyToOutputDirectory="PreserveNewest" TargetPath="reader/%(Filename)%(Extension)" />
-    <None Include="../../src/MarkVibe.Browser/wwwroot/css/content.css" Link="web/css/content.css" CopyToOutputDirectory="PreserveNewest" TargetPath="reader/css/content.css" />
+    <None Include="../../src/MarkVibe.Windows/Rendering/web/css/content.css" Link="web/css/content.css" CopyToOutputDirectory="PreserveNewest" TargetPath="reader/css/content.css" />
     <ReaderInput Include="web/reader.js;../../client/**/*;../../scripts/bundle.mjs;../../scripts/client-inputs.mjs;../../package.json;../../package-lock.json;../../THIRD-PARTY-NOTICES.txt;../../src/MarkVibe.Core/Localization/strings.json;../../src/MarkVibe.Core/Presentation/*.json" />
   </ItemGroup>
   <!-- Build the reader directly from maintained JS and keep its output local to this prototype. -->

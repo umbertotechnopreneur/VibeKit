@@ -39,6 +39,8 @@ public sealed class WidgetSettings
     public bool ShowCredits { get; set; } = true;
     public bool ShowEstimatedTime { get; set; } = true;
     public bool EnableDetailsBar { get; set; }
+    public string[] HiddenFields { get; set; } = [];
+    public string[] FieldOrder { get; set; } = [];
     public bool AlertSound { get; set; } = true;
     public int? CreditsAlertThreshold { get; set; }
     public WidgetSettings Copy() => (WidgetSettings)MemberwiseClone();

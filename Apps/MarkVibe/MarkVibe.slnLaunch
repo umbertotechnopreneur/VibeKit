@@ -7,15 +7,5 @@
         "Action": "Start"
       }
     ]
-  },
-  {
-    "Name": "MarkVibe Browser",
-    "Projects": [
-      {
-        "Path": "src\\MarkVibe.Browser\\MarkVibe.Browser.csproj",
-        "Action": "Start",
-        "DebugTarget": "MarkVibe Debug"
-      }
-    ]
   }
 ]

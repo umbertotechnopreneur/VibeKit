@@ -1,10 +1,10 @@
 > **File name** `desktop-and-export.md`<br>
 > **Full path** `E:\vibekit\Apps\MarkVibe\docs\desktop-and-export.md`<br>
-> **Path relative to the VibeKit repository** `Apps\MarkVibe\docs\desktop-and-export.md`
+> **Path relative to the MarkVibe application root** `docs/desktop-and-export.md`
 
 # Document export and native hosts
 
-The WinUI 3 desktop app and web edition both export the current document as HTML or PDF.
+The WinUI 3 desktop app exports the current document as HTML or PDF.
 
 ## Changes to the current file
 
@@ -34,8 +34,7 @@ flowchart TB
 ```
 
 The Windows host watches the opened Markdown file, including editor saves that
-replace it atomically. A connected browser folder is checked periodically using
-its existing read permission. Imported files and ZIPs remain snapshots.
+replace it atomically.
 
 If the content changes, MarkVibe asks whether to reload it. **No** keeps the
 displayed content; another notification needs a new disk revision. **Yes** reads
@@ -46,21 +45,15 @@ Missing, locked, oversized or invalid files leave the displayed copy intact.
 
 Notifications wait for active operations and confirmations, follow only the
 current document and stop on navigation or shutdown. This feature does not write
-the source file or request a new browser folder permission.
+the source file.
 
 ## Export the current page
 
-In the Windows app, choose **Export** in the document toolbar. In the web edition,
-choose **Settings → Export current page**.
+Choose **Export** in the native document toolbar.
 Both formats include the title/path, reading styles, highlighted code, supported
 local images and sanitized Mermaid on a light background.
 Only the current document is included. Same-document anchors and safe external links
 remain usable; links to neighboring Markdown pages are marked unavailable.
-
-Browser HTML downloads a standalone UTF-8 file with inline CSS and embedded assets.
-It works offline without scripts or the app runtime. Browser PDF opens a clean,
-script-free print document; choose Save as PDF in the browser/OS dialog. Browser
-code cannot establish whether that dialog saved or cancelled.
 
 Windows uses an OS save dialog for either format. PDF is generated directly with
 `PrintToPdfStreamAsync` in a separate WebView2 with page scripts/web messaging
@@ -78,7 +71,7 @@ aggregate and 32 MiB final UTF-8 HTML. No document upload is used.
 Build the desktop project with the dependencies prepared as described in the
 [build guide](visual-studio.md). It stages its local reader, Mermaid and Monaco
 assets under the executable's `app/` directory. The WinUI 3 desktop app is built
-independently of the web edition.
+from the maintained native source.
 
 ```powershell
 dotnet run --project src/MarkVibe.Windows --no-build -c Release
@@ -98,8 +91,8 @@ the app to restore it on restart. `--open` selects a different starting file.
 Document map positions, colors, icons and atlas settings live in the workspace's
 `.markvibe-map.json`. See [map layout](map-layout.md).
 
-Source builds use .NET 10 and the Windows App SDK. Desktop packages include both
-runtimes and use the installed Microsoft Edge WebView2 Runtime. Portable profiles
+Source builds use .NET 10 and the Windows App SDK. Desktop packages require the separately installed .NET Runtime 10.0 and include
+Windows App SDK application libraries and use the installed Microsoft Edge WebView2 Runtime. Portable profiles
 live in a sibling `data/` directory. See [distribution and installation](windows-packaging.md).
 
 ## Other platforms
@@ -107,7 +100,7 @@ live in a sibling `data/` directory. See [distribution and installation](windows
 | Platform | Current route |
 | --- | --- |
 | Windows 11 | Native WinUI 3 application, Win2D map and WebView2 document rendering |
-| Browsers | Separate WebAssembly edition with browser file permissions and printing |
+| Other platforms | No maintained frontend; contributions require a platform maintainer |
 
 The native workspace provider handles filesystem access. The renderer bridge
 checks sender URL, version and per-launch capability, blocks external page resources
@@ -117,5 +110,4 @@ and [printing documentation](https://learn.microsoft.com/en-us/microsoft-edge/we
 
 > **File name** `desktop-and-export.md`<br>
 > **Full path** `E:\vibekit\Apps\MarkVibe\docs\desktop-and-export.md`<br>
-> **Path relative to the VibeKit repository** `Apps\MarkVibe\docs\desktop-and-export.md`
-
+> **Path relative to the MarkVibe application root** `docs/desktop-and-export.md`

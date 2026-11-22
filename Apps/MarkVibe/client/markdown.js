@@ -21,7 +21,7 @@
  * VBWR E */
 
 import DOMPurify from "dompurify";
-import { acquireAsset, releaseAssets, getWorkspace, addFiles } from "./workspaces.js";
+import { acquireAsset, releaseAssets } from "./workspaces.js";
 import { resourceUrl, safeExternal, checkCancelled, nextFrame } from "./path.js";
 import { t, localize, refreshTranslations } from "./i18n.js";
 import { applyReaderTheme, decorateThemeArticle, resolveReaderTheme } from "./themes.js";
@@ -410,9 +410,6 @@ export class MarkdownHost {
     figure.append(textElement("strong", image.alt || "Image unavailable"), textElement("span", message));
     if (path) {
       figure.append(textElement("code", path));
-      if (getWorkspace(this.workspaceId).info().capabilities.canAddFiles) {
-        this.emit({ type: "missing-resource", path: this.model.path, assetPath: path, workspaceId: this.workspaceId });
-      }
     }
     if (image.dataset.elementId) {
       figure.dataset.elementId = image.dataset.elementId;

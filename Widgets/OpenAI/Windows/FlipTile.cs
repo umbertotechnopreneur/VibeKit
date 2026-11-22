@@ -10,6 +10,10 @@ namespace OpenAIUsage.Windows;
 
 public sealed class FlipTile : Grid
 {
+    public readonly record struct CreaseShadow(double Spread, global::Windows.UI.Color Color, global::Windows.UI.Color Line);
+    public readonly record struct DigitDelay(int MinimumMilliseconds, int MaximumMilliseconds);
+    public readonly record struct Flap(int Start, int Length, int Milliseconds);
+
     private const double FaceHeight = 44;
     private static readonly FontFamily NumberFont = new("Consolas");
     private static readonly SolidColorBrush Ink = new(Colors.FloralWhite);
@@ -28,19 +32,34 @@ public sealed class FlipTile : Grid
     private static readonly SolidColorBrush LowerFace = new(ColorHelper.FromArgb(255, 15, 15, 15));
     private readonly string field;
     private readonly double fontSize;
+    private readonly double preferredWidth;
+    private readonly bool wrapValue;
+    private readonly int sizingCharacters;
     private readonly TextBlock number;
     private readonly Border face;
     private readonly TextBlock caption;
     private readonly Grid overlays = new() { IsHitTestVisible = false };
     private readonly Border? accentBar;
+    private readonly DigitDelay digitDelay;
+    private readonly Dictionary<int, DigitFlip> digitFlips = [];
     private Brush ink = Ink;
     private Storyboard? running;
     private string current = "—";
 
-    public FlipTile(string field, double width, double fontSize, Brush captionBrush, string? label = null, bool showAccent = false)
+    private sealed record DigitFlip(Grid Panel, Storyboard Animation, char Before, long Midpoint);
+
+    public FlipTile(string field, double width, double fontSize, Brush captionBrush, string? label = null,
+        bool showAccent = false, bool wrapValue = false, bool worn = false, int sizingCharacters = 0,
+        CreaseShadow? creaseShadow = null, DigitDelay digitDelay = default)
     {
         this.field = field;
         this.fontSize = fontSize;
+        preferredWidth = width;
+        this.wrapValue = wrapValue;
+        this.sizingCharacters = sizingCharacters;
+        if (digitDelay.MinimumMilliseconds < 0 || digitDelay.MaximumMilliseconds < digitDelay.MinimumMilliseconds)
+            throw new ArgumentOutOfRangeException(nameof(digitDelay));
+        this.digitDelay = digitDelay;
         Width = width;
         VerticalAlignment = VerticalAlignment.Center;
         RowDefinitions.Add(new());
@@ -49,14 +68,41 @@ public sealed class FlipTile : Grid
         number = TileText(current);
         var surface = new Grid { Background = FaceGradient };
         surface.Children.Add(number);
+        if (worn)
+        {
+            surface.Children.Add(GrainLayer(41, Colors.Black, .28));
+            surface.Children.Add(GrainLayer(67, Colors.White, .13));
+        }
         surface.Children.Add(overlays);
-        surface.Children.Add(new Rectangle { Height = 1.5, Fill = Seam, VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false });
+        if (creaseShadow is { Spread: > 0 } shadow)
+        {
+            var clear = ColorHelper.FromArgb(0, shadow.Color.R, shadow.Color.G, shadow.Color.B);
+            surface.Children.Add(new Rectangle
+            {
+                Height = 2 * shadow.Spread, VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false,
+                Fill = new LinearGradientBrush
+                {
+                    StartPoint = new(0, 0), EndPoint = new(0, 1),
+                    GradientStops =
+                    {
+                        new() { Color = clear, Offset = 0 },
+                        new() { Color = shadow.Color, Offset = .5 },
+                        new() { Color = clear, Offset = 1 }
+                    }
+                }
+            });
+        }
+        surface.Children.Add(new Rectangle
+        {
+            Height = 1.5, Fill = creaseShadow is { } crease ? new SolidColorBrush(crease.Line) : Seam,
+            VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false
+        });
         foreach (var side in new[] { HorizontalAlignment.Left, HorizontalAlignment.Right })
             surface.Children.Add(new Border { Width = 3, Height = 9, Background = Hinge, HorizontalAlignment = side, VerticalAlignment = VerticalAlignment.Center });
         if (showAccent)
         {
-            accentBar = new Border { Width = width * .62, Height = 2, Margin = new(0, 0, 0, 2), CornerRadius = new(1),
-                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom };
+            accentBar = new Border { Width = 0, Height = 3, Margin = new(7, 0, 0, 3), CornerRadius = new(1.5),
+                HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Bottom };
             surface.Children.Add(accentBar);
         }
         face = new Border { Child = surface, Height = FaceHeight, CornerRadius = new(6), BorderThickness = new(1), BorderBrush = Seam };
@@ -68,9 +114,46 @@ public sealed class FlipTile : Grid
 
     public bool IsTextTrimmed => number.IsTextTrimmed;
 
-    public void SetAccent(Brush? color)
+    private static GeometryGroup Grain(int seed)
     {
-        if (accentBar is not null) accentBar.Background = color;
+        var random = new Random(seed);
+        var geometry = new GeometryGroup();
+        for (int i = 0; i < 135; i++)
+            geometry.Children.Add(new RectangleGeometry
+            {
+                Rect = new(random.NextDouble() * 150, random.NextDouble() * 44,
+                    .35 + random.NextDouble() * 1.4, .35 + random.NextDouble() * .8)
+            });
+        return geometry;
+    }
+
+    private static Microsoft.UI.Xaml.Shapes.Path GrainLayer(int seed, global::Windows.UI.Color color, double opacity) => new()
+    {
+        Data = Grain(seed), Stretch = Stretch.Fill, Fill = new SolidColorBrush(color),
+        Margin = new(4, 2, 4, 2), Opacity = opacity, IsHitTestVisible = false
+    };
+
+    private double? progress;
+
+    public void SetProgress(double? percent, Brush? color)
+    {
+        if (accentBar is null) return;
+        progress = percent;
+        accentBar.Background = color;
+        accentBar.Width = Math.Max(0, Width - 16) * Math.Clamp(percent.GetValueOrDefault() / 100, 0, 1);
+    }
+
+    public void FitWidth(double available)
+    {
+        double width = Math.Clamp(available, 32, preferredWidth);
+        if (Width == width) return;
+        StopAnimation();
+        Width = width;
+        if (accentBar is not null)
+            accentBar.Width = Math.Max(0, Width - 16) * Math.Clamp(progress.GetValueOrDefault() / 100, 0, 1);
+        number.FontSize = FittedSize(current);
+        FitValueHeight();
+        SetLabelPosition(captionPosition);
     }
 
     public void SetInk(Brush? color)
@@ -79,7 +162,13 @@ public sealed class FlipTile : Grid
         number.Foreground = ink;
     }
 
-    public void SetLabelPosition(string position) => PlaceCaption(this, caption, face, position);
+    private string captionPosition = "above";
+
+    public void SetLabelPosition(string position)
+    {
+        captionPosition = position;
+        PlaceCaption(this, caption, face, position, face.Height);
+    }
 
     public static TextBlock CreateCaption(string label, Brush foreground) => new()
     {
@@ -88,7 +177,8 @@ public sealed class FlipTile : Grid
         Foreground = foreground,
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
-        TextWrapping = TextWrapping.NoWrap
+        TextWrapping = TextWrapping.NoWrap,
+        TextTrimming = TextTrimming.CharacterEllipsis
     };
 
     public static void PlaceCaption(Grid parent, TextBlock caption, FrameworkElement value, string position, double valueHeight = FaceHeight)
@@ -105,41 +195,112 @@ public sealed class FlipTile : Grid
         SetRow(value, above ? 1 : 0);
     }
 
-    public void Set(string value, bool animate)
+    public void Set(string value, bool animate) => Set(value, animate, null, 200);
+
+    public void Set(string value, bool animate, IReadOnlyList<Flap>? flaps, int milliseconds)
     {
-        if (value == current) return;
+        if (value == current)
+        {
+            if (!animate) StopAnimation();
+            return;
+        }
         string previous = current;
+        long now = Environment.TickCount64;
+        string visible = VisibleValue(now);
         current = value;
         number.Text = current;
         number.FontSize = FittedSize(current);
+        FitValueHeight();
         SetAccessibleValue();
-        if (animate && previous is not "—" and not "--")
-            Flip(previous);
-        else
+        if (!animate || previous is "—" or "--" || face.ActualWidth <= 2)
+        {
             StopAnimation();
-    }
-
-    public void Reveal()
-    {
-        if (current is not "—" and not "--")
-            Flip("");
+            return;
+        }
+        if (flaps is not null && !wrapValue && previous.Length == value.Length && number.ActualWidth > 0)
+            FlipDigits(previous, visible, flaps, now);
+        else
+            FlipWhole(visible, milliseconds);
     }
 
     public void StopAnimation()
     {
         running?.Stop();
         running = null;
+        foreach (var flip in digitFlips.Values) flip.Animation.Stop();
+        digitFlips.Clear();
         overlays.Children.Clear();
     }
 
     private void SetAccessibleValue() => AutomationProperties.SetName(this, $"{field}: {current}");
 
-    private void Flip(string previous)
+    private string VisibleValue(long now)
+    {
+        if (digitFlips.Count == 0) return current;
+        var visible = current.ToCharArray();
+        foreach (var (index, flip) in digitFlips)
+            if (now < flip.Midpoint)
+                visible[index] = flip.Before;
+        return new string(visible);
+    }
+
+    private void FlipDigits(string previous, string visible, IReadOnlyList<Flap> flaps, long now)
+    {
+        if (running is not null) StopAnimation();
+        double width = face.ActualWidth - 2;
+        double characterWidth = number.ActualWidth / current.Length;
+        double lineLeft = (width - number.ActualWidth) / 2;
+        foreach (var flap in flaps)
+        {
+            int end = flap.Start + flap.Length;
+            for (int index = flap.Start; index < end; index++)
+            {
+                if (previous[index] == current[index]) continue;
+                if (digitFlips.Remove(index, out var oldFlip))
+                {
+                    oldFlip.Animation.Stop();
+                    overlays.Children.Remove(oldFlip.Panel);
+                }
+                if (visible[index] == current[index]) continue;
+                double left = Math.Clamp(lineLeft + index * characterWidth, 0, width);
+                double right = Math.Clamp(lineLeft + (index + 1) * characterWidth, left, width);
+                if (right == left) continue;
+                int delay = (int)Random.Shared.NextInt64(digitDelay.MinimumMilliseconds, (long)digitDelay.MaximumMilliseconds + 1);
+                var storyboard = new Storyboard();
+                var panel = AddFlap(storyboard, visible, left, right - left, flap.Milliseconds, delay);
+                int position = index;
+                digitFlips.Add(position, new(panel, storyboard, visible[position], now + delay + flap.Milliseconds / 2));
+                storyboard.Completed += (_, _) =>
+                {
+                    if (!digitFlips.TryGetValue(position, out var completed) || completed.Animation != storyboard) return;
+                    digitFlips.Remove(position);
+                    overlays.Children.Remove(panel);
+                };
+                storyboard.Begin();
+            }
+        }
+    }
+
+    private void FlipWhole(string previous, int milliseconds)
     {
         StopAnimation();
-        if (face.ActualWidth <= 2) return;
+        if (previous == current) return;
+        var storyboard = new Storyboard();
+        var panel = AddFlap(storyboard, previous, 0, face.ActualWidth - 2, milliseconds);
+        storyboard.Completed += (_, _) =>
+        {
+            if (running != storyboard) return;
+            running = null;
+            overlays.Children.Remove(panel);
+        };
+        running = storyboard;
+        storyboard.Begin();
+    }
 
+    private Grid AddFlap(Storyboard storyboard, string previous, double left, double width, int milliseconds, int delay = 0)
+    {
         // The old top folds into the center hinge, then the new bottom unfolds.
+        var segment = new Grid { Clip = new RectangleGeometry { Rect = new(left, 0, width, face.Height - 2) } };
         var oldBottom = Half(previous, top: false);
         var oldTop = Half(previous, top: true);
         var newBottom = Half(current, top: false);
@@ -147,32 +308,34 @@ public sealed class FlipTile : Grid
         var lowerProjection = new PlaneProjection { CenterOfRotationY = 0, RotationX = 90 };
         oldTop.Projection = upperProjection;
         newBottom.Projection = lowerProjection;
-        overlays.Children.Add(oldBottom);
-        overlays.Children.Add(oldTop);
-        overlays.Children.Add(newBottom);
-        var upper = new DoubleAnimation { From = 0, To = -90, Duration = new(TimeSpan.FromMilliseconds(100)), EnableDependentAnimation = true };
-        var lower = new DoubleAnimation { From = 90, To = 0, BeginTime = TimeSpan.FromMilliseconds(100), Duration = new(TimeSpan.FromMilliseconds(100)), EnableDependentAnimation = true };
+        segment.Children.Add(oldBottom);
+        segment.Children.Add(oldTop);
+        segment.Children.Add(newBottom);
+        overlays.Children.Add(segment);
+        var halfTime = TimeSpan.FromMilliseconds(milliseconds / 2d);
+        var wait = TimeSpan.FromMilliseconds(delay);
+        var upper = new DoubleAnimation { From = 0, To = -90, BeginTime = wait, Duration = new(halfTime), EnableDependentAnimation = true };
+        var lower = new DoubleAnimation { From = 90, To = 0, BeginTime = wait + halfTime, Duration = new(halfTime), EnableDependentAnimation = true };
         Storyboard.SetTarget(upper, upperProjection);
         Storyboard.SetTargetProperty(upper, nameof(PlaneProjection.RotationX));
         Storyboard.SetTarget(lower, lowerProjection);
         Storyboard.SetTargetProperty(lower, nameof(PlaneProjection.RotationX));
-        var storyboard = new Storyboard();
         storyboard.Children.Add(upper);
         storyboard.Children.Add(lower);
-        storyboard.Completed += (_, _) =>
+        var hide = new DoubleAnimationUsingKeyFrames
         {
-            if (running != storyboard) return;
-            running = null;
-            overlays.Children.Clear();
+            KeyFrames = { new DiscreteDoubleKeyFrame { KeyTime = KeyTime.FromTimeSpan(wait + halfTime * 2), Value = 0 } }
         };
-        running = storyboard;
-        storyboard.Begin();
+        Storyboard.SetTarget(hide, segment);
+        Storyboard.SetTargetProperty(hide, nameof(Opacity));
+        storyboard.Children.Add(hide);
+        return segment;
     }
 
     private Grid Half(string value, bool top)
     {
         double width = face.ActualWidth - 2;
-        const double halfHeight = (FaceHeight - 2) / 2;
+        double halfHeight = (face.Height - 2) / 2;
         var half = new Grid
         {
             Width = width, Height = halfHeight, VerticalAlignment = top ? VerticalAlignment.Top : VerticalAlignment.Bottom,
@@ -180,7 +343,7 @@ public sealed class FlipTile : Grid
         };
         var full = new Grid
         {
-            Width = width, Height = FaceHeight - 2, VerticalAlignment = VerticalAlignment.Top,
+            Width = width, Height = face.Height - 2, VerticalAlignment = VerticalAlignment.Top,
             Background = top ? UpperFace : LowerFace,
             RenderTransform = new TranslateTransform { Y = top ? 0 : -halfHeight }
         };
@@ -189,7 +352,29 @@ public sealed class FlipTile : Grid
         return half;
     }
 
-    private double FittedSize(string value) => Math.Min(fontSize, (Width - 14) / (.61 * Math.Max(1, value.Length)));
+    private void FitValueHeight()
+    {
+        if (!wrapValue) return;
+        int capacity = Math.Max(1, (int)((Width - 16) / (.61 * fontSize)));
+        int lines = 1, used = 0;
+        foreach (string word in current.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (used > 0 && used + word.Length + 1 > capacity)
+            {
+                lines++;
+                used = 0;
+            }
+            used += word.Length + (used > 0 ? 1 : 0);
+        }
+        double height = Math.Max(FaceHeight, 10 + lines * (fontSize + 4));
+        if (face.Height == height) return;
+        face.Height = height;
+        SetLabelPosition(captionPosition);
+    }
+
+    private double FittedSize(string value) => wrapValue
+        ? fontSize
+        : Math.Min(fontSize, (Width - 14) / (.61 * Math.Max(Math.Max(1, value.Length), sizingCharacters)));
 
     private TextBlock TileText(string value) => new()
     {
@@ -200,6 +385,10 @@ public sealed class FlipTile : Grid
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
         FontFamily = NumberFont,
+        TextAlignment = TextAlignment.Center,
+        TextWrapping = wrapValue ? TextWrapping.Wrap : TextWrapping.NoWrap,
+        MaxLines = wrapValue ? 0 : 1,
+        Margin = wrapValue ? new Thickness(6, 0, 6, 0) : new Thickness(0),
         TextTrimming = TextTrimming.CharacterEllipsis
     };
 }

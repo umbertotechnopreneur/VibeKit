@@ -1,6 +1,10 @@
+> **File name** `reader-themes.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\reader-themes.md`<br>
+> **Path relative to the MarkVibe application root** `docs/reader-themes.md`
+
 # Reader and code themes
 
-The shared catalog is `src/MarkVibe.Core/Presentation/themes.json`. The shell consumes its IDs and labels; the browser consumes the same file. Document palettes and typography are independent of the OpenSilver application theme and of Monaco's editor theme.
+The shared catalog is `src/MarkVibe.Core/Presentation/themes.json`. The native shell consumes its IDs and labels; the embedded renderer consumes the same file. Document palettes and typography are independent of the WinUI application theme and of Monaco's editor theme.
 
 Preferences persist four IDs independently: `LightDocumentTheme` and `DarkDocumentTheme` default to `markvibe`; `LightCodeTheme` and `DarkCodeTheme` default to `auto`. JSON uses camelCase. An unknown ID or an ID unsupported in the current mode falls back to the corresponding default. Automatic code styling follows the selected document theme; with MarkVibe it keeps the existing highlight colors.
 
@@ -35,9 +39,12 @@ family, with font previews. The override covers document text, headings, tables
 and code; Mermaid retains its diagram typography. No fonts are downloaded.
 On Windows, folder choices use the stable identity of the opened root, so another
 folder keeps its own choices after restarting. Storage stays in the local app
-profile and does not write files into the documentation folder. Browser choices
-follow the workspace identity; reopening a retained folder keeps that identity.
+profile and does not write files into the documentation folder.
 
-Keep `AppStyles.xaml` as the single application merger. Load `ThemeResources.xaml` before styles that consume its brushes and dimensions, then `Buttons.xaml`, `Navigation.xaml` and `Dialogs.xaml`. Retain stable keyed resources at this boundary. Resource dictionaries must resolve shared resources from the application scope, and must not duplicate the merger recursively. Keep any `BasedOn` dependency earlier in the lookup chain. Use explicit application/component resource URIs supported by the existing OpenSilver build.
+WinUI resources use native theme brushes. Reader CSS and font rules stay inside
+the renderer ShadowRoot and never become global XAML styles. The map uses its
+native Win2D presentation palette.
 
-Map light/dark application palettes to semantic brush objects such as Surface, Text, Muted, Border and Accent. Update the existing brush values when the active palette changes so controls holding static brush references repaint consistently. Use the supported system accent brush for active controls and a shared elevation-16 DropShadowEffect for elevated surfaces. The reader's imported background/foreground are a separate document surface palette. CSS selectors and font rules remain in the DOM; they are not converted to XAML control styles.
+> **File name** `reader-themes.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\docs\reader-themes.md`<br>
+> **Path relative to the MarkVibe application root** `docs/reader-themes.md`

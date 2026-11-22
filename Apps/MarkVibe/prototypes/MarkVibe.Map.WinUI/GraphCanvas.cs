@@ -1,7 +1,7 @@
 /* VBWR B
  * Project: MarkVibe | Creator: Umberto Giacobbi
  * Created with AI: OpenAI Codex; render a standalone graph prototype with Win2D.
- * Human guidance: reuse the C# map and saved layout while retaining the OpenSilver reader.
+ * Human guidance: reuse the C# map and saved layout while retaining the embedded document reader.
  * Copyright (c) 2026 Umberto Giacobbi | License: MIT (see LICENSE)
  * VBWR E */
 using System.Diagnostics;

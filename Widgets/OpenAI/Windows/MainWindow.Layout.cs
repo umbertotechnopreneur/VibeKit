@@ -1,0 +1,242 @@
+using Microsoft.UI.Input;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using System.Runtime.InteropServices;
+using global::Windows.Graphics;
+
+namespace OpenAIUsage.Windows;
+
+public sealed partial class MainWindow
+{
+    private const int MinimumWidth = 300;
+    private readonly Grid layout = new() { Padding = new(8, 8, 8, 4), ColumnSpacing = 8, MinHeight = 96 };
+    private readonly WrappingPanel actions = new(3, centerRows: true);
+    private readonly StackPanel brands = new()
+    {
+        Orientation = Orientation.Horizontal, Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center
+    };
+    private readonly Viewbox layoutView = new() { VerticalAlignment = VerticalAlignment.Top };
+    private readonly ScrollViewer viewport = new()
+    {
+        HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+        VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+    };
+    private readonly Button pinButton = Button("\uE718", "Keep on top");
+    private Module[] modules = [];
+    private bool layoutQueued;
+    private int lastMinimumWidth;
+    private static readonly WindowSubclass ResizeProcedure = HorizontalResize;
+
+    private sealed record Module(string Key, string Label, string Description, FrameworkElement Element, FlipTile? Tile = null, bool Detail = false);
+
+    private void BuildResponsiveLayout()
+    {
+        modules =
+        [
+            new("allowance", "Allowance remaining", "Percentage left in the allowance currently selected by Codex.", usageLink, remaining),
+            new("credits", "Remaining credits", "Available credits. The bar compares your balance with the highest balance seen since launch.", credits, credits),
+            new("estimate", "Estimated time remaining", "Estimated time before the current allowance runs out at the observed usage rate.", forecastLink, forecast),
+            new("vouchers", "Resets available", "Number of reset vouchers. Select the tile to see their expiration dates.", vouchersButton, vouchers),
+            new("first-reset", "First reset", "Date and time of the first upcoming allowance reset.", resetLink, compactReset),
+            new("clock", "Next reset countdown and date", "Switches between the countdown and the calendar date of the next reset.", countdownLink, resetClock),
+            new("five-hour", "5-hour allowance", "Percentage left in the rolling five-hour allowance.", fiveHour, fiveHour, true),
+            new("five-reset", "5-hour reset in", "Time left before the five-hour allowance resets.", fiveReset, fiveReset, true),
+            new("weekly", "Weekly allowance", "Percentage left in the weekly allowance.", weekly, weekly, true),
+            new("weekly-reset", "Weekly reset at", "Date and time when the weekly allowance resets.", weeklyReset, weeklyReset, true),
+            new("detail-estimate", "Detailed time estimate", "Time the current allowance is expected to last at the observed rate.", detailsEstimate, detailsEstimate, true),
+            new("time-to-reset", "Time to reset", "Time until the current allowance resets.", timeToReset, timeToReset, true),
+            new("forecast", "At the current rate", "Whether the allowance will last to the reset and how early it could run out.", forecastMessage, forecastMessage, true)
+        ];
+        layout.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+        layout.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
+        layout.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+        layout.Children.Add(signalHousing);
+        Grid.SetColumn(strip, 1);
+        layout.Children.Add(strip);
+        brands.Children.Add(appWebsiteButton);
+        brands.Children.Add(manifestoButton);
+        var rail = new StackPanel { Spacing = 6, VerticalAlignment = VerticalAlignment.Top, Children = { actions, brands } };
+        Grid.SetColumn(rail, 2);
+        layout.Children.Add(rail);
+        layoutView.Child = layout;
+        viewport.Content = layoutView;
+        viewport.ViewChanged += (_, _) => QueueLayout();
+    }
+
+    private IEnumerable<Module> OrderedModules()
+    {
+        var byKey = modules.ToDictionary(module => module.Key);
+        foreach (var key in settings.FieldOrder ?? [])
+            if (key is not null && byKey.Remove(key, out var module)) yield return module;
+        foreach (var module in modules)
+            if (byKey.ContainsKey(module.Key)) yield return module;
+    }
+
+    private bool ModuleEnabled(string key) => key switch
+    {
+        "credits" => settings.ShowCredits,
+        "estimate" => settings.ShowEstimatedTime,
+        "vouchers" => settings.ShowAvailableResets,
+        _ => !(settings.HiddenFields ?? []).Contains(key)
+    };
+
+    private void ApplySize()
+    {
+        if (!settings.EnableDetailsBar && detailsOpen)
+        {
+            SetDetailsOpen(false);
+            return;
+        }
+        detailsButton.Visibility = settings.EnableDetailsBar ? Visibility.Visible : Visibility.Collapsed;
+        var visible = OrderedModules().Where(module => ModuleEnabled(module.Key) && (!module.Detail || detailsOpen))
+            .Select(module => module.Element).ToArray();
+        if (!strip.Children.SequenceEqual(visible))
+        {
+            strip.Children.Clear();
+            foreach (var element in visible) strip.Children.Add(element);
+        }
+        foreach (var tile in modules.Select(module => module.Tile).OfType<FlipTile>())
+            tile.SetLabelPosition(settings.LabelPosition);
+        resetClock.SetLabelPosition(settings.LabelPosition == "hidden" ? "hidden" : "below");
+        UpdateSnapshotMetrics();
+        UpdateDetails(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        QueueLayout();
+    }
+
+    private void QueueLayout()
+    {
+        if (closed || !root.IsLoaded || layoutQueued) return;
+        layoutQueued = true;
+        if (!DispatcherQueue.TryEnqueue(() =>
+        {
+            layoutQueued = false;
+            if (!closed) FitWindow();
+        })) layoutQueued = false;
+    }
+
+    private void FitWindow()
+    {
+        double dpi = root.XamlRoot.RasterizationScale;
+        double zoom = settings.BigSize && root.ActualWidth >= 375 ? 1.25 : 1;
+        var size = AppWindow.ClientSize;
+        int minimum = (int)Math.Ceiling(MinimumWidth * dpi);
+        int minimumWindowWidth = minimum + AppWindow.Size.Width - size.Width;
+        if (lastMinimumWidth != minimumWindowWidth && AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            presenter.PreferredMinimumWidth = minimumWindowWidth;
+            lastMinimumWidth = minimumWindowWidth;
+        }
+        double width = Math.Max(MinimumWidth, AppWindow.ClientSize.Width / dpi) / zoom;
+        bool narrow = width < 530;
+        int commandCount = actions.Children.Count(child => child.Visibility == Visibility.Visible);
+        actions.Width = narrow ? BrandButtonSize : Math.Max(2 * BrandButtonSize + brands.Spacing, commandCount * 28 + (commandCount - 1) * 3);
+        brands.Orientation = narrow ? Orientation.Vertical : Orientation.Horizontal;
+        signalHousing.Width = narrow ? 30 : 44;
+        signalHousing.Height = narrow ? 92 : 128;
+        double tileWidth = width - 54 - signalHousing.Width - actions.Width;
+        strip.Width = tileWidth;
+        foreach (var tile in modules.Select(module => module.Tile).OfType<FlipTile>())
+            tile.FitWidth(tileWidth);
+        layout.Width = width;
+        strip.Measure(new(tileWidth, double.PositiveInfinity));
+        actions.Measure(new(actions.Width, double.PositiveInfinity));
+        brands.Measure(new(actions.Width, double.PositiveInfinity));
+        double contentHeight = Math.Max(strip.DesiredSize.Height,
+            Math.Max(signalHousing.Height + signalHousing.Margin.Top,
+                actions.DesiredSize.Height + brands.DesiredSize.Height + 6));
+        layout.Height = Math.Max(layout.MinHeight, contentHeight + layout.Padding.Top + layout.Padding.Bottom);
+        layoutView.Width = width * zoom;
+        layoutView.Height = layout.Height * zoom;
+        int desiredHeight = (int)Math.Ceiling(layoutView.Height * dpi);
+        var display = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest);
+        if (display is not null)
+        {
+            int frame = AppWindow.Size.Height - size.Height;
+            var area = display.WorkArea;
+            desiredHeight = Math.Min(desiredHeight, Math.Max(100, area.Height - frame));
+            var position = AppWindow.Position;
+            int y = Math.Clamp(position.Y, area.Y, Math.Max(area.Y, area.Y + area.Height - desiredHeight - frame));
+            if (position.Y != y) AppWindow.Move(new(position.X, y));
+        }
+        if (size.Height != desiredHeight || size.Width < minimum)
+            AppWindow.ResizeClient(new(Math.Max(minimum, size.Width), desiredHeight));
+        root.UpdateLayout();
+        UpdateDragRegions();
+    }
+
+    private void UpdateDragRegions()
+    {
+        if (!root.IsLoaded || root.ActualWidth <= 0 || root.ActualHeight <= 0) return;
+        double dpi = root.XamlRoot.RasterizationScale;
+        int width = (int)Math.Round(root.ActualWidth * dpi), height = (int)Math.Round(root.ActualHeight * dpi);
+        var caption = new List<RectInt32> { new(0, 0, width, height) };
+        var controls = actions.Children.OfType<FrameworkElement>()
+            .Concat(strip.Children.OfType<FrameworkElement>()).Concat([appWebsiteButton, manifestoButton, signalHousing]);
+        foreach (var control in controls)
+        {
+            if (control.Visibility != Visibility.Visible) continue;
+            var rect = control.TransformToVisual(root).TransformBounds(new(0, 0, control.ActualWidth, control.ActualHeight));
+            Exclude((int)Math.Floor(rect.Left * dpi), (int)Math.Floor(rect.Top * dpi),
+                (int)Math.Ceiling(rect.Right * dpi), (int)Math.Ceiling(rect.Bottom * dpi));
+        }
+        if (viewport.ScrollableHeight > 0) Exclude(width - (int)Math.Ceiling(14 * dpi), 0, width, height);
+        nonClientInput ??= InputNonClientPointerSource.GetForWindowId(AppWindow.Id);
+        nonClientInput.SetRegionRects(NonClientRegionKind.Caption, caption.ToArray());
+
+        void Exclude(int left, int top, int right, int bottom)
+        {
+            var remaining = new List<RectInt32>();
+            foreach (var box in caption)
+            {
+                int x2 = box.X + box.Width, y2 = box.Y + box.Height;
+                int l = Math.Max(left, box.X), t = Math.Max(top, box.Y);
+                int r = Math.Min(right, x2), b = Math.Min(bottom, y2);
+                if (l >= r || t >= b) { remaining.Add(box); continue; }
+                Add(box.X, box.Y, x2, t);
+                Add(box.X, b, x2, y2);
+                Add(box.X, t, l, b);
+                Add(r, t, x2, b);
+            }
+            caption = remaining;
+
+            void Add(int x, int y, int endX, int endY)
+            {
+                if (x < endX && y < endY) remaining.Add(new(x, y, endX - x, endY - y));
+            }
+        }
+    }
+
+    private void ApplyTopmost()
+    {
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+            presenter.IsAlwaysOnTop = settings.AlwaysOnTop;
+        if (pinButton.Content is FontIcon icon) icon.Glyph = settings.AlwaysOnTop ? "\uE77A" : "\uE718";
+        string label = settings.AlwaysOnTop ? "Unpin from always on top" : "Pin on top";
+        ToolTipService.SetToolTip(pinButton, label);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(pinButton, label);
+    }
+
+    private static nint HorizontalResize(nint hwnd, uint message, nuint wParam, nint lParam, nuint id, nuint data)
+    {
+        if (message == 0x0082) RemoveWindowSubclass(hwnd, ResizeProcedure, id); // WM_NCDESTROY
+        nint result = DefSubclassProc(hwnd, message, wParam, lParam);
+        if (message != 0x0084) return result; // WM_NCHITTEST
+        return (int)result switch
+        {
+            12 or 15 => 18, // Top and bottom borders cannot resize.
+            13 or 16 => 10,
+            14 or 17 => 11,
+            _ => result
+        };
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    private delegate nint WindowSubclass(nint hwnd, uint message, nuint wParam, nint lParam, nuint id, nuint data);
+    [DllImport("comctl32.dll")]
+    private static extern bool SetWindowSubclass(nint hwnd, WindowSubclass callback, nuint id, nuint data);
+    [DllImport("comctl32.dll")]
+    private static extern bool RemoveWindowSubclass(nint hwnd, WindowSubclass callback, nuint id);
+    [DllImport("comctl32.dll")]
+    private static extern nint DefSubclassProc(nint hwnd, uint message, nuint wParam, nint lParam);
+}

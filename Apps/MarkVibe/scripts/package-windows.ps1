@@ -136,7 +136,8 @@ $signTool = if (-not $Unsigned) {
 
     Find-SdkTool 'signtool.exe'
 }
-$nodeVersion = (& node --version).TrimStart('v')
+$selectedNode = @(Get-Command node -CommandType Application -ErrorAction Stop)[0].Source
+$nodeVersion = (& $selectedNode --version).TrimStart('v')
 if ($LASTEXITCODE -ne 0 -or [version]$nodeVersion -lt [version]'22.12.0') {
 
     throw 'Use an existing Node >=22.12 in this PowerShell session.'
@@ -219,6 +220,7 @@ try {
             "-p:FileVersion=$Version",
             "-p:InformationalVersion=$Version-$channel",
             "-p:MarkVibeBuildTime=$builtAt",
+            "-p:MarkVibeNodeExe=$selectedNode",
             "-p:ApplicationIcon=$(Join-Path $icons 'MarkVibe.ico')")
         foreach ($file in @('MarkVibe.Windows.exe', 'MarkVibe.Windows.pri', 'App.xbf', 'Microsoft.WinUI.dll',
                 'Microsoft.Web.WebView2.Core.dll', 'app/index.html', 'app/js/markvibe.js',
@@ -231,7 +233,7 @@ try {
         if ($runtimeConfig.runtimeOptions.framework.name -ne 'Microsoft.NETCore.App' -or
             $runtimeConfig.runtimeOptions.framework.version -notmatch '^10\.0\.' -or
             (Test-Path -LiteralPath (Join-Path $payload 'coreclr.dll'))) {
-            throw 'Publish must use the separately installed .NET Runtime 10.0.'
+            throw 'Publish must use the separately installed .NET Runtime 10.0; bundled .NET runtime files are not permitted.'
         }
         # The splash reads build-host facts before the managed application loads.
         # Preserve the build host's local formatting, offset and zone, rather than
@@ -366,6 +368,7 @@ try {
         msiProductVersion=$msiProductVersion
 
         selfContained=$false
+
         requiredDotNetRuntime='Microsoft.NETCore.App 10.0 (matching architecture)'
 
         signed=(-not $Unsigned)
@@ -434,7 +437,11 @@ https://github.com/umbertotechnopreneur/MarkVibe
 https://umbertogiacobbi.biz/vibeware/manifesto
 "@
     }
-    Set-Content -LiteralPath (Join-Path $artifactsRoot 'README.txt') -Value $readme -Encoding utf8NoBOM
+    $readmeFile = Join-Path $artifactsRoot 'README.txt'
+    $readmeRelativePath = [IO.Path]::GetRelativePath($repositoryRoot, $readmeFile)
+    $readmeLocation = "File name: README.txt`nFull path: $readmeFile`nPath relative to the MarkVibe application root: $readmeRelativePath"
+    $readme = $readmeLocation + "`n`n" + $readme.Trim() + "`n`n" + $readmeLocation
+    Set-Content -LiteralPath $readmeFile -Value $readme -Encoding utf8NoBOM
     $hashes = foreach ($file in Get-ChildItem -LiteralPath $artifactsRoot -File | Sort-Object Name) {
 
         (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $file.Name

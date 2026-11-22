@@ -53,13 +53,13 @@ VBWR E -->
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="[10.0.26100.9457]" />
     <PackageReference Include="Microsoft.Graphics.Win2D" Version="[1.4.0]" />
     <ProjectReference Include="../MarkVibe.Native/MarkVibe.Native.csproj" />
-    <EmbeddedResource Include="../MarkVibe.Browser/wwwroot/icons.svg" LogicalName="MarkVibe.Windows.MapIcons.svg" />
+    <EmbeddedResource Include="Rendering/web/icons.svg" LogicalName="MarkVibe.Windows.MapIcons.svg" />
     <None Update="Rendering/web/index.html;Rendering/web/desktop.css" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/%(Filename)%(Extension)" />
-    <None Include="../MarkVibe.Browser/wwwroot/css/content.css" Link="Rendering/web/css/content.css" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/css/content.css" />
-    <None Include="../MarkVibe.Browser/wwwroot/favicon.svg" Link="Rendering/web/favicon.svg" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/favicon.svg" />
-    <None Include="../MarkVibe.Browser/wwwroot/images/*" Link="Rendering/web/images/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/images/%(Filename)%(Extension)" />
-    <None Include="../MarkVibe.Browser/wwwroot/icons/appbar/*" Link="Rendering/web/icons/appbar/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/icons/appbar/%(Filename)%(Extension)" />
-    <None Include="../MarkVibe.Browser/wwwroot/demo/**/*" Link="Rendering/web/demo/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/demo/%(RecursiveDir)%(Filename)%(Extension)" />
+    <None Update="Rendering/web/css/content.css" Link="Rendering/web/css/content.css" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/css/content.css" />
+    <None Update="Rendering/web/favicon.svg" Link="Rendering/web/favicon.svg" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/favicon.svg" />
+    <None Update="Rendering/web/images/*" Link="Rendering/web/images/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/images/%(Filename)%(Extension)" />
+    <None Update="Rendering/web/icons/appbar/*" Link="Rendering/web/icons/appbar/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/icons/appbar/%(Filename)%(Extension)" />
+    <None Update="Rendering/web/demo/**/*" Link="Rendering/web/demo/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/demo/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
   <Target Name="PrepareDesktopClientForVisualStudio" BeforeTargets="BundleDesktopClient"
           Condition="'$(BuildingInsideVisualStudio)' == 'true' and '$(DesignTimeBuild)' != 'true'">
@@ -67,7 +67,7 @@ VBWR E -->
   </Target>
   <Target Name="BundleDesktopClient" Condition="'$(DesignTimeBuild)' != 'true'">
     <!-- The source fingerprint also checks each referenced output and rejects incomplete bundles. -->
-    <Exec Command="&quot;$(MarkVibeNodeExe)&quot; &quot;$(MSBuildProjectDirectory)/../../scripts/bundle.mjs&quot; --windows-desktop $(DesktopBundleArgs)" />
+    <Exec Command="&quot;$(MarkVibeNodeExe)&quot; &quot;$(MSBuildProjectDirectory)/../../scripts/bundle.mjs&quot; $(DesktopBundleArgs)" />
     <ReadLinesFromFile File="$(DesktopBundleDirectory)/runtime-files.txt">
       <Output TaskParameter="Lines" ItemName="DesktopBundleFile" />
     </ReadLinesFromFile>

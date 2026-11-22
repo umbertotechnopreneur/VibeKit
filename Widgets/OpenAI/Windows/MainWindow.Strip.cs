@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Media.Imaging;
 using System.Diagnostics;
 using System.Globalization;
 
@@ -12,67 +12,95 @@ namespace OpenAIUsage.Windows;
 
 public sealed partial class MainWindow
 {
-    private const double ClockWidth = 335, ClockGap = 5;
-    private readonly StackPanel strip = new() { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new(12, 8, 23, 10), VerticalAlignment = VerticalAlignment.Center };
-    private readonly FlipTile remaining = new("Allowance remaining", 145, 25, SecondaryText);
-    private readonly FlipTile vouchers = new("Available resets", 111, 25, SecondaryText);
-    private readonly FlipTile credits = new("Credits left", 107, 25, SecondaryText);
-    private readonly FlipTile forecast = new("Est. time Left", 106, 24, SecondaryText);
-    private readonly FlipTile compactReset = new("First reset", 154, 23, SecondaryText);
-    private readonly FlipTile[] countdownTiles =
-    [
-        new("Days", (ClockWidth - 3 * ClockGap) / 4, 26, SecondaryText, "DAYS"),
-        new("Hours", (ClockWidth - 3 * ClockGap) / 4, 26, SecondaryText, "HRS"),
-        new("Minutes", (ClockWidth - 3 * ClockGap) / 4, 26, SecondaryText, "MIN"),
-        new("Seconds", (ClockWidth - 3 * ClockGap) / 4, 26, SecondaryText, "SEC")
-    ];
-    private readonly FlipTile[] calendarTiles =
-    [
-        new("Weekday", 111, 19, SecondaryText, ""),
-        new("Day of month", 41, 23, SecondaryText, ""),
-        new("Month", 111, 19, SecondaryText, ""),
-        new("Year", 57, 21, SecondaryText, "")
-    ];
+    private const double BrandButtonSize = 64;
+    private readonly WrappingPanel strip = new();
+    private readonly FlipTile remaining = new("Allowance remaining", 148, 24, SecondaryText, showAccent: true, worn: true);
+    private readonly FlipTile credits = new("Remaining credits", 136, 24, SecondaryText, showAccent: true, worn: true);
+    private readonly FlipTile forecast = new("Estimated time remaining", 178, 24, SecondaryText);
+    private readonly FlipTile vouchers = new("Resets available", 122, 25, SecondaryText);
+    private readonly FlipTile compactReset = new("First reset", 178, 23, SecondaryText);
+    private readonly FlipTile resetClock = new("Next reset date", 430, 28, SecondaryText,
+        sizingCharacters: "WEDNESDAY 00 SEPTEMBER 00".Length,
+        creaseShadow: new(5, ColorHelper.FromArgb(112, 52, 10, 13), ColorHelper.FromArgb(255, 24, 6, 7)),
+        digitDelay: new(300, 1000));
     private readonly Stopwatch clockCycle = new();
-    private readonly Grid clockStage = new() { Width = ClockWidth, VerticalAlignment = VerticalAlignment.Center };
-    private readonly StackPanel countdownFace = new() { Orientation = Orientation.Horizontal, Spacing = ClockGap };
-    private readonly StackPanel calendarFace = new() { Orientation = Orientation.Horizontal, Spacing = ClockGap, Visibility = Visibility.Collapsed };
-    private readonly Button profile = Button(Logo(30), "Open Profile");
+    private readonly Button appWebsiteButton = BrandLink(Logo(BrandButtonSize), "Open OpenAI Usage project page", ProjectUrl);
+    private readonly Button manifestoButton = BrandLink(new Image
+    {
+        Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Branding", "VibeWare.png"))),
+        Width = BrandButtonSize, Height = BrandButtonSize, Stretch = Stretch.Uniform,
+        RenderTransformOrigin = new(.5, .5),
+        RenderTransform = new ScaleTransform { ScaleX = (BrandButtonSize + 20) / BrandButtonSize, ScaleY = (BrandButtonSize + 20) / BrandButtonSize }
+    }, "VibeWare manifesto", ManifestoUrl, artworkBleed: 3);
     private readonly Button usageLink = Button("", "Open usage and resets in ChatGPT");
     private readonly Button forecastLink = Button("", "Open usage and resets in ChatGPT");
+    private readonly Button vouchersButton = Button("", "View reset voucher expiration dates");
+    private readonly TextBlock voucherExpirations = Text("", 14);
     private readonly Button resetLink = Button("", "Open usage and resets in ChatGPT");
     private readonly Button countdownLink = Button("", "Open usage and resets in ChatGPT");
     private readonly HashSet<int> notifiedThresholds = [];
     private readonly HashSet<int> soundedThresholds = [];
     private string? alertWindow;
     private int? creditsAlertThreshold;
+    private decimal highestCreditBalance;
     private bool creditsBelowThreshold;
-    private string[]? calendarParts;
-    private Storyboard? clockFade;
-    private bool showingCalendar, wantsCalendar;
+    private string? resetCalendarText;
+    private bool showingCalendar;
 
     private void BuildWidgetStrip()
     {
-        profile.Padding = new(0);
-        profile.Width = 30;
-        profile.VerticalAlignment = VerticalAlignment.Center;
-        profile.Click += (_, _) => OpenLink("https://chatgpt.com/profile");
-        strip.Children.Add(profile);
-
         BuildSignal();
+        ConfigureUsageLink(usageLink, remaining);
+        ConfigureUsageLink(forecastLink, forecast);
+        ConfigureUsageLink(resetLink, compactReset);
+        BuildVoucherButton();
 
-        strip.Children.Add(ConfigureUsageLink(usageLink, remaining));
-        strip.Children.Add(vouchers);
-        strip.Children.Add(ConfigureUsageLink(forecastLink, forecast));
-        strip.Children.Add(credits);
-        strip.Children.Add(ConfigureUsageLink(resetLink, compactReset));
+        ConfigureUsageLink(countdownLink, resetClock);
+    }
 
-        foreach (var tile in countdownTiles) countdownFace.Children.Add(tile);
-        foreach (var tile in calendarTiles) calendarFace.Children.Add(tile);
-        clockStage.Children.Add(countdownFace);
-        clockStage.Children.Add(calendarFace);
-        strip.Children.Add(ConfigureUsageLink(countdownLink, clockStage));
-        SwitchClockFace(false);
+    private static Button BrandLink(Image mark, string label, string url, double artworkBleed = 0)
+    {
+        mark.HorizontalAlignment = HorizontalAlignment.Center;
+        mark.VerticalAlignment = VerticalAlignment.Center;
+        var imageSlot = new Grid
+        {
+            Width = BrandButtonSize,
+            Height = BrandButtonSize,
+            Clip = new RectangleGeometry { Rect = new(-artworkBleed, -artworkBleed, BrandButtonSize + 2 * artworkBleed, BrandButtonSize + 2 * artworkBleed) },
+            IsHitTestVisible = false,
+            Children = { mark }
+        };
+        var button = Button(imageSlot, label);
+        button.Width = BrandButtonSize;
+        button.Height = BrandButtonSize;
+        button.Padding = new(0);
+        button.HorizontalContentAlignment = HorizontalAlignment.Center;
+        button.VerticalContentAlignment = VerticalAlignment.Center;
+        button.Click += (_, _) => OpenLink(url);
+        return button;
+    }
+
+    private Button BuildVoucherButton()
+    {
+        vouchersButton.Content = vouchers;
+        vouchersButton.Padding = new(0);
+        vouchersButton.MinHeight = 0;
+        vouchersButton.MinWidth = 0;
+        vouchersButton.VerticalAlignment = VerticalAlignment.Center;
+        vouchersButton.Flyout = new Flyout
+        {
+            Content = new StackPanel
+            {
+                MaxWidth = 340,
+                Spacing = 8,
+                Children =
+                {
+                    Text("Reset voucher expiration dates", 16, bold: true),
+                    new ScrollViewer { Content = voucherExpirations, MaxHeight = 220 }
+                }
+            }
+        };
+        return vouchersButton;
     }
 
     private static Button ConfigureUsageLink(Button link, FrameworkElement content)
@@ -80,45 +108,10 @@ public sealed partial class MainWindow
         link.Content = content;
         link.Padding = new(0);
         link.MinHeight = 0;
+        link.MinWidth = 0;
         link.VerticalAlignment = VerticalAlignment.Center;
         link.Click += (_, _) => OpenLink(UsageUrl);
         return link;
-    }
-
-    private FrameworkElement[] TargetsForPointerInput() =>
-        [profile, signal, usageLink, vouchers, forecastLink, credits, resetLink, countdownLink];
-
-    private void ApplySize()
-    {
-        foreach (var tile in new[] { remaining, vouchers, forecast, credits, compactReset }.Concat(countdownTiles).Concat(calendarTiles))
-            tile.SetLabelPosition(settings.LabelPosition);
-        FlipTile.PlaceCaption(signal, signalCaption, signalHousing, settings.LabelPosition, SignalHeight);
-        signal.Width = settings.LabelPosition == "hidden" ? 34 : 42;
-
-        vouchers.Visibility = settings.ShowAvailableResets ? Visibility.Visible : Visibility.Collapsed;
-        forecastLink.Visibility = settings.ShowEstimatedTime ? Visibility.Visible : Visibility.Collapsed;
-        credits.Visibility = settings.ShowCredits ? Visibility.Visible : Visibility.Collapsed;
-        ApplyDetailsSettings();
-        UpdateSnapshotMetrics();
-        if (!root.IsLoaded) return;
-
-        widgetBands.Measure(new(double.PositiveInfinity, double.PositiveInfinity));
-        var size = widgetBands.DesiredSize;
-        double scale = root.XamlRoot.RasterizationScale * (settings.BigSize ? 1.25 : 1) * .89;
-        var display = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest);
-        if (display is not null)
-            scale = Math.Min(scale, (display.WorkArea.Width - 16) / size.Width);
-        int width = (int)Math.Ceiling(size.Width * scale), height = (int)Math.Ceiling(size.Height * scale);
-        if (detailsBand.Visibility == Visibility.Visible && display is not null)
-        {
-            var area = display.WorkArea;
-            var position = AppWindow.Position;
-            int x = Math.Clamp(position.X, area.X, Math.Max(area.X, area.X + area.Width - width));
-            int y = Math.Clamp(position.Y, area.Y, Math.Max(area.Y, area.Y + area.Height - height));
-            AppWindow.MoveAndResize(new(x, y, width, height));
-        }
-        else AppWindow.Resize(new(width, height));
-        UpdateDragRegions();
     }
 
     private bool CanAnimateWidget => root.IsLoaded && AppWindow.IsVisible && systemSettings.AnimationsEnabled;
@@ -128,27 +121,38 @@ public sealed partial class MainWindow
         bool animate = CanAnimateWidget;
         string allowance = state.Remaining is { } value ? FormattableString.Invariant($"{value:0.#}%") : "—";
         remaining.Set(allowance, animate);
-        vouchers.Set(state.ResetVoucherCount?.ToString("D2", CultureInfo.InvariantCulture) ?? "—", animate && settings.ShowAvailableResets);
-        credits.Set(state.CreditsLabel, animate && settings.ShowCredits);
+        string resetCount = state.ResetVoucherCount?.ToString(CultureInfo.InvariantCulture) ?? "—";
+        vouchers.Set(resetCount, animate && settings.ShowAvailableResets);
+        credits.Set(state.CreditsLabel.ToUpperInvariant(), animate && settings.ShowCredits);
         forecast.Set(state.ForecastAvailable ? state.ForecastCompact : "—", animate && settings.ShowEstimatedTime);
         var firstReset = state.ResetDisplays.FirstOrDefault();
         compactReset.Set(firstReset?.Value ?? state.SelectedResetCompact ?? "—", animate);
 
         string remainingDetail = $"{state.AllowanceLabel}: {allowance}. {state.ResetLabel}";
         DescribeMetric(usageLink, remainingDetail);
-        DescribeMetric(forecastLink, $"Est. time Left: {(state.ForecastAvailable ? state.ForecastCompact : "—")}. {state.ForecastDetail}");
+        DescribeMetric(forecastLink, $"Estimated time remaining: {(state.ForecastAvailable ? state.ForecastCompact : "—")}. {state.ForecastDetail}");
         DescribeMetric(resetLink, $"First reset: {firstReset?.Detail ?? state.ResetLabel}");
-        var expiryDetails = state.ResetVoucherExpirations.Select((item, index) => $"Reset {index + 1}: {item.Detail}");
-        DescribeMetric(vouchers, string.Join(Environment.NewLine, expiryDetails.Prepend(
-            state.ResetVoucherCount is { } count ? $"{count} available reset vouchers." : "Available reset vouchers are unavailable.")));
-        DescribeMetric(credits, $"Credits left: {state.CreditsLabel}. The displayed balance is rounded to a whole number.");
-
-        calendarParts = state.ResetCalendarDate?.Split(' ', StringSplitOptions.RemoveEmptyEntries) is { Length: 4 } parts ? parts : null;
-        if (calendarParts is not null)
+        AutomationProperties.SetName(vouchersButton, $"Resets available: {resetCount}. View reset voucher expiration dates.");
+        voucherExpirations.Text = state.ResetVoucherCount switch
         {
-            for (int i = 0; i < calendarTiles.Length; i++)
-                calendarTiles[i].Set(calendarParts[i], animate && showingCalendar);
-            if (showingCalendar) DescribeMetric(countdownLink, $"Reset date: {state.ResetCalendarDate}");
+            null => "Reset voucher information is unavailable.",
+            0 => "There are no reset vouchers available.",
+            _ when state.ResetVoucherExpirations.Count == 0 => "Codex did not provide expiration dates.",
+            _ => string.Join(Environment.NewLine, state.ResetVoucherExpirations.Select((item, index) => $"Reset {index + 1}: {item.Detail}"))
+        };
+        if (state.CreditsBalance is { } balance && balance > highestCreditBalance)
+            highestCreditBalance = balance;
+        double? creditPercent = state.CreditsBalance is { } currentBalance && highestCreditBalance > 0
+            ? (double)(currentBalance / highestCreditBalance * 100) : null;
+        remaining.SetProgress(state.Remaining, ProgressColor(state.Remaining));
+        credits.SetProgress(creditPercent, ProgressColor(creditPercent));
+        DescribeMetric(credits, $"Remaining credits: {state.CreditsLabel}. The bar compares the balance with the highest balance seen since the widget opened.");
+
+        resetCalendarText = null;
+        if (state.ResetCalendarDate?.Split(' ', StringSplitOptions.RemoveEmptyEntries) is { Length: 4 } parts)
+        {
+            if (parts[3].Length > 2) parts[3] = parts[3][^2..];
+            resetCalendarText = string.Join(" ", parts).ToUpperInvariant();
         }
     }
 
@@ -164,78 +168,39 @@ public sealed partial class MainWindow
 
     private void UpdateResetClock(long? seconds)
     {
-        if (calendarParts is null || !seconds.HasValue)
+        if (resetCalendarText is null || !seconds.HasValue)
             clockCycle.Reset();
         else
             clockCycle.Start();
 
         bool showCalendar = (clockCycle.ElapsedMilliseconds / 10_000) % 2 == 1;
-        bool animate = CanAnimateWidget;
-        string[] values = seconds is { } time
-            ? [(time / 86_400).ToString("D2", CultureInfo.InvariantCulture),
-                (time / 3_600 % 24).ToString("D2", CultureInfo.InvariantCulture),
-                (time / 60 % 60).ToString("D2", CultureInfo.InvariantCulture),
-                (time % 60).ToString("D2", CultureInfo.InvariantCulture)]
-            : ["--", "--", "--", "--"];
-        for (int i = 0; i < countdownTiles.Length; i++)
-            countdownTiles[i].Set(values[i], animate && !showingCalendar && !showCalendar);
-
-        if (showCalendar == wantsCalendar && (animate || clockFade is null)) return;
-        wantsCalendar = showCalendar;
-        StopClockFade();
-        if (!animate)
+        bool animate = CanAnimateWidget && ModuleEnabled("clock");
+        if (showCalendar)
         {
-            SwitchClockFace(showCalendar);
-            return;
+            resetClock.Set(resetCalendarText!, animate, null, 320);
         }
-
-        FadeClock(1, 0, () =>
+        else if (seconds is { } time)
         {
-            SwitchClockFace(showCalendar);
-            clockStage.UpdateLayout();
-            foreach (var tile in showCalendar ? calendarTiles : countdownTiles) tile.Reveal();
-            FadeClock(0, 1, () => { });
-        });
-    }
-
-    private void SwitchClockFace(bool calendar)
-    {
-        showingCalendar = calendar;
-        countdownFace.Visibility = calendar ? Visibility.Collapsed : Visibility.Visible;
-        calendarFace.Visibility = calendar ? Visibility.Visible : Visibility.Collapsed;
-        DescribeMetric(countdownLink, calendar
+            string days = (time / 86_400).ToString("D2", CultureInfo.InvariantCulture);
+            string value = FormattableString.Invariant($"{days}d {time / 3_600 % 24:00}h {time / 60 % 60:00}m {time % 60:00}s");
+            int hoursStart = days.Length + 2;
+            IReadOnlyList<FlipTile.Flap>? flaps = showingCalendar ? null :
+            [
+                new(0, days.Length + 1, 300),
+                new(hoursStart, 3, 240),
+                new(hoursStart + 4, 3, 190),
+                new(hoursStart + 8, 3, 145)
+            ];
+            resetClock.Set(value, animate, flaps, 320);
+        }
+        else
+        {
+            resetClock.Set("—", false);
+        }
+        showingCalendar = showCalendar;
+        DescribeMetric(countdownLink, showCalendar
             ? $"Reset date: {state.ResetCalendarDate}"
             : "Countdown until the selected allowance resets.");
-    }
-
-    private void FadeClock(double from, double to, Action completed)
-    {
-        clockStage.Opacity = from;
-        var animation = new DoubleAnimation
-        {
-            From = from, To = to, Duration = new(TimeSpan.FromMilliseconds(160)),
-            FillBehavior = FillBehavior.Stop, EnableDependentAnimation = true
-        };
-        var transition = new Storyboard();
-        Storyboard.SetTarget(animation, clockStage);
-        Storyboard.SetTargetProperty(animation, nameof(UIElement.Opacity));
-        transition.Children.Add(animation);
-        transition.Completed += (_, _) =>
-        {
-            if (clockFade != transition) return;
-            clockFade = null;
-            clockStage.Opacity = to;
-            completed();
-        };
-        clockFade = transition;
-        transition.Begin();
-    }
-
-    private void StopClockFade()
-    {
-        clockFade?.Stop();
-        clockFade = null;
-        clockStage.Opacity = 1;
     }
 
     private void CheckAlerts()

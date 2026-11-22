@@ -1,3 +1,7 @@
+> **File name** `CONTRIBUTING.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\CONTRIBUTING.md`<br>
+> **Path relative to the MarkVibe application root** `CONTRIBUTING.md`
+
 # Contributing
 
 I welcome focused improvements to MarkVibe. Read [AGENTS.md](AGENTS.md) and the
@@ -5,7 +9,7 @@ current [implementation status](docs/implementation-status.md) before changing i
 
 Keep code, comments and UI text in English. Use four spaces in C#, two in JavaScript
 and the existing XAML conventions. C# owns Markdown parsing, navigation and state;
-JavaScript owns DOM rendering, browser capabilities and sanitation. Dispose obsolete
+JavaScript owns DOM rendering, document surface interactions and sanitation. Dispose obsolete
 readers, editors, workers, image leases and callbacks. Preserve local file boundaries
 and external-change conflicts.
 
@@ -51,9 +55,8 @@ authorize interactive acceptance or installation of a second distribution type.
 Build/package requests authorize their
 necessary local generation and restore steps, within the existing environment.
 
-Before each requested Release or Debug distribution build, clean repository
-`artifacts/` through `scripts/package-windows.ps1`. Keep distribution files and
-temporary packaging data there, with final files only after success. Create no
+Preserve existing generated distributions unless the owner requests their removal.
+Keep packaging outputs and temporary data under the application artifacts directory. Create no
 output folders in Codex directories. The package script does not run tests, create
 branches/worktrees or publish releases. Manual GitHub packaging uses the same script.
 
@@ -68,3 +71,7 @@ consistent with the publication rules recorded in [AGENTS.md](AGENTS.md). A bran
 label is not evidence that a release passed functional or security checks.
 
 — Umberto Giacobbi · [VibeWare](https://umbertogiacobbi.biz/vibeware/manifesto)
+
+> **File name** `CONTRIBUTING.md`<br>
+> **Full path** `E:\vibekit\Apps\MarkVibe\CONTRIBUTING.md`<br>
+> **Path relative to the MarkVibe application root** `CONTRIBUTING.md`

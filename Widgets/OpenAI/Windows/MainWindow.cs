@@ -19,6 +19,7 @@ public sealed partial class MainWindow : Window
 {
     private const string StartupTaskId = "OpenAIUsageStartup";
     private const string UsageUrl = "https://chatgpt.com/settings/usage";
+    private const string ProjectUrl = "https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/OpenAI";
     private const string ManifestoUrl = "https://umbertogiacobbi.biz/vibeware/manifesto";
     private static readonly int[] WindowOpacityOptions = [25, 50, 75, 100];
     private static readonly SolidColorBrush PrimaryText = new(), SecondaryText = new(), WarningText = new(), CloseText = new();
@@ -31,8 +32,6 @@ public sealed partial class MainWindow : Window
     private TextBlock? settingsStatus;
     private WidgetState state=new();
     private readonly Grid root=new() { Background=new SolidColorBrush(Colors.Transparent) };
-    private const double ToolbarColumnWidth = 28;
-    private readonly Grid actions = new() { ColumnSpacing = 4, VerticalAlignment = VerticalAlignment.Center };
     private readonly Button connectionError=Button("\uE7BA","Connection settings");
     private readonly UISettings systemSettings=new();
     private readonly DispatcherTimer clock=new(){Interval=TimeSpan.FromSeconds(1)}, refresh=new(){Interval=TimeSpan.FromSeconds(60)};
@@ -55,6 +54,7 @@ public sealed partial class MainWindow : Window
             Diagnostics.Record("settings.failed", error.Message);
         }
         settings = editableSettings.Settings;
+        detailsOpen = settings.EnableDetailsBar;
         settingsError = editableSettings.RecoveryMessage;
         settingsWriter = new SettingsSaveQueue(storage.SaveSettings);
         settingsWriter.Saved += error => DispatcherQueue.TryEnqueue(() =>
@@ -75,67 +75,66 @@ public sealed partial class MainWindow : Window
         if(AppWindow.Presenter is OverlappedPresenter presenter)
         {
             presenter.SetBorderAndTitleBar(true,false);
-            presenter.IsMinimizable=false; presenter.IsMaximizable=false; presenter.IsResizable=false;
+            presenter.IsMinimizable=false; presenter.IsMaximizable=false; presenter.IsResizable=true;
         }
         if(WidgetAcrylicBackdrop.IsSupported)SystemBackdrop=new WidgetAcrylicBackdrop();
         ApplySystemTheme();
         systemSettings.ColorValuesChanged+=ThemeChanged;
         BuildWidgetStrip();
-        for (int i = 0; i < 6; i++)
-            actions.ColumnDefinitions.Add(new() { Width = new(ToolbarColumnWidth) });
+        if (!SetWindowSubclass(WinRT.Interop.WindowNative.GetWindowHandle(this), ResizeProcedure, 1, 0))
+            Diagnostics.Record("window.resize.failed", "Could not restrict resizing to horizontal borders.");
+        pinButton.Click += (_, _) => UpdateSettings(next => next.AlwaysOnTop = !next.AlwaysOnTop);
+        AddAction(pinButton);
+        ApplyTopmost();
         connectionError.Visibility = Visibility.Collapsed;
         connectionError.Click += async (_, _) => await ShowSettingsAsync();
-        AddAction(connectionError, 0);
-        detailsButton.Click += (_, _) => SetDetailsOpen(detailsBand.Visibility != Visibility.Visible);
-        AddAction(detailsButton, 1);
+        AddAction(connectionError);
+        detailsButton.Click += (_, _) => SetDetailsOpen(!detailsOpen);
+        AddAction(detailsButton);
 
         var preferences = Button("\uE713", "Settings");
         preferences.Click += async (_, _) => await ShowSettingsAsync();
-        AddAction(preferences, 2);
+        AddAction(preferences);
         var about = Button("\uE946", "About OpenAI Usage");
         about.Click += async (_, _) => await ShowAboutAsync();
-        AddAction(about, 3);
-        var manifesto = Button(new Image
-        {
-            Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Branding", "VibeWare.png"))),
-            Width = 20, Height = 20, Stretch = Stretch.Uniform
-        }, "VibeWare manifesto");
-        manifesto.Click += (_, _) => OpenLink(ManifestoUrl);
-        AddAction(manifesto, 4);
+        AddAction(about);
         var close = Button("\uE8BB", "Close", CloseText);
         close.Click += (_, _) => Close();
-        AddAction(close, 5);
+        AddAction(close);
 
-        void AddAction(Control control, int column)
+        void AddAction(Control control)
         {
-            control.HorizontalAlignment = HorizontalAlignment.Center;
-            control.VerticalAlignment = VerticalAlignment.Center;
-            control.Padding = new(4);
-            Grid.SetColumn(control, column);
+            control.Width = control.Height = 28;
+            control.MinWidth = 0;
+            control.Padding = new(0);
+            control.HorizontalContentAlignment = HorizontalAlignment.Center;
+            control.VerticalContentAlignment = VerticalAlignment.Center;
             actions.Children.Add(control);
         }
 
-        strip.Children.Add(actions);
-        BuildDetailsBand();
-        ApplySize();
-        var view=new Viewbox { Child=widgetBands, Stretch=Stretch.Uniform, VerticalAlignment=VerticalAlignment.Center };
+        BuildResponsiveLayout();
+        SetDetailsOpen(detailsOpen);
         root.Children.Add(WarmAccent(.24, .72, .32, 28, 248, 112, 42));
         root.Children.Add(WarmAccent(.68, .25, .28, 23, 233, 65, 68));
-        root.Children.Add(view);
+        root.Children.Add(viewport);
         root.KeyDown += (_, args) =>
         {
-            if (args.Key != global::Windows.System.VirtualKey.Escape || detailsBand.Visibility != Visibility.Visible) return;
+            if (args.Key != global::Windows.System.VirtualKey.Escape || !detailsOpen) return;
             SetDetailsOpen(false);
             detailsButton.Focus(FocusState.Programmatic);
             args.Handled = true;
         };
         Content=root;
-        root.SizeChanged+=(_,_)=>UpdateDragRegions(); actions.SizeChanged+=(_,_)=>UpdateDragRegions(); view.SizeChanged+=(_,_)=>UpdateDragRegions();
-        foreach (var target in TargetsForPointerInput()) target.SizeChanged += (_, _) => UpdateDragRegions();
+        root.SizeChanged += (_, _) => QueueLayout();
+        actions.SizeChanged += (_, _) => QueueLayout();
+        strip.SizeChanged += (_, _) => QueueLayout();
         clock.Tick+=(_,_)=>Tick(); refresh.Tick+=async(_,_)=>await RefreshAsync();
         root.Loaded+=async(_,_)=>
         {
-            root.XamlRoot.Changed+=(_,_)=>UpdateDragRegions();
+            root.XamlRoot.Changed += (_, _) => QueueLayout();
+            double dpi = root.XamlRoot.RasterizationScale;
+            int workWidth = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest).WorkArea.Width;
+            AppWindow.ResizeClient(new(Math.Min(workWidth - 16, (int)(1240 * dpi)), AppWindow.ClientSize.Height));
             ApplySize();
             try { ApplyOpacity(settings.WindowOpacityPercent); }
             catch (Win32Exception error) { Diagnostics.Record("window.opacity.failed", error.Message); }
@@ -146,15 +145,20 @@ public sealed partial class MainWindow : Window
             catch(Exception error) { Diagnostics.Record("tray.unavailable",error.Message); }
             ApplyTaskbarVisibility();
             clock.Start(); refresh.Start(); await RefreshAsync();
-            DispatcherQueue.TryEnqueue(()=>{root.UpdateLayout();UpdateDragRegions();LogLayout();});
+            QueueLayout();
         };
         AppWindow.Closing+=AskToClose;
-        Closed+=(_,_)=>{closed=true;activeDialog?.Close();tray?.Dispose();clock.Stop();refresh.Stop();StopClockFade();StopFlicker();lifetime.Cancel();systemSettings.ColorValuesChanged-=ThemeChanged;};
+        Closed+=(_,_)=>{closed=true;activeDialog?.Close();tray?.Dispose();clock.Stop();refresh.Stop();resetClock.StopAnimation();StopSignalTransition();lifetime.Cancel();systemSettings.ColorValuesChanged-=ThemeChanged;};
     }
 
     private void Tick()
     {
-        connectionError.Visibility = settingsError is not null || !state.Connected ? Visibility.Visible : Visibility.Collapsed;
+        var connectionVisibility = settingsError is not null || !state.Connected ? Visibility.Visible : Visibility.Collapsed;
+        if (connectionError.Visibility != connectionVisibility)
+        {
+            connectionError.Visibility = connectionVisibility;
+            QueueLayout();
+        }
         ToolTipService.SetToolTip(connectionError, settingsError ?? state.Status);
         var now = DateTimeOffset.UtcNow;
         long? seconds = state.ResetsAt is { } reset ? Math.Max(0, reset - now.ToUnixTimeSeconds()) : null;
@@ -209,7 +213,18 @@ public sealed partial class MainWindow : Window
         }
     }
     private void ApplyTaskbarVisibility() => AppWindow.IsShownInSwitchers = settings.ShowInTaskbar || tray?.IsAvailable != true;
-    private void ShowWindow() {AppWindow.Show();if(activeDialog is not null)activeDialog.Activate();else Activate();}
+    private void ShowWindow()
+    {
+        if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter)
+            presenter.Restore();
+        AppWindow.Show();
+        var target = activeDialog ?? this;
+        target.Activate();
+        SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(target));
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(nint window);
     private async void ExitApplication()
     {
         if (exitPending) return;
@@ -235,44 +250,6 @@ public sealed partial class MainWindow : Window
     {
         try {System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url){UseShellExecute=true});}
         catch(Exception error){Diagnostics.Record("link.failed",error.GetType().Name);}
-    }
-    private void UpdateDragRegions()
-    {
-        if (closed || !root.IsLoaded || actions.ActualWidth <= 0 || root.ActualWidth <= 0) return;
-        double dpi = root.XamlRoot.RasterizationScale;
-        int width = (int)Math.Round(root.ActualWidth * dpi);
-        int height = (int)Math.Round(root.ActualHeight * dpi);
-        var actionBounds = actions.TransformToVisual(root).TransformBounds(new(0, 0, actions.ActualWidth, actions.ActualHeight));
-        int captionRight = Math.Clamp((int)Math.Floor(actionBounds.X * dpi) - 8, 0, width);
-        var caption = new List<RectInt32>();
-        var passthrough = new List<RectInt32> { new(captionRight, 0, width - captionRight, height) };
-        int previousRight = 0;
-        // Keep links responsive while the spaces between them remain draggable.
-        foreach (var target in TargetsForPointerInput())
-        {
-            if (target.Visibility == Visibility.Collapsed) continue;
-            var bounds = target.TransformToVisual(root)
-                .TransformBounds(new(0, 0, target.ActualWidth, target.ActualHeight));
-            int left = Math.Clamp((int)Math.Floor(bounds.Left * dpi), previousRight, captionRight);
-            int right = Math.Clamp((int)Math.Ceiling(bounds.Right * dpi), left, captionRight);
-            int top = Math.Clamp((int)Math.Floor(bounds.Top * dpi), 0, height);
-            int bottom = Math.Clamp((int)Math.Ceiling(bounds.Bottom * dpi), top, height);
-            if (left == right || top == bottom) continue;
-            caption.Add(new(previousRight, 0, left - previousRight, height));
-            caption.Add(new(left, 0, right - left, top));
-            caption.Add(new(left, bottom, right - left, height - bottom));
-            passthrough.Add(new(left, top, right - left, bottom - top));
-            previousRight = right;
-        }
-        caption.Add(new(previousRight, 0, captionRight - previousRight, height));
-        nonClientInput ??= InputNonClientPointerSource.GetForWindowId(AppWindow.Id);
-        nonClientInput.SetRegionRects(NonClientRegionKind.Caption, caption.Where(rect => rect.Width > 0 && rect.Height > 0).ToArray());
-        nonClientInput.SetRegionRects(NonClientRegionKind.Passthrough, passthrough.Where(rect => rect.Width > 0 && rect.Height > 0).ToArray());
-    }
-    private void LogLayout()
-    {
-        var captions=nonClientInput?.GetRegionRects(NonClientRegionKind.Caption);
-        Diagnostics.Record("window.layout",$"compactOnly=True; client={root.ActualWidth:0}x{root.ActualHeight:0}; toolbarActions={actions.Children.OfType<Control>().Count(c=>c.Visibility==Visibility.Visible)}; captionRegions={captions?.Length??0}; metricsClipped={remaining.IsTextTrimmed || vouchers.IsTextTrimmed || credits.IsTextTrimmed || forecast.IsTextTrimmed || compactReset.IsTextTrimmed}; acrylicSupported={WidgetAcrylicBackdrop.IsSupported}");
     }
     private async void AskToClose(AppWindow sender,AppWindowClosingEventArgs args)
     {
@@ -300,7 +277,6 @@ public sealed partial class MainWindow : Window
         PrimaryText.Color=dark?ColorHelper.FromArgb(255,235,241,249):ColorHelper.FromArgb(255,23,39,62);
         SecondaryText.Color=dark?ColorHelper.FromArgb(255,194,205,221):ColorHelper.FromArgb(255,69,87,111);
         WarningText.Color=dark?ColorHelper.FromArgb(255,255,203,107):ColorHelper.FromArgb(255,148,82,0);
-        DetailsBackground.Color = dark ? ColorHelper.FromArgb(235, 42, 42, 42) : ColorHelper.FromArgb(242, 244, 242, 240);
         CloseText.Color = Rgb(dark ? 0xFF6C78u : 0xB62036u);
         if(activeDialog is { ExtendsContentIntoTitleBar: true, Content: FrameworkElement dialogRoot })
         {

@@ -96,6 +96,13 @@ try
     Check(store.LoadSettings().EnableDetailsBar, "The details bar opt-in persists");
     Check(state.CreditsLabel == "1,250", "Credit balance is displayed without decimal places");
     Check(state.CreditsBalance == 1250.25m, "Credits alerts compare the raw balance before display rounding");
+    var withVouchers = parsed with
+    {
+        ResetVouchers = new(3, [now.AddDays(1).ToUnixTimeSeconds(), now.AddDays(2).ToUnixTimeSeconds(), now.AddDays(3).ToUnixTimeSeconds()])
+    };
+    var voucherState = new UsageService(store).Build(withVouchers, settings, now);
+    Check(voucherState.ResetVoucherCount == 3 && voucherState.ResetVoucherExpirations.Count == 3,
+        "All reported voucher expirations are available to the details popup");
     Check(new UsageService(store).Build(parsed with { UnlimitedCredits = true }, settings, now).CreditsBalance is null,
         "Unlimited credits do not trigger a balance threshold");
     Check(state.ResetDisplays.Count == 2 && state.ResetDisplays[0].Heading == "First reset" && state.ResetDisplays[1].Heading == "Second reset", "Available reset dates are numbered in chronological order");

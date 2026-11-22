@@ -103,6 +103,7 @@ class SettingsLifecycleChecks(unittest.TestCase):
     def test_invalid_settings_still_enable_editing(self):
         self.window.saved_settings_revision = self.window.settings_revision
         self.window.sync_pin = lambda: None
+        self.window.sync_taskbar = lambda: None
         self.window.apply_size = lambda: None
         self.window.settings_loaded({"settings": {"bigSize": False}, "recoveryMessage": "Original preserved on save"}, 1)
         self.assertTrue(self.window.settings_ready)

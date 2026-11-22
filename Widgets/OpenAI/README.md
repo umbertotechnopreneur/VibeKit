@@ -1,5 +1,5 @@
 > - **File name** `README.md`
-> - **Full path** `/run/media/umberto/Repo/vibekit/Widgets/OpenAI/README.md`
+> - **Full path** `E:\vibekit\Widgets\OpenAI\README.md`
 > - **Path relative to the VibeKit repository root** `Widgets/OpenAI/README.md`
 
 # OpenAI Usage
@@ -14,11 +14,11 @@ Two native desktop clients in VibeKit:
 - **Linux:** Python / GTK 4 / libadwaita, one compact native window surface. Follows the GNOME 50 design, with compatible theme colors for libadwaita 1.5+ on Ubuntu 24.04 and newer.
 - **Shared:** C# / .NET 10 account reader and analytics. Both clients use the same calculations and settings schema.
 
-The widget shows the selected allowance remaining, **Est. time Left**, **Available resets**, **Credits left**, and the first scheduled reset. The countdown and full reset date alternate every 10 seconds in the chosen reporting time zone. The black split-flap faces reserve fixed space for each value. **Available resets** uses at least two digits, and voucher expirations are available in its tooltip. Preferences and About open in separate native windows. On Windows, Preferences uses desktop acrylic and stays above the widget, outside the taskbar and Alt+Tab. About keeps the watchdog and log location under **Technical details**.
+The widget shows the selected allowance remaining, **Remaining Credits**, **Estimated time remaining**, **Resets available**, and the first scheduled reset. Select the reset count to see voucher expiration dates. The countdown and full reset date alternate every 10 seconds in the chosen reporting time zone. Turn on **Enable usage details bar** in Settings to show the toolbar button for a second row with allowances and the reset forecast side by side. Preferences and About open in separate native windows. On Windows, Preferences uses desktop acrylic and stays above the widget, outside the taskbar and Alt+Tab. About keeps the watchdog and log location under **Technical details**.
 
 The shared generated icon is used by the executable, window/header, About, Start/app-menu entries and packages. Metrics use monospace typography. Text gradients use the system accent and adjust their lightness to the system theme: native WinUI gradient brushes on Windows and native Pango/Cairo snapshots on GTK. Toolbar controls show only their icons at rest.
 
-Both widgets show a discreet VibeWare logo in the bottom-right corner. The icon has no button background or border and opens the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto) when clicked.
+The right-hand toolbar contains the pin and window commands, with the two branding icons centered below. The photo-based signal at left blends three alpha layers from green to amber between 100% and 50% remaining, then from amber to red. It flickers briefly about every five minutes when animations are enabled. The app icon opens the [OpenAI Usage project page](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/OpenAI), and the VibeWare logo opens the [VibeWare manifesto](https://umbertogiacobbi.biz/vibeware/manifesto).
 
 Both interfaces are native. No HTML, JavaScript UI, WebView or WebGPU renderer is used. Windows App SDK brings three WebView2 binaries transitively; they are present in the package but are not instantiated by this app. Their disk presence is distinct from a browser runtime running in memory.
 
@@ -42,7 +42,7 @@ Token quantities use decimal prefixes **K, M, G, T, P, E** (powers of 1,000). Th
 
 - The close button asks whether to exit, minimize to the notification area or cancel. Polling and memory protection continue while hidden.
 - Left-click the tray icon to reopen. Right-click offers Open, About, Settings, the owner's website, the VibeWare manifesto and Exit. Website actions open the browser only when explicitly clicked.
-- The widget opens as a compact horizontal strip. Drag an empty area to move it. On Windows, click the logo to open your ChatGPT profile, or click usage, the estimate/reset metric or the countdown to open ChatGPT usage settings in the default browser. On GTK, the compositor move gesture excludes buttons.
+- Drag either side edge to resize the widget down to 300 logical pixels. Tiles wrap and the height follows the number of rows. Drag empty space to move the widget. Preferences lets you reorder modules with the grip and toggle their visibility. Allowance bars track the percentage remaining. The credits bar compares the current balance with the highest balance seen since launch. On Windows, click usage, the estimate, the first scheduled reset or the countdown to open ChatGPT usage settings in your browser. On GTK, the compositor move gesture excludes buttons.
 - Windows uses a native Shell notification icon and menu; no Windows Forms or browser UI is added. Toolbar glyphs retain theme-aware foregrounds even when pressed/selected. The taskbar/shortcut use an explicit app identity.
 - Ubuntu uses the native StatusNotifierItem/DBusMenu protocol. The desktop must provide a compatible tray host (as supplied by Ubuntu's indicator integration). If absent, the app leaves its window accessible and disables the hide-to-tray option. No desktop extension is installed automatically. Native GNOME tray execution is not verified in this environment.
 
@@ -55,15 +55,15 @@ Token quantities use decimal prefixes **K, M, G, T, P, E** (powers of 1,000). Th
 
 ## Installers
 
-Installer targets for **0.4.4**, generated on demand from the current source. These paths exist only until cleanup:
+Installer targets for **0.4.13**, generated on demand from the current source. These paths exist only until cleanup:
 
-- `OpenAIUsage-0.4.4-windows-x64.msi`: per-user Windows x64 installation under `%LOCALAPPDATA%/Programs/OpenAI Usage`, Start menu shortcut and standard Windows uninstall/upgrade support. Includes .NET and Windows App SDK runtime files.
-- `openai-usage_0.4.4-1_amd64.deb`: Ubuntu amd64 package with the Linux backend, launcher and desktop entry. The local Debian builder declares the .NET runtime, GTK, Python and system libraries as APT dependencies. Targets Ubuntu 24.04+.
+- `OpenAIUsage-0.4.13-windows-x64.msi`: per-user Windows x64 installation under `%LOCALAPPDATA%/Programs/OpenAI Usage`, Start menu shortcut and standard Windows uninstall/upgrade support. Includes Windows App SDK components and requires the shared Microsoft .NET Runtime 10.0 for Windows x64. With a compatible runtime, open the MSI directly. If needed, install the runtime separately from [Microsoft](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).
+- `openai-usage_0.4.13-1_amd64.deb`: Ubuntu amd64 package with the Linux backend, launcher and desktop entry. The local Debian builder declares the .NET runtime, GTK, Python and system libraries as APT dependencies. Targets Ubuntu 24.04+.
 
 All packages require a separately installed Codex CLI and your own ChatGPT sign-in. The installers contain no credentials and do not install or sign in to Codex. The local MSI and DEB are unsigned. Package validation, Windows installation/startup and native GTK runtime validation are separate checks; report their results in the current task rather than retaining a historical report.
 
 ```sh
-sudo apt install ./openai-usage_0.4.4-1_amd64.deb
+sudo apt install ./openai-usage_0.4.13-1_amd64.deb
 ```
 
 On Windows, open the MSI to install, then launch **OpenAI Usage** from Start. Use Settings > Apps to uninstall; private observation history is outside the installation directory. The installer builder forces clean source rebuilds and checks the compiled version. Packaging preserves generated installers, dependencies and build output for manual cleanup. Run `Packaging/Clean-BuildOutputs.ps1` to remove all generated material, including the latest installers. No release history, antivirus report, scan hash inventory or persistent import cache is kept.
@@ -138,7 +138,7 @@ $imports = & .\Packaging\Prepare-Packaging.ps1 -WindowsOnly
 
 On Linux use `bash Packaging/Build-Debian.sh` to build the Debian package.
 
-For self-contained Release installers:
+For Release installers:
 
 ```powershell
 $imports = & .\Packaging\Prepare-Packaging.ps1
@@ -209,5 +209,5 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
 </p>
 
 > - **File name** `README.md`
-> - **Full path** `/run/media/umberto/Repo/vibekit/Widgets/OpenAI/README.md`
+> - **Full path** `E:\vibekit\Widgets\OpenAI\README.md`
 > - **Path relative to the VibeKit repository root** `Widgets/OpenAI/README.md`

@@ -13,7 +13,7 @@ public sealed partial class MainWindow
     private async Task<ContentDialogResult> ShowDialogAsync(string title,UIElement content,
         string? closeButtonText="Close",string? primaryButtonText=null,string? secondaryButtonText=null,
         bool isPrimaryEnabled=true,Func<bool>? onPrimary=null,double width=500,double height=590,bool about=false,
-        FrameworkElement? footer=null)
+        FrameworkElement? footer=null, bool showScrollbarOnHover=false)
     {
         if(!dialogGate.Wait(0))return ContentDialogResult.None;
         var host=new Window {Title=title};
@@ -22,12 +22,18 @@ public sealed partial class MainWindow
         surface.RowDefinitions.Add(new(){Height=new(about?0:44)});surface.RowDefinitions.Add(new(){Height=new(1,GridUnitType.Star)});surface.RowDefinitions.Add(new(){Height=GridLength.Auto});
         var titleBar=new StackPanel {Orientation=Orientation.Horizontal,Spacing=10,Margin=new(20,0,60,0),VerticalAlignment=VerticalAlignment.Center};
         if(!about){titleBar.Children.Add(Logo(22));titleBar.Children.Add(Text(title,16,true));surface.Children.Add(titleBar);}
-        FrameworkElement body = new ScrollViewer
+        var body = new ScrollViewer
         {
             Content = content, Margin = about ? new(16, 12, 16, 8) : new(24, 12, 24, 16),
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            VerticalScrollBarVisibility = showScrollbarOnHover ? ScrollBarVisibility.Hidden : ScrollBarVisibility.Auto
         };
+        if (showScrollbarOnHover)
+        {
+            body.Background = new SolidColorBrush(Colors.Transparent);
+            body.PointerEntered += (_, _) => body.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+            body.PointerExited += (_, _) => body.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
+        }
         Grid.SetRow(body,1);surface.Children.Add(body);
         var buttons=new StackPanel {Orientation=Orientation.Horizontal,Spacing=10,HorizontalAlignment=HorizontalAlignment.Right,Margin=new(24,0,24,20)};
         var loaded=new TaskCompletionSource();var result=new TaskCompletionSource<ContentDialogResult>();
@@ -105,7 +111,7 @@ public sealed partial class MainWindow
         var content = WidgetAbout.Create(Logo(100), initiative, "OpenAI Usage",
             $"Version {typeof(App).Assembly.GetName().Version?.ToString(3) ?? "unknown"}",
             "I built OpenAI Usage to see my Codex allowance, tokens and credits at a glance.",
-            "https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/OpenAI",
+            ProjectUrl,
             "I provide this software independently and as-is, without warranty.", support);
         content.MaxWidth = 590;
         await ShowDialogAsync("About OpenAI Usage", content, width:640, height:620, about:true);

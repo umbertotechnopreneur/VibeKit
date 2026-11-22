@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="Repo Radar" Manufacturer="Umberto Giacobbi.biz" Language="1033" Codepage="1252"
+           Version="$(var.ProductVersion)" UpgradeCode="{CE5423A2-5BD4-45D1-9FE6-B3901CA6E596}">
+    <Package InstallerVersion="500" Compressed="yes" InstallScope="perUser" InstallPrivileges="limited"
+             Description="Repo Radar for Windows x64" Comments="Umberto Giacobbi | umbertogiacobbi.biz" />
+    <MajorUpgrade Schedule="afterInstallInitialize"
+                  DowngradeErrorMessage="A newer version of Repo Radar is installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+    <Property Id="ARPCOMMENTS" Value="Git dashboard by Umberto Giacobbi. Requires Git and Microsoft .NET 10 Runtime (x64)." />
+    <Property Id="ARPURLINFOABOUT" Value="https://umbertogiacobbi.biz" />
+    <Property Id="ARPHELPLINK" Value="https://umbertogiacobbi.biz/contacts/" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPPRODUCTICON" Value="RepoRadar.ico" />
+    <Property Id="RepoRadarPublisherSite" Value="https://umbertogiacobbi.biz/" />
+    <Property Id="RepoRadarManifesto" Value="https://umbertogiacobbi.biz/vibeware/manifesto/" />
+    <Property Id="RepoRadarRuntimeVersion" Value="$(var.RuntimeVersion)" />
+    <Property Id="RepoRadarRuntimeDownload" Value="https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime" />
+    <Icon Id="RepoRadar.ico" SourceFile="$(var.InstallerIcon)" />
+    <Binary Id="RepoRadarSetupIcon" SourceFile="$(var.SetupIcon)" />
+    <Binary Id="RepoRadarRuntimeCheck" SourceFile="$(var.RuntimeCheck)" />
+    <!-- Read both registry views because older .NET installers wrote the x64 root into the 32-bit view. -->
+    <Property Id="REPORADAR_DOTNET_X64_OTHER" Secure="yes">
+      <RegistrySearch Id="DotNetInstallX64" Root="HKLM" Win64="no" Key="SOFTWARE\dotnet\Setup\InstalledVersions\x64"
+                      Name="InstallLocation" Type="raw" />
+    </Property>
+    <Property Id="REPORADAR_DOTNET_X64_NATIVE" Secure="yes">
+      <RegistrySearch Id="DotNetInstallNative" Root="HKLM" Win64="yes" Key="SOFTWARE\dotnet\Setup\InstalledVersions\x64"
+                      Name="InstallLocation" Type="raw" />
+    </Property>
+    <CustomAction Id="CheckRepoRadarRuntime" BinaryKey="RepoRadarRuntimeCheck" JScriptCall="CheckRepoRadarRuntime" Win64="yes" Return="ignore" />
+    <CustomAction Id="RequireRepoRadarRuntime"
+                  Error="Microsoft .NET Runtime [RepoRadarRuntimeVersion] or a later 10.0 patch (x64) is required. Download it at [RepoRadarRuntimeDownload], then run setup again." />
+    <Condition Message="Repo Radar requires 64-bit Windows.">Installed OR VersionNT64</Condition>
+    <Condition Message="Repo Radar installs for the current user. Omit ALLUSERS when starting setup.">Installed OR NOT ALLUSERS</Condition>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="LocalAppDataFolder">
+        <Directory Id="PerUserPrograms" Name="Programs">
+          <Directory Id="INSTALLFOLDER" Name="RepoRadar" />
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Component Id="MenuEntry" Guid="{AA93AC68-52C5-423B-B5E1-77FA5EEBCF3D}">
+          <Shortcut Id="StartRepoRadar" Name="Repo Radar" Target="[INSTALLFOLDER]$(var.AppExeName)"
+                    Description="Open the Repo Radar dashboard" WorkingDirectory="INSTALLFOLDER"
+                    Icon="RepoRadar.ico" />
+          <RemoveFolder Id="RemoveInstallIfEmpty" Directory="INSTALLFOLDER" On="uninstall" />
+          <RemoveFolder Id="RemoveProgramsIfEmpty" Directory="PerUserPrograms" On="uninstall" />
+          <RegistryValue Root="HKCU" Key="Software\RepoRadar\Installer" Name="Shortcut"
+                         Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </Directory>
+    <Feature Id="App" Title="Repo Radar" Description="Full-screen repository dashboard" Level="1">
+      <ComponentGroupRef Id="PublishedApp" />
+      <ComponentRef Id="MenuEntry" />
+    </Feature>
+    <UI>
+      <TextStyle Id="Normal" FaceName="Segoe UI" Size="9" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Segoe UI" Size="12" Bold="yes" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Segoe UI" Size="10" Bold="yes" />
+      <TextStyle Id="Title" FaceName="Segoe UI" Size="16" Bold="yes" />
+      <Property Id="DefaultUIFont" Value="Normal" />
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="CancelDlg" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="UserExit" />
+      <Dialog Id="RepoComplete" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Logo" Type="Icon" X="20" Y="24" Width="44" Height="44" Text="RepoRadarSetupIcon" />
+        <Control Id="Heading" Type="Text" X="82" Y="24" Width="268" Height="23" NoPrefix="yes" Text="{\Title}[ProductName]" />
+        <Control Id="Details" Type="Text" X="82" Y="49" Width="268" Height="14" NoPrefix="yes" Text="Version [ProductVersion] · Per-user installation" />
+        <Control Id="Result" Type="Text" X="82" Y="70" Width="268" Height="16" NoPrefix="yes" Text="Setup completed successfully for the current user." />
+        <Control Id="ProductLink" Type="Hyperlink" X="82" Y="124" Width="268" Height="14"
+                 Text="&lt;a href=&quot;[RepoRadarPublisherSite]&quot;&gt;Repo Radar home&lt;/a&gt; • &lt;a href=&quot;[RepoRadarManifesto]&quot;&gt;Member of VibeWare movement&lt;/a&gt;" />
+        <Control Id="SupportLink" Type="Hyperlink" X="82" Y="142" Width="268" Height="14"
+                 Text="Need help? &lt;a href=&quot;[ARPHELPLINK]&quot;&gt;Contact us&lt;/a&gt;" />
+        <Control Id="Divider" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Close" Type="PushButton" X="294" Y="243" Width="56" Height="17" Text="Close" Default="yes" Cancel="yes">
+          <Publish Event="EndDialog" Value="Return">1</Publish>
+        </Control>
+      </Dialog>
+      <Dialog Id="RepoProgress" Width="370" Height="270" Title="[ProductName] Setup" Modeless="yes">
+        <Control Id="Logo" Type="Icon" X="20" Y="24" Width="44" Height="44" Text="RepoRadarSetupIcon" />
+        <Control Id="Heading" Type="Text" X="82" Y="24" Width="268" Height="23" NoPrefix="yes" Text="{\Title}[ProductName]" />
+        <Control Id="Details" Type="Text" X="82" Y="49" Width="268" Height="14" NoPrefix="yes" Text="Version [ProductVersion] · Per-user installation" />
+        <Control Id="Welcome" Type="Text" X="82" Y="70" Width="268" Height="16" NoPrefix="yes" Text="Welcome to the [ProductName] installer." />
+        <Control Id="Runtime" Type="Text" X="82" Y="92" Width="268" Height="26" NoPrefix="yes"
+                 Text="Requires Microsoft .NET Runtime [RepoRadarRuntimeVersion] or a later .NET 10.0 patch (x64)." />
+        <Control Id="ProductLink" Type="Hyperlink" X="82" Y="124" Width="268" Height="14"
+                 Text="&lt;a href=&quot;[RepoRadarPublisherSite]&quot;&gt;Repo Radar home&lt;/a&gt; • &lt;a href=&quot;[RepoRadarManifesto]&quot;&gt;Member of VibeWare movement&lt;/a&gt;" />
+        <Control Id="SupportLink" Type="Hyperlink" X="82" Y="142" Width="268" Height="14"
+                 Text="Need help? &lt;a href=&quot;[ARPHELPLINK]&quot;&gt;Contact us&lt;/a&gt;" />
+        <Control Id="GitNotice" Type="Text" X="82" Y="164" Width="268" Height="16" NoPrefix="yes"
+                 Text="Git operations require Git for Windows on PATH.">
+          <Condition Action="hide">REMOVE="ALL"</Condition>
+        </Control>
+        <Control Id="Action" Type="Text" X="20" Y="201" Width="330" Height="16" NoPrefix="yes" Text="Preparing setup…">
+          <Subscribe Event="ActionText" Attribute="Text" />
+        </Control>
+        <Control Id="Meter" Type="ProgressBar" X="20" Y="220" Width="330" Height="10" Text="Installation progress">
+          <Subscribe Event="SetProgress" Attribute="Progress" />
+        </Control>
+        <Control Id="Divider" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Cancel" Type="PushButton" X="294" Y="243" Width="56" Height="17" Text="Cancel" Default="yes" Cancel="yes">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+      </Dialog>
+      <Dialog Id="RepoMissingRuntime" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Logo" Type="Icon" X="20" Y="24" Width="44" Height="44" Text="RepoRadarSetupIcon" />
+        <Control Id="Heading" Type="Text" X="82" Y="24" Width="268" Height="23" NoPrefix="yes" Text="{\Title}[ProductName]" />
+        <Control Id="Details" Type="Text" X="82" Y="49" Width="268" Height="14" NoPrefix="yes" Text="Version [ProductVersion] · Per-user installation" />
+        <Control Id="Welcome" Type="Text" X="82" Y="70" Width="268" Height="16" NoPrefix="yes" Text="Welcome to the [ProductName] installer." />
+        <Control Id="Runtime" Type="Text" X="82" Y="92" Width="268" Height="26" NoPrefix="yes"
+                 Text="Requires Microsoft .NET Runtime [RepoRadarRuntimeVersion] or a later .NET 10.0 patch (x64)." />
+        <Control Id="ProductLink" Type="Hyperlink" X="82" Y="124" Width="268" Height="14"
+                 Text="&lt;a href=&quot;[RepoRadarPublisherSite]&quot;&gt;Repo Radar home&lt;/a&gt; • &lt;a href=&quot;[RepoRadarManifesto]&quot;&gt;Member of VibeWare movement&lt;/a&gt;" />
+        <Control Id="SupportLink" Type="Hyperlink" X="82" Y="142" Width="268" Height="14"
+                 Text="Need help? &lt;a href=&quot;[ARPHELPLINK]&quot;&gt;Contact us&lt;/a&gt;" />
+        <Control Id="RuntimeMissing" Type="Text" X="82" Y="170" Width="268" Height="30" NoPrefix="yes"
+                 Text="Setup needs a compatible runtime. Open the Microsoft download page, install .NET, then run setup again." />
+        <Control Id="RuntimeLink" Type="Hyperlink" X="82" Y="204" Width="268" Height="16"
+                 Text="&lt;a href=&quot;[RepoRadarRuntimeDownload]&quot;&gt;Open the Microsoft download page&lt;/a&gt;" />
+        <Control Id="Divider" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Close" Type="PushButton" X="294" Y="243" Width="56" Height="17" Text="Close" Default="yes" Cancel="yes">
+          <Publish Event="EndDialog" Value="Exit">1</Publish>
+        </Control>
+      </Dialog>
+      <InstallUISequence>
+        <Custom Action="CheckRepoRadarRuntime" After="AppSearch">UILevel = 5 AND NOT Installed</Custom>
+        <Show Dialog="RepoMissingRuntime" Before="CostInitialize">UILevel = 5 AND NOT Installed AND NOT RepoRadarDotNetReady</Show>
+        <Show Dialog="RepoProgress" Before="ExecuteAction">UILevel = 5</Show>
+        <Show Dialog="RepoComplete" OnExit="success">1</Show>
+      </InstallUISequence>
+      <AdminUISequence>
+        <Show Dialog="RepoComplete" OnExit="success">1</Show>
+      </AdminUISequence>
+    </UI>
+    <UIRef Id="WixUI_Common" />
+    <InstallExecuteSequence>
+      <Custom Action="CheckRepoRadarRuntime" After="AppSearch">NOT Installed</Custom>
+      <Custom Action="RequireRepoRadarRuntime" After="LaunchConditions">NOT Installed AND NOT RepoRadarDotNetReady</Custom>
+    </InstallExecuteSequence>
+  </Product>
+</Wix>

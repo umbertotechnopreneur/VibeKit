@@ -1,4 +1,5 @@
 > **File name:** `README.md`<br>
+> **Full path (workspace file):** `E:\vibekit\README.md`<br>
 > **Full path (published document):** `https://github.com/umbertotechnopreneur/VibeKit/blob/main/README.md`<br>
 > **Relative path (VibeKit repository root):** `README.md`
 
@@ -43,6 +44,10 @@ A little hardware, a few desktop windows, and plenty of curiosity. **[Open the 2
 Each project has its own setup, maturity and limitations. Start with its README. CI badges show the shared VibeKit workflow, whose selected checks depend on the changed projects.
 
 ### Applications
+
+#### [Repo Radar](Apps/RepoRadar/README.md)
+
+Scan a drive for Git repositories and review local changes, remote commits and branch status in terminal cards or a detailed table. By Umberto Giacobbi.biz. [MIT license](Apps/RepoRadar/LICENSE).
 
 #### [VoiceDucker](Apps/VoiceDucker/README.md)
 
@@ -188,5 +193,6 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
 </p>
 
 > **File name:** `README.md`<br>
+> **Full path (workspace file):** `E:\vibekit\README.md`<br>
 > **Full path (published document):** `https://github.com/umbertotechnopreneur/VibeKit/blob/main/README.md`<br>
 > **Relative path (VibeKit repository root):** `README.md`

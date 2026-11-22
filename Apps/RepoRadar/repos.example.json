@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "repositories": [
+    {
+      "name": "Example",
+      "url": "https://github.com/example/example.git",
+      "relativePath": "Projects/Example"
+    }
+  ]
+}

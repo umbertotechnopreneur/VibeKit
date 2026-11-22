@@ -1,0 +1,13 @@
+desktop.ini
+bin/
+obj/
+artifacts/
+settings.json
+repos.json
+*.backup-*
+*.lock
+*.tmp-*
+dashboard.json
+workspace.sqlite3*
+workspace.sqlite*
+__pycache__/

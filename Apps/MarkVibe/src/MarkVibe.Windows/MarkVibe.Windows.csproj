@@ -35,6 +35,7 @@ VBWR E -->
     <PlatformTarget Condition="'$(RuntimeIdentifier)' == 'win-arm64'">ARM64</PlatformTarget>
     <PlatformTarget Condition="'$(RuntimeIdentifier)' == 'win-x64'">x64</PlatformTarget>
     <Platforms>x64;ARM64</Platforms>
+    <SelfContained>false</SelfContained>
     <PublishTrimmed>false</PublishTrimmed>
     <PublishSingleFile>false</PublishSingleFile>
     <MarkVibeNodeExe Condition="'$(MarkVibeNodeExe)' == ''">node</MarkVibeNodeExe>

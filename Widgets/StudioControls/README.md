@@ -84,14 +84,17 @@ for the current user with DPAPI; they are not portable plaintext files.
 The build uses locked dependencies and a fresh publish folder. Choose a new or
 empty `-OutputDirectory` for another build; existing files are never mixed into
 the release. `-Package` produces `artifacts/StudioControls-0.3.3-windows-x64.msi`.
-Run the MSI, then open Studio Controls from Start. The installer includes the
-.NET and WinUI runtimes, generic assets, the sanitized scene template and licences.
+Run the MSI, then open Studio Controls from Start. The installer includes WinUI
+components, generic assets, the sanitized scene template and licences. It requires
+the shared Microsoft .NET Runtime 10.0 for Windows x64 and offers the official
+download page when the runtime is missing. [Microsoft .NET 10 downloads](https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime)
 No Python installation is required on Windows. The language flags are bundled
 from [flag-icons 7.5.0](https://github.com/lipis/flag-icons/releases/tag/v7.5.0)
 under the MIT license in the Windows Flags directory.
 
 The package command stages an unsigned per-user MSI with WiX 5.0.2 and Python 3.
-The installer adds a Start menu shortcut and supports major upgrades. Preferences
+The installer uses the [VibeKit installer layout](../../docs/installers/README.md),
+adds a Start menu shortcut, and supports major upgrades. Preferences
 and generated project data remain in LocalAppData on uninstall. Increase the
 project version for each installer update.
 

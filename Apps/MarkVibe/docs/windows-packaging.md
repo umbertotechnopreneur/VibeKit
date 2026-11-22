@@ -4,9 +4,10 @@
 
 # Windows distribution
 
-`scripts/package-windows.ps1` defaults to self-contained Windows 11 **x64 Release**
+`scripts/package-windows.ps1` defaults to framework-dependent Windows 11 **x64 Release**
 packages. Debug and ARM64 require an explicit selection. The desktop package
-includes .NET and the Windows App SDK. WebView2 uses the installed Evergreen Runtime.
+requires the shared Microsoft .NET Runtime 10 and includes the Windows App SDK
+libraries. WebView2 uses the installed Evergreen Runtime.
 
 ## Requested Release or Debug build
 
@@ -118,9 +119,15 @@ still refer to their original absolute locations.
 The same packaging command creates a real Windows Installer `.msi` for each
 selected architecture, in addition to MSIX and portable. It uses Windows Installer
 COM and the existing Windows `makecab.exe`; no additional packaging tool or EULA
-acceptance is required. The MSI includes the self-contained app and licenses,
+acceptance is required. The MSI includes the framework-dependent app and licenses,
 installs for the current user under LocalAppData, and creates a Start menu shortcut.
 WebView2 Runtime remains a prerequisite. It is not installed by the MSI.
+
+Double-click the MSI to see the product links and installation progress. If the
+matching .NET 10 runtime is missing, use the link in the installer to open the
+Microsoft download page. Install the runtime, then reopen the MSI. The basic and
+silent modes verify the same prerequisite. The layout follows the
+[VibeKit installer specifications](../../../docs/installers/README.md).
 
 Debug/Release and x64/ARM64 have separate stable upgrade identities. The MSI
 compares three version fields, so application version `major.minor.build.revision`

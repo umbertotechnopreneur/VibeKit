@@ -2,17 +2,28 @@
 import argparse
 import importlib.util
 from pathlib import Path
+import sys
 import uuid
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts" / "packaging"))
+from vibeware_msi import add_installer_ui
+
 spec = importlib.util.spec_from_file_location('widget_wix', ROOT / 'Widgets/Shared/create-widget-wix.py')
 generator = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(generator)
 APPS = {
-    'helpme': ('HelpMe', 'hm.exe', '3d310554-f152-4ec0-a4c3-673cd42c5a21'),
-    'voiceducker': ('VoiceDucker', 'VoiceDucker.exe', '8eb22190-cc36-4767-bd03-3fb1ed508ab3'),
+    'helpme': (
+        'HelpMe', 'hm.exe', '3d310554-f152-4ec0-a4c3-673cd42c5a21',
+        'https://umbertogiacobbi.biz/promptmeup/', 'Apps/HelpMe/assets/HelpMe.ico',
+    ),
+    'voiceducker': (
+        'VoiceDucker', 'VoiceDucker.exe', '8eb22190-cc36-4767-bd03-3fb1ed508ab3',
+        'https://umbertogiacobbi.biz/voiceducker/', 'Apps/VoiceDucker/Assets/AppIcon.ico',
+    ),
 }
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('app', choices=APPS)
@@ -20,7 +31,7 @@ parser.add_argument('version')
 parser.add_argument('payload', type=Path)
 parser.add_argument('output', type=Path)
 args = parser.parse_args()
-name, executable, guid = APPS[args.app]
+name, executable, guid, home_url, logo = APPS[args.app]
 if args.output.exists():
     parser.error('Choose a new output file')
 namespace = uuid.UUID(guid)
@@ -45,4 +56,7 @@ if args.app == 'helpme':
     ET.SubElement(component, ns + 'RegistryValue', Root='HKCU', Key='Software\\VibeWare\\HelpMe\\Installer',
         Name='Path', Type='integer', Value='1', KeyPath='yes')
     ET.SubElement(feature, ns + 'ComponentRef', Id='CommandPath')
+add_installer_ui(root, payload=args.payload, executable=executable, output=args.output,
+                 home_url=home_url, logo=ROOT / logo)
+ET.indent(root)
 tree.write(args.output, encoding='utf-8', xml_declaration=True)

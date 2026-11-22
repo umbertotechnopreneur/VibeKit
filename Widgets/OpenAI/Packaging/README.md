@@ -11,8 +11,8 @@ Source/package target: **0.4.3**. Architecture: Windows x64 / Ubuntu amd64. Pack
 Build the Windows installer using the commands below. Open the generated MSI and launch **OpenAI Usage** from Start.
 
 - Per-user installation in `%LOCALAPPDATA%/Programs/OpenAI Usage`.
-- Includes the app's private .NET runtime and Windows App SDK components.
-- Uses standard Windows Installer progress, Add/Remove Programs and major-upgrade handling.
+- Uses the shared Microsoft .NET Runtime 10.0 for Windows x64 and includes Windows App SDK components. If setup finds the runtime missing, it offers the [official Microsoft download page](https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime).
+- Uses the [VibeKit installer layout](../../../docs/installers/README.md) with native progress, Add/Remove Programs and major-upgrade handling.
 - MSI major upgrades require a newer product version. A second build with the same 0.4.3 version does not upgrade an existing 0.4.3 installation; uninstalling it first preserves the personal settings and history described below.
 - Does not add autostart or a background service. It does not install or sign in to Codex.
 - Private settings/history remain in `%LOCALAPPDATA%/OpenAIUsage` after uninstall.
@@ -28,7 +28,7 @@ sudo apt install ./openai-usage_0.4.3-1_amd64.deb
 
 Launch **OpenAI Usage** from the application menu or run `openai-usage`.
 
-- The package includes a source-built self-contained Linux backend under `/usr/lib/openai-usage`.
+- The package includes a source-built Linux backend under `/usr/lib/openai-usage` and declares the shared .NET 10 runtime as an APT dependency.
 - APT resolves declared GTK 4.14+, libadwaita 1.5+, Python GI/Cairo and system-library dependencies from configured repositories.
 - Install the Codex CLI separately from its official distribution and run `codex login` yourself.
 - Remove with `sudo apt remove openai-usage`. Personal state under `~/.local/state/openai-usage` is preserved.
@@ -43,7 +43,7 @@ $imports = & .\Packaging\Prepare-Packaging.ps1 -WindowsOnly
 & .\Packaging\Build-WindowsDistribution.ps1 -Imports $imports
 ```
 
-The MSI comes from a current source publish and includes the private runtimes and dependency notices. Output filenames include a build timestamp so prior packages are preserved. Build staging and imports are retained for manual cleanup. This Windows-only packaging command checks the MSI requirements but does not run the behavioral test suite.
+The MSI comes from a current source publish and includes Windows App SDK components and dependency notices. Output filenames include a build timestamp so prior packages are preserved. Build staging and imports are retained for manual cleanup. This Windows-only packaging command checks the MSI requirements but does not run the behavioral test suite.
 
 On Linux, build only the Debian package with `bash Packaging/Build-Debian.sh`.
 

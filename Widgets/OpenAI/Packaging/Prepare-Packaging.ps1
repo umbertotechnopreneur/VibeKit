@@ -5,9 +5,11 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $context = & (Join-Path $projectRoot 'Prepare-Imports.ps1') -PreviousImports $PreviousImports -ForPackaging -WindowsOnly:$WindowsOnly
 $toolRoot = Join-Path $projectRoot '.imports\wix-5.0.2'
+$toolPackages = @('wix', 'wixtoolset.ui.wixext', 'wixtoolset.netfx.wixext')
 $oldTools = @()
 if ($null -ne $PreviousImports -and $PreviousImports.ToolRoot -eq $toolRoot) { $oldTools = @($PreviousImports.Tools) }
-$reuse = $oldTools.Count -gt 0 -and (Test-Path -LiteralPath $toolRoot)
+$reuse = $oldTools.Count -gt 0 -and (Test-Path -LiteralPath $toolRoot) -and
+    -not ($toolPackages | Where-Object { -not (Test-Path -LiteralPath (Join-Path $toolRoot "$_.5.0.2.nupkg") -PathType Leaf) })
 if ($reuse) {
     $reuse = @(Get-ChildItem -LiteralPath $toolRoot -Recurse -File).Count -eq $oldTools.Count
     foreach ($entry in $oldTools) {
@@ -21,7 +23,7 @@ if (-not $reuse) {
         $toolRoot = Join-Path $projectRoot ('.imports\wix-5.0.2-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fff'))
     }
     New-Item -ItemType Directory -Path $toolRoot -Force | Out-Null
-    foreach ($id in @('wix','wixtoolset.ui.wixext')) {
+    foreach ($id in $toolPackages) {
         $archive = Join-Path $toolRoot "$id.5.0.2.nupkg"
         $source = "https://api.nuget.org/v3-flatcontainer/$id/5.0.2/$id.5.0.2.nupkg"
         Invoke-WebRequest -Uri $source -OutFile $archive

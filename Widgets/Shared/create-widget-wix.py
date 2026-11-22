@@ -3,6 +3,7 @@
 from pathlib import Path
 import argparse
 import hashlib
+import sys
 import uuid
 import xml.etree.ElementTree as ET
 
@@ -92,19 +93,25 @@ def wix_source(payload, output, *, name, version, namespace, executable, registr
 
 
 WIDGETS = {
-    "water-ripple": ("Water Ripple", "WaterRipple.exe", "WaterRipple", "4c38f791-02e4-4c90-910c-947475cbde47", "Desktop water ripple effect."),
-    "retro-terminal": ("Retro Terminal", "RetroStudio.exe", "RetroTerminal", "83fb29fe-a2f5-46b7-ba1b-a74ed0f45606", "Desktop CRT effect and control panel."),
+    "water-ripple": ("Water Ripple", "WaterRipple.exe", "WaterRipple", "4c38f791-02e4-4c90-910c-947475cbde47",
+                     "Desktop water ripple effect.", "WaterRipple", "Assets/WaterRipple.ico"),
+    "retro-terminal": ("Retro Terminal", "RetroStudio.exe", "RetroTerminal", "83fb29fe-a2f5-46b7-ba1b-a74ed0f45606",
+                       "Desktop CRT effect and control panel.", "RetroTerminal", "Windows/Studio/RetroTerminal.ico"),
 }
 
 
 if __name__ == "__main__":
+    repository = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(repository / "scripts" / "packaging"))
+    from vibeware_msi import add_installer_ui
+
     parser = argparse.ArgumentParser()
     parser.add_argument("widget", choices=WIDGETS)
     parser.add_argument("version")
     parser.add_argument("payload", type=Path)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
-    name, exe, identifier, namespace, description = WIDGETS[args.widget]
+    name, exe, identifier, namespace, description, folder, logo = WIDGETS[args.widget]
     if args.output.exists():
         parser.error("WiX output already exists")
     count = wix_source(args.payload.resolve(), args.output.resolve(), name=name, version=args.version,
@@ -112,4 +119,10 @@ if __name__ == "__main__":
                        registry=fr"Software\VibeWare\{identifier}\Installer",
                        app_id=f"biz.umbertogiacobbi.{identifier}", minimum_build=22000,
                        requirement=f"{name} requires 64-bit Windows 11 or newer.", description=description)
+    root = ET.parse(args.output).getroot()
+    add_installer_ui(root, payload=args.payload, executable=exe, output=args.output,
+                     home_url=f"https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/{folder}",
+                     logo=repository / "Widgets" / folder / logo)
+    ET.indent(root)
+    ET.ElementTree(root).write(args.output, encoding="utf-8", xml_declaration=True)
     print(f"Files in installer: {count}")

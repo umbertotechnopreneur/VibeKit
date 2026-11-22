@@ -25,7 +25,7 @@ function Assert-Rejected([scriptblock]$Action, [string]$Message) {
 try {
     # Plain text placeholders, not executable binaries. Nothing is ever launched.
     foreach ($relative in @(
-        'StudioControls.Windows.exe', 'StudioControls.Windows.dll', 'StudioControls.Windows.deps.json',
+        'StudioControls.Windows.exe', 'StudioControls.Windows.dll',
         'StudioControls.Windows.pri', 'App.xbf', 'Microsoft.WinUI.dll',
         'Assets/CREDITS.txt', 'Assets/CRT-test.mp4', 'Assets/OBS-logo.png', 'Assets/VibeWare-logo.png',
         'Scenes/studio-windows.json', 'README.txt', 'LICENSE', 'THIRD-PARTY-NOTICES.md'
@@ -34,7 +34,9 @@ try {
         New-Item -ItemType Directory -Path (Split-Path $path -Parent) -Force | Out-Null
         Set-Content -LiteralPath $path -Value "Synthetic packaging fixture: $relative" -Encoding utf8NoBOM
     }
-    '{"runtimeOptions":{"framework":{"name":"Microsoft.NETCore.App","version":"10.0.0"}}}' |
+    '{"runtimeTarget":{"name":".NETCoreApp,Version=v10.0/win-x64"}}' |
+        Set-Content -LiteralPath (Join-Path $publish 'StudioControls.Windows.deps.json') -Encoding utf8NoBOM
+    '{"runtimeOptions":{"tfm":"net10.0","framework":{"name":"Microsoft.NETCore.App","version":"10.0.0"}}}' |
         Set-Content -LiteralPath (Join-Path $publish 'StudioControls.Windows.runtimeconfig.json') -Encoding utf8NoBOM
     foreach ($package in @('microsoft.windowsappsdk.winui/2.6.4', 'microsoft.netcore.app.runtime.win-x64/10.0.14')) {
         $path = Join-Path $nuget $package

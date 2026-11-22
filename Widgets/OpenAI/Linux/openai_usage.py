@@ -161,14 +161,34 @@ class CreaseShadow:
 
 @dataclass(frozen=True)
 class DigitFlip:
-    previous: str
+    before: str
     start: float
     duration: float
 
+    def visible(self, now, target):
+        return self.before if now < self.start + self.duration / 2 else target
+
+
+@dataclass(frozen=True)
+class SlotLayout:
+    width: int
+    font_size: float
+    pitch: float
+    columns: int
+    rows: int
+    row_height: int
+
+    @property
+    def start(self):
+        return (self.width - self.columns * self.pitch) / 2
+
 
 class FlipTile(LabeledDisplay):
+    DEFAULT_SHADOW = CreaseShadow(5, (52/255, 10/255, 13/255, .44), (24/255, 6/255, 7/255))
+    CHARACTER_ADVANCE = .62
+
     def __init__(self, name, caption, width, font_size=21, *, info=False, wrap_value=False, worn=False,
-                 sizing_text=None, crease_shadow=None, digit_delay=(0, 0)):
+                 sizing_text=None, crease_shadow=DEFAULT_SHADOW, digit_delay=(300, 1000), compact_accent=False):
         face = Gtk.DrawingArea()
         display = box(4, True)
         display.set_halign(Gtk.Align.CENTER)
@@ -181,6 +201,7 @@ class FlipTile(LabeledDisplay):
         self.wrap_value = wrap_value
         self.sizing_text = sizing_text
         self.crease_shadow = crease_shadow
+        self.compact_accent = compact_accent
         if not 0 <= digit_delay[0] <= digit_delay[1]:
             raise ValueError("Digit delays must be an ascending range in milliseconds.")
         self.digit_delay = digit_delay
@@ -197,10 +218,10 @@ class FlipTile(LabeledDisplay):
         self.value = "—"
         self.accent = None
         self.ink = (1, 1, 1)
-        self.previous = self.value
-        self.started = None
+        self.layout = None
+        self.characters = []
+        self.line_spans = []
         self.digit_flips = {}
-        self.duration = .20
         self.ticking = False
         self.face.set_draw_func(self.draw)
         self.face.update_property([Gtk.AccessibleProperty.LABEL], [f"{name}: unavailable"])
@@ -209,22 +230,66 @@ class FlipTile(LabeledDisplay):
     def resize(self, scale, available=None):
         self.scale = scale
         self.available_width = max(30, round(self.base_width * scale if available is None else min(self.base_width * scale, available)))
-        self.face.set_content_width(self.available_width - (22 if self.info is not None else 0))
         self.font_size = self.base_font_size * scale
-        self.fit_value_height()
+        self.update_slots(self.value, False, (), .20)
         self.face.queue_draw()
 
-    def fit_value_height(self):
-        height = round(34 * self.scale)
-        if self.wrap_value:
-            budget = max(1, int((self.available_width - 12) / (.61 * self.font_size)))
-            lines, used = 1, 0
-            for word in self.value.split():
-                if used and used + len(word) + 1 > budget:
-                    lines, used = lines + 1, 0
-                used += len(word) + bool(used)
-            height = max(height, round(8 + lines * (self.font_size + 4)))
-        self.face.set_content_height(height)
+    @staticmethod
+    def wrap(value, columns):
+        while len(value) > columns:
+            split = value.rfind(" ", 0, columns + 1)
+            end = split if split > 0 else columns
+            yield value[:end]
+            value = value[end:].lstrip(" ")
+        yield value
+
+    def update_slots(self, value, animate, flaps, duration):
+        width = self.available_width - (22 if self.info is not None else 0)
+        space = max(1, width - 12)
+        minimum = 1 if self.wrap_value else max(1, len(value), len(self.sizing_text or ""))
+        font_size = min(self.font_size, space / (self.CHARACTER_ADVANCE * minimum))
+        pitch = font_size * self.CHARACTER_ADVANCE
+        columns = max(minimum, math.floor(space / pitch + .00001))
+        lines = tuple(self.wrap(value, columns)) if self.wrap_value else (value,)
+        layout = SlotLayout(width, font_size, pitch, columns, len(lines), round(34 * self.scale))
+        now = time.monotonic()
+        rebuild = layout != self.layout
+        previous_columns = self.layout.columns if self.layout else 0
+        previous = [self.visible_character(i, now) for i in range(len(self.characters))] if rebuild and animate else []
+        if rebuild:
+            self.layout = layout
+            self.characters = [" "] * (columns * len(lines))
+            self.digit_flips.clear()
+            self.face.set_content_width(width)
+            self.face.set_content_height(layout.row_height * layout.rows)
+
+        self.line_spans = []
+        for row, line in enumerate(lines):
+            first = (columns - len(line)) // 2
+            self.line_spans.append((first, first + len(line)))
+            for column in range(columns):
+                index = column - first
+                target = line[index] if 0 <= index < len(line) else " "
+                slot = row * columns + column
+                if not rebuild and self.characters[slot] == target:
+                    continue
+                if rebuild:
+                    old_column = column + math.trunc((previous_columns - columns) / 2)
+                    old_slot = row * previous_columns + old_column
+                    before = previous[old_slot] if 0 <= old_column < previous_columns and old_slot < len(previous) else " "
+                else:
+                    before = self.visible_character(slot, now)
+                self.digit_flips.pop(slot, None)
+                self.characters[slot] = target
+                if animate and before != target:
+                    flap_duration = next((length for start, end, length in flaps if start <= index < end), duration)
+                    delay = random.randint(*self.digit_delay) / 1000
+                    self.digit_flips[slot] = DigitFlip(before, now + delay, flap_duration)
+
+    def visible_character(self, slot, now):
+        target = self.characters[slot]
+        flip = self.digit_flips.get(slot)
+        return flip.visible(now, target) if flip else target
 
     def set_detail(self, detail):
         if self.face.get_tooltip_text() != detail:
@@ -233,46 +298,19 @@ class FlipTile(LabeledDisplay):
                 self.info.set_tooltip_text(detail)
 
     def update(self, value, animate, *, flaps=(), duration=.20):
-        if value == self.value:
-            if not animate and (self.started is not None or self.digit_flips):
-                self.started = None
-                self.digit_flips.clear()
-                self.face.queue_draw()
-            return
-        now = time.monotonic()
-        previous, self.previous = self.value, self.visible_value(now)
-        self.value = value
-        self.duration = duration
-        animate = animate and previous != "—"
-        if animate and flaps and not self.wrap_value and len(previous) == len(value):
-            self.started = None
-            for start, end, flap_duration in flaps:
-                for index in range(start, end):
-                    if previous[index] == value[index]:
-                        continue
-                    self.digit_flips.pop(index, None)
-                    if self.previous[index] != value[index]:
-                        delay = random.randint(*self.digit_delay) / 1000
-                        self.digit_flips[index] = DigitFlip(self.previous, now + delay, flap_duration)
-        else:
+        if not animate and self.digit_flips:
             self.digit_flips.clear()
-            self.started = now if animate and self.previous != value else None
-        self.fit_value_height()
+            self.face.queue_draw()
+        if value == self.value:
+            return
+        self.update_slots(value, animate and self.value not in ("—", "--"), flaps, duration)
+        self.value = value
         accessible_value = "unavailable" if value == "—" else value
         self.face.update_property([Gtk.AccessibleProperty.LABEL], [f"{self.name}: {accessible_value}"])
         self.face.queue_draw()
-        if (self.started is not None or self.digit_flips) and not self.ticking:
+        if self.digit_flips and not self.ticking:
             self.ticking = True
             self.face.add_tick_callback(self.tick)
-
-    def visible_value(self, now):
-        if not self.digit_flips:
-            return self.value
-        visible = list(self.value)
-        for index, flip in self.digit_flips.items():
-            if now < flip.start + flip.duration / 2:
-                visible[index] = flip.previous[index]
-        return "".join(visible)
 
     def set_colors(self, *, accent=None, warning=False):
         ink = (1, .71, .19) if warning else (1, 1, 1)
@@ -283,61 +321,75 @@ class FlipTile(LabeledDisplay):
 
     def tick(self, widget, frame):
         now = time.monotonic()
-        if self.started is not None:
-            widget.queue_draw()
-            if now - self.started >= self.duration:
-                self.started = None
         if any(now >= flip.start for flip in self.digit_flips.values()):
             widget.queue_draw()
             self.digit_flips = {index: flip for index, flip in self.digit_flips.items()
                                if now < flip.start + flip.duration}
-        self.ticking = self.started is not None or bool(self.digit_flips)
+        self.ticking = bool(self.digit_flips)
         return self.ticking
 
     def draw(self, area, cr, width, height):
-        self.draw_face(cr, width, height, self.value)
+        self.draw_face(cr, width, height)
+        layout = self.layout
+        font = Pango.FontDescription("Monospace Bold")
+        font.set_absolute_size(layout.font_size * Pango.SCALE)
+        glyph = PangoCairo.create_layout(cr)
+        glyph.set_font_description(font)
         now = time.monotonic()
-        if self.started is not None:
-            self.draw_flap(cr, width, height, self.previous, (now - self.started) / self.duration)
-        if self.digit_flips:
-            self.draw_digits(cr, width, height, now)
-        self.draw_seam(cr, width, height)
+        for row, (first, end) in enumerate(self.line_spans):
+            y = row * layout.row_height
+            for column in range(layout.columns):
+                x = layout.start + column * layout.pitch
+                slot = row * layout.columns + column
+                char = self.characters[slot]
+                flip = self.digit_flips.get(slot)
+                if flip and flip.start < now < flip.start + flip.duration:
+                    self.draw_flip(cr, glyph, char, flip, now, x, y)
+                else:
+                    self.draw_character(cr, glyph, self.visible_character(slot, now), x, y)
+                if first <= column < end - 1:
+                    cr.set_source_rgba(.02, .016, .016, .9)
+                    cr.rectangle(x + layout.pitch - 1, y + 4, 1, layout.row_height - 8)
+                    cr.fill()
+            self.draw_seam(cr, width, y, layout.row_height)
+        self.draw_progress(cr, width, height)
 
-    def draw_digits(self, cr, width, height, now):
-        layout = self.layout_for_text(cr, width, self.value)
-        line_left = (width - layout.get_size()[0] / Pango.SCALE) / 2
-        for index, flip in self.digit_flips.items():
-            start = len(self.value[:index].encode("utf-8"))
-            end = start + len(self.value[index].encode("utf-8"))
-            left = line_left + layout.index_to_pos(start).x / Pango.SCALE
-            right = line_left + layout.index_to_pos(end).x / Pango.SCALE
-            cr.save()
-            cr.rectangle(left, 0, right - left, height)
-            cr.clip()
-            progress = max(0, (now - flip.start) / flip.duration)
-            self.draw_flap(cr, width, height, flip.previous, progress)
-            cr.restore()
-
-    def draw_flap(self, cr, width, height, previous, progress):
-        if progress >= 1:
+    def draw_character(self, cr, glyph, char, x, y):
+        if char == " ":
             return
-        self.draw_half(cr, width, height, previous, False, 1)
-        if progress < .5:
-            self.draw_half(cr, width, height, previous, True, math.cos(progress * math.pi))
-        else:
-            self.draw_half(cr, width, height, self.value, False, math.sin((progress - .5) * math.pi))
+        glyph.set_text(char, -1)
+        text_width, text_height = glyph.get_size()
+        cr.move_to(x + (self.layout.pitch - text_width / Pango.SCALE) / 2,
+                   y + (self.layout.row_height - text_height / Pango.SCALE) / 2)
+        cr.set_source_rgb(*self.ink)
+        PangoCairo.show_layout(cr, glyph)
 
-    def draw_half(self, cr, width, height, value, top, scale):
+    def draw_flip(self, cr, glyph, char, flip, now, x, y):
+        phase = (now - flip.start) / flip.duration
+        self.draw_half(cr, glyph, char, x, y, True, 1)
+        self.draw_half(cr, glyph, flip.before, x, y, False, 1)
+        if phase < .5:
+            self.draw_half(cr, glyph, flip.before, x, y, True, math.cos(phase * math.pi))
+        else:
+            self.draw_half(cr, glyph, char, x, y, False, math.sin((phase - .5) * math.pi))
+
+    def draw_half(self, cr, glyph, char, x, y, top, scale):
+        height = self.layout.row_height / 2
+        center = y + height
         cr.save()
-        cr.rectangle(0, 0 if top else height/2, width, height/2)
+        cr.rectangle(x, y if top else center, self.layout.pitch, height)
         cr.clip()
-        cr.translate(0, height/2)
+        cr.translate(0, center)
         cr.scale(1, max(.001, scale))
-        cr.translate(0, -height/2)
-        self.draw_face(cr, width, height, value)
+        cr.translate(0, -center)
+        shade = .12 if top else .06
+        cr.set_source_rgb(shade, shade, shade)
+        cr.rectangle(x, y if top else center, self.layout.pitch, height)
+        cr.fill()
+        self.draw_character(cr, glyph, char, x, y)
         cr.restore()
 
-    def draw_face(self, cr, width, height, value):
+    def draw_face(self, cr, width, height):
         cr.save()
         radius = 7
         for cx, cy, a, b in ((width-radius, radius, -math.pi/2, 0),
@@ -355,11 +407,6 @@ class FlipTile(LabeledDisplay):
         cr.set_source_rgb(edge, edge, edge)
         cr.set_line_width(2)
         cr.stroke()
-        layout = self.layout_for_text(cr, width, value)
-        tw, th = layout.get_pixel_size()
-        cr.move_to((width-tw)/2, (height-th)/2)
-        cr.set_source_rgb(*self.ink)
-        PangoCairo.show_layout(cr, layout)
         if self.grain:
             for shade, opacity in ((0, .24), (1, .12)):
                 cr.set_source_rgba(shade, shade, shade, opacity)
@@ -369,56 +416,41 @@ class FlipTile(LabeledDisplay):
                 cr.fill()
         cr.restore()
 
-    def draw_seam(self, cr, width, height):
+    def draw_seam(self, cr, width, y, height):
         cr.save()
-        if self.crease_shadow is not None:
-            shadow = self.crease_shadow
+        center = y + height / 2
+        shadow = self.crease_shadow
+        if shadow is not None and shadow.spread > 0:
             spread = shadow.spread * self.scale
-            center = height / 2
-            if spread > 0:
-                gradient = cairo.LinearGradient(0, center - spread, 0, center + spread)
-                gradient.add_color_stop_rgba(0, *shadow.color[:3], 0)
-                gradient.add_color_stop_rgba(.5, *shadow.color)
-                gradient.add_color_stop_rgba(1, *shadow.color[:3], 0)
-                cr.set_source(gradient)
-                cr.rectangle(2, center - spread, width - 4, spread * 2)
-                cr.fill()
-        cr.set_source_rgb(*(self.crease_shadow.line if self.crease_shadow else (.02, .02, .02)))
-        cr.set_line_width(2)
-        cr.move_to(2, height/2)
-        cr.line_to(width-2, height/2)
+            gradient = cairo.LinearGradient(0, center - spread, 0, center + spread)
+            gradient.add_color_stop_rgba(0, *shadow.color[:3], 0)
+            gradient.add_color_stop_rgba(.5, *shadow.color)
+            gradient.add_color_stop_rgba(1, *shadow.color[:3], 0)
+            cr.set_source(gradient)
+            cr.rectangle(2, center - spread, width - 4, spread * 2)
+            cr.fill()
+        cr.set_source_rgb(*(shadow.line if shadow else (.02, .02, .02)))
+        cr.set_line_width(1.5)
+        cr.move_to(2, center)
+        cr.line_to(width - 2, center)
         cr.stroke()
         cr.set_source_rgb(.42, .42, .42)
-        for x in (1, width-5):
-            cr.rectangle(x, height/2-6, 4, 12)
+        for x in (1, width - 4):
+            cr.rectangle(x, center - 4.5, 3, 9)
             cr.fill()
-        if self.accent and self.progress:
-            cr.set_source_rgb(*self.accent)
-            cr.set_line_width(2)
-            cr.set_line_cap(cairo.LINE_CAP_ROUND)
-            cr.move_to(7, height - 3)
-            cr.line_to(7 + (width - 14) * self.progress, height - 3)
-            cr.stroke()
         cr.restore()
 
-    def layout_for_text(self, cr, width, value):
-        layout = PangoCairo.create_layout(cr)
-        font = Pango.FontDescription("Monospace Bold")
-        font.set_absolute_size(self.font_size * Pango.SCALE)
-        layout.set_font_description(font)
-        layout.set_text(self.sizing_text or value, -1)
-        text_width = layout.get_pixel_size()[0]
-        if text_width > width - 10:
-            if self.wrap_value:
-                layout.set_width(round((width - 10) * Pango.SCALE))
-                layout.set_alignment(Pango.Alignment.CENTER)
-                layout.set_wrap(Pango.WrapMode.WORD_CHAR)
-            else:
-                font.set_absolute_size(self.font_size * (width - 10) / text_width * Pango.SCALE)
-                layout.set_font_description(font)
-        if self.sizing_text:
-            layout.set_text(value, -1)
-        return layout
+    def draw_progress(self, cr, width, height):
+        if self.accent and self.progress:
+            y = height - (2 if self.compact_accent else 3)
+            cr.save()
+            cr.set_source_rgb(*self.accent)
+            cr.set_line_width(1 if self.compact_accent else 2)
+            cr.set_line_cap(cairo.LINE_CAP_ROUND)
+            cr.move_to(7, y)
+            cr.line_to(7 + (width - 14) * self.progress, y)
+            cr.stroke()
+            cr.restore()
 
 
 class VoucherTile(FlipTile):
@@ -607,7 +639,6 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
                          icon_name="biz.umbertogiacobbi.OpenAIUsage")
         self.state = {}
         self.clock_cycle_start = None
-        self.clock_shows_date = False
         self.settings = {}
         self.settings_ready = False
         self.settings_dialog = None
@@ -664,16 +695,14 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
             link.update_property([Gtk.AccessibleProperty.LABEL], [label])
 
         self.signal = TrafficSignal()
-        self.allowance_tile = FlipTile("Allowance remaining", "Allowance remaining", 115, 20, worn=True)
-        self.credits_tile = FlipTile("Remaining Credits", "Remaining Credits", 108, 20, worn=True)
+        self.allowance_tile = FlipTile("Allowance remaining", "Allowance remaining", 115, 20, worn=True, compact_accent=True)
+        self.credits_tile = FlipTile("Remaining Credits", "Remaining Credits", 108, 20, worn=True, compact_accent=True)
         self.estimate_tile = FlipTile("Estimated time remaining", "Estimated time remaining", 152, 18)
         self.voucher_tile = VoucherTile()
         self.reset_tile = FlipTile("First reset", "First reset", 123, 17, info=True)
         self.metrics = (self.allowance_tile, self.credits_tile, self.estimate_tile, self.voucher_tile, self.reset_tile)
         self.reset_clock = FlipTile("Next reset date", "Next reset date", 403, 24,
-                                    sizing_text="WEDNESDAY 00 SEPTEMBER 00",
-                                    crease_shadow=CreaseShadow(5, (52/255, 10/255, 13/255, .44), (24/255, 6/255, 7/255)),
-                                    digit_delay=(300, 1000))
+                                    sizing_text="WEDNESDAY 00 SEPTEMBER 00")
 
         actions = self.actions = wrap_box(3, center=True)
         self.problem=Gtk.Button(icon_name="dialog-warning-symbolic",tooltip_text="Connection status")
@@ -1075,14 +1104,13 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
             days = f"{seconds // 86400:02}d"
             value = f"{days} {seconds // 3600 % 24:02}h {seconds // 60 % 60:02}m {seconds % 60:02}s"
             hour = len(days) + 1
-            flaps = () if self.clock_shows_date else (
+            flaps = (
                 (0, len(days), .30), (hour, hour + 3, .24),
                 (hour + 4, hour + 7, .19), (hour + 8, hour + 11, .145),
             )
             self.reset_clock.update(value, animate, flaps=flaps, duration=.32)
         else:
             self.reset_clock.update("—", False)
-        self.clock_shows_date = show_date
         self.reset_clock.set_detail(
             f"Reset date: {self.state['resetCalendarDate']}" if show_date
             else "Countdown until the selected allowance resets."

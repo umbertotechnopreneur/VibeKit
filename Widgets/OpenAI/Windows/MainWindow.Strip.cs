@@ -14,15 +14,13 @@ public sealed partial class MainWindow
 {
     private const double BrandButtonSize = 64;
     private readonly WrappingPanel strip = new();
-    private readonly FlipTile remaining = new("Allowance remaining", 148, 24, SecondaryText, showAccent: true, worn: true);
-    private readonly FlipTile credits = new("Remaining credits", 136, 24, SecondaryText, showAccent: true, worn: true);
+    private readonly FlipTile remaining = new("Allowance remaining", 148, 24, SecondaryText, showAccent: true, worn: true, compactAccent: true);
+    private readonly FlipTile credits = new("Remaining credits", 136, 24, SecondaryText, showAccent: true, worn: true, compactAccent: true);
     private readonly FlipTile forecast = new("Estimated time remaining", 178, 24, SecondaryText);
     private readonly FlipTile vouchers = new("Resets available", 122, 25, SecondaryText);
     private readonly FlipTile compactReset = new("First reset", 178, 23, SecondaryText);
     private readonly FlipTile resetClock = new("Next reset date", 430, 28, SecondaryText,
-        sizingCharacters: "WEDNESDAY 00 SEPTEMBER 00".Length,
-        creaseShadow: new(5, ColorHelper.FromArgb(112, 52, 10, 13), ColorHelper.FromArgb(255, 24, 6, 7)),
-        digitDelay: new(300, 1000));
+        sizingCharacters: "WEDNESDAY 00 SEPTEMBER 00".Length);
     private readonly Stopwatch clockCycle = new();
     private readonly Button appWebsiteButton = BrandLink(Logo(BrandButtonSize), "Open OpenAI Usage project page", ProjectUrl);
     private readonly Button manifestoButton = BrandLink(new Image
@@ -45,7 +43,6 @@ public sealed partial class MainWindow
     private decimal highestCreditBalance;
     private bool creditsBelowThreshold;
     private string? resetCalendarText;
-    private bool showingCalendar;
 
     private void BuildWidgetStrip()
     {
@@ -184,7 +181,7 @@ public sealed partial class MainWindow
             string days = (time / 86_400).ToString("D2", CultureInfo.InvariantCulture);
             string value = FormattableString.Invariant($"{days}d {time / 3_600 % 24:00}h {time / 60 % 60:00}m {time % 60:00}s");
             int hoursStart = days.Length + 2;
-            IReadOnlyList<FlipTile.Flap>? flaps = showingCalendar ? null :
+            IReadOnlyList<FlipTile.Flap> flaps =
             [
                 new(0, days.Length + 1, 300),
                 new(hoursStart, 3, 240),
@@ -197,7 +194,6 @@ public sealed partial class MainWindow
         {
             resetClock.Set("—", false);
         }
-        showingCalendar = showCalendar;
         DescribeMetric(countdownLink, showCalendar
             ? $"Reset date: {state.ResetCalendarDate}"
             : "Countdown until the selected allowance resets.");

@@ -36,7 +36,7 @@ class SettingsLifecycleChecks(unittest.TestCase):
         exec(compile(ast.Module(body=methods, type_ignores=[]), str(__file__), "exec"), environment)
         self.window = SimpleNamespace(saving=False, backend=invoke, settings_save_source=0, settings={"bigSize": True}, settings_revision=1,
                                       saved_settings_revision=0, closed=False, exit_pending=False,
-                                      settings_error=None, settings_status_label=None,
+                                      settings_ready=False, settings_error=None, settings_status_label=None,
                                       allow_close=False, tray=None, sound_process=None, clock_id=1, refresh_id=2,
                                       problem=SimpleNamespace(set_visible=lambda _: None, set_tooltip_text=lambda _: None),
                                       present=lambda: None, refresh=lambda: None)

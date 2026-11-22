@@ -2,6 +2,7 @@
 from __future__ import annotations
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -117,6 +118,18 @@ def wix_source(payload, output):
     feature = child(package, "Feature", Id="Application", Title="Studio Controls", Level="1")
     for name in component_ids:
         child(feature, "ComponentRef", Id=name)
+    installer_path = ROOT.parents[1] / "scripts/packaging/vibeware_msi.py"
+    installer_spec = importlib.util.spec_from_file_location("vibeware_msi", installer_path)
+    installer = importlib.util.module_from_spec(installer_spec)
+    installer_spec.loader.exec_module(installer)
+    installer.add_installer_ui(
+        root,
+        payload=payload,
+        executable="StudioControls.Windows.exe",
+        output=output,
+        home_url="https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/StudioControls",
+        logo=ROOT / "Windows/StudioControls.ico",
+    )
     ET.indent(root)
     ET.ElementTree(root).write(output, encoding="utf-8", xml_declaration=True)
     return len(files)

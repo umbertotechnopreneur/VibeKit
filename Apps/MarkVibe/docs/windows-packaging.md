@@ -122,6 +122,12 @@ acceptance is required. The MSI includes the framework-dependent app and license
 installs for the current user under LocalAppData, and creates a Start menu shortcut.
 WebView2 Runtime remains a prerequisite. It is not installed by the MSI.
 
+Double-click the MSI to see the product links and installation progress. If the
+matching .NET 10 runtime is missing, use the link in the installer to open the
+Microsoft download page. Install the runtime, then reopen the MSI. The basic and
+silent modes verify the same prerequisite. The layout follows the
+[VibeKit installer specifications](../../../docs/installers/README.md).
+
 Debug/Release and x64/ARM64 have separate stable upgrade identities. The MSI
 compares three version fields, so application version `major.minor.build.revision`
 maps to `major.minor.(build * 1000 + revision)`; for example, `0.1.0.23` becomes

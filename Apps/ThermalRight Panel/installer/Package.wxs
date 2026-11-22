@@ -19,7 +19,8 @@
 VBWR E -->
 
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:netfx="http://wixtoolset.org/schemas/v4/wxs/netfx">
   <Package Name="TermalRight VibeWare" Manufacturer="Umberto Giacobbi" Version="$(var.ProductVersion)"
            UpgradeCode="0E45EA55-B9C3-44D2-AD0A-D3BB78B53096" Scope="perUser" InstallerVersion="500">
     <!-- The new package must release the old app/driver before the old MSI removes files. -->
@@ -28,7 +29,13 @@ VBWR E -->
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
     <Icon Id="ProductIcon" SourceFile="$(var.PayloadRoot)\Assets\thermalright-vibeware.ico" />
     <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
-    <Property Id="ARPURLINFOABOUT" Value="https://github.com/umbertotechnopreneur/thermalright-vibeware" />
+    <Property Id="ARPURLINFOABOUT" Value="https://umbertogiacobbi.biz/thermalright-vibeware/" />
+    <Property Id="ARPHELPLINK" Value="https://umbertogiacobbi.biz/contacts/" />
+    <Property Id="VibeWareRuntimeDescription" Value="$(var.RuntimeDescription)" />
+    <Property Id="VibeWareInstallScope" Value="Per-user installation" />
+    <Binary Id="VibeWareSetupIcon" SourceFile="$(var.GeneratedRoot)\Setup.ico" />
+    <netfx:DotNetCompatibilityCheck Property="VibeWareDotNetResult" Platform="$(var.RuntimeArchitecture)"
+                                     RuntimeType="core" RollForward="latestPatch" Version="$(var.RuntimeVersion)" />
     <Property Id="ARPCOMMENTS" Value="Preview build $(var.SourceRevision)" />
     <!-- WixUI_Minimal supplies ARPNOMODIFY. -->
     <!-- Preview assemblies can have the same FileVersion. Replace the complete
@@ -39,7 +46,7 @@ VBWR E -->
     <Property Id="MSIRESTARTMANAGERCONTROL" Value="DisableShutdown" />
     <Property Id="MSIDISABLERMRESTART" Value="1" />
     <ui:WixUI Id="WixUI_Minimal" />
-    <UIRef Id="WixUI_ErrorProgressText" />
+    <UIRef Id="VibeWareInstallerUI" />
     <Property Id="TRV_START_AFTER_INSTALL" Value="1" />
     <Property Id="TRV_SEE_LATEST_NEWS" Value="1" />
     <WixVariable Id="WixUILicenseRtf" Value="$(var.InstallerRoot)\License.rtf" />
@@ -68,6 +75,7 @@ VBWR E -->
                   ExeCommand="--cleanup --ui-level [UILevel]"
                   Execute="immediate" Return="check" />
     <InstallExecuteSequence>
+      <Custom Action="Wix4NetFxDotNetCompatibilityCheck_$(sys.BUILDARCHSHORT)" Before="LaunchConditions" Condition="NOT Installed" />
       <Custom Action="RollbackSetupGate" After="InstallInitialize" Condition="NOT UPGRADINGPRODUCTCODE" />
       <Custom Action="BeginSetupGate" After="RollbackSetupGate" Condition="NOT UPGRADINGPRODUCTCODE" />
       <Custom Action="CommitSetupGate" After="BeginSetupGate" Condition="NOT UPGRADINGPRODUCTCODE" />
@@ -109,6 +117,9 @@ VBWR E -->
       <ProgressText Action="CleanupFreshThermalrightVibeWare" Message="Removing previous TermalRight VibeWare files and registration..." />
     </UI>
     <InstallUISequence>
+      <Custom Action="Wix4NetFxDotNetCompatibilityCheck_$(sys.BUILDARCHSHORT)" Before="LaunchConditions" Condition="UILevel = 5 AND NOT Installed" />
+      <!-- Keep the license and maintenance pages sequenced before the shared progress dialog. -->
+      <Show Dialog="ProgressDlg" Sequence="1295" Condition="0" />
       <!-- Replace WixUI's overridable success sequence, retaining its other dialogs. -->
       <Show Dialog="ExitDialog" Sequence="1" Condition="0" />
       <Show Dialog="ThermalrightVibeWareComplete" OnExit="success" />

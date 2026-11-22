@@ -91,7 +91,10 @@ try {
     & python 'Packaging/package.py' wix $windowsPayload $wxs
     if ($LASTEXITCODE -ne 0) { throw 'WiX source generation failed.' }
     $msi = Join-Path $installerRoot "OpenAIUsage-$appVersion-windows-x64.msi"
-    & dotnet (Join-Path $toolRoot 'wix/tools/net6.0/any/wix.dll') build $wxs -arch x64 -o $msi -pdbtype none -intermediatefolder (Join-Path $payloadRoot 'wix-intermediate')
+    $uiExtension = Join-Path $toolRoot 'wixtoolset.ui.wixext/wixext5/WixToolset.UI.wixext.dll'
+    $netfxExtension = Join-Path $toolRoot 'wixtoolset.netfx.wixext/wixext5/WixToolset.Netfx.wixext.dll'
+    & dotnet (Join-Path $toolRoot 'wix/tools/net6.0/any/wix.dll') build $wxs -arch x64 -o $msi -pdbtype none `
+        -intermediatefolder (Join-Path $payloadRoot 'wix-intermediate') -ext $uiExtension -ext $netfxExtension
     if ($LASTEXITCODE -ne 0) { throw 'Windows installer compilation or validation failed.' }
     & (Join-Path $PSScriptRoot 'Verify-WindowsRequirement.ps1') -PackagePath $msi
     $deb = Join-Path $installerRoot "openai-usage_$appVersion-1_amd64.deb"

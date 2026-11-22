@@ -65,7 +65,7 @@ function Initialize-WindowsBuildImports {
     }
     foreach ($name in @('Cli', 'Photino')) {
         $project = Join-Path $script:RepoRoot "src/ThermalrightVibeWare.$name/ThermalrightVibeWare.$name.csproj"
-        $restore = @('restore', $project, '--source', $script:NuGetSource, '--runtime', $runtime, "-p:Platform=$Architecture", '-p:SelfContained=true')
+        $restore = @('restore', $project, '--source', $script:NuGetSource, '--runtime', $runtime, "-p:Platform=$Architecture", '-p:SelfContained=false')
         if (-not $IncludeSolution) { $restore += '-p:NuGetAudit=false' }
         dotnet @restore
         if ($LASTEXITCODE -ne 0) { throw "Restore failed: $name" }
@@ -100,7 +100,7 @@ if ($env:NUGET_PACKAGES -ne $nugetStage) { throw 'Run Windows import preparation
 & "$script:ScriptsRoot/maintenance/Assert-DefenderClean.ps1" -Path $nugetStage -Source $script:NuGetSource -ImportSession $ImportSession
 foreach ($target in @(@{ Project = 'Cli'; Framework = 'net10.0-windows10.0.19041.0'; Folder = $engine }, @{ Project = 'Photino'; Framework = 'net10.0'; Folder = $destination })) {
     $project = Join-Path $repo "src/ThermalrightVibeWare.$($target.Project)/ThermalrightVibeWare.$($target.Project).csproj"
-    dotnet publish $project --framework $target.Framework --no-restore --disable-build-servers --configuration $Configuration --runtime $runtime --self-contained true -p:Platform=$Architecture --output $target.Folder --warnaserror
+    dotnet publish $project --framework $target.Framework --no-restore --disable-build-servers --configuration $Configuration --runtime $runtime --self-contained false -p:RollForward=LatestPatch -p:Platform=$Architecture --output $target.Folder --warnaserror
     if ($LASTEXITCODE -ne 0) { throw "Publish failed: $($target.Project) / $runtime" }
 }
 & "$script:ScriptsRoot/build/Bundle-Python.ps1" -Architecture $Architecture -Destination $destination -ImportSession $ImportSession

@@ -1,3 +1,7 @@
+> **File name** `build.md`<br>
+> **Full path** `E:\vibekit\Apps\ThermalRight Panel\docs\build.md`<br>
+> **Path relative to the VibeKit repository** `Apps/ThermalRight Panel/docs/build.md`
+
 # Build Thermalright VibeWare
 
 In a VibeKit checkout, run the commands below from `Apps/ThermalRight Panel`.
@@ -55,7 +59,7 @@ build first uses a unique ignored staging folder, so packaging does not overwrit
 or stop a portable copy that is currently running. Use `-Architecture ARM64` for
 that architecture; my local package check covered x64.
 
-Packaging downloads an isolated Python runtime and the pinned theme dependencies. It does not change the system Python installation. ZIP users do not need Python or .NET installed separately.
+Packaging includes an isolated Python runtime and the pinned theme dependencies. The Windows ZIP and MSI use the shared Microsoft .NET Runtime 10 for x64 or ARM64. Use the package directly if the matching runtime is already installed. Otherwise, install the matching .NET Runtime separately. [Microsoft .NET 10 downloads](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
 
 The CLI output contains its own `themes`, `theme-runtime` and `plugins` folders, in local builds too. The engine never searches parent folders for bundled code. In a ZIP these folders live under `engine/`.
 
@@ -105,3 +109,7 @@ host. Startup notification banners follow the desktop notification settings.
 Linux `launch` uses a transient user service so the studio outlives its build
 console. It requires an active systemd user manager. It installs no service file
 or sign-in entry. The console prints the unit name for local journal diagnostics.
+
+> **File name** `build.md`<br>
+> **Full path** `E:\vibekit\Apps\ThermalRight Panel\docs\build.md`<br>
+> **Path relative to the VibeKit repository** `Apps/ThermalRight Panel/docs/build.md`

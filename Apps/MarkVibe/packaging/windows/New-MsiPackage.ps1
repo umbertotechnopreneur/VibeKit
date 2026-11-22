@@ -8,6 +8,7 @@
 # Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
 #
 # Created with AI: OpenAI Codex; native Windows Installer packaging; 2026-10-16
+# Modified with AI: OpenAI Codex; branded MSI progress and shared .NET runtime prerequisite; 2026-11-22
 # Human guidance: Umberto Giacobbi; real MSI and portable Windows distribution
 # Evidence: AI-DEVELOPMENT-DISCLOSURE.md; .github/tasks/archive.md
 #
@@ -222,6 +223,43 @@ function Set-InstallerSummaryProperty($Summary, [int]$PropertyId, $Value) {
         @($PropertyId, $Value)) | Out-Null
 }
 
+<#
+.SYNOPSIS
+Define the standard per-user setup window and its progress or prerequisite content.
+#>
+function Add-SetupDialog($Tables, [string]$Name, [bool]$IsPrerequisite) {
+    $button = if ($IsPrerequisite) { 'Close' } else { 'Cancel' }
+    $buttonEvent = if ($IsPrerequisite) { 'EndDialog' } else { 'SpawnDialog' }
+    $buttonArgument = if ($IsPrerequisite) { 'Exit' } else { 'MarkVibeConfirmCancel' }
+    $dialogStyle = if ($IsPrerequisite) { 3 } else { 5 } # Visible modal or visible modeless with minimize.
+    $defaultButton = if ($IsPrerequisite) { $button } else { $null }
+    $nextContactControl = if ($IsPrerequisite) { 'Download' } else { $button }
+
+    Add-InstallerRow $Tables.Dialog @($Name, 50, 50, 370, 270, $dialogStyle, '[MarkVibeSetupName] Setup', $button, $defaultButton, $button)
+    Add-InstallerRow $Tables.Control @($Name, 'Logo', 'Icon', 20, 24, 44, 44, 1, $null, 'MarkVibeSetupIcon', $null, 'MarkVibe logo|')
+    Add-InstallerRow $Tables.Control @($Name, 'Heading', 'Text', 82, 24, 268, 23, 3, $null, '{\InstallerHeading}[MarkVibeSetupName]', $null, $null)
+    Add-InstallerRow $Tables.Control @($Name, 'Version', 'Text', 82, 49, 268, 14, 3, $null, 'Version [MarkVibeDisplayVersion] · Per-user installation', $null, $null)
+    Add-InstallerRow $Tables.Control @($Name, 'Welcome', 'Text', 82, 70, 268, 16, 3, $null, 'Welcome to the [MarkVibeSetupName] installer.', $null, $null)
+    Add-InstallerRow $Tables.Control @($Name, 'Requirement', 'Text', 82, 92, 268, 26, 3, $null, '[MarkVibeRuntimeDisplayName] is required.', $null, $null)
+    Add-InstallerRow $Tables.Control @($Name, 'Product', 'Hyperlink', 82, 124, 268, 14, 3, $null,
+        '<a href="[ARPURLINFOABOUT]">MarkVibe home</a> • <a href="[MarkVibeManifesto]">Member of VibeWare movement</a>', 'Contact', $null)
+    Add-InstallerRow $Tables.Control @($Name, 'Contact', 'Hyperlink', 82, 142, 268, 14, 3, $null, 'Need help? <a href="[ARPHELPLINK]">Contact us</a>', $nextContactControl, $null)
+    Add-InstallerRow $Tables.Control @($Name, 'Divider', 'Line', 0, 234, 370, 0, 1, $null, $null, $null, $null)
+    Add-InstallerRow $Tables.Control @($Name, $button, 'PushButton', 294, 243, 56, 17, 3, $null, $button, 'Product', $null)
+    Add-InstallerRow $Tables.ControlEvent @($Name, $button, $buttonEvent, $buttonArgument, '1', 1)
+
+    if ($IsPrerequisite) {
+        Add-InstallerRow $Tables.Control @($Name, 'Missing', 'Text', 82, 170, 268, 30, 3, $null,
+            'Setup needs a compatible runtime. Open the Microsoft download page, install .NET, then run setup again.', $null, $null)
+        Add-InstallerRow $Tables.Control @($Name, 'Download', 'Hyperlink', 82, 204, 268, 16, 3, $null,
+            '<a href="[MarkVibeRuntimeDownload]">Open the Microsoft download page</a>', $button, $null)
+    } else {
+        Add-InstallerRow $Tables.Control @($Name, 'Status', 'Text', 20, 201, 330, 16, 3, $null, 'Installation progress', $null, $null)
+        Add-InstallerRow $Tables.Control @($Name, 'Meter', 'ProgressBar', 20, 220, 330, 10, 1, $null, 'Installation progress', $null, $null)
+        Add-InstallerRow $Tables.EventMapping @($Name, 'Meter', 'SetProgress', 'Progress')
+    }
+}
+
 $installerVersion = Get-MsiProductVersion $Version
 
 if ($ValidateVersionOnly) {
@@ -255,6 +293,20 @@ if (-not (Test-Path -LiteralPath (Join-Path $payloadRoot 'MarkVibe.Windows.exe')
     throw 'MSI requires the complete existing framework-dependent desktop publish output.'
 }
 
+$runtimeConfigPath = Join-Path $payloadRoot 'MarkVibe.Windows.runtimeconfig.json'
+$runtimeOptions = (Get-Content -LiteralPath $runtimeConfigPath -Raw | ConvertFrom-Json -AsHashtable)['runtimeOptions']
+$framework = if ($null -ne $runtimeOptions) { $runtimeOptions['framework'] }
+if ($null -eq $framework -or $framework['name'] -ne 'Microsoft.NETCore.App' -or $framework['version'] -notmatch '^10\.0\.\d+$' -or
+    $runtimeOptions.Contains('frameworks') -or $runtimeOptions.Contains('includedFrameworks') -or
+    ($runtimeOptions.Contains('rollForward') -and $runtimeOptions['rollForward'] -ne 'Minor') -or
+    ($runtimeOptions.Contains('applyPatches') -and -not $runtimeOptions['applyPatches'])) {
+    throw 'MSI requires a framework-dependent Microsoft.NETCore.App 10.0 publish with default servicing roll-forward.'
+}
+$runtimeVersion = $framework['version']
+$runtimeDisplayVersion = if ($runtimeVersion -eq '10.0.0') { '10.0' } else { $runtimeVersion }
+$runtimeDisplayName = "Microsoft .NET Runtime $runtimeDisplayVersion ($Architecture)"
+$runtimeDownload = 'https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime'
+
 [System.IO.Directory]::CreateDirectory($workRoot) | Out-Null
 $payloadFiles = @(Get-ChildItem -LiteralPath $payloadRoot -Recurse -File | Sort-Object FullName)
 $payloadBytes = ($payloadFiles | Measure-Object Length -Sum).Sum
@@ -284,14 +336,21 @@ $properties = [ordered]@{
     ProductLanguage = '1033'
     Manufacturer = $packageMetadata.manufacturer
     UpgradeCode = $upgradeCode
+    DefaultUIFont = 'InstallerBody'
     MarkVibeDisplayVersion = $Version.ToString()
-    ARPCOMMENTS = 'Requires Microsoft .NET Runtime 10.0 (matching architecture) and WebView2 Runtime. https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime'
-    ARPHELPLINK = 'https://github.com/umbertotechnopreneur/MarkVibe/issues'
-    ARPURLINFOABOUT = 'https://github.com/umbertotechnopreneur/MarkVibe'
+    MarkVibeSetupName = $channelName
+    MarkVibeRuntimeVersion = $runtimeVersion
+    MarkVibeRuntimeArchitecture = $Architecture
+    MarkVibeRuntimeDisplayName = $runtimeDisplayName
+    MarkVibeRuntimeDownload = $runtimeDownload
+    MarkVibeManifesto = 'https://umbertogiacobbi.biz/vibeware/manifesto/'
+    ARPCOMMENTS = "Requires $runtimeDisplayName and WebView2 Runtime. $runtimeDownload"
+    ARPHELPLINK = 'https://umbertogiacobbi.biz/contacts/'
+    ARPURLINFOABOUT = 'https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/MarkVibe'
     ARPPRODUCTICON = 'MarkVibeIcon'
     ARPNOMODIFY = '1'
     INSTALLLEVEL = '1'
-    SecureCustomProperties = 'MARKVIBE_OLDER_PRODUCTS;MARKVIBE_NEWER_PRODUCTS'
+    SecureCustomProperties = 'MARKVIBE_OLDER_PRODUCTS;MARKVIBE_NEWER_PRODUCTS;MARKVIBE_WINDOWS_BUILD;MARKVIBE_DOTNET_ROOT_64;MARKVIBE_DOTNET_ROOT_32'
 }
 
 foreach ($property in $properties.GetEnumerator()) {
@@ -458,6 +517,44 @@ Add-InstallerRow $tables.LaunchCondition @(
     'Installed OR (VersionNT64 AND MARKVIBE_WINDOWS_BUILD >= 22000)',
     'MarkVibe requires Windows 11 or newer. Microsoft Edge WebView2 Runtime must also be installed.')
 
+# The Microsoft runtime installers register architecture-specific roots. Search both
+# registry views because the runtime and host have used different views over time.
+$dotnetRegistryKey = "SOFTWARE\dotnet\Setup\InstalledVersions\$Architecture"
+Add-InstallerRow $tables.AppSearch @('MARKVIBE_DOTNET_ROOT_64', 'DotNetInstallLocation64')
+Add-InstallerRow $tables.RegLocator @('DotNetInstallLocation64', 2, $dotnetRegistryKey, 'InstallLocation', 18)
+Add-InstallerRow $tables.AppSearch @('MARKVIBE_DOTNET_ROOT_32', 'DotNetInstallLocation32')
+Add-InstallerRow $tables.RegLocator @('DotNetInstallLocation32', 2, $dotnetRegistryKey, 'InstallLocation', 2)
+
+# UI and execute both check the runtime. Quiet and basic UI run only execute,
+# while full UI can offer Microsoft's link before any MSI transaction begins.
+# Continue on a script-host failure so the authored prerequisite error still runs.
+Add-InstallerRow $tables.CustomAction @('CheckMarkVibeRuntime', 4165, 'MarkVibeRuntimeCheck', 'CheckMarkVibeRuntime')
+Add-InstallerRow $tables.CustomAction @('RequireMarkVibeRuntime', 19, $null,
+    'Install [MarkVibeRuntimeDisplayName] from [MarkVibeRuntimeDownload], then reopen this installer.')
+Add-InstallerRow $tables.TextStyle @('InstallerBody', 'Segoe UI', 9, $null, 0)
+Add-InstallerRow $tables.TextStyle @('InstallerHeading', 'Segoe UI', 16, $null, 1)
+Add-SetupDialog $tables 'MarkVibeProgress' $false
+Add-SetupDialog $tables 'MarkVibeRuntimeRequired' $true
+
+Add-InstallerRow $tables.Dialog @('MarkVibeConfirmCancel', 50, 50, 260, 77, 3, '[MarkVibeSetupName] Setup', 'No', 'No', 'No')
+Add-InstallerRow $tables.Control @('MarkVibeConfirmCancel', 'Question', 'Text', 16, 18, 228, 16, 3, $null,
+    'Are you sure you want to cancel setup?', $null, $null)
+Add-InstallerRow $tables.Control @('MarkVibeConfirmCancel', 'Yes', 'PushButton', 129, 50, 55, 17, 3, $null, '&Yes', 'No', $null)
+Add-InstallerRow $tables.Control @('MarkVibeConfirmCancel', 'No', 'PushButton', 189, 50, 55, 17, 3, $null, '&No', 'Yes', $null)
+Add-InstallerRow $tables.ControlEvent @('MarkVibeConfirmCancel', 'Yes', 'EndDialog', 'Exit', '1', 1)
+Add-InstallerRow $tables.ControlEvent @('MarkVibeConfirmCancel', 'No', 'EndDialog', 'Return', '1', 1)
+
+Add-InstallerRow $tables.InstallUISequence @('FindRelatedProducts', $null, 25)
+Add-InstallerRow $tables.InstallUISequence @('AppSearch', $null, 50)
+Add-InstallerRow $tables.InstallUISequence @('LaunchConditions', $null, 100)
+Add-InstallerRow $tables.InstallUISequence @('CheckMarkVibeRuntime', 'NOT Installed AND UILevel = 5', 110)
+Add-InstallerRow $tables.InstallUISequence @('MarkVibeRuntimeRequired', 'NOT Installed AND NOT MarkVibeRuntimeReady AND UILevel = 5', 120)
+Add-InstallerRow $tables.InstallUISequence @('CostInitialize', $null, 800)
+Add-InstallerRow $tables.InstallUISequence @('FileCost', $null, 900)
+Add-InstallerRow $tables.InstallUISequence @('CostFinalize', $null, 1000)
+Add-InstallerRow $tables.InstallUISequence @('MarkVibeProgress', 'UILevel = 5', 1280)
+Add-InstallerRow $tables.InstallUISequence @('ExecuteAction', $null, 1300)
+
 $executeActions = [ordered]@{
     FindRelatedProducts = 25
     AppSearch = 50
@@ -488,6 +585,11 @@ $executeActions = [ordered]@{
 foreach ($action in $executeActions.GetEnumerator()) {
     Add-InstallerRow $tables.InstallExecuteSequence @($action.Key, $null, $action.Value)
 }
+
+# Installed products retain their maintenance and uninstall paths even when .NET
+# has since been removed. A major upgrade still checks before removing the old app.
+Add-InstallerRow $tables.InstallExecuteSequence @('CheckMarkVibeRuntime', 'NOT Installed', 110)
+Add-InstallerRow $tables.InstallExecuteSequence @('RequireMarkVibeRuntime', 'NOT Installed AND NOT MarkVibeRuntimeReady', 120)
 
 # A type-18 action starts our installed executable after installation commits.
 # Async + Continue leaves installation success independent of the optional dialog.
@@ -524,6 +626,8 @@ try {
 
     Add-InstallerStream $installer $database '_Streams' 'MarkVibe.cab' $cabinetFile
     Add-InstallerStream $installer $database 'Icon' 'MarkVibeIcon' $IconPath
+    Add-InstallerStream $installer $database 'Binary' 'MarkVibeSetupIcon' $IconPath
+    Add-InstallerStream $installer $database 'Binary' 'MarkVibeRuntimeCheck' (Join-Path $PSScriptRoot 'Check-MsiRuntime.js')
 
     $summary = $database.GetType().InvokeMember(
         'SummaryInformation',

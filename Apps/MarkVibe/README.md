@@ -68,8 +68,9 @@ Binary downloads are not yet published in VibeKit. Use the source instructions b
 
 The desktop app targets **Windows 11, x64 and ARM64**. Windows packaging supports
 MSIX, an MSI installer and a portable ZIP; see the [packaging guide](docs/windows-packaging.md) to create a local package.
-The .NET and Windows App SDK runtimes are included. Microsoft Edge WebView2
-Runtime is required.
+Install the shared Microsoft .NET Runtime 10 for the package architecture and
+Microsoft Edge WebView2 Runtime. Windows App SDK libraries are included.
+[Microsoft .NET 10 downloads](https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime)
 Development-signed MSIX packages include their own installation instructions.
 
 The desktop window, toolbars and dialogs use WinUI 3. Win2D draws the document

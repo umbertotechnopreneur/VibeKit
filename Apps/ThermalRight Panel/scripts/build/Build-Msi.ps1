@@ -36,7 +36,7 @@ $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $toolRoot = Join-Path $repo 'artifacts/tools/wix4/imports'
 $wixVersion = '4.0.6'
 $scan = Join-Path $PSScriptRoot '../maintenance/Assert-DefenderClean.ps1'
-foreach ($id in @('wix', 'wixtoolset.ui.wixext')) {
+foreach ($id in @('wix', 'wixtoolset.ui.wixext', 'wixtoolset.netfx.wixext')) {
     $name = "$id.$wixVersion"
     $archive = Join-Path $toolRoot "$name.nupkg"
     $sourceUrl = "https://api.nuget.org/v3-flatcontainer/$id/$wixVersion/$name.nupkg"
@@ -66,19 +66,80 @@ foreach ($id in @('wix', 'wixtoolset.ui.wixext')) {
 }
 $wix = Join-Path $toolRoot "wix.$wixVersion/tools/net6.0/any/wix.dll"
 $uiExtension = Join-Path $toolRoot "wixtoolset.ui.wixext.$wixVersion/wixext4/WixToolset.UI.wixext.dll"
-if (-not (Test-Path -LiteralPath $wix -PathType Leaf) -or -not (Test-Path -LiteralPath $uiExtension -PathType Leaf)) {
-    throw 'The staged WiX tool or UI extension is missing.'
+$netfxExtension = Join-Path $toolRoot "wixtoolset.netfx.wixext.$wixVersion/wixext4/WixToolset.Netfx.wixext.dll"
+foreach ($dependency in @($wix, $uiExtension, $netfxExtension)) {
+    if (-not (Test-Path -LiteralPath $dependency -PathType Leaf)) {
+        throw "The staged WiX build dependency is missing: $dependency."
+    }
 }
 if ($PrepareImports) { return }
+
+<#
+.SYNOPSIS
+Reads the minimum shared .NET runtime for both programs and verifies their target architecture.
+#>
+function Get-SetupRuntimeVersion([string]$Payload, [string]$RuntimeIdentifier) {
+    $minimum = [version]'10.0.0'
+    foreach ($program in 'ThermalrightVibeWare', 'engine/trv') {
+        $options = (Get-Content -LiteralPath (Join-Path $Payload "$program.runtimeconfig.json") -Raw | ConvertFrom-Json -AsHashtable)['runtimeOptions']
+        $dependencies = Get-Content -LiteralPath (Join-Path $Payload "$program.deps.json") -Raw | ConvertFrom-Json -AsHashtable
+        if ($null -eq $options -or $null -eq $dependencies['runtimeTarget']) {
+            throw "The runtime configuration or target architecture for $program is missing."
+        }
+        $framework = $options['framework']
+        if ($options['tfm'] -ne 'net10.0' -or $options.ContainsKey('includedFrameworks') -or $null -eq $framework -or
+            $framework['name'] -ne 'Microsoft.NETCore.App' -or $framework['version'] -notmatch '^10\.0\.\d+$' -or
+            $options['rollForward'] -ne 'LatestPatch' -or $dependencies['runtimeTarget']['name'] -notlike "*/$RuntimeIdentifier") {
+            throw "Publish $program as framework-dependent for Microsoft .NET Runtime 10.0 ($RuntimeIdentifier) with patch roll-forward."
+        }
+        $frameworkVersion = [version]$framework['version']
+        if ($frameworkVersion -gt $minimum) { $minimum = $frameworkVersion }
+    }
+    return $minimum.ToString(3)
+}
+
+<#
+.SYNOPSIS
+Stores the approved icon's 64-pixel frame in the single-frame format used by the MSI dialog.
+#>
+function Write-SetupIcon([string]$Source, [string]$Destination) {
+    $bytes = [IO.File]::ReadAllBytes($Source)
+    if ($bytes.Length -lt 6) { throw 'The product icon has an invalid ICO header.' }
+    $entryCount = [BitConverter]::ToUInt16($bytes, 4)
+    $directoryEnd = 6 + 16 * $entryCount
+    if ([BitConverter]::ToUInt16($bytes, 0) -ne 0 -or [BitConverter]::ToUInt16($bytes, 2) -ne 1 -or $directoryEnd -gt $bytes.Length) {
+        throw 'The product icon has an invalid ICO directory.'
+    }
+    for ($entry = 6; $entry -lt $directoryEnd; $entry += 16) {
+        if ($bytes[$entry] -ne 64 -or $bytes[$entry + 1] -ne 64) { continue }
+        $length = [BitConverter]::ToUInt32($bytes, $entry + 8)
+        $offset = [BitConverter]::ToUInt32($bytes, $entry + 12)
+        if ($length -eq 0 -or $offset -lt $directoryEnd -or $offset -gt ($bytes.Length - $length)) {
+            throw 'The 64-pixel product icon frame is invalid.'
+        }
+        $outputIcon = [byte[]]::new(22 + $length)
+        [Array]::Copy($bytes, 0, $outputIcon, 0, 4)
+        $outputIcon[4] = 1
+        [Array]::Copy($bytes, $entry, $outputIcon, 6, 12)
+        $outputIcon[18] = 22
+        [Array]::Copy($bytes, $offset, $outputIcon, 22, $length)
+        [IO.File]::WriteAllBytes($Destination, $outputIcon)
+        return
+    }
+    throw 'The product icon must include a 64-pixel frame for the MSI dialog.'
+}
 
 if (-not $Version) { $Version = (Get-Content (Join-Path $repo 'installer/Version.txt') -Raw).Trim() }
 $payload = (Resolve-Path -LiteralPath $PayloadPath).Path
 if (-not (Test-Path -LiteralPath (Join-Path $payload 'ThermalrightVibeWare.exe'))) { throw 'The published studio is missing.' }
+$runtimeVersion = Get-SetupRuntimeVersion $payload "win-$($Architecture.ToLowerInvariant())"
+$runtimeDisplayVersion = if ($runtimeVersion -eq '10.0.0') { '10.0' } else { "$runtimeVersion or a later .NET 10.0 patch" }
 & (Join-Path $PSScriptRoot 'Build-SetupActions.ps1') -Architecture $Architecture
 $setupHelper = Join-Path $repo "artifacts/native/msi/$($Architecture.ToLowerInvariant())/ThermalrightVibeWare.SetupActions.exe"
 if (-not (Test-Path -LiteralPath $setupHelper)) { throw 'The native installer cleanup helper is missing.' }
 $generated = Join-Path $repo ('artifacts/msi/' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $generated -Force | Out-Null
+Write-SetupIcon (Join-Path $payload 'Assets/thermalright-vibeware.ico') (Join-Path $generated 'Setup.ico')
 [IO.File]::WriteAllText((Join-Path $generated 'ThermalrightVibeWare.cmd'), "@echo off`r`nstart `"`" `"%~dp0MSI\ThermalrightVibeWare.exe`" %*`r`n", [Text.Encoding]::ASCII)
 $namespace = 'http://wixtoolset.org/schemas/v4/wxs'
 $document = [Xml.XmlDocument]::new()
@@ -141,7 +202,18 @@ $source = Join-Path $generated 'Payload.wxs'
 $document.Save($source)
 $revision = (git -C $repo rev-parse --short HEAD).Trim()
 $output = Join-Path $repo "artifacts/packages/ThermalrightVibeWare-win-$($Architecture.ToLowerInvariant())-$Version.msi"
-# Pass the verified extension path so WiX does not consult its extension cache.
-& dotnet --roll-forward Major $wix build (Join-Path $repo 'installer/Package.wxs') $source -arch $Architecture.ToLowerInvariant() -ext $uiExtension -culture en-US -d "PayloadRoot=$payload" -d "GeneratedRoot=$generated" -d "InstallerRoot=$(Join-Path $repo 'installer')" -d "SetupHelper=$setupHelper" -d "SetupGate=$(Join-Path (Split-Path $setupHelper) 'ThermalrightVibeWare.SetupGate.dll')" -d "ProductVersion=$Version" -d "SourceRevision=$revision" -intermediatefolder (Join-Path $generated 'intermediate') -pdbtype none -out $output
+# Pass verified extension paths so WiX does not consult its extension cache.
+$layout = Join-Path $repo '../../scripts/packaging/VibeWareInstallerUI.wxs'
+$wixArguments = @(
+    'build', (Join-Path $repo 'installer/Package.wxs'), $source, $layout,
+    '-arch', $Architecture.ToLowerInvariant(), '-ext', $uiExtension, '-ext', $netfxExtension, '-culture', 'en-US',
+    '-d', "PayloadRoot=$payload", '-d', "GeneratedRoot=$generated", '-d', "InstallerRoot=$(Join-Path $repo 'installer')",
+    '-d', "SetupHelper=$setupHelper", '-d', "SetupGate=$(Join-Path (Split-Path $setupHelper) 'ThermalrightVibeWare.SetupGate.dll')",
+    '-d', "ProductVersion=$Version", '-d', "SourceRevision=$revision", '-d', "RuntimeVersion=$runtimeVersion",
+    '-d', "RuntimeArchitecture=$($Architecture.ToLowerInvariant())", '-d', "RuntimeDescription=Microsoft .NET Runtime $runtimeDisplayVersion ($Architecture)",
+    '-d', 'VibeWareExistingInstallerFont=1',
+    '-intermediatefolder', (Join-Path $generated 'intermediate'), '-pdbtype', 'none', '-out', $output
+)
+& dotnet --roll-forward Major $wix @wixArguments
 if ($LASTEXITCODE -ne 0) { throw 'MSI compilation failed.' }
 Write-Host "MSI: $output"

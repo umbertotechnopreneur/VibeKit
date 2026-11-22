@@ -119,8 +119,7 @@ jobs:
           $version = ([xml](Get-Content Apps/VoiceDucker/VoiceDucker.csproj -Raw)).Project.PropertyGroup.Version | Select-Object -First 1
           python scripts/ci/create-app-msi.py voiceducker $version "$env:RUNNER_TEMP/voiceducker-payload" "$env:RUNNER_TEMP/voiceducker.wxs"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & "$env:RUNNER_TEMP/wix5/wix.exe" build "$env:RUNNER_TEMP/voiceducker.wxs" -arch x64 -o "$env:RUNNER_TEMP/VoiceDucker-windows-x64.msi"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./Widgets/Shared/Build-WindowsMsi.ps1 -WixPath "$env:RUNNER_TEMP/wix5/wix.exe" -Source "$env:RUNNER_TEMP/voiceducker.wxs" -Output "$env:RUNNER_TEMP/VoiceDucker-windows-x64.msi" -IntermediateDirectory "$env:RUNNER_TEMP/voiceducker-msi-work"
       - uses: actions/upload-artifact@v7
         with:
           name: voiceducker-windows-msi-x64

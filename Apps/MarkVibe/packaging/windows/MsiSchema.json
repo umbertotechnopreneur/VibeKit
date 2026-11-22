@@ -101,9 +101,20 @@
     "columns": { "Name": "s72", "Data": "v0" },
     "keys": ["Name"]
   },
+  "Binary": {
+    "columns": { "Name": "s72", "Data": "v0" },
+    "keys": ["Name"]
+  },
   "AppSearch": {
     "columns": { "Property": "s72", "Signature_": "s72" },
     "keys": ["Property", "Signature_"]
+  },
+  "Signature": {
+    "columns": {
+      "Signature": "s72", "FileName": "s255", "MinVersion": "S20", "MaxVersion": "S20",
+      "MinSize": "I4", "MaxSize": "I4", "MinDate": "I4", "MaxDate": "I4", "Languages": "S255"
+    },
+    "keys": ["Signature"]
   },
   "RegLocator": {
     "columns": {
@@ -143,5 +154,37 @@
   "InstallExecuteSequence": {
     "columns": { "Action": "s72", "Condition": "S255", "Sequence": "I2" },
     "keys": ["Action"]
+  },
+  "InstallUISequence": {
+    "columns": { "Action": "s72", "Condition": "S255", "Sequence": "I2" },
+    "keys": ["Action"]
+  },
+  "Dialog": {
+    "columns": {
+      "Dialog": "s72", "HCentering": "i2", "VCentering": "i2", "Width": "i2", "Height": "i2",
+      "Attributes": "I4", "Title": "L128", "Control_First": "s50", "Control_Default": "S50", "Control_Cancel": "S50"
+    },
+    "keys": ["Dialog"]
+  },
+  "Control": {
+    "columns": {
+      "Dialog_": "s72", "Control": "s50", "Type": "s20", "X": "i2", "Y": "i2", "Width": "i2", "Height": "i2",
+      "Attributes": "I4", "Property": "S50", "Text": "L0", "Control_Next": "S50", "Help": "L50"
+    },
+    "keys": ["Dialog_", "Control"]
+  },
+  "ControlEvent": {
+    "columns": {
+      "Dialog_": "s72", "Control_": "s50", "Event": "s50", "Argument": "l255", "Condition": "S255", "Ordering": "I2"
+    },
+    "keys": ["Dialog_", "Control_", "Event", "Argument", "Condition"]
+  },
+  "EventMapping": {
+    "columns": { "Dialog_": "s72", "Control_": "s50", "Event": "s50", "Attribute": "s50" },
+    "keys": ["Dialog_", "Control_", "Event"]
+  },
+  "TextStyle": {
+    "columns": { "TextStyle": "s72", "FaceName": "l32", "Size": "i2", "Color": "I4", "StyleBits": "I2" },
+    "keys": ["TextStyle"]
   }
 }

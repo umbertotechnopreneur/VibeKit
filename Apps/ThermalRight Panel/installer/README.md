@@ -1,10 +1,17 @@
+> **File name** `README.md`<br>
+> **Full path** `E:\vibekit\Apps\ThermalRight Panel\installer\README.md`<br>
+> **Path relative to the VibeKit repository** `Apps/ThermalRight Panel/installer/README.md`
+
 # Windows MSI
 
 `Package.wxs` installs the published x64 or ARM64 payload for the current user.
 It creates one Start entry and one saved-session startup entry. The MSI owns
 Windows uninstall registration. User settings stay outside its install folder.
-Opening the MSI shows a license/setup page, progress, and a completion or error
-page. Successful interactive installation offers two independent, default-checked
+The MSI checks for the shared Microsoft .NET Runtime 10 in the package architecture.
+If it is missing, open the Microsoft download page from setup. Install the runtime,
+then run setup again. The license page precedes the shared progress window, which
+links to the product page, VibeWare manifesto and contact page.
+Successful interactive installation offers two independent, default-checked
 options: **Start after install** and **See the latest news**. Finish starts the
 installed app and/or opens its [GitHub Releases page](https://github.com/umbertotechnopreneur/thermalright-vibeware/releases?utm_source=thermalright-vibeware&utm_medium=installer&utm_campaign=release_news).
 The fixed UTM tags identify the installer link. Repair, removal, silent setup,
@@ -48,7 +55,7 @@ Build from the current repository source with the existing Visual Studio C++
 tools. Restore missing dependencies from official sources. Never use an installed
 app, an older MSI or a release binary as the app payload.
 
-The preparation phase stages the pinned WiX 4.0.6 packages alongside the other
+The preparation phase stages the pinned WiX 4.0.6 tool, UI and .NET extensions alongside the other
 external inputs. Defender scans new archives and extracted files in staging.
 Packaging checks the result in the same PowerShell session. A failed, incomplete
 or unavailable scan stops preparation before the existing app is removed.
@@ -62,6 +69,11 @@ removal, upgrades, repair and rollback need further checks. See `cave.md`.
 References: [WiX UI](https://docs.firegiant.com/wix/tools/wixext/wixui/),
 [upgrade order](https://docs.firegiant.com/wix/schema/wxs/majorupgrade/),
 [service deletion](https://learn.microsoft.com/en-us/windows/win32/api/winsvc/nf-winsvc-deleteservice).
-The completion page uses an original layout and WiX's supported overridable
-success sequence. I studied the upstream [4.0.6 ExitDialog](https://github.com/wixtoolset/wix/blob/v4.0.6/src/ext/UI/wixlib/ExitDialog.wxs)
-and [sequence rules](https://learn.microsoft.com/en-us/windows/win32/msi/installuisequence-table).
+The completion page uses WiX's overridable success sequence. The prerequisite
+and progress dialogs follow the [VibeKit installer specification](../../../docs/installers/README.md).
+[WiX 4.0.6 ExitDialog](https://github.com/wixtoolset/wix/blob/v4.0.6/src/ext/UI/wixlib/ExitDialog.wxs) ·
+[Windows Installer UI sequence](https://learn.microsoft.com/en-us/windows/win32/msi/installuisequence-table)
+
+> **File name** `README.md`<br>
+> **Full path** `E:\vibekit\Apps\ThermalRight Panel\installer\README.md`<br>
+> **Path relative to the VibeKit repository** `Apps/ThermalRight Panel/installer/README.md`

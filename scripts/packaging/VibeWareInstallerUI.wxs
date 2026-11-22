@@ -1,0 +1,79 @@
+<!-- VBWR B
+  Project: VibeKit
+  Creator: Umberto Giacobbi | https://umbertogiacobbi.biz
+  Purpose: Displays native MSI progress and the shared runtime prerequisite.
+  Created with AI: OpenAI Codex; native installer dialogs and runtime guard.
+  Human guidance: Umberto Giacobbi; unified installer appearance and help links.
+  VibeWare: Human intent, AI execution, and plenty of tokens
+  Manifesto: https://umbertogiacobbi.biz/vibeware/manifesto
+  Copyright (c) 2026 Umberto Giacobbi
+  SPDX-License-Identifier: MIT
+VBWR E -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <Property Id="VibeWareManifesto" Value="https://umbertogiacobbi.biz/vibeware/manifesto/" />
+    <Property Id="VibeWareRuntimeDownload" Value="https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime" />
+    <CustomAction Id="VibeWareRequireRuntime"
+                  Error="Install [VibeWareRuntimeDescription] from [VibeWareRuntimeDownload], then run setup again." />
+    <InstallExecuteSequence>
+      <Custom Action="VibeWareRequireRuntime" After="LaunchConditions"
+              Condition='NOT Installed AND NOT (VibeWareDotNetResult = "0")' />
+    </InstallExecuteSequence>
+
+    <UI Id="VibeWareInstallerUI">
+      <TextStyle Id="VibeWareInstallerFont" FaceName="Segoe UI" Size="9" />
+      <TextStyle Id="VibeWareInstallerHeading" FaceName="Segoe UI" Size="16" Bold="yes" />
+      <?ifndef VibeWareExistingInstallerFont ?>
+      <Property Id="DefaultUIFont" Value="VibeWareInstallerFont" />
+      <?endif ?>
+      <DialogRef Id="CancelDlg" />
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+
+      <Dialog Id="VibeWareProgress" Width="370" Height="270" Title="[ProductName] Setup" Modeless="yes">
+        <Control Id="Logo" Type="Icon" X="20" Y="24" Width="44" Height="44" Text="VibeWareSetupIcon" />
+        <Control Id="Heading" Type="Text" X="82" Y="24" Width="268" Height="23" NoPrefix="yes" Text="{\VibeWareInstallerHeading}[ProductName]" />
+        <Control Id="Details" Type="Text" X="82" Y="49" Width="268" Height="14" NoPrefix="yes" Text="{\VibeWareInstallerFont}Version [ProductVersion] · [VibeWareInstallScope]" />
+        <Control Id="Welcome" Type="Text" X="82" Y="70" Width="268" Height="16" NoPrefix="yes" Text="{\VibeWareInstallerFont}Welcome to the [ProductName] installer." />
+        <Control Id="Runtime" Type="Text" X="82" Y="92" Width="268" Height="26" NoPrefix="yes" Text="{\VibeWareInstallerFont}[VibeWareRuntimeDescription] is required." />
+        <Control Id="ProductLink" Type="Hyperlink" X="82" Y="124" Width="268" Height="14" Text="{\VibeWareInstallerFont}&lt;a href=&quot;[ARPURLINFOABOUT]&quot;&gt;[ProductName] home&lt;/a&gt; • &lt;a href=&quot;[VibeWareManifesto]&quot;&gt;Member of VibeWare movement&lt;/a&gt;" />
+        <Control Id="SupportLink" Type="Hyperlink" X="82" Y="142" Width="268" Height="14" Text="{\VibeWareInstallerFont}Need help? &lt;a href=&quot;[ARPHELPLINK]&quot;&gt;Contact us&lt;/a&gt;" />
+        <Control Id="Status" Type="Text" X="20" Y="201" Width="330" Height="16" NoPrefix="yes" Text="{\VibeWareInstallerFont}Preparing setup…">
+          <Subscribe Event="ActionText" Attribute="Text" />
+        </Control>
+        <Control Id="Progress" Type="ProgressBar" X="20" Y="220" Width="330" Height="10" Text="Installation progress">
+          <Subscribe Event="SetProgress" Attribute="Progress" />
+        </Control>
+        <Control Id="Divider" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Cancel" Type="PushButton" X="294" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+
+      <Dialog Id="VibeWareMissingRuntime" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Logo" Type="Icon" X="20" Y="24" Width="44" Height="44" Text="VibeWareSetupIcon" />
+        <Control Id="Heading" Type="Text" X="82" Y="24" Width="268" Height="23" NoPrefix="yes" Text="{\VibeWareInstallerHeading}[ProductName]" />
+        <Control Id="Details" Type="Text" X="82" Y="49" Width="268" Height="14" NoPrefix="yes" Text="{\VibeWareInstallerFont}Version [ProductVersion] · [VibeWareInstallScope]" />
+        <Control Id="Welcome" Type="Text" X="82" Y="70" Width="268" Height="16" NoPrefix="yes" Text="{\VibeWareInstallerFont}Welcome to the [ProductName] installer." />
+        <Control Id="Runtime" Type="Text" X="82" Y="92" Width="268" Height="26" NoPrefix="yes" Text="{\VibeWareInstallerFont}[VibeWareRuntimeDescription] is required." />
+        <Control Id="ProductLink" Type="Hyperlink" X="82" Y="124" Width="268" Height="14" Text="{\VibeWareInstallerFont}&lt;a href=&quot;[ARPURLINFOABOUT]&quot;&gt;[ProductName] home&lt;/a&gt; • &lt;a href=&quot;[VibeWareManifesto]&quot;&gt;Member of VibeWare movement&lt;/a&gt;" />
+        <Control Id="SupportLink" Type="Hyperlink" X="82" Y="142" Width="268" Height="14" Text="{\VibeWareInstallerFont}Need help? &lt;a href=&quot;[ARPHELPLINK]&quot;&gt;Contact us&lt;/a&gt;" />
+        <Control Id="RuntimeMissing" Type="Text" X="82" Y="170" Width="268" Height="30" NoPrefix="yes" Text="{\VibeWareInstallerFont}Setup needs a compatible runtime. Open the Microsoft download page, install .NET, then run setup again." />
+        <Control Id="RuntimeLink" Type="Hyperlink" X="82" Y="204" Width="268" Height="16" Text="{\VibeWareInstallerFont}&lt;a href=&quot;[VibeWareRuntimeDownload]&quot;&gt;Open the Microsoft download page&lt;/a&gt;" />
+        <Control Id="Divider" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Close" Type="PushButton" X="294" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="Close">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+      </Dialog>
+
+      <InstallUISequence>
+        <Show Dialog="VibeWareMissingRuntime" Before="CostInitialize"
+              Condition='UILevel = 5 AND NOT Installed AND NOT (VibeWareDotNetResult = "0")' />
+        <Show Dialog="VibeWareProgress" Before="ExecuteAction" Condition="UILevel = 5" />
+      </InstallUISequence>
+    </UI>
+    <UIRef Id="WixUI_Common" />
+    <UIRef Id="WixUI_ErrorProgressText" />
+  </Fragment>
+</Wix>

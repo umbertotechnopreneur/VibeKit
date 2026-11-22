@@ -36,7 +36,10 @@ try {
     $wxs = Join-Path $stage 'OpenAIUsage.wxs'
     & python Packaging/package.py wix $payload $wxs
     if ($LASTEXITCODE -ne 0) { throw 'WiX source generation failed.' }
-    & dotnet (Join-Path $tools 'wix\tools\net6.0\any\wix.dll') build $wxs -arch x64 -o $msi -pdbtype none -intermediatefolder (Join-Path $stage 'wix-intermediate')
+    $uiExtension = Join-Path $tools 'wixtoolset.ui.wixext/wixext5/WixToolset.UI.wixext.dll'
+    $netfxExtension = Join-Path $tools 'wixtoolset.netfx.wixext/wixext5/WixToolset.Netfx.wixext.dll'
+    & dotnet (Join-Path $tools 'wix/tools/net6.0/any/wix.dll') build $wxs -arch x64 -o $msi -pdbtype none `
+        -intermediatefolder (Join-Path $stage 'wix-intermediate') -ext $uiExtension -ext $netfxExtension
     if ($LASTEXITCODE -ne 0) { throw 'MSI build failed.' }
     & (Join-Path $PSScriptRoot 'Verify-WindowsRequirement.ps1') -PackagePath $msi
     Write-Output "MSI: $msi"

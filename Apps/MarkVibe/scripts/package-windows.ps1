@@ -211,7 +211,7 @@ try {
             '-r',
             $runtimeIdentifier,
             '--self-contained',
-            'true',
+            'false',
             '--no-restore',
             '-o',
             $payload,
@@ -226,6 +226,12 @@ try {
             if (-not (Test-Path -LiteralPath (Join-Path $payload $file) -PathType Leaf)) {
                 throw "The WinUI publish output is missing $file."
             }
+        }
+        $runtimeConfig = Get-Content -LiteralPath (Join-Path $payload 'MarkVibe.Windows.runtimeconfig.json') -Raw | ConvertFrom-Json
+        if ($runtimeConfig.runtimeOptions.framework.name -ne 'Microsoft.NETCore.App' -or
+            $runtimeConfig.runtimeOptions.framework.version -notmatch '^10\.0\.' -or
+            (Test-Path -LiteralPath (Join-Path $payload 'coreclr.dll'))) {
+            throw 'Publish must use the separately installed .NET Runtime 10.0.'
         }
         # The splash reads build-host facts before the managed application loads.
         # Preserve the build host's local formatting, offset and zone, rather than
@@ -267,11 +273,6 @@ try {
                 }
             }
         }
-        $runtimeFamily = 'microsoft.netcore.app.runtime.' + $runtimeIdentifier
-        $runtimeFolder = Join-Path $nugetRoot $runtimeFamily
-        foreach ($runtimeVersion in Get-ChildItem -LiteralPath $runtimeFolder -Directory) {
-            $packageIds.Add($runtimeFamily + '/' + $runtimeVersion.Name) | Out-Null
-        }
         foreach ($package in ($packageIds | Sort-Object)) {
             $packageFolder = Join-Path $nugetRoot $package
             foreach ($notice in Get-ChildItem -LiteralPath $packageFolder -File | Where-Object {
@@ -279,14 +280,14 @@ try {
                 Add-Content -LiteralPath $notices -Value ("`n--- " + $package + ' / ' + $notice.Name + " ---`n" + [System.IO.File]::ReadAllText($notice.FullName)) -Encoding utf8
             }
         }
-        Add-Content -LiteralPath $notices -Value "`n.NET runtime: https://github.com/dotnet/runtime/blob/main/LICENSE.TXT`nWindows App SDK: https://github.com/microsoft/WindowsAppSDK/blob/main/LICENSE`nWebView2 Runtime: https://developer.microsoft.com/microsoft-edge/webview2/`n" -Encoding utf8
+        Add-Content -LiteralPath $notices -Value "`nWindows App SDK: https://github.com/microsoft/WindowsAppSDK/blob/main/LICENSE`nWebView2 Runtime: https://developer.microsoft.com/microsoft-edge/webview2/`n" -Encoding utf8
         if (-not $MsixOnly) {
             $portablePath = Join-Path $artifactsRoot "$namePrefix-$runtimeIdentifier-portable.zip"
             [System.IO.Compression.ZipFile]::CreateFromDirectory($payload, $portablePath, [System.IO.Compression.CompressionLevel]::Optimal, $false)
             $archive = [System.IO.Compression.ZipFile]::Open($portablePath, [System.IO.Compression.ZipArchiveMode]::Update)
             try {
                 Add-PortableText $archive 'portable.flag' 'Keep settings and WebView2 data beside this executable.'
-                Add-PortableText $archive 'PORTABLE-README.txt' "MarkVibe $Version ($Configuration, $architecture)`nExtract the entire ZIP to a writable folder, then open MarkVibe.Windows.exe.`n.NET and Windows App SDK are included. Windows 11 and Microsoft Edge WebView2 Runtime are required.`nSettings and last document stay in the data folder. Source documents and previous sidecars are left untouched.`nhttps://github.com/umbertotechnopreneur/MarkVibe`nCopyright (c) 2026 Umberto Giacobbi. MIT. VibeWare."
+                Add-PortableText $archive 'PORTABLE-README.txt' "MarkVibe $Version ($Configuration, $architecture)`nExtract the entire ZIP to a writable folder, then open MarkVibe.Windows.exe.`nWindows App SDK application libraries are included. Windows 11, Microsoft .NET Runtime 10.0 ($architecture) and Microsoft Edge WebView2 Runtime are required.`nInstall .NET from https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime`nSettings and last document stay in the data folder. Source documents and previous sidecars are left untouched.`nhttps://github.com/umbertotechnopreneur/MarkVibe`nCopyright (c) 2026 Umberto Giacobbi. MIT. VibeWare."
             } finally {
                 $archive.Dispose()
             }
@@ -364,7 +365,8 @@ try {
 
         msiProductVersion=$msiProductVersion
 
-        selfContained=$true
+        selfContained=$false
+        requiredDotNetRuntime='Microsoft.NETCore.App 10.0 (matching architecture)'
 
         signed=(-not $Unsigned)
 
@@ -385,8 +387,9 @@ try {
 @"
 MarkVibe $Version - $Configuration
 
-The MSIX bundle contains $($Architectures -join ', ') and includes .NET and Windows App SDK.
-Windows 11 and Microsoft Edge WebView2 Runtime are required.
+The MSIX bundle contains $($Architectures -join ', ') and includes Windows App SDK application libraries.
+Windows 11, Microsoft .NET Runtime 10.0 (matching architecture) and Microsoft Edge WebView2 Runtime are required.
+Install .NET from https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime
 
 For the development-signed bundle, open PowerShell as administrator and run
 .\Install-MarkVibe.ps1 -TrustDevelopmentCertificate, then open MarkVibe from Start.
@@ -421,7 +424,8 @@ The response is remembered across updates. Portable copies do not register file 
 PORTABLE: choose the matching ZIP, extract everything to a writable folder,
 and open MarkVibe.Windows.exe. Profile/settings stay in its data folder.
 
-All formats include .NET and Windows App SDK. Microsoft Edge WebView2 Runtime and Windows 11 are required.
+All formats include Windows App SDK application libraries. Microsoft .NET Runtime 10.0 (matching architecture), Microsoft Edge WebView2 Runtime and Windows 11 are required.
+Install .NET from https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime
 Packaging does not install the app/certificate or run tests. BUILD-INFO.json records this.
 Unsigned MSIX builds are intended for later signing/Store preparation, not double-click installation.
 

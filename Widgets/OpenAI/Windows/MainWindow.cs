@@ -140,7 +140,7 @@ public sealed partial class MainWindow : Window
             catch (Win32Exception error) { Diagnostics.Record("window.opacity.failed", error.Message); }
             try { tray=new TrayIcon(Path.Combine(AppContext.BaseDirectory,"Branding","app-icon.ico"),ShowWindow,
                 ()=>{ShowWindow();_=ShowAboutAsync();},()=>{ShowWindow();_=ShowSettingsAsync();},
-                ()=>OpenLink("https://umbertogiacobbi.biz"),()=>OpenLink("https://umbertogiacobbi.biz/vibeware/manifesto"),ExitApplication);
+                ()=>OpenLink("https://umbertogiacobbi.biz"),()=>OpenLink(ManifestoUrl),ExitApplication);
                 Diagnostics.Record("tray.ready","Native notification icon registered."); }
             catch(Exception error) { Diagnostics.Record("tray.unavailable",error.Message); }
             ApplyTaskbarVisibility();
@@ -246,10 +246,33 @@ public sealed partial class MainWindow : Window
         }
         finally { exitPending = false; root.IsHitTestVisible = true; }
     }
-    private static void OpenLink(string url)
+    internal static void OpenLink(string url)
     {
-        try {System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url){UseShellExecute=true});}
-        catch(Exception error){Diagnostics.Record("link.failed",error.GetType().Name);}
+        object? windows = null, desktop = null, view = null, shell = null;
+        try
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+                throw new ArgumentException("Expected an HTTPS link.", nameof(url));
+
+            // Use the existing Explorer desktop to start external apps outside the widget's job.
+            var shellWindowsClass = new Guid("9BA05972-F6A8-11CF-A442-00A0C90A8F39");
+            windows = Activator.CreateInstance(Type.GetTypeFromCLSID(shellWindowsClass, throwOnError: true)!);
+            const int desktopWindow = 8, needDispatch = 1, showNormal = 1;
+            object location = 0;
+            object root = null!;
+            desktop = ((dynamic)windows!).FindWindowSW(ref location, ref root, desktopWindow, out int _, needDispatch);
+            if (desktop is null) throw new InvalidOperationException("The Explorer desktop is unavailable.");
+            view = ((dynamic)desktop).Document;
+            shell = ((dynamic)view!).Application;
+            ((dynamic)shell!).ShellExecute(uri.AbsoluteUri, "", "", "open", showNormal);
+        }
+        catch (Exception error) { Diagnostics.Record("link.failed", error.GetType().Name); }
+        finally
+        {
+            foreach (var instance in new[] { shell, view, desktop, windows })
+                if (instance is not null && System.Runtime.InteropServices.Marshal.IsComObject(instance))
+                    System.Runtime.InteropServices.Marshal.ReleaseComObject(instance);
+        }
     }
     private async void AskToClose(AppWindow sender,AppWindowClosingEventArgs args)
     {

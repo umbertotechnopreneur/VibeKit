@@ -5,7 +5,6 @@ using System.Threading;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
@@ -223,12 +222,8 @@ internal sealed class MainWindow : Window
         Title = "VibeWare – Water Ripple";
         var root = new Grid { DataContext = model };
         EffectStudioLayout.Initialize(this, root, "Water Ripple", "A ripple for every click.");
-        (int X, int Y, int Width, int Height)? startupBounds = null;
         if (startHidden)
         {
-            // Capture the restore rectangle before minimizing: minimized HWND coordinates
-            // are not a valid monitor-selection hint for the desktop effect.
-            startupBounds = (AppWindow.Position.X, AppWindow.Position.Y, AppWindow.Size.Width, AppWindow.Size.Height);
             if (AppWindow.Presenter is not OverlappedPresenter presenter)
                 throw new InvalidOperationException("The startup window requires an overlapped presenter.");
             // Establish the native startup show state while the transparency guard is
@@ -247,31 +242,13 @@ internal sealed class MainWindow : Window
 #endif
         }
         Ui.AttachAppearance(this, root, model.Settings);
-        Controller = new StudioController(model, this, root, flushSettings, discardSettings, startupBounds);
+        Controller = new StudioController(model, this, root, flushSettings, discardSettings);
         var effectSwitch = new ToggleSwitch();
         var effectStatus = Ui.Text("Checking the display GPU…", 13);
-        var emergencyLabel = Ui.Text("Emergency shortcut: Ctrl + Alt + Shift + W", 12);
-        var emergencyStatus = Ui.Text("", 12);
-        emergencyStatus.Style = Ui.SecondaryTextStyle;
-        var emergencyHeading = new Grid { ColumnSpacing = 8 };
-        emergencyHeading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        emergencyHeading.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        emergencyHeading.Children.Add(new FontIcon { Glyph = "\uE765", FontSize = 14, VerticalAlignment = VerticalAlignment.Center });
-        Grid.SetColumn(emergencyLabel, 1);
-        emergencyHeading.Children.Add(emergencyLabel);
-        var emergencyText = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
-        emergencyText.Children.Add(emergencyHeading);
-        emergencyText.Children.Add(emergencyStatus);
-        var emergencyToggle = new ToggleSwitch
-        {
-            MinWidth = 0, Width = 40, OffContent = null, OnContent = null,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        AutomationProperties.SetName(emergencyToggle, "Emergency exit shortcut");
-        Ui.Bind(emergencyToggle, ToggleSwitch.IsOnProperty, model.Settings,
+        var emergency = new EffectStudioLayout.EmergencyShortcutRow("Ctrl + Alt + Shift + W", "Emergency exit shortcut");
+        Ui.Bind(emergency.Toggle, ToggleSwitch.IsOnProperty, model.Settings,
             nameof(AppSettings.EmergencyShortcutEnabled), BindingMode.TwoWay);
-        var emergency = EffectStudioLayout.Columns(emergencyText, emergencyToggle);
-        var statusBar = EffectStudioLayout.StatusBar(effectStatus, effectSwitch);
+        var statusBar = EffectStudioLayout.StatusBar(effectStatus, effectSwitch, isActive: () => model.State.IsCaptureValid);
         Grid.SetRow(statusBar, 0);
         root.Children.Add(statusBar);
 
@@ -279,28 +256,25 @@ internal sealed class MainWindow : Window
         void RefreshEffectSwitch()
         {
             syncingEffect = true;
-            effectSwitch.IsOn = model.State.IsScreenEffectActive;
-            effectSwitch.IsEnabled = !changingEffect && (model.State.IsScreenEffectActive || model.State.CanApply);
+            effectSwitch.IsOn = model.State.EffectEnabled;
+            effectSwitch.IsEnabled = !changingEffect && (model.State.EffectEnabled || model.State.CanApply);
             syncingEffect = false;
         }
         void RefreshEmergencyStatus()
         {
             string status = model.State.EmergencyShortcutStatus;
-            emergencyStatus.Text = status;
-            emergencyStatus.Visibility = status == EmergencyShortcut.RegisteredStatus ? Visibility.Collapsed : Visibility.Visible;
-            AutomationProperties.SetHelpText(emergencyToggle, status);
-            ToolTipService.SetToolTip(emergencyToggle, status);
+            emergency.SetStatus(status, status == EmergencyShortcut.RegisteredStatus);
         }
         void EffectStateChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (e.PropertyName is nameof(AppState.IsScreenEffectActive) or nameof(AppState.CanApply))
+            if (e.PropertyName is nameof(AppState.EffectEnabled) or nameof(AppState.CanApply))
                 RefreshEffectSwitch();
             if (e.PropertyName == nameof(AppState.StatusMessage)) effectStatus.Text = model.State.StatusMessage;
             if (e.PropertyName == nameof(AppState.EmergencyShortcutStatus)) RefreshEmergencyStatus();
         }
         effectSwitch.Toggled += async (_, _) =>
         {
-            if (syncingEffect || changingEffect || effectSwitch.IsOn == model.State.IsScreenEffectActive) return;
+            if (syncingEffect || changingEffect || effectSwitch.IsOn == model.State.EffectEnabled) return;
             changingEffect = true;
             effectSwitch.IsEnabled = false;
             try { await Controller.ToggleScreenAsync(); }

@@ -6,6 +6,19 @@ namespace OpenAIUsage.Windows;
 
 internal sealed class WrappingPanel(double gap = 8, bool centerRows = false) : Panel
 {
+    private bool singleRow;
+
+    public bool SingleRow
+    {
+        get => singleRow;
+        set
+        {
+            if (singleRow == value) return;
+            singleRow = value;
+            InvalidateMeasure();
+        }
+    }
+
     protected override Size MeasureOverride(Size availableSize) => Layout(availableSize.Width, arrange: false);
 
     protected override Size ArrangeOverride(Size finalSize)
@@ -24,7 +37,7 @@ internal sealed class WrappingPanel(double gap = 8, bool centerRows = false) : P
             if (!arrange) child.Measure(new Size(width, double.PositiveInfinity));
             var size = child.DesiredSize;
             double itemWidth = Math.Min(size.Width, width);
-            if (x > 0 && x + gap + itemWidth > width + .01)
+            if (!singleRow && x > 0 && x + gap + itemWidth > width + .01)
             {
                 ArrangeRow();
                 y += rowHeight + gap;

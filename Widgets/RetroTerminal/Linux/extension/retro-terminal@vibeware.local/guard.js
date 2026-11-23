@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 export const MAX_PIXELS = 9000000;
-export function surfaceAllowed(width, height, scale) {
+export const MAX_DESKTOP_PIXELS = 16 * 1024 * 1024;
+export const MAX_STAGE_PIXELS = 32 * 1024 * 1024;
+export function surfaceAllowed(width, height, scale, limit = MAX_PIXELS, maxDimension = 8192) {
     return [width, height, scale].every(n => Number.isFinite(n) && n > 0) &&
-        width * scale <= 8192 && height * scale <= 8192 &&
-        width * height * scale * scale <= MAX_PIXELS;
+        width * scale <= maxDimension && height * scale <= maxDimension &&
+        width * height * scale * scale <= limit;
 }
 
 // A guard observes event-loop delays; these are not GPU frame timings.

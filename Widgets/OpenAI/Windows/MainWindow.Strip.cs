@@ -13,7 +13,8 @@ namespace OpenAIUsage.Windows;
 public sealed partial class MainWindow
 {
     private const double BrandButtonSize = 64;
-    private readonly WrappingPanel strip = new();
+    private const double ManifestoButtonSize = 84;
+    private readonly WrappingPanel strip = new(TileSpacing);
     private readonly FlipTile remaining = new("Allowance remaining", 148, 24, SecondaryText, showAccent: true, worn: true, compactAccent: true);
     private readonly FlipTile credits = new("Remaining credits", 136, 24, SecondaryText, showAccent: true, worn: true, compactAccent: true);
     private readonly FlipTile forecast = new("Estimated time remaining", 178, 24, SecondaryText);
@@ -26,10 +27,8 @@ public sealed partial class MainWindow
     private readonly Button manifestoButton = BrandLink(new Image
     {
         Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Branding", "VibeWare.png"))),
-        Width = BrandButtonSize, Height = BrandButtonSize, Stretch = Stretch.Uniform,
-        RenderTransformOrigin = new(.5, .5),
-        RenderTransform = new ScaleTransform { ScaleX = (BrandButtonSize + 20) / BrandButtonSize, ScaleY = (BrandButtonSize + 20) / BrandButtonSize }
-    }, "VibeWare manifesto", ManifestoUrl, artworkBleed: 3);
+        Width = ManifestoButtonSize, Height = ManifestoButtonSize, Stretch = Stretch.Uniform
+    }, "VibeWare manifesto", ManifestoUrl);
     private readonly Button usageLink = Button("", "Open usage and resets in ChatGPT");
     private readonly Button forecastLink = Button("", "Open usage and resets in ChatGPT");
     private readonly Button vouchersButton = Button("", "View reset voucher expiration dates");
@@ -55,21 +54,14 @@ public sealed partial class MainWindow
         ConfigureUsageLink(countdownLink, resetClock);
     }
 
-    private static Button BrandLink(Image mark, string label, string url, double artworkBleed = 0)
+    private static Button BrandLink(Image mark, string label, string url)
     {
         mark.HorizontalAlignment = HorizontalAlignment.Center;
         mark.VerticalAlignment = VerticalAlignment.Center;
-        var imageSlot = new Grid
-        {
-            Width = BrandButtonSize,
-            Height = BrandButtonSize,
-            Clip = new RectangleGeometry { Rect = new(-artworkBleed, -artworkBleed, BrandButtonSize + 2 * artworkBleed, BrandButtonSize + 2 * artworkBleed) },
-            IsHitTestVisible = false,
-            Children = { mark }
-        };
-        var button = Button(imageSlot, label);
-        button.Width = BrandButtonSize;
-        button.Height = BrandButtonSize;
+        mark.IsHitTestVisible = false;
+        var button = Button(mark, label);
+        button.Width = mark.Width;
+        button.Height = mark.Height;
         button.Padding = new(0);
         button.HorizontalContentAlignment = HorizontalAlignment.Center;
         button.VerticalContentAlignment = VerticalAlignment.Center;

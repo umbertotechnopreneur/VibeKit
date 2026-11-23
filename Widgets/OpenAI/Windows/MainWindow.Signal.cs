@@ -12,7 +12,7 @@ public sealed partial class MainWindow
 {
     private readonly Grid signalHousing = new()
     {
-        Width = 44, Height = 128, Margin = new(12, 8, 10, 0),
+        Width = 44, Height = 128, Margin = new(0, 0, TileSpacing, 0),
         VerticalAlignment = VerticalAlignment.Center
     };
     private readonly Grid signalPictures = new();

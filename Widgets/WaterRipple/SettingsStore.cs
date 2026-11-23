@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -284,6 +285,7 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
         public bool ShowGpuJokes { get; set; } = true;
         public int TargetIndex { get; set; }
         public string TargetDisplay { get; set; } = "";
+        public string[]? TargetDisplays { get; set; }
         public int ThemeIndex { get; set; }
         public bool UseAcrylic { get; set; }
         public bool ChromaticEnabled { get; set; } = true;
@@ -310,6 +312,7 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
             ShowGpuJokes = ShowGpuJokes,
             TargetIndex = TargetIndex,
             TargetDisplay = TargetDisplay,
+            TargetDisplays = TargetDisplays,
             ThemeIndex = ThemeIndex,
             UseAcrylic = UseAcrylic,
             ChromaticEnabled = ChromaticEnabled,
@@ -337,6 +340,7 @@ public sealed class SettingsStore : IDisposable, IAsyncDisposable
             ShowGpuJokes = model.ShowGpuJokes,
             TargetIndex = model.TargetIndex,
             TargetDisplay = model.TargetDisplay,
+            TargetDisplays = model.TargetDisplays?.ToArray(),
             ThemeIndex = model.ThemeIndex,
             UseAcrylic = model.UseAcrylic,
             ChromaticEnabled = model.ChromaticEnabled,

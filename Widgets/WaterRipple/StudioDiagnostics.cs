@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Microsoft.UI.Dispatching;
 using Serilog;
 
@@ -32,23 +34,28 @@ internal sealed class StudioDiagnostics : IDisposable
         timer.Start();
     }
 
-    internal void Observe(ScreenSessionMetrics metrics)
+    internal void Observe(IReadOnlyList<ScreenSessionMetrics> sessions)
     {
-        memory = metrics.Memory;
-        bool composed = (metrics.Native.Status & CaptureStatus.CrtComposition) != 0;
+        var largestGpuSample = sessions.MaxBy(metrics => metrics.Memory.LocalUsage);
+        memory = largestGpuSample.Memory;
+        bool composed = sessions.Any(metrics => (metrics.Native.Status & CaptureStatus.CrtComposition) != 0);
         if (composed != crtComposition)
         {
             crtComposition = composed;
             Log.Information("CRT composition {CompositionActive}", crtComposition);
         }
         // These are CPU submission times, not GPU execution times.
-        string mode = crtComposition ? "Composed with CRT" : "Screen effect";
-        state.MetricsText = $"Mode\t{mode}\nPresents\t{metrics.Presents:F1} /s\nDesktop updates\t{metrics.Captures:F1} /s\nCapture submit\t{metrics.Native.LastCaptureMs:F2} ms\nRender submit\t{metrics.Native.LastRenderCpuMs:F2} ms\nCapture size\t{metrics.Native.CaptureWidth} × {metrics.Native.CaptureHeight} px";
+        bool delegated = sessions.Any(metrics => metrics.Native.HasCrtPresentation);
+        string mode = sessions.All(metrics => metrics.Native.HasCrtPresentation) ? "Presented by Retro Terminal" :
+            delegated ? "Local and Retro Terminal presentation" : crtComposition ? "Composed with CRT" : "Screen effect";
+        string sizes = string.Join(" · ", sessions.Select(metrics => $"{metrics.Native.CaptureWidth} × {metrics.Native.CaptureHeight} px"));
+        state.MetricsText = $"Mode\t{mode}\nLocal presents\t{sessions.Sum(metrics => metrics.Presents):F1} /s\nDesktop updates\t{sessions.Sum(metrics => metrics.Captures):F1} /s\nCapture submit\t{sessions.Max(metrics => metrics.Native.LastCaptureMs):F2} ms\nRender submit\t{sessions.Max(metrics => metrics.Native.LastRenderCpuMs):F2} ms\nCapture size\t{sizes}";
     }
 
     internal void ClearCapture()
     {
         memory = default;
+        state.MetricsText = "Waiting for frames";
         if (crtComposition) Log.Information("CRT composition stopped");
         crtComposition = false;
     }

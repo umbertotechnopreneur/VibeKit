@@ -9,6 +9,7 @@ import {createAccordion, addThemeSetting} from './preferences-layout.js';
 import {createGpuJokes} from './gpu-jokes.js';
 import {loadPipelines} from './pipelines.js';
 import {pipelineControls} from './pipeline-ui.js';
+import {createMonitorGroup} from './shared/monitor-settings.js';
 
 export function buildControls(window, settings) {
     window.set_title('Retro Terminal');
@@ -16,7 +17,7 @@ export function buildControls(window, settings) {
     window.set_search_enabled(false);
     const page = new Adw.PreferencesPage();
     const {model: pipelines, path} = loadPipelines(settings);
-    const power = new Adw.PreferencesGroup({description: 'Super + Shift + F12 stops CRT. The effect starts off at each login.'});
+    const power = new Adw.PreferencesGroup({description: 'The effect starts off at each login.'});
     page.add(power);
     const addSection = createAccordion(page);
     const effect = addSection('Effect');
@@ -48,6 +49,61 @@ export function buildControls(window, settings) {
     stop.connect('clicked', () => settings.set_boolean('active', false));
     status.add_suffix(stop); power.add(status);
     signals.push(settings.connect('changed::status', () => status.title = settings.get_string('status')));
+    const syncStop = () => { stop.label = settings.get_boolean('recovery-pending') ? 'Cancel recovery' : 'Stop'; };
+    signals.push(settings.connect('changed::recovery-pending', syncStop));
+    syncStop();
+
+    settingsSection.add(createMonitorGroup(settings));
+    const protection = new Adw.PreferencesGroup({title: 'Performance protection'});
+    settingsSection.add(protection);
+    const limit = (key, title, subtitle, min, max) => {
+        const row = new Adw.ActionRow({title, subtitle});
+        const slider = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, min, max, 1);
+        slider.set_size_request(120, -1);
+        slider.valign = Gtk.Align.CENTER;
+        slider.set_draw_value(false);
+        const value = new Gtk.Label({width_chars: 7, xalign: 1});
+        row.add_suffix(slider);
+        row.add_suffix(value);
+        const sync = () => {
+            const fps = settings.get_int(key);
+            slider.set_value(fps);
+            value.label = `${fps} fps`;
+        };
+        signals.push(settings.connect(`changed::${key}`, sync));
+        slider.connect('value-changed', () => {
+            if (!settings.set_int(key, Math.round(slider.get_value()))) sync();
+        });
+        sync();
+        protection.add(row);
+        return slider;
+    };
+    const animationLimit = limit('animation-fps', 'Animation limit', 'Maximum update rate for animated CRT glitches.', 15, 120);
+    const captureLimit = limit('capture-fps', 'Capture limit', 'Maximum rate for afterglow snapshots. Up to 24 fps shared by the selected displays.', 5, 60);
+    const resume = switchRow(protection, 'auto-restart', 'Resume automatically', 'Resume after a temporary performance pause.');
+    const recovery = Adw.SpinRow.new_with_range(30, 300, 1);
+    recovery.title = 'Recovery';
+    recovery.subtitle = 'Delay in seconds. Requires 30 seconds of stability. Up to 2 retries per manual start.';
+    const syncRecovery = () => { recovery.value = settings.get_int('recovery-delay'); };
+    signals.push(settings.connect('changed::recovery-delay', syncRecovery));
+    recovery.connect('notify::value', () => {
+        if (!settings.set_int('recovery-delay', Math.round(recovery.value))) syncRecovery();
+    });
+    settings.bind('auto-restart', recovery, 'sensitive', Gio.SettingsBindFlags.GET);
+    syncRecovery();
+    protection.add(recovery);
+
+    const shortcutGroup = new Adw.PreferencesGroup();
+    const shortcut = switchRow(shortcutGroup, 'panic-enabled', 'Emergency shortcut', 'Super + Shift + F12');
+    const syncShortcut = () => {
+        const key = 'Super + Shift + F12';
+        shortcut.subtitle = !settings.get_boolean('panic-enabled') ? `${key} · Disabled` :
+            settings.get_boolean('panic-available') ? key : `${key} · Unavailable`;
+    };
+    for (const key of ['panic-enabled', 'panic-available'])
+        signals.push(settings.connect(`changed::${key}`, syncShortcut));
+    syncShortcut();
+    page.add(shortcutGroup);
 
     const selection = group('', 'Adjust a personal pipeline to save it automatically. Duplicate a built-in in Pipelines to keep your changes.');
     const pipeline = new Adw.ComboRow({
@@ -132,8 +188,6 @@ export function buildControls(window, settings) {
     brandRow.add_suffix(aboutButton); brand.add(brandRow); aboutSection.add(brand);
     const jokes = createGpuJokes(settings);
     aboutSection.add(jokes.group);
-    const behavior = new Adw.PreferencesGroup({description: 'Stop cancels glitches and releases history. Lock, display changes and desktop delays also stop CRT. Restart is always manual.'});
-    settingsSection.add(behavior);
     let disposed = false;
     const dispose = () => {
         if (disposed) return;
@@ -146,5 +200,6 @@ export function buildControls(window, settings) {
     window.connect('close-request', () => { dispose(); return false; });
     window.connect('unrealize', dispose);
     return {active, status, preset, controls, expanders, color, random, tryGlitch, stop,
+        animationLimit, captureLimit, resume, recovery, shortcut,
         pipeline, pipelines, library, page, effectSection: effect.row, aboutSection: aboutSection.row, aboutButton, about, jokes};
 }

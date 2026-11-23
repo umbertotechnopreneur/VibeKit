@@ -84,15 +84,9 @@ namespace
         CapabilityInsufficientVram = 1,
         CapabilitySoftwareAdapter = 2,
         CapabilityFeatureLevel = 3,
-        CapabilityRotation = 4,
-        CapabilityDuplicationUnavailable = 5,
+        CapabilityCaptureUnavailable = 5,
         CapabilityUnknown = 6
     };
-
-    bool IsSupportedRotation(DXGI_MODE_ROTATION rotation)
-    {
-        return rotation == DXGI_MODE_ROTATION_IDENTITY || rotation == DXGI_MODE_ROTATION_UNSPECIFIED;
-    }
 
     // Bind capture and policy checks to the adapter that actually owns this monitor.
     HRESULT FindOutput(HMONITOR monitor, ComPtr<IDXGIAdapter1>& adapter,
@@ -176,11 +170,6 @@ namespace
             capabilities.Reason = CapabilityInsufficientVram;
             return S_OK;
         }
-        if (!IsSupportedRotation(outputDescription.Rotation))
-        {
-            capabilities.Reason = CapabilityRotation;
-            return S_OK;
-        }
         ComPtr<ID3D11Device> device;
         D3D_FEATURE_LEVEL actual{};
         result = CreateProbeDevice(adapter.Get(), device, actual);
@@ -198,19 +187,29 @@ namespace
         {
             if (!CaptureApi::GraphicsCaptureSession::IsSupported())
             {
-                capabilities.Reason = CapabilityDuplicationUnavailable;
+                capabilities.Reason = CapabilityCaptureUnavailable;
                 return S_OK;
             }
+            // Windows Graphics Capture targets the monitor in desktop coordinates,
+            // so the WGC size must match the desktop bounds in any orientation.
             auto item = ItemForMonitor(outputDescription.Monitor);
+            auto size = item.Size();
+            if (size.Width != capabilities.Width || size.Height != capabilities.Height ||
+                size.Width < 1 || size.Height < 1)
+            {
+                capabilities.Reserved = HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
+                capabilities.Reason = CapabilityCaptureUnavailable;
+                return S_OK;
+            }
             auto captureDevice = CaptureDevice(device.Get());
             auto pool = CaptureApi::Direct3D11CaptureFramePool::CreateFreeThreaded(captureDevice,
-                DirectXApi::DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, item.Size());
+                DirectXApi::DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, size);
             pool.Close();
         }
         catch (const winrt::hresult_error& error)
         {
             capabilities.Reserved = error.code();
-            capabilities.Reason = CapabilityDuplicationUnavailable;
+            capabilities.Reason = CapabilityCaptureUnavailable;
             return S_OK;
         }
         capabilities.Supported = 1;
@@ -302,6 +301,12 @@ namespace
                 HMONITOR target = MonitorFromPoint(center, MONITOR_DEFAULTTONEAREST);
                 result = EnsureOutput(target);
                 if (FAILED(result)) return Finish(start, result);
+                const RECT overlayBounds{ x, y, x + w, y + h };
+                if (screenMode && !EqualRect(&overlayBounds, &outputDescription.DesktopCoordinates))
+                {
+                    InvalidateCapture(true);
+                    return Finish(start, HRESULT_FROM_WIN32(ERROR_INVALID_DATA));
+                }
             }
             else if (FAILED(device->GetDeviceRemovedReason()))
             {
@@ -379,10 +384,19 @@ namespace
                 ID3D11ShaderResourceView* nullViews[2]{};
                 context->PSSetShaderResources(0, ARRAYSIZE(nullViews), nullViews);
             }
-            if (screenMode && captureEnabled && hasValidCapture &&
-                crtExport.Publish(device.Get(), context.Get(), adapter.Get(), swapChain.Get(), monitor,
-                    outputDescription.DesktopCoordinates))
-                stats.Status |= StatusCrtComposition;
+            if (screenMode && captureEnabled && hasValidCapture)
+            {
+                const auto publication = crtExport.Publish(device.Get(), context.Get(), adapter.Get(),
+                    swapChain.Get(), monitor, outputDescription.DesktopCoordinates);
+                if (publication.composed) stats.Status |= StatusCrtComposition;
+                if (publication.presentedByCrt)
+                {
+                    // Reacquire local visibility only after a new local Present succeeds.
+                    stats.Status &= ~StatusPresentedCapture;
+                    stats.Status |= StatusCrtPresentation;
+                    return Finish(start, S_OK);
+                }
+            }
             result = swapChain->Present(0, DXGI_PRESENT_DO_NOT_WAIT);
             if (result == DXGI_ERROR_WAS_STILL_DRAWING)
             {
@@ -530,8 +544,6 @@ namespace
             {
                 HRESULT result = output->GetDesc(&outputDescription);
                 if (FAILED(result)) return result;
-                result = ValidateRotation();
-                if (FAILED(result)) return result;
                 return screenMode ? ValidateScreenAdapter() : S_OK;
             }
             ComPtr<IDXGIFactory1> factory;
@@ -590,8 +602,6 @@ namespace
             output = selectedOutput;
             outputDescription = selectedDescription;
             monitor = targetMonitor;
-            result = ValidateRotation();
-            if (FAILED(result)) return result;
             return screenMode ? ValidateScreenAdapter() : S_OK;
         }
 
@@ -605,11 +615,6 @@ namespace
             if (static_cast<uint64_t>(description.DedicatedVideoMemory) < MinimumDedicatedVideoMemory)
                 return HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED);
             return device->GetFeatureLevel() >= D3D_FEATURE_LEVEL_11_0 ? S_OK : DXGI_ERROR_UNSUPPORTED;
-        }
-
-        HRESULT ValidateRotation()
-        {
-            return IsSupportedRotation(outputDescription.Rotation) ? S_OK : E_NOTIMPL;
         }
 
         HRESULT CreateDevice()
@@ -803,6 +808,11 @@ namespace
                         InvalidateCapture(true);
                         stats.Status |= StatusWaiting;
                         return S_OK;
+                    }
+                    if (screenMode && (size.Width != w || size.Height != h))
+                    {
+                        InvalidateCapture(true);
+                        return HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
                     }
                     if (size.Width != poolSize.Width || size.Height != poolSize.Height)
                     {

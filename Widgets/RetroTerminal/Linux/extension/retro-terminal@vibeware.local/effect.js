@@ -5,6 +5,8 @@ import Shell from 'gi://Shell';
 import Cogl from 'gi://Cogl';
 import {DECLARATIONS, CODE} from './shader.js';
 
+export const MAX_MONITOR_REGIONS = 32;
+
 export const CrtEffect = GObject.registerClass({GTypeName: 'VibewareRetroTerminalEffect'},
 class CrtEffect extends Shell.GLSLEffect {
     vfunc_paint(node, context, flags) {
@@ -22,11 +24,44 @@ class CrtEffect extends Shell.GLSLEffect {
     }
 
     vfunc_build_pipeline() {
-        this.add_glsl_snippet(Cogl.SnippetHook.FRAGMENT, DECLARATIONS, CODE, true);
+        // Use stage projection, not the effect texture UVs. Clutter adds padding
+        // to that texture and individual stage views may have different scales.
+        this.add_glsl_snippet(Cogl.SnippetHook.VERTEX, 'varying vec2 crtStagePosition;', `
+            vec4 projected = cogl_modelview_projection_matrix * cogl_position_in;
+            crtStagePosition = vec2(0.5, 0.5) + vec2(0.5, -0.5) * projected.xy / projected.w;
+        `, false);
+        this.add_glsl_snippet(Cogl.SnippetHook.FRAGMENT, `${DECLARATIONS}
+            varying vec2 crtStagePosition;
+            uniform float crtMonitorCount;
+            uniform vec4 crtMonitors[${MAX_MONITOR_REGIONS}];
+        `, `
+            bool selected = false;
+            for (int index = 0; index < ${MAX_MONITOR_REGIONS}; index++) {
+                if (float(index) >= crtMonitorCount) break;
+                vec4 bounds = crtMonitors[index];
+                if (all(greaterThanEqual(crtStagePosition, bounds.xy)) && all(lessThan(crtStagePosition, bounds.zw))) {
+                    selected = true;
+                    break;
+                }
+            }
+            if (!selected) {
+                cogl_color_out = texture2D(desktopTexture, cogl_tex_coord_in[0].xy) * cogl_color_in;
+                return;
+            }
+            ${CODE}
+        `, true);
     }
 
     _set(name, values) {
         this.set_uniform_float(this.get_uniform_location(name), values.length, values);
+    }
+
+    setMonitors(monitors, width, height) {
+        const regions = monitors.flatMap(monitor => [monitor.x / width, monitor.y / height,
+            (monitor.x + monitor.width) / width, (monitor.y + monitor.height) / height]);
+        this._set('crtMonitorCount', [monitors.length]);
+        this.set_uniform_float(this.get_uniform_location('crtMonitors[0]'), 4, regions);
+        this.get_actor()?.queue_redraw();
     }
 
     configure(settings, width, height) {

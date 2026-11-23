@@ -30,21 +30,35 @@ internal static class SettingsPersistenceChecks
         Check(writes == 2 && Strength(path) == 7, "Async disposal did not flush the final snapshot.");
 
         string preferencesPath = Path.Combine(directory, "legacy-settings.json");
-        File.WriteAllText(preferencesPath, """{"Version":1,"Settings":{}}""");
+        File.WriteAllText(preferencesPath, """{"Version":1,"Settings":{"TargetDisplay":"legacy-display"}}""");
         using (var store = new SettingsStore(preferencesPath))
         {
             var preferences = store.Load();
             Check(preferences.ShowGpuJokes, "Older settings must load the default for GPU jokes.");
             Check(preferences.TargetIndex == 0, "Older settings must keep applying ripples to wallpaper and windows.");
+            Check(preferences.TargetDisplay == "legacy-display" && preferences.TargetDisplays is null,
+                "An older monitor choice must remain distinguishable from an explicit empty selection.");
             store.Attach(preferences);
             preferences.ShowGpuJokes = false;
             preferences.TargetIndex = 2;
+            string[] monitorIds = ["monitor-b", "monitor-a", "MONITOR-B"];
+            preferences.TargetDisplays = monitorIds;
+            monitorIds[1] = "unselected-monitor";
         }
         using (var store = new SettingsStore(preferencesPath))
         {
             var preferences = store.Load();
             Check(!preferences.ShowGpuJokes, "GPU joke opt-out must survive a restart.");
             Check(preferences.TargetIndex == 2, "The ripple target must survive a restart.");
+            Check(preferences.TargetDisplays?.SequenceEqual(["monitor-a", "monitor-b"]) == true,
+                "Multiple monitor ids must persist as a case-insensitive snapshot independent of input mutations.");
+            store.Attach(preferences);
+            preferences.TargetDisplays = [];
+        }
+        using (var store = new SettingsStore(preferencesPath))
+        {
+            Check(store.Load().TargetDisplays is { Count: 0 },
+                "Turning all monitors off must survive a restart without restoring the default selection.");
         }
 
         // Hold the worker after its first commit while the UI delivers more edits.

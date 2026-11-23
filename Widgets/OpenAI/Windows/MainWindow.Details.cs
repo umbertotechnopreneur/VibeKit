@@ -13,6 +13,7 @@ public sealed partial class MainWindow
     private static readonly SolidColorBrush QuotaGreen = new(Rgb(0x36CD73));
     private readonly Button detailsButton = Button(DetailsIcon(), "Show usage details");
     private bool detailsOpen;
+    private bool IsCompact => settings.EnableDetailsBar && !detailsOpen;
     private readonly FlipTile fiveHour = new("5-hour allowance", 136, 25, SecondaryText, showAccent: true);
     private readonly FlipTile fiveReset = new("5-hour reset in", 104, 25, SecondaryText);
     private readonly FlipTile weekly = new("Weekly allowance", 140, 25, SecondaryText, showAccent: true);
@@ -33,7 +34,7 @@ public sealed partial class MainWindow
     {
         if (open && !settings.EnableDetailsBar) return;
         detailsOpen = open;
-        string description = open ? "Hide usage details" : "Show usage details";
+        string description = open ? "Compact widget" : "Expand widget to show usage details";
         ToolTipService.SetToolTip(detailsButton, description);
         AutomationProperties.SetName(detailsButton, description);
         ApplySize();

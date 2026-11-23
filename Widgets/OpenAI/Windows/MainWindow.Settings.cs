@@ -142,7 +142,7 @@ public sealed partial class MainWindow
             ItemsSource = TimeZoneInfo.GetSystemTimeZones(), DisplayMemberPath = "DisplayName", SelectedValuePath = "Id",
             SelectedValue = settings.TimeZoneId };
         var taskbar = Switch("Show in taskbar", settings.ShowInTaskbar);
-        var bigSize = Switch("Larger widget (+25%)", settings.BigSize);
+        var bigSize = Switch($"Larger widget (+{LargerWidgetPercent}%)", settings.BigSize);
         var opacity = new ComboBox
         {
             Header = "Window opacity",

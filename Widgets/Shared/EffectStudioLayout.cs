@@ -54,14 +54,16 @@ internal static class EffectStudioLayout
             Math.Min((int)(880 * scale), area.Height - 48)));
     }
 
-    internal static Border StatusBar(TextBlock description, ToggleSwitch effect, UIElement? recovery = null)
+    internal static Border StatusBar(TextBlock description, ToggleSwitch effect, UIElement? recovery = null,
+        Func<bool>? isActive = null)
     {
         var state = new TextBlock { FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
         var dot = new TextBlock { Text = "●", FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
         void Update()
         {
-            state.Text = effect.IsOn ? "Effect: Active" : "Effect: Stopped";
-            dot.Style = GetStyle(effect.IsOn ? "StudioActiveStatusStyle" : "SecondaryTextStyle");
+            bool active = isActive?.Invoke() ?? effect.IsOn;
+            state.Text = active ? "Effect: Active" : effect.IsOn ? "Effect: Waiting" : "Effect: Stopped";
+            dot.Style = GetStyle(active ? "StudioActiveStatusStyle" : "SecondaryTextStyle");
         }
         effect.Toggled += (_, _) => Update();
         Update();
@@ -78,8 +80,11 @@ internal static class EffectStudioLayout
         description.TextTrimming = TextTrimming.CharacterEllipsis;
         description.VerticalAlignment = VerticalAlignment.Center;
         ToolTipService.SetToolTip(description, description.Text);
-        description.RegisterPropertyChangedCallback(TextBlock.TextProperty,
-            (_, _) => ToolTipService.SetToolTip(description, description.Text));
+        description.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) =>
+        {
+            ToolTipService.SetToolTip(description, description.Text);
+            if (isActive is not null) Update();
+        });
         Grid.SetColumn(description, 1);
         line.Children.Add(description);
         var content = new StackPanel { Spacing = 4 };
@@ -108,6 +113,42 @@ internal static class EffectStudioLayout
         };
         return new Border { Child = row, Padding = new Thickness(24, 6, 24, 6),
             BorderThickness = new Thickness(0, 1, 0, 0), Style = GetStyle("StudioChromeStyle") };
+    }
+
+    internal sealed class EmergencyShortcutRow : Grid
+    {
+        private readonly TextBlock status = SettingsHint("");
+        internal ToggleSwitch Toggle { get; } = new()
+        {
+            MinWidth = 0, Width = 40, OffContent = null, OnContent = null,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        internal EmergencyShortcutRow(string keys, string actionName)
+        {
+            var heading = new Grid { ColumnSpacing = 8 };
+            heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            heading.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            heading.Children.Add(new FontIcon { Glyph = "\uE765", FontSize = 14, VerticalAlignment = VerticalAlignment.Center });
+            var label = new TextBlock { Text = $"Emergency shortcut: {keys}", FontSize = 12, TextWrapping = TextWrapping.Wrap };
+            SetColumn(label, 1);
+            heading.Children.Add(label);
+
+            var text = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+            text.Children.Add(heading);
+            text.Children.Add(status);
+            AutomationProperties.SetName(Toggle, actionName);
+            AutomationProperties.SetAutomationId(Toggle, "EmergencyShortcut");
+            Children.Add(Columns(text, Toggle));
+        }
+
+        internal void SetStatus(string message, bool registered)
+        {
+            status.Text = message;
+            status.Visibility = registered ? Visibility.Collapsed : Visibility.Visible;
+            AutomationProperties.SetHelpText(Toggle, message);
+            ToolTipService.SetToolTip(Toggle, message);
+        }
     }
 
     internal static StackPanel SettingsPage()
@@ -169,8 +210,7 @@ internal static class EffectStudioLayout
             control.MinWidth = 0;
             control.HorizontalAlignment = HorizontalAlignment.Stretch;
         }
-        else control.HorizontalAlignment = control is DisplayTargetPicker
-            ? HorizontalAlignment.Stretch : HorizontalAlignment.Right;
+        else control.HorizontalAlignment = HorizontalAlignment.Right;
         field.Children.Add(control);
         if (controlHint is not null) field.Children.Add(SettingsHint(controlHint));
         Grid.SetColumn(field, 1);

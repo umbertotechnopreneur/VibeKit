@@ -14,7 +14,8 @@ public sealed class FlipTile : Grid
     public readonly record struct DigitDelay(int MinimumMilliseconds, int MaximumMilliseconds);
     public readonly record struct Flap(int Start, int Length, int Milliseconds);
 
-    private const double FaceHeight = 44;
+    private const double FaceHeight = 36;
+    internal const double MinimumWidth = 32;
     private const double CharacterAdvance = .61;
     private static readonly CreaseShadow DefaultShadow = new(5,
         ColorHelper.FromArgb(112, 52, 10, 13), ColorHelper.FromArgb(255, 24, 6, 7));
@@ -114,8 +115,8 @@ public sealed class FlipTile : Grid
         }
         if (showAccent)
         {
-            double thickness = compactAccent ? 2 : 3;
-            accentBar = new Border { Width = 0, Height = thickness, Margin = new(7, 0, 0, compactAccent ? 2.5 : 3), CornerRadius = new(thickness / 2),
+            double thickness = compactAccent ? 1 : 3;
+            accentBar = new Border { Width = 0, Height = thickness, Margin = new(7, 0, 0, 3), CornerRadius = new(thickness / 2),
                 HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Bottom };
             surface.Children.Add(accentBar);
         }
@@ -148,6 +149,7 @@ public sealed class FlipTile : Grid
     };
 
     private double? progress;
+    internal double PreferredWidth => preferredWidth;
 
     public void SetProgress(double? percent, Brush? color)
     {
@@ -159,7 +161,7 @@ public sealed class FlipTile : Grid
 
     public void FitWidth(double available)
     {
-        double width = Math.Clamp(available, 32, preferredWidth);
+        double width = Math.Clamp(available, MinimumWidth, preferredWidth);
         if (Width == width) return;
         Width = width;
         if (accentBar is not null)

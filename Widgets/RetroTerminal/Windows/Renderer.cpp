@@ -30,6 +30,7 @@ namespace
     [[noreturn]] void Fail(const wchar_t* text) { throw winrt::hresult_error(E_FAIL, text); }
     constexpr uint64_t MiB = 1024 * 1024;
     constexpr uint64_t MaxPixels = 3840 * 2160;
+    constexpr int DesktopCaptureBuffers = 2;
     struct alignas(16) Constants { float Surface[4], Phosphor[4], Scan[4], Tone[4], Finish[4], Glitch[4], Target[4]; };
     static_assert(sizeof(Constants) == 112);
 
@@ -56,8 +57,6 @@ namespace
                 Check(output->GetDesc(&info));
                 if (info.AttachedToDesktop && info.Monitor == monitor)
                 {
-                    if (info.Rotation != DXGI_MODE_ROTATION_IDENTITY && info.Rotation != DXGI_MODE_ROTATION_UNSPECIFIED)
-                        Fail(L"Rotated monitors are not supported by this prototype.");
                     name = description.Description;
                     return adapter;
                 }
@@ -88,14 +87,19 @@ struct Renderer::State
     UINT width{}, height{};
     bool validFrame = false, presentPending = false;
     retro_terminal::RippleFrameInput rippleInput;
-    bool usedRippleFrame = false;
-    unsigned busyPresents = 0;
+    bool usedRippleFrame = false, waitingForInput = true, presentedRippleFrame = false;
+    Clock::time_point busySince{};
     std::wstring adapterName;
     Clock::time_point started = Clock::now();
+    Clock::time_point waitingSince = started;
     Clock::time_point lastBudgetCheck = started;
     std::shared_ptr<std::atomic_bool> sourceClosed = std::make_shared<std::atomic_bool>(false);
     winrt::event_token closedToken{};
     bool subscribed = false;
+    bool supportsCaptureInterval = false;
+    int captureFps{};
+    winrt::Windows::Foundation::TimeSpan captureInterval{};
+    Clock::time_point lastCapture{};
     Capture::GraphicsCaptureItem item{nullptr};
     Capture::Direct3D11CaptureFramePool pool{nullptr};
     Capture::GraphicsCaptureSession session{nullptr};
@@ -120,6 +124,94 @@ struct Renderer::State
     ComPtr<IDCompositionDevice> composition;
     ComPtr<IDCompositionTarget> compositionTarget;
     ComPtr<IDCompositionVisual> visual;
+
+    void SetCaptureLimit(int fps)
+    {
+        if (captureFps == fps) return;
+        captureFps = fps;
+        captureInterval = std::chrono::ceil<winrt::Windows::Foundation::TimeSpan>(std::chrono::duration<double>(1.0 / fps));
+        if (session && supportsCaptureInterval) session.MinUpdateInterval(captureInterval);
+    }
+
+    D3D11_TEXTURE2D_DESC FrameDescription(UINT bindFlags) const
+    {
+        D3D11_TEXTURE2D_DESC description{};
+        description.Width = width;
+        description.Height = height;
+        description.MipLevels = description.ArraySize = 1;
+        description.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+        description.SampleDesc.Count = 1;
+        description.Usage = D3D11_USAGE_DEFAULT;
+        description.BindFlags = bindFlags;
+        return description;
+    }
+
+    void OpenDesktopCapture()
+    {
+        const auto size = item.Size();
+        if (size.Width != int(width) || size.Height != int(height))
+            Fail(L"Capture dimensions do not match this monitor. Enable again after the display settles.");
+
+        auto description = FrameDescription(D3D11_BIND_SHADER_RESOURCE);
+        Check(device->CreateTexture2D(&description, nullptr, &desktop));
+        Check(device->CreateShaderResourceView(desktop.Get(), nullptr, &desktopView));
+
+        ComPtr<IDXGIDevice> dxgi;
+        Check(device.As(&dxgi));
+        winrt::com_ptr<IInspectable> inspectable;
+        Check(CreateDirect3D11DeviceFromDXGIDevice(dxgi.Get(), inspectable.put()));
+        auto captureDevice = inspectable.as<DirectXApi::Direct3D11::IDirect3DDevice>();
+        pool = Capture::Direct3D11CaptureFramePool::CreateFreeThreaded(captureDevice,
+            DirectXApi::DirectXPixelFormat::B8G8R8A8UIntNormalized, DesktopCaptureBuffers, size);
+        session = pool.CreateCaptureSession(item);
+        session.IsCursorCaptureEnabled(false);
+        if (supportsCaptureInterval) session.MinUpdateInterval(captureInterval);
+        // Keep the Windows-owned capture border and wait for a fresh frame.
+        session.StartCapture();
+        lastCapture = {};
+        waitingSince = Clock::now();
+    }
+
+    void CloseDesktopCapture() noexcept
+    {
+        try { if (session) session.Close(); } catch (...) {}
+        session = nullptr;
+        try { if (pool) pool.Close(); } catch (...) {}
+        pool = nullptr;
+        desktopView.Reset();
+        desktop.Reset();
+        validFrame = false;
+    }
+
+    bool PollDesktopCapture(Clock::time_point now)
+    {
+        if (now < lastCapture + captureInterval) return false;
+        Capture::Direct3D11CaptureFrame frame{ nullptr };
+        // Keep the newest frame available without increasing the number of GPU copies.
+        for (int i = 0; i < DesktopCaptureBuffers; ++i)
+        {
+            auto next = pool.TryGetNextFrame();
+            if (!next) break;
+            if (frame) frame.Close();
+            frame = std::move(next);
+        }
+        if (!frame) return false;
+        const auto size = frame.ContentSize();
+        if (size.Width != int(width) || size.Height != int(height))
+            Fail(L"Display size changed. The effect stopped; enable manually to retry.");
+        auto access = frame.Surface().as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
+        ComPtr<ID3D11Texture2D> source;
+        Check(access->GetInterface(IID_PPV_ARGS(&source)));
+        D3D11_TEXTURE2D_DESC description{};
+        source->GetDesc(&description);
+        if (description.Width != width || description.Height != height || description.Format != DXGI_FORMAT_B8G8R8A8_UNORM)
+            Fail(L"Unexpected capture format. The effect stopped.");
+        context->CopyResource(desktop.Get(), source.Get());
+        frame.Close();
+        validFrame = true;
+        lastCapture = now;
+        return true;
+    }
 
     void CheckBudget()
     {
@@ -146,9 +238,7 @@ struct Renderer::State
         }
         if (history[0]) return;
         CheckBudget();
-        D3D11_TEXTURE2D_DESC desc{};
-        desktop->GetDesc(&desc);
-        desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+        auto desc = FrameDescription(D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET);
         constexpr float clear[4]{};
         for (unsigned i = 0; i < 2; ++i) {
             Check(device->CreateTexture2D(&desc, nullptr, &history[i]));
@@ -165,8 +255,7 @@ struct Renderer::State
         if (overlay) ShowWindow(overlay, SW_HIDE);
         // Revocation precedes releasing the frame pool; callback only owns its atomic flag.
         try { if (subscribed && item) item.Closed(closedToken); } catch (...) {}
-        try { if (session) session.Close(); } catch (...) {}
-        try { if (pool) pool.Close(); } catch (...) {}
+        CloseDesktopCapture();
         if (context) { context->ClearState(); context->Flush(); }
     }
 };
@@ -174,8 +263,18 @@ struct Renderer::State
 Renderer::Renderer() = default;
 Renderer::~Renderer() = default;
 void Renderer::Stop() noexcept { state.reset(); }
+bool Renderer::WaitingForInput() const noexcept { return state && state->waitingForInput; }
+void Renderer::ConfirmVisiblePresentation() noexcept
+{
+    if (state && state->presentedRippleFrame) state->rippleInput.ConfirmVisiblePresentation();
+}
 
-void Renderer::Start(HWND overlay, HMONITOR monitor, const std::wstring& shaderPath)
+void Renderer::ClearPresentation() noexcept
+{
+    if (state) state->rippleInput.ClearPresentation();
+}
+
+void Renderer::Start(HWND overlay, HMONITOR monitor, const std::wstring& shaderPath, int captureFps)
 {
     Stop();
     if (!Capture::GraphicsCaptureSession::IsSupported()) Fail(L"Windows Graphics Capture is unavailable.");
@@ -241,47 +340,25 @@ void Renderer::Start(HWND overlay, HMONITOR monitor, const std::wstring& shaderP
     raster.CullMode = D3D11_CULL_NONE;
     raster.DepthClipEnable = TRUE;
     Check(next->device->CreateRasterizerState(&raster, &next->rasterizer));
-    D3D11_TEXTURE2D_DESC texture{};
-    texture.Width = next->width;
-    texture.Height = next->height;
-    texture.MipLevels = texture.ArraySize = 1;
-    texture.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-    texture.SampleDesc.Count = 1;
-    texture.Usage = D3D11_USAGE_DEFAULT;
-    texture.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-    Check(next->device->CreateTexture2D(&texture, nullptr, &next->desktop));
-    Check(next->device->CreateShaderResourceView(next->desktop.Get(), nullptr, &next->desktopView));
-
     auto interop = winrt::get_activation_factory<Capture::GraphicsCaptureItem, IGraphicsCaptureItemInterop>();
     Check(interop->CreateForMonitor(monitor, winrt::guid_of<Capture::GraphicsCaptureItem>(), winrt::put_abi(next->item)));
-    auto captureSize = next->item.Size();
-    if (captureSize.Width != int(next->width) || captureSize.Height != int(next->height))
-        Fail(L"Capture dimensions do not match this monitor. Enable again after the display settles.");
     auto flag = next->sourceClosed;
     next->closedToken = next->item.Closed([flag](auto const&, auto const&) { flag->store(true); });
     next->subscribed = true;
-    winrt::com_ptr<IInspectable> inspectable;
-    Check(CreateDirect3D11DeviceFromDXGIDevice(dxgi.Get(), inspectable.put()));
-    auto captureDevice = inspectable.as<DirectXApi::Direct3D11::IDirect3DDevice>();
-    next->pool = Capture::Direct3D11CaptureFramePool::CreateFreeThreaded(captureDevice,
-        DirectXApi::DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, captureSize);
-    next->session = next->pool.CreateCaptureSession(next->item);
-    next->session.IsCursorCaptureEnabled(false);
-    if (winrt::Windows::Foundation::Metadata::ApiInformation::IsPropertyPresent(
-        L"Windows.Graphics.Capture.GraphicsCaptureSession", L"MinUpdateInterval"))
-        next->session.MinUpdateInterval(std::chrono::milliseconds(34));
-    // Leave the Windows-owned capture border enabled. No capture permissions are bypassed.
-    next->session.StartCapture();
-    next->started = Clock::now();
+    next->supportsCaptureInterval = winrt::Windows::Foundation::Metadata::ApiInformation::IsPropertyPresent(
+        L"Windows.Graphics.Capture.GraphicsCaptureSession", L"MinUpdateInterval");
+    next->SetCaptureLimit(captureFps);
+    next->OpenDesktopCapture();
     next->rippleInput.Start(overlay, monitor, info.rcMonitor);
     state = std::move(next);
 }
 
 bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, bool settingsChanged, bool animationChanged,
-    int effectTarget)
+    int effectTarget, int captureFps)
 {
     if (!state) return false;
     auto& s = *state;
+    s.presentedRippleFrame = false;
     if (s.sourceClosed->load()) Fail(L"The captured monitor became unavailable. Enable manually to retry.");
     Check(s.device->GetDeviceRemovedReason());
     auto now = Clock::now();
@@ -290,33 +367,27 @@ bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, b
         s.CheckBudget();
         s.lastBudgetCheck = now;
     }
-    auto frame = s.pool.TryGetNextFrame();
-    bool newFrame = bool(frame);
-    if (frame)
-    {
-        auto size = frame.ContentSize();
-        if (size.Width != int(s.width) || size.Height != int(s.height))
-            Fail(L"Display size changed. The effect stopped; enable manually to retry.");
-        auto access = frame.Surface().as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
-        ComPtr<ID3D11Texture2D> source;
-        Check(access->GetInterface(IID_PPV_ARGS(&source)));
-        D3D11_TEXTURE2D_DESC description{};
-        source->GetDesc(&description);
-        if (description.Width != s.width || description.Height != s.height || description.Format != DXGI_FORMAT_B8G8R8A8_UNORM)
-            Fail(L"Unexpected capture format. The effect stopped.");
-        s.context->CopyResource(s.desktop.Get(), source.Get());
-        s.validFrame = true;
-        frame.Close();
-    }
     const auto ripple = s.rippleInput.Poll(s.device.Get(), s.context.Get(), s.adapter.Get(), now);
     const bool usingRipple = ripple.view != nullptr;
     const bool sourceChanged = s.usedRippleFrame != usingRipple;
-    s.usedRippleFrame = usingRipple;
-    if (sourceChanged) s.historyValid = false;
-    newFrame = sourceChanged || (usingRipple ? ripple.updated : newFrame);
+    if (sourceChanged || ripple.newSource)
+    {
+        s.historyValid = s.wasTail = s.presentPending = false;
+        s.tailUntil = now;
+    }
+    if (sourceChanged)
+    {
+        s.usedRippleFrame = usingRipple;
+        if (usingRipple) s.CloseDesktopCapture();
+        else s.waitingForInput = true;
+    }
+    s.SetCaptureLimit(captureFps);
+    if (!usingRipple && !s.session) s.OpenDesktopCapture();
+    const bool inputUpdated = usingRipple ? ripple.updated : s.PollDesktopCapture(now);
+    const bool newFrame = sourceChanged || inputUpdated;
     if (!s.validFrame && !usingRipple)
     {
-        if (now - s.started > std::chrono::seconds(3)) Fail(L"No screen frame arrived. The effect stopped.");
+        if (now - s.waitingSince > std::chrono::seconds(3)) Fail(L"No screen frame arrived. The effect stopped.");
         return false;
     }
     const bool persistence = settings.persistence && settings.persistenceStrength > 0 && settings.intensity > 0;
@@ -369,14 +440,17 @@ bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, b
     HRESULT presented = s.swap->Present(0, DXGI_PRESENT_DO_NOT_WAIT);
     if (presented == DXGI_ERROR_WAS_STILL_DRAWING)
     {
+        if (!s.presentPending) s.busySince = now;
         s.presentPending = true;
-        if (++s.busyPresents >= 30) Fail(L"The GPU presentation queue stayed busy. Enable manually to retry.");
+        if (now - s.busySince >= std::chrono::seconds(1))
+            Fail(L"The GPU presentation queue stayed busy. Enable manually to retry.");
         return false;
     }
     if (presented == DXGI_STATUS_OCCLUDED) Fail(L"Presentation became unavailable. The effect stopped.");
     Check(presented);
     s.presentPending = false;
-    s.busyPresents = 0;
+    s.waitingForInput = false;
+    s.presentedRippleFrame = usingRipple && presented == S_OK;
     return true;
 }
 
@@ -384,5 +458,5 @@ std::wstring Renderer::Description() const
 {
     if (!state) return L"Stopped";
     return state->adapterName + L" · " + std::to_wstring(state->width) + L" × " + std::to_wstring(state->height)
-        + (state->rippleInput.UsingRipple() ? L" · Water Ripple input" : L"");
+        + (state->usedRippleFrame ? L" · Water Ripple shared input" : L" · Windows Graphics Capture");
 }

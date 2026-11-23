@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Input;
 using System.Threading.Tasks;
@@ -27,15 +29,19 @@ internal sealed partial class StudioController : IDisposable
     private readonly Window window;
     private readonly FrameworkElement surface;
     private readonly IntPtr hwnd;
-    private (int X, int Y, int Width, int Height)? startupBounds;
     private readonly StudioDiagnostics diagnostics;
     private readonly TrayService tray;
     private readonly StartupService startup;
     private readonly CaptureConsentService captureConsent;
     private readonly EmergencyShortcut emergencyShortcut;
+    private readonly ScreenEffectInput input;
     private readonly CloseSequence closeSequence;
     private bool closeFailureOpen;
-    private ScreenEffectSession? screen;
+    private readonly Dictionary<string, (DisplayTarget Display, ScreenEffectSession Session)> screens = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> displayFailures = new(StringComparer.OrdinalIgnoreCase);
+    private DisplayTarget[] connectedDisplays = [];
+    private IReadOnlyCollection<string>? fallbackDisplayIds;
+    private bool announcedEffect, applyingDisplaySelection;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer performanceTimer, gpuJokeTimer;
 
     private readonly Stopwatch performanceClock = Stopwatch.StartNew();
@@ -48,14 +54,15 @@ internal sealed partial class StudioController : IDisposable
     internal ICommand RestartCommand { get; }
     internal ICommand OpenSettingsCommand { get; }
     internal event Action? SettingsRequested;
+    internal event Action? DisplaysChanged;
     internal ICommand InspectScreenCommand { get; }
     internal bool IsInTray => model.State.IsInTray;
+    internal IReadOnlyCollection<string>? DisplaySelection => model.Settings.TargetDisplays ?? fallbackDisplayIds;
 
     internal StudioController(StudioModel model, Window window, FrameworkElement surface,
-        Func<Task<bool>> flushSettings, Func<Task> discardSettings, (int X, int Y, int Width, int Height)? startupBounds = null)
+        Func<Task<bool>> flushSettings, Func<Task> discardSettings)
     {
         this.model = model; this.window = window; this.surface = surface;
-        this.startupBounds = startupBounds;
         closeSequence = new CloseSequence(
             stop: () =>
             {
@@ -81,10 +88,12 @@ internal sealed partial class StudioController : IDisposable
         hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
         tray = new TrayService(hwnd, Path.Combine(AppContext.BaseDirectory, "Assets", "WaterRipple.ico"), ShowFromTray, OpenSettings, () => new AboutWindow(model.Settings).Activate(), ExitApp);
         window.AppWindow.Closing += MainWindowClosing;
-        window.Activated += MainWindowActivated;
         RestartCommand = new DelegateCommand(CheckCapabilities);
         OpenSettingsCommand = new DelegateCommand(OpenSettings);
-        InspectScreenCommand = new DelegateCommand(() => screen?.InspectCapture());
+        InspectScreenCommand = new DelegateCommand(InspectScreen);
+        input = new ScreenEffectInput(hwnd, window.DispatcherQueue, () => StopScreen("Stopped by global shortcut."),
+            DisplayTopologyChanged, AddClick);
+        connectedDisplays = DisplayTarget.GetConnected().ToArray();
 
         diagnostics = new StudioDiagnostics(model.State, window.DispatcherQueue);
         performanceTimer = window.DispatcherQueue.CreateTimer();
@@ -111,7 +120,7 @@ internal sealed partial class StudioController : IDisposable
         if (initialized || model.State.IsClosing) return;
         initialized = true;
         CheckCapabilities();
-        if (screen is null) StartScreen();
+        if (!model.State.EffectEnabled) StartScreen();
 #if DEBUG
         if (Array.IndexOf(Environment.GetCommandLineArgs(), "--exercise-overlay") >= 0)
             _ = ExerciseOverlayAsync();
@@ -123,23 +132,35 @@ internal sealed partial class StudioController : IDisposable
         try
         {
             model.State.CaptureAllowed = Native.SetWindowDisplayAffinity(hwnd, 0);
-            var b = DisplayTarget.Resolve(model.Settings.TargetDisplay)?.Bounds ?? Bounds();
-            int hr = Native.RippleCheckCapabilities(b.X, b.Y, b.Width, b.Height, out var caps);
-            model.State.GpuName = caps.AdapterName ?? "Display GPU";
-            model.State.DedicatedVramBytes = caps.DedicatedVideoMemory;
-            model.State.CanApply = hr >= 0 && caps.Supported != 0 && model.State.CaptureAllowed;
-            model.State.CapabilityText = Describe(caps, hr);
+            var displays = SelectedDisplays();
+            model.State.CanApply = false;
+            if (displays.Length == 0)
+            {
+                model.State.CanApply = model.State.CaptureAllowed;
+                model.State.CapabilityText = NoMonitorStatus();
+                return;
+            }
+            foreach (var display in displays)
+            {
+                var (hr, caps) = CheckDisplay(display);
+                model.State.GpuName = caps.AdapterName ?? "Display GPU";
+                model.State.DedicatedVramBytes = caps.DedicatedVideoMemory;
+                model.State.CapabilityText = Describe(caps, hr);
+                if (hr < 0 || caps.Supported == 0 || !model.State.CaptureAllowed) continue;
+                model.State.CanApply = true;
+                break;
+            }
         }
         catch (Exception ex) { model.State.CanApply = false; Fail("GPU check failed", ex); }
     }
 
     internal async Task ToggleScreenAsync()
     {
-        if (screen is not null) { StopScreen(); return; }
+        if (model.State.EffectEnabled) { StopScreen(); return; }
         CancelRecovery();
         if (closeSequence.IsPending || model.State.IsClosing || model.State.IsCaptureConsentOpen || model.State.IsSettingsOpen) return;
         await captureConsent.EnsureAsync(((FrameworkElement)window.Content).XamlRoot);
-        if (model.State.IsClosing || screen is not null) return;
+        if (model.State.IsClosing || model.State.EffectEnabled) return;
         StartScreen();
     }
 
@@ -158,57 +179,202 @@ internal sealed partial class StudioController : IDisposable
     private void StartScreen(bool atSignIn = false)
     {
         if (closeSequence.IsPending || model.State.IsClosing) return;
+        if (!model.State.CaptureAllowed) { StopScreen("Desktop capture is unavailable."); return; }
         generation++;
+        model.State.EffectEnabled = true;
+        ApplyDisplaySelection(atSignIn);
+        DisplaysChanged?.Invoke();
+    }
+
+    private DisplayTarget[] SelectedDisplays() =>
+        DisplayTarget.GetSelected(hwnd, model.Settings.TargetDisplay, DisplaySelection).ToArray();
+
+    private string NoMonitorStatus() => model.Settings.TargetDisplays?.Count == 0 ?
+        "No monitors selected." : "No selected monitor is connected.";
+
+    private static (int Result, GpuCapabilities Caps) CheckDisplay(DisplayTarget display)
+    {
+        var bounds = display.Bounds;
+        int result = Native.RippleCheckCapabilities(bounds.X, bounds.Y, bounds.Width, bounds.Height, out var caps);
+        return (result, caps);
+    }
+
+    private void ApplyDisplaySelection(bool atSignIn = false)
+    {
+        applyingDisplaySelection = true;
         try
         {
-            var b = DisplayTarget.Resolve(model.Settings.TargetDisplay)?.Bounds ??
-                (atSignIn ? startupBounds ?? Bounds() : Bounds());
-            Log.Information("Checking screen effect GPU Generation={Generation} StartupTask={StartupTask} Width={Width} Height={Height} CaptureAllowed={CaptureAllowed}",
-                generation, atSignIn, b.Width, b.Height, model.State.CaptureAllowed);
-            int hr = Native.RippleCheckCapabilities(b.X, b.Y, b.Width, b.Height, out var caps);
-            Log.Information("ApplyRequested Generation={Generation} GPU={GPU} DedicatedVRAM={Vram} FeatureLevel=0x{FeatureLevel:X} Supported={Supported} Reason={Reason} HRESULT=0x{HResult:X8}",
-                generation, caps.AdapterName, caps.DedicatedVideoMemory, caps.FeatureLevel, caps.Supported, caps.Reason, hr);
-            model.State.CapabilityText = Describe(caps, hr);
-            if (hr < 0 || caps.Supported == 0 || !model.State.CaptureAllowed)
+            var desired = SelectedDisplays().ToDictionary(display => display.Id, StringComparer.OrdinalIgnoreCase);
+            // The default follows Studio when the effect starts. Moving Studio later must not
+            // change the selection shown by the controls while the existing effect is running.
+            if (DisplaySelection is null && desired.Count > 0)
+                fallbackDisplayIds = desired.Values.SelectMany(display => display.Identifiers).ToArray();
+            foreach (string id in displayFailures.Keys.Where(id => !desired.ContainsKey(id)).ToArray())
+                displayFailures.Remove(id);
+            foreach (var (id, entry) in screens.ToArray())
             {
-                model.State.StatusMessage = model.State.CaptureAllowed ? Describe(caps, hr) : "Desktop capture is unavailable.";
-                return;
+                if (desired.TryGetValue(id, out var display) && display.Handle == entry.Display.Handle &&
+                    display.Bounds == entry.Display.Bounds) continue;
+                screens.Remove(id);
+                entry.Session.Dispose();
             }
-            bool firstFrame = true;
-            var session = new ScreenEffectSession(model, caps, metrics =>
+            if (desired.Count > 0) input.Start();
+            foreach (var (id, display) in desired)
             {
-                diagnostics.Observe(metrics);
-                if (firstFrame && model.State.IsCaptureValid)
-                {
-                    firstFrame = false;
-                    NotifyEffect("Ripple effect on", "The screen effect is active.");
-                }
-            }, (closed, reason) => { if (ReferenceEquals(screen, closed)) StopScreen(reason); });
-            screen = session;
-            model.State.IsScreenEffectActive = true; model.State.CanApply = true;
-            model.State.StatusMessage = "Water Ripple effect is active.";
-            Log.Information("Starting screen effect session Generation={Generation}", generation);
-            session.Start();
+                if (screens.ContainsKey(id) || displayFailures.ContainsKey(id)) continue;
+                StartDisplay(display, atSignIn);
+            }
+            if (screens.Count == 0 && displayFailures.Count > 0) { StopScreen(displayFailures.Values.First()); return; }
+            if (screens.Count == 0) input.Stop();
+            RefreshScreenState();
+            RefreshMetrics();
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Apply failed Generation={Generation} HRESULT=0x{HResult:X8}", generation, ex.HResult);
             StopScreen(ex.Message);
         }
+        finally { applyingDisplaySelection = false; }
+    }
+
+    private void StartDisplay(DisplayTarget display, bool atSignIn)
+    {
+        ScreenEffectSession? session = null;
+        try
+        {
+            var (hr, caps) = CheckDisplay(display);
+            Log.Information("ApplyRequested Generation={Generation} StartupTask={StartupTask} GPU={GPU} DedicatedVRAM={Vram} FeatureLevel=0x{FeatureLevel:X} Supported={Supported} Reason={Reason} HRESULT=0x{HResult:X8}",
+                generation, atSignIn, caps.AdapterName, caps.DedicatedVideoMemory, caps.FeatureLevel, caps.Supported, caps.Reason, hr);
+            model.State.CapabilityText = Describe(caps, hr);
+            if (hr < 0 || caps.Supported == 0)
+            {
+                displayFailures[display.Id] = $"{display.Label} · {model.State.CapabilityText}";
+                return;
+            }
+            if ((caps.Left, caps.Top, caps.Width, caps.Height) != display.Bounds)
+            {
+                displayFailures[display.Id] = $"{display.Label} · The display configuration changed. Turn this monitor on again.";
+                return;
+            }
+            model.State.CanApply = true;
+            model.State.GpuName = caps.AdapterName ?? "Display GPU";
+            model.State.DedicatedVramBytes = caps.DedicatedVideoMemory;
+            session = new ScreenEffectSession(model.Settings, caps, _ => RefreshScreenState(),
+                (closed, reason) => DisplayStopped(display, closed, reason), RefreshMetrics);
+            screens.Add(display.Id, (display, session));
+            session.Start();
+        }
+        catch (Exception ex)
+        {
+            screens.Remove(display.Id);
+            session?.Dispose();
+            displayFailures[display.Id] = $"{display.Label} · {ex.Message}";
+            Log.Error(ex, "Display overlay failed Generation={Generation} HRESULT=0x{HResult:X8}", generation, ex.HResult);
+        }
+    }
+
+    private void DisplayStopped(DisplayTarget display, ScreenEffectSession session, string reason)
+    {
+        if (!screens.TryGetValue(display.Id, out var entry) || !ReferenceEquals(entry.Session, session)) return;
+        screens.Remove(display.Id);
+        reason = $"{display.Label} · {(reason.Length == 0 ? "The overlay closed." : reason)}";
+        displayFailures[display.Id] = reason;
+        if (applyingDisplaySelection) return;
+        if (screens.Count == 0) { StopScreen(reason); return; }
+        RefreshScreenState();
+        RefreshMetrics();
+    }
+
+    private void RefreshScreenState()
+    {
+        var active = screens.Values;
+        int ready = active.Count(entry => entry.Session.CaptureValid);
+        bool valid = ready > 0;
+        bool visible = active.Any(entry => entry.Session.OverlayVisible);
+        bool inspecting = active.Any(entry => entry.Session.InspectionVisible);
+        model.State.IsScreenEffectActive = active.Count > 0;
+        model.State.IsCaptureValid = valid;
+        model.State.ScreenOverlayVisible = visible;
+        model.State.ActiveWaveCount = active.Sum(entry => entry.Session.ActiveWaveCount);
+        model.State.OverlayPhase = visible ? "VisibleWithValidCapture" : valid ? "PresentedByCrt" :
+            active.Count > 0 ? "WaitingForValidCapture" : "Inactive";
+        if (inspecting) model.State.StatusMessage = "Capture paused for screenshot inspection (20 seconds).";
+        else if (displayFailures.Count > 0) model.State.StatusMessage = displayFailures.Values.First();
+        else if (active.Count == 0) model.State.StatusMessage = NoMonitorStatus();
+        else if (!valid) model.State.StatusMessage = "Waiting for screen frames…";
+        else if (ready < active.Count) model.State.StatusMessage = $"Water Ripple is active on {ready} of {active.Count} monitors.";
+        else model.State.StatusMessage = ready == 1 ? "Water Ripple effect is active." :
+            $"Water Ripple is active on {ready} monitors.";
+        if (active.Count == 0) announcedEffect = false;
+        if (valid && !announcedEffect)
+        {
+            announcedEffect = true;
+            NotifyEffect("Ripple effect on", "The screen effect is active.");
+        }
+    }
+
+    private void RefreshMetrics()
+    {
+        var metrics = screens.Values.Select(entry => entry.Session.LastMetrics).OfType<ScreenSessionMetrics>().ToArray();
+        if (metrics.Length == 0) diagnostics.ClearCapture();
+        else diagnostics.Observe(metrics);
+    }
+
+    private void AddClick(int x, int y)
+    {
+        foreach (var entry in screens.Values)
+            if (entry.Session.AddClick(x, y)) break;
+    }
+
+    private void InspectScreen()
+    {
+        var current = DisplayTarget.GetSelected(hwnd, "", null).FirstOrDefault();
+        var sessions = screens.Values.ToArray();
+        var chosen = sessions.FirstOrDefault(entry => StringComparer.OrdinalIgnoreCase.Equals(entry.Display.Id, current?.Id) &&
+            entry.Session.CaptureValid).Session ??
+            sessions.FirstOrDefault(entry => entry.Session.CaptureValid).Session;
+        if (chosen is null) return;
+        foreach (var entry in sessions)
+            if (!ReferenceEquals(entry.Session, chosen)) entry.Session.EndInspection();
+        chosen.InspectCapture();
+    }
+
+    private void DisplayTopologyChanged()
+    {
+        var current = DisplayTarget.GetConnected().ToArray();
+        if (connectedDisplays.Length == current.Length && connectedDisplays.Zip(current).All(pair =>
+            pair.First.Handle == pair.Second.Handle && pair.First.Bounds == pair.Second.Bounds &&
+            pair.First.Label == pair.Second.Label && pair.First.Details == pair.Second.Details &&
+            pair.First.Identifiers.SequenceEqual(pair.Second.Identifiers, StringComparer.OrdinalIgnoreCase))) return;
+        connectedDisplays = current;
+        if (model.State.EffectEnabled) ApplyDisplaySelection();
+        else CheckCapabilities();
+        DisplaysChanged?.Invoke();
     }
 
     private void StopScreen(string reason = "")
     {
         CancelRecovery();
-        var active = screen; screen = null;
+        bool hadEffect = model.State.IsScreenEffectActive || screens.Count > 0;
+        bool resetFallback = fallbackDisplayIds is not null;
+        fallbackDisplayIds = null;
+        var active = screens.Values.ToArray();
+        screens.Clear();
+        input.Stop();
+        announcedEffect = false;
+        displayFailures.Clear();
+        model.State.EffectEnabled = false;
         model.State.IsScreenEffectActive = false;
         model.State.ScreenOverlayVisible = false;
         model.State.IsCaptureValid = false;
-        active?.Dispose();
+        model.State.OverlayPhase = "Closed";
+        model.State.ActiveWaveCount = 0;
+        foreach (var entry in active) entry.Session.Dispose();
         diagnostics.ClearCapture();
         Log.Information("ScreenStopped Generation={Generation} ReportedFailure={ReportedFailure}", generation, reason.Length > 0);
         model.State.StatusMessage = reason.Length > 0 ? reason : "Screen effect stopped.";
-        if (active is not null) NotifyEffect("Ripple effect off", model.State.StatusMessage);
+        if (hadEffect) NotifyEffect("Ripple effect off", model.State.StatusMessage);
+        if (resetFallback && !applyingDisplaySelection && !model.State.IsClosing) DisplaysChanged?.Invoke();
     }
 
     private void NotifyEffect(string title, string message)
@@ -220,6 +386,11 @@ internal sealed partial class StudioController : IDisposable
     private void SettingsChanged(object? sender, PropertyChangedEventArgs e)
     {
         Log.Debug("Setting changed {Property}", e.PropertyName);
+        if (e.PropertyName == nameof(AppSettings.TargetDisplays))
+        {
+            if (model.State.EffectEnabled) ApplyDisplaySelection();
+            else CheckCapabilities();
+        }
         if (e.PropertyName == nameof(AppSettings.ShowGpuJokes) && !model.Settings.ShowGpuJokes) gpuJokeTimer.Stop();
         if (e.PropertyName == nameof(AppSettings.AutoRecover) && !model.Settings.AutoRecover && recoveryPending)
         {
@@ -243,7 +414,7 @@ internal sealed partial class StudioController : IDisposable
         double elapsed = lastTick == 0 ? 1 : now - lastTick;
         lastTick = now;
         bool healthy = SystemHealthy() && elapsed <= 2;
-        if (screen is not null)
+        if (screens.Count > 0)
         {
             lateTicks = elapsed > 2 ? lateTicks + 1 : 0;
             if (elapsed > 4 || lateTicks >= 2)
@@ -353,13 +524,6 @@ internal sealed partial class StudioController : IDisposable
         }
         catch (Exception ex) { model.State.IsInTray = false; Fail("Could not minimize to tray", ex); }
     }
-    private void MainWindowActivated(object sender, WindowActivatedEventArgs args)
-    {
-        // Also cover a user restoring the minimized taskbar fallback directly.
-        if (args.WindowActivationState != WindowActivationState.Deactivated && !Native.IsIconic(hwnd))
-            startupBounds = null;
-    }
-
     internal void ActivateExistingInstance()
     {
         if (model.State.IsClosing) return;
@@ -370,7 +534,6 @@ internal sealed partial class StudioController : IDisposable
         }
         if (Native.IsIconic(hwnd)) Native.ShowWindow(hwnd, 9); // SW_RESTORE
         window.Activate();
-        startupBounds = null;
     }
 
     private void ShowFromTray()
@@ -382,7 +545,6 @@ internal sealed partial class StudioController : IDisposable
         if (Native.IsIconic(hwnd) && window.AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.Restore(false);
         window.Activate();
-        startupBounds = null;
         Log.Information("Main window restored from tray");
     }
     internal void RequestMemoryShutdown() => ExitApp();
@@ -424,10 +586,10 @@ internal sealed partial class StudioController : IDisposable
     {
         try
         {
-            for (int i = 0; i < 80 && !model.State.ScreenOverlayVisible; i++) await Task.Delay(50);
+            for (int i = 0; i < 80 && !model.State.IsCaptureValid; i++) await Task.Delay(50);
             if (!model.State.IsInTray || !tray.IsVisible || Native.IsWindowVisible(hwnd) || !Native.IsIconic(hwnd))
                 throw new InvalidOperationException("Startup did not keep Studio minimized and hidden in the notification area.");
-            if (!model.State.IsScreenEffectActive || !model.State.ScreenOverlayVisible || !model.State.IsCaptureValid)
+            if (!model.State.IsScreenEffectActive || !model.State.IsCaptureValid)
                 throw new InvalidOperationException("Startup did not present the screen effect: " + model.State.StatusMessage);
             Console.WriteLine("PASS startup keeps Studio hidden while the screen effect runs");
             ShowFromTray();
@@ -456,7 +618,7 @@ internal sealed partial class StudioController : IDisposable
             {
                 StartScreen();
                 await Task.Delay(1600);
-                if (!model.State.IsScreenEffectActive || !model.State.ScreenOverlayVisible || !model.State.IsCaptureValid)
+                if (!model.State.IsScreenEffectActive || !model.State.IsCaptureValid)
                     throw new InvalidOperationException($"Overlay cycle {i} failed to present valid pixels: {model.State.StatusMessage}");
                 StopScreen();
                 await Task.Delay(700);
@@ -486,15 +648,9 @@ internal sealed partial class StudioController : IDisposable
         {
             case VirtualKey.F7: _ = ToggleScreenAsync(); return true;
             case VirtualKey.F8: OpenSettings(); return true;
-            case VirtualKey.Escape: if (screen is not null) StopScreen(); else window.Close(); return true;
+            case VirtualKey.Escape: if (model.State.EffectEnabled) StopScreen(); else window.Close(); return true;
             default: return false;
         }
-    }
-    private (int X, int Y, int Width, int Height) Bounds()
-    {
-        if (startupBounds is { } initial && Native.IsIconic(hwnd)) return initial;
-        return (window.AppWindow.Position.X, window.AppWindow.Position.Y,
-            Math.Max(2, window.AppWindow.Size.Width), Math.Max(2, window.AppWindow.Size.Height));
     }
     private void Fail(string operation, Exception ex)
     {
@@ -509,7 +665,7 @@ internal sealed partial class StudioController : IDisposable
         {
             1 => "\nAt least 8 GB dedicated VRAM is required. Shared memory does not count.",
             2 => "\nA hardware GPU is required.", 3 => "\nDirect3D feature level 11.0 is required.",
-            4 => "\nRotated displays are not supported.", _ => "\nDesktop capture is unavailable."
+            _ => "\nDesktop capture is unavailable."
         });
     }
     private void EmergencyShortcutChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -526,7 +682,6 @@ internal sealed partial class StudioController : IDisposable
         if (model.State.IsClosing) return;
         model.State.IsClosing = true;
         window.AppWindow.Closing -= MainWindowClosing;
-        window.Activated -= MainWindowActivated;
         model.Settings.PropertyChanged -= EmergencyShortcutChanged;
         emergencyShortcut.Dispose();
         gpuJokeTimer.Stop();
@@ -536,7 +691,7 @@ internal sealed partial class StudioController : IDisposable
         performanceTimer.Stop();
         performanceTimer.Tick -= PerformanceTick;
         diagnostics.Dispose();
-        StopScreen(); model.Pipelines.Dispose();
+        StopScreen(); input.Dispose(); model.Pipelines.Dispose();
 
     }
 }

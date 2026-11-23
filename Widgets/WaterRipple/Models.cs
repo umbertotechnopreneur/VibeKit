@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace WaterRipple;
@@ -33,6 +34,7 @@ public sealed class AppSettings : ObservableModel
     private double crestIntensity = 50, ripplesIntensity = 50, liquidIntensity = 50;
     private int presetIndex = 1, themeIndex, targetIndex;
     private string targetDisplay = "";
+    private IReadOnlyList<string>? targetDisplays;
     public static IReadOnlyList<string> PresetNames { get; } = Array.AsReadOnly(new[]
     {
         "Gentle", "Water drop", "Deep water", "Shockwave", "Dew", "Pond", "Raindrop", "Glass", "Jelly", "Echo"
@@ -50,6 +52,18 @@ public sealed class AppSettings : ObservableModel
     public int ThemeIndex { get => themeIndex; set => SetProperty(ref themeIndex, value is >= 0 and <= 2 ? value : 0); }
     public int TargetIndex { get => targetIndex; set => SetProperty(ref targetIndex, value is >= 0 and <= 2 ? value : 0); }
     public string TargetDisplay { get => targetDisplay; set => SetProperty(ref targetDisplay, value ?? ""); }
+    public IReadOnlyList<string>? TargetDisplays
+    {
+        get => targetDisplays;
+        set
+        {
+            var normalized = value?.Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+            if (targetDisplays is not null && normalized is not null &&
+                targetDisplays.SequenceEqual(normalized, StringComparer.OrdinalIgnoreCase)) return;
+            SetProperty(ref targetDisplays, normalized is null ? null : Array.AsReadOnly(normalized));
+        }
+    }
     public bool UseAcrylic { get => useAcrylic; set => SetProperty(ref useAcrylic, value); }
     public bool ChromaticEnabled { get => chromaticEnabled; set => SetProperty(ref chromaticEnabled, value); }
     public double ChromaticSeparation { get => chromaticSeparation; set => SetProperty(ref chromaticSeparation, Number(value, 0, 100, 18)); }
@@ -96,7 +110,7 @@ public sealed class AppSettings : ObservableModel
 // Transient application data is observable but never serialized to settings.json.
 public sealed class AppState : ObservableModel
 {
-    private bool isScreenEffectActive, captureAllowed, canApply, isClosing;
+    private bool effectEnabled, isScreenEffectActive, captureAllowed, canApply, isClosing;
     private bool screenOverlayVisible, isCaptureValid;
     private bool isClosePromptOpen, isInTray, isExiting;
     private string overlayPhase = "Inactive";
@@ -118,6 +132,7 @@ public sealed class AppState : ObservableModel
     public bool CanManageStartup { get => canManageStartup; set => SetProperty(ref canManageStartup, value); }
     public string StartupStatus { get => startupStatus; set => SetProperty(ref startupStatus, value); }
 
+    public bool EffectEnabled { get => effectEnabled; set => SetProperty(ref effectEnabled, value); }
     public bool IsScreenEffectActive
     {
         get => isScreenEffectActive;
@@ -152,7 +167,7 @@ public sealed class AppState : ObservableModel
     public double CpuPercent { get => cpuPercent; set => SetProperty(ref cpuPercent, double.IsFinite(value) ? Math.Clamp(value, 0, 100) : 0); }
     public long PrivateRamBytes { get => privateRamBytes; set => SetProperty(ref privateRamBytes, Math.Max(0, value)); }
     public long WorkingSetBytes { get => workingSetBytes; set => SetProperty(ref workingSetBytes, Math.Max(0, value)); }
-    public int ActiveWaveCount { get => activeWaveCount; set => SetProperty(ref activeWaveCount, Math.Clamp(value, 0, 8)); }
+    public int ActiveWaveCount { get => activeWaveCount; set => SetProperty(ref activeWaveCount, Math.Max(0, value)); }
 
 }
 

@@ -12,6 +12,7 @@ public:
     {
         ID3D11ShaderResourceView* view{};
         bool updated{};
+        bool newSource{};
     };
 
     ~RippleFrameInput()
@@ -28,8 +29,6 @@ public:
         monitor = display;
         bounds = monitorBounds;
     }
-
-    bool UsingRipple() const { return acknowledged; }
 
     Sample Poll(ID3D11Device* device, ID3D11DeviceContext* context, IDXGIAdapter1* adapter, ipc::Clock::time_point now)
     {
@@ -49,7 +48,7 @@ public:
             if (acknowledged) RaiseAboveRipple();
         }
 
-        bool fresh = false;
+        bool fresh = false, newSource = false;
         if (shared)
         {
             const HRESULT acquired = mutex->AcquireSync(ipc::ConsumerKey, 0);
@@ -59,6 +58,7 @@ public:
                 if (SUCCEEDED(mutex->ReleaseSync(ipc::ProducerKey)))
                 {
                     fresh = true;
+                    newSource = lastRead == ipc::Clock::time_point{};
                     lastRead = now;
                     if (!acknowledged)
                     {
@@ -70,12 +70,47 @@ public:
             }
             else if (acquired != WAIT_TIMEOUT) Disconnect();
         }
-        if (!view || lastRead == ipc::Clock::time_point{} || now - lastRead > std::chrono::milliseconds(500))
+        if (!acknowledged || !view || now - lastRead > std::chrono::milliseconds(500))
         {
             ClearAcknowledgment();
             return {};
         }
-        return {view.Get(), fresh};
+        return {view.Get(), fresh, newSource};
+    }
+
+    void ConfirmVisiblePresentation() noexcept
+    {
+        const auto now = ipc::Clock::now();
+        if (now < nextPresentationUpdate) return;
+        if (!acknowledged || !generation || GetPropW(producer, ipc::RippleGeneration) != generation ||
+            GetPropW(producer, ipc::RippleTarget) != owner || !ipc::IsEffectWindow(owner, monitor, bounds) ||
+            !ipc::IsWindowAbove(owner, producer))
+        {
+            ClearPresentation();
+            return;
+        }
+
+        LARGE_INTEGER stamp{};
+        if (!QueryPerformanceCounter(&stamp) || stamp.QuadPart <= 0 ||
+            (!hasPresentation && !SetPropW(owner, ipc::CrtPresentationGeneration, generation)) ||
+            !SetPropW(owner, ipc::CrtPresentation, reinterpret_cast<HANDLE>(stamp.QuadPart)))
+        {
+            ClearPresentation();
+            return;
+        }
+        hasPresentation = true;
+        nextPresentationUpdate = now + ipc::PresentationLease / 5;
+    }
+
+    void ClearPresentation() noexcept
+    {
+        if (owner)
+        {
+            RemovePropW(owner, ipc::CrtPresentation);
+            RemovePropW(owner, ipc::CrtPresentationGeneration);
+        }
+        nextPresentationUpdate = {};
+        hasPresentation = false;
     }
 
 private:
@@ -84,13 +119,15 @@ private:
     RECT bounds{};
     HANDLE generation{};
     ipc::Clock::time_point nextDiscovery{}, lastRead{};
-    bool acknowledged{};
+    ipc::Clock::time_point nextPresentationUpdate{};
+    bool acknowledged{}, hasPresentation{};
     ipc::ComPtr<ID3D11Texture2D> shared, input;
     ipc::ComPtr<IDXGIKeyedMutex> mutex;
     ipc::ComPtr<ID3D11ShaderResourceView> view;
 
     void ClearAcknowledgment()
     {
+        if (hasPresentation) ClearPresentation();
         if (acknowledged) RemovePropW(owner, ipc::CrtInput);
         acknowledged = false;
     }
@@ -146,14 +183,9 @@ private:
     {
         // Ripple may have started after CRT. Only adjust the overlay when the
         // matching Ripple surface really precedes it in the desktop Z order.
-        HWND above = GetWindow(owner, GW_HWNDPREV);
-        for (int index = 0; above && index < 1024; ++index, above = GetWindow(above, GW_HWNDPREV))
-        {
-            if (above != producer) continue;
+        if (ipc::IsWindowAbove(producer, owner))
             SetWindowPos(owner, HWND_TOPMOST, 0, 0, 0, 0,
                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
-            return;
-        }
     }
 };
 }

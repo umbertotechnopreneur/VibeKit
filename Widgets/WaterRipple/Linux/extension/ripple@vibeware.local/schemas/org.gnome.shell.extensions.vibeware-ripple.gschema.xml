@@ -77,6 +77,10 @@
       <default>'desktop'</default>
       <choices><choice value="desktop"/><choice value="windows"/><choice value="both"/></choices>
     </key>
+    <key name="target-monitors" type="as">
+      <default>['*']</default>
+      <summary>Monitors enabled for the effect</summary>
+    </key>
     <key name="invert" type="b">
       <default>false</default>
     </key>

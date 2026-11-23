@@ -18,6 +18,9 @@ internal sealed class MainWindow : Window
 {
     private readonly nint engine;
     private readonly StudioPages pages;
+    private readonly DisplayTargetPicker displayPicker;
+    private uint displayTopologyGeneration;
+    private string[]? fallbackDisplayIds;
     private readonly int builtInPresetCount = Native.RetroBuiltInPresetCount();
     private readonly Grid root = new();
     private readonly Button tryButton = new();
@@ -26,11 +29,11 @@ internal sealed class MainWindow : Window
     private bool syncingEffect;
     private readonly TextBlock status = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Grid diagnosticMetrics = new() { ColumnSpacing = 12, RowSpacing = 6 };
+    private readonly TextBlock displayDiagnostics = SettingsHint("");
     private string diagnosticStatus = "";
     private readonly TextBlock effectState = new(), feedback = new() { TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
     private readonly Slider[] sliders = new Slider[18];
     private readonly ComboBox palette = new(), mask = new(), preset = new();
-    private string targetDisplay = "";
     private readonly ToggleSwitch persistence = new(), random = new();
     private readonly CheckBox[] types = new CheckBox[4];
     private readonly ColorPicker color = new() { IsAlphaEnabled = false, IsAlphaSliderVisible = false, IsAlphaTextInputVisible = false };
@@ -63,26 +66,27 @@ internal sealed class MainWindow : Window
         var initialTheme = ReadPreference("WindowTheme", 0, 0, 2);
         ApplyTheme(initialTheme);
         Initialize(this, root, "Retro Terminal", "CRT color, texture and motion for your desktop.");
-        engine=Native.RetroCreate(WinRT.Interop.WindowNative.GetWindowHandle(this));
+        var owner = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        engine=Native.RetroCreate(owner);
         if(engine==0) throw new InvalidOperationException("Retro Terminal could not initialize safely.");
-        targetDisplay = ReadPreferenceValue("TargetDisplay") as string ?? "";
-        effectSwitch.Toggled += (_, _) =>
+        const string displayPreference = "SelectedDisplays";
+        string legacyDisplay = ReadPreferenceValue("TargetDisplay") as string ?? "";
+        var selectedDisplays = ReadPreferenceValue(displayPreference) as string[];
+        void ApplyDisplaySelection(bool pinDefault = false)
         {
-            if (syncingEffect) return;
-            if (effectSwitch.IsOn)
-            {
-                var display = DisplayTarget.Resolve(targetDisplay);
-                Native.RetroStart(engine, display?.Handle ?? 0);
-            }
-            else Native.RetroStop(engine);
-            RefreshStatus();
-        };
+            var targets = DisplayTarget.GetSelected(owner, legacyDisplay, selectedDisplays ?? fallbackDisplayIds);
+            if (pinDefault && selectedDisplays is null)
+                fallbackDisplayIds = targets.SelectMany(display => display.Identifiers).ToArray();
+            var monitors = targets.Select(display => display.Handle).ToArray();
+            Native.RetroSetDisplays(engine, monitors, monitors.Length);
+        }
         cancelRecovery.Click += (_, _) =>
         {
             Native.RetroStop(engine);
             RefreshStatus();
         };
-        var statusBar = StatusBar(effectState, effectSwitch, cancelRecovery);
+        var statusBar = StatusBar(effectState, effectSwitch, cancelRecovery,
+            isActive: () => !closing && Native.RetroRunning(engine) != 0);
         root.Children.Add(statusBar);
 
         var effect = Stack(12);
@@ -207,30 +211,76 @@ internal sealed class MainWindow : Window
         };
         var startupRow = PreferenceRow("Start with Windows", startupStatus, startup);
 
-        var displayPicker = new DisplayTargetPicker(() => targetDisplay, device =>
+        displayPicker = new DisplayTargetPicker(owner, () => selectedDisplays ?? fallbackDisplayIds, ids =>
         {
-            targetDisplay = device;
-            SavePreference("TargetDisplay", targetDisplay);
-        }, compact: true);
+            selectedDisplays = ids;
+            fallbackDisplayIds = null;
+            SavePreference(displayPreference, ids);
+            ApplyDisplaySelection();
+            RefreshStatus();
+        }, () => legacyDisplay);
+        effectSwitch.Toggled += (_, _) =>
+        {
+            if (syncingEffect) return;
+            if (effectSwitch.IsOn)
+            {
+                ApplyDisplaySelection(pinDefault: true);
+                Native.RetroStart(engine, 0);
+                displayPicker.Refresh();
+            }
+            else Native.RetroStop(engine);
+            RefreshStatus();
+        };
         settings.Children.Add(RowGroup("Display & appearance",
             PreferenceRow("Effect", "Enable or disable the retro terminal effect.", effectSwitch),
-            PreferenceRow("Theme", "App theme.", theme),
-            PreferenceRow("Target display", "Control window's display for the effect.", displayPicker)));
+            PreferenceRow("Theme", "App theme.", theme)));
+        settings.Children.Add(displayPicker);
+
+        const string animationPreference = "AnimationFps", capturePreference = "CaptureFps";
+        var animationLimit = FrameLimitSlider(animationPreference, 60, 15, 120);
+        var captureLimit = FrameLimitSlider(capturePreference, 30, 5, 60);
+        void ApplyFrameLimits() => Native.RetroSetFrameLimits(engine, (int)animationLimit.Value, (int)captureLimit.Value);
+        var animationRow = FrameLimitRow("Animation limit", "Maximum animation frame rate for the effect.",
+            animationLimit, animationPreference, ApplyFrameLimits);
+        var captureRow = FrameLimitRow("Capture limit", "Maximum screen capture frame rate.",
+            captureLimit, capturePreference, ApplyFrameLimits);
+        ApplyFrameLimits();
+
         var autoRestart = new ToggleSwitch
         {
             IsOn = ReadPreference("AutoRestart", 1, 0, 1) == 1
         };
         var recoveryDelay = new NumberBox
         {
+            Header = "Minimum recovery delay (seconds)",
             Minimum = 30, Maximum = 300, MinWidth = 112,
             SmallChange = 10, LargeChange = 30, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
             Value = ReadPreference("RecoveryDelaySeconds", 60, 30, 300),
+        };
+        var recoveryTiming = SettingsHint("");
+        recoveryTiming.TextAlignment = TextAlignment.Right;
+        var recoveryDetails = Stack(8);
+        recoveryDetails.Children.Add(recoveryDelay);
+        recoveryDetails.Children.Add(SettingsHint("Requires 30 seconds of stability. Up to 2 retries per manual start."));
+        var recoveryButton = new Button
+        {
+            Content = recoveryTiming,
+            Flyout = new Flyout { Content = recoveryDetails },
+            Padding = new Thickness(0), BorderThickness = new Thickness(0),
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
             IsEnabled = autoRestart.IsOn
         };
+        ToolTipService.SetToolTip(recoveryButton, "Change minimum recovery delay");
+        AutomationProperties.SetHelpText(recoveryButton, "Opens minimum recovery delay settings.");
+        void UpdateRecoveryTiming(int seconds)
+        {
+            string delay = seconds % 60 == 0 ? $"{seconds / 60} min" : $"{seconds} s";
+            recoveryTiming.Text = $"At least {delay} delay · 30 s stable";
+        }
         void ApplyRecovery() => Native.RetroSetRecovery(engine, autoRestart.IsOn ? 1 : 0, (int)recoveryDelay.Value);
         autoRestart.Toggled += (_, _) =>
         {
-            recoveryDelay.IsEnabled = autoRestart.IsOn;
+            recoveryButton.IsEnabled = autoRestart.IsOn;
             ApplyRecovery();
             SavePreference("AutoRestart", autoRestart.IsOn ? 1 : 0);
             RefreshStatus();
@@ -246,28 +296,18 @@ internal sealed class MainWindow : Window
             if (args.NewValue != seconds) { recoveryDelay.Value = seconds; return; }
             ApplyRecovery();
             SavePreference("RecoveryDelaySeconds", seconds);
+            UpdateRecoveryTiming(seconds);
         };
         ApplyRecovery();
+        UpdateRecoveryTiming((int)recoveryDelay.Value);
         settings.Children.Add(RowGroup("Startup", startupRow,
-            PreferenceRow("Resume automatically", "Resume the effect automatically after a temporary stop.", autoRestart)));
-        var recoveryValue = new StackPanel
-        {
-            Orientation = Orientation.Horizontal, Spacing = 8,
-            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center
-        };
-        recoveryDelay.Width = 112;
-        recoveryValue.Children.Add(recoveryDelay);
-        recoveryValue.Children.Add(new TextBlock { Text = "s", VerticalAlignment = VerticalAlignment.Center });
-        AutomationProperties.SetName(recoveryDelay, "Minimum recovery delay in seconds");
-        var recoveryRow = Stack(0);
-        recoveryRow.Children.Add(PreferenceRow("Minimum recovery delay", "Delay before automatically resuming the effect.", recoveryValue));
-        var recoveryHint = SettingsHint("Requires 30 seconds of stability. Up to 2 retries per manual start.");
-        recoveryHint.Margin = new Thickness(16, 0, 16, 12);
-        recoveryRow.Children.Add(recoveryHint);
-        settings.Children.Add(RowGroup("Performance protection", recoveryRow));
+            PreferenceRow("Resume automatically", "Resume after a temporary performance pause.", autoRestart)));
+        settings.Children.Add(RowGroup("Performance protection", animationRow, captureRow,
+            PreferenceRow("Recovery", "Resume only after the system becomes stable again.", recoveryButton)));
         diagnostics.Children.Add(Text("Live renderer status", 18));
         for (int i = 0; i < 4; i++) diagnosticMetrics.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         var statusContent = Stack(10); statusContent.Children.Add(status); statusContent.Children.Add(diagnosticMetrics);
+        statusContent.Children.Add(displayDiagnostics);
         diagnostics.Children.Add(Card(statusContent));
         diagnostics.Children.Add(Text("Presentation counts and CPU submission time describe the renderer. GPU frame time is not measured.", 13, secondary: true));
         diagnostics.Children.Add(Text("CRT pauses if the desktop stops responding or rendering stays slow.", 13, secondary: true));
@@ -288,13 +328,27 @@ internal sealed class MainWindow : Window
         feedback.Margin = new Thickness(24, 8, 24, 4);
         var footer = Stack(0);
         footer.Children.Add(feedback);
-        var emergencyLabel = Text("Emergency shortcut: Ctrl + Alt + F11", 12);
-        var emergency = new Grid { ColumnSpacing = 8 };
-        emergency.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        emergency.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        emergency.Children.Add(new FontIcon { Glyph = "\uE765", FontSize = 14, VerticalAlignment = VerticalAlignment.Center });
-        Grid.SetColumn(emergencyLabel, 1);
-        emergency.Children.Add(emergencyLabel);
+        const string emergencyPreference = "EmergencyShortcutEnabled";
+        var emergency = new EmergencyShortcutRow("Ctrl + Alt + F11", "Emergency stop shortcut");
+        emergency.Toggle.IsOn = ReadPreference(emergencyPreference, 1, 0, 1) == 1;
+        void ApplyEmergencyShortcut()
+        {
+            var state = Native.RetroSetEmergencyShortcut(engine, emergency.Toggle.IsOn ? 1 : 0);
+            string message = state switch
+            {
+                EmergencyShortcutState.Registered => "Emergency shortcut is active and immediately stops the effect.",
+                EmergencyShortcutState.Disabled => "Emergency shortcut is disabled.",
+                _ => "Emergency shortcut unavailable. Another app may be using it."
+            };
+            emergency.SetStatus(message, state == EmergencyShortcutState.Registered);
+        }
+        ApplyEmergencyShortcut();
+        emergency.Toggle.Toggled += (_, _) =>
+        {
+            ApplyEmergencyShortcut();
+            SavePreference(emergencyPreference, emergency.Toggle.IsOn ? 1 : 0);
+            RefreshStatus();
+        };
         footer.Children.Add(FooterBar(emergency, WidgetFooter.CreateCompact("Retro Terminal", async () => await ShowAboutAsync())));
         Grid.SetRow(footer, 2);
         root.Children.Add(footer);
@@ -310,6 +364,24 @@ internal sealed class MainWindow : Window
 
     private static int ReadPreference(string name, int fallback, int minimum, int maximum) =>
         ReadPreferenceValue(name) is int value && value >= minimum && value <= maximum ? value : fallback;
+
+    private static Slider FrameLimitSlider(string preference, int fallback, int minimum, int maximum) => new()
+    {
+        Minimum = minimum, Maximum = maximum, StepFrequency = 1, MinHeight = 28,
+        Value = ReadPreference(preference, fallback, minimum, maximum)
+    };
+
+    private Grid FrameLimitRow(string label, string description, Slider slider, string preference, Action apply)
+    {
+        var value = Text($"{slider.Value:0} fps", 14);
+        slider.ValueChanged += (_, args) =>
+        {
+            value.Text = $"{args.NewValue:0} fps";
+            apply();
+            SavePreference(preference, (int)args.NewValue);
+        };
+        return SliderRow(label, description, slider, value);
+    }
 
     private static object? ReadPreferenceValue(string name)
     {
@@ -406,13 +478,24 @@ internal sealed class MainWindow : Window
     }
     private void RefreshStatus()
     {
-        bool running=Native.RetroRunning(engine)!=0;
+        int activeDisplays = Native.RetroActiveDisplayCount(engine);
+        bool running = activeDisplays != 0;
+        bool armed = Native.RetroIsArmed(engine) != 0;
         bool pending = Native.RetroRecoveryPending(engine) != 0;
+        uint topology = Native.RetroDisplayTopologyGeneration(engine);
+        bool refreshDisplays = topology != displayTopologyGeneration;
+        displayTopologyGeneration = topology;
+        if (!armed && fallbackDisplayIds is not null)
+        {
+            fallbackDisplayIds = null;
+            refreshDisplays = true;
+        }
+        if (refreshDisplays) displayPicker.Refresh();
         syncingEffect = true;
-        effectSwitch.IsOn = running;
+        effectSwitch.IsOn = armed;
         syncingEffect = false;
         cancelRecovery.Visibility = pending ? Visibility.Visible : Visibility.Collapsed;
-        var b=new StringBuilder(1024); Native.RetroStatus(engine,b,b.Capacity);
+        var b=new StringBuilder(4096); Native.RetroStatus(engine,b,b.Capacity);
         string raw = b.ToString();
         var lines = raw.Split('\n');
         var summary = lines[0];
@@ -421,7 +504,9 @@ internal sealed class MainWindow : Window
         {
             diagnosticStatus = raw;
             diagnosticMetrics.Children.Clear(); diagnosticMetrics.RowDefinitions.Clear();
-            if (lines.Length > 1)
+            displayDiagnostics.Text = string.Join("\n", lines.Skip(2));
+            displayDiagnostics.Visibility = displayDiagnostics.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+            if (lines.Length > 1 && lines[1].Length != 0)
             {
                 var parts = lines[1].Split(" · CPU submission ", 2, StringSplitOptions.None);
                 var values = new List<(string Label, string Value)> { ("Presentations", parts[0]) };
@@ -436,7 +521,9 @@ internal sealed class MainWindow : Window
                 }
             }
         }
-        effectState.Text = running ? "Retro terminal effect is running."
+        effectState.Text = running ? (activeDisplays == 1
+            ? "Retro terminal effect is running on one monitor."
+            : $"Retro terminal effect is running on {activeDisplays} monitors.")
             : summary == "Stopped. Your desktop is unchanged." ? "Retro terminal effect is not running." : summary;
         if (summary != loggedStatus)
         {

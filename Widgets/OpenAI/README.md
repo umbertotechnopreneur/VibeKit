@@ -55,15 +55,15 @@ Token quantities use decimal prefixes **K, M, G, T, P, E** (powers of 1,000). Th
 
 ## Installers
 
-Installer targets for **0.4.15**, generated on demand from the current source. These paths exist only until cleanup:
+Installer targets for **0.4.21**, generated on demand from the current source. These paths exist only until cleanup:
 
-- `OpenAIUsage-0.4.15-windows-x64.msi`: per-user Windows x64 installation under `%LOCALAPPDATA%/Programs/OpenAI Usage`, Start menu shortcut and standard Windows uninstall/upgrade support. Includes Windows App SDK components and requires the shared Microsoft .NET Runtime 10.0 for Windows x64. With a compatible runtime, open the MSI directly. If needed, install the runtime separately from [Microsoft](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).
-- `openai-usage_0.4.15-1_amd64.deb`: Ubuntu amd64 package with the Linux backend, launcher and desktop entry. The local Debian builder declares the .NET runtime, GTK, Python and system libraries as APT dependencies. Targets Ubuntu 24.04+.
+- `OpenAIUsage-0.4.21-windows-x64.msi`: per-user Windows x64 installation under `%LOCALAPPDATA%/Programs/OpenAI Usage`, Start menu shortcut and standard Windows uninstall/upgrade support. Includes Windows App SDK components and requires the shared Microsoft .NET Runtime 10.0 for Windows x64. With a compatible runtime, open the MSI directly. If needed, install the runtime separately from [Microsoft](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).
+- `openai-usage_0.4.21-1_amd64.deb`: Ubuntu amd64 package with the Linux backend, launcher and desktop entry. The local Debian builder declares the .NET runtime, GTK, Python and system libraries as APT dependencies. Targets Ubuntu 24.04+.
 
 All packages require a separately installed Codex CLI and your own ChatGPT sign-in. The installers contain no credentials and do not install or sign in to Codex. The local MSI and DEB are unsigned. Package validation, Windows installation/startup and native GTK runtime validation are separate checks; report their results in the current task rather than retaining a historical report.
 
 ```sh
-sudo apt install ./openai-usage_0.4.15-1_amd64.deb
+sudo apt install ./openai-usage_0.4.21-1_amd64.deb
 ```
 
 On Windows, open the MSI to install, then launch **OpenAI Usage** from Start. Use Settings > Apps to uninstall; private observation history is outside the installation directory. The installer builder forces clean source rebuilds and checks the compiled version. Packaging preserves generated installers, dependencies and build output for manual cleanup. Run `Packaging/Clean-BuildOutputs.ps1` to remove all generated material, including the latest installers. No release history, antivirus report, scan hash inventory or persistent import cache is kept.

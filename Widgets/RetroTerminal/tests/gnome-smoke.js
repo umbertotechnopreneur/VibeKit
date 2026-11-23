@@ -129,10 +129,10 @@ export default class SmokeTest extends ProductionExtension {
                 this._settings.set_double('persistence-strength', 0.6);
                 this._settings.set_boolean('persistence-enabled', true);
                 await delay(350);
-                const info = this._persistence?.captureInfo;
+                const info = this._persistence?.captureInfo[0];
                 if (!info?.reduced || info.nativeWidth * info.nativeHeight <= 9000000 ||
                     info.width * info.height > 9000000 || info.width > 8192 || info.height > 8192 ||
-                    !this._persistence.hasHistory || this._persistence.captureCount < 2 || this._persistence._buffers.length !== 2)
+                    !this._persistence.hasHistory || this._persistence.captureCount < 2 || this._persistence._slots[0].buffers.length !== 2)
                     throw Error(`Oversized native capture was not bounded: ${JSON.stringify(info)}`);
                 if (!this._settings.get_string('status').includes('(scaled)'))
                     throw Error('Reduced history resolution must be visible in status');
@@ -141,7 +141,7 @@ export default class SmokeTest extends ProductionExtension {
                 farMarker.x -= 400;
                 await shot('gnome-persistence', 70);
                 this._settings.set_boolean('persistence-enabled', false);
-                if (this._persistence.running || this._persistence.hasHistory || this._persistence.captureInfo)
+                if (this._persistence.running || this._persistence.hasHistory || this._persistence.captureInfo.length)
                     throw Error('Disabling scaled persistence retained history or dimensions');
                 await shot('gnome-persistence-off', 100);
                 this._settings.set_boolean('active', false);
@@ -220,12 +220,21 @@ export default class SmokeTest extends ProductionExtension {
             if (this._glitchWake || this._glitchTimer) throw Error('Turning off random glitches retained a timer');
             this._settings.set_boolean('glitches-enabled', true);
             this._settings.set_boolean('persistence-enabled', true);
+            this._settings.set_strv('target-monitors', []);
+            if (this._effect || !this._settings.get_boolean('active'))
+                throw Error('Deselecting all monitors must release resources and leave CRT armed');
+            this._settings.set_strv('target-monitors', ['*']);
+            if (!this._effect || !this._persistence?.running) throw Error('Reselecting a monitor should resume CRT');
+            this._settings.set_boolean('panic-enabled', false);
+            if (!this._effect || this._settings.get_boolean('panic-available'))
+                throw Error('Disabling the optional shortcut must keep the effect active');
             // The same public settings path used by the native Stop button.
             this._settings.set_boolean('active', false);
             if (this._effect || this._timer || this._settingsUpdate || this._previewTimer || this._glitchTimer || this._glitchWake || this._persistence)
                 throw Error('Stop retained resources');
             await delay(200);
-            if (this._settings.get_boolean('active')) throw Error('Stop must not restart');
+            if (this._settings.get_boolean('active') || this._settings.get_boolean('recovery-pending'))
+                throw Error('Stop must not restart');
             console.log('RETRO_SMOKE_PASS: palettes, batched shader updates, custom optics, all glitches/reset, real history, random cancellation and complete stop');
         } finally {
             this._stop('Smoke test finished');

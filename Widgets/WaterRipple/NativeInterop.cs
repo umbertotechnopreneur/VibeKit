@@ -15,6 +15,7 @@ internal enum CaptureStatus : int
     ValidCapture = 32,
     PresentedCapture = 64,
     CrtComposition = 128,
+    CrtPresentation = 256,
     VisibleCapture = ValidCapture | PresentedCapture,
 }
 [StructLayout(LayoutKind.Sequential)] internal struct NativeWave
@@ -29,6 +30,8 @@ internal enum CaptureStatus : int
     public CaptureStatus Status;
     public int Reserved;
     public readonly bool HasPresentedCapture => (Status & CaptureStatus.VisibleCapture) == CaptureStatus.VisibleCapture;
+    public readonly bool HasCrtPresentation => (Status & (CaptureStatus.ValidCapture | CaptureStatus.CrtPresentation)) ==
+        (CaptureStatus.ValidCapture | CaptureStatus.CrtPresentation);
 }
 [StructLayout(LayoutKind.Sequential)] internal struct NativePoint { public int X, Y; }
 internal static partial class Native

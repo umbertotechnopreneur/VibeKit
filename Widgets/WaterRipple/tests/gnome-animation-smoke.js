@@ -86,6 +86,24 @@ export default class AnimationSmoke extends ProductionExtension {
             this._settings.set_int('fps', 24);
             this._settings.set_double('lease-until', now() + 7.5);
             this._settings.set_boolean('active', true);
+            const [x, y] = source.get_transformed_position();
+            const centerX = x + source.width / 2;
+            const centerY = y + source.height / 2;
+            const monitor = this._monitorAt(centerX, centerY);
+            assert(monitor, 'Fixture is not on an enabled monitor');
+            const edge = centerX + 8;
+            this._addPatch(source, centerX, centerY, false, {...monitor, width: edge - monitor.x});
+            await delay(35);
+            const clipped = this._patches[0]?.actor;
+            assert(clipped && clipped.get_transformed_position()[0] + clipped.get_transformed_size()[0] <= edge + 0.01,
+                'A source spanning two logical viewports drew ripple pixels across the selected edge');
+            this._settings.set_strv('target-monitors', []);
+            assertCleared('Last monitor switched off');
+            assert(!this._pointerTimer && this._settings.get_boolean('active'), 'All monitors off must leave Effect armed without polling');
+            this._addPatch(source, centerX, centerY, false);
+            assertCleared('Click blocked on disabled monitor');
+            this._settings.set_strv('target-monitors', [monitor.id]);
+            assert(this._pointerTimer && this._monitorAt(centerX, centerY), 'Monitor selection did not re-enable click handling');
             await screenshot('gnome-original');
             const patch = addPatch();
             let samples = [];
@@ -139,7 +157,7 @@ export default class AnimationSmoke extends ProductionExtension {
             source = null;
             assertCleared('Source destruction');
             this._settings.set_boolean('active', false);
-            console.log('RIPPLES_SMOKE_PASS: real shader at 24/60 FPS, age continuity, FPS changes, clear, manual stop and source destruction');
+            console.log('RIPPLES_SMOKE_PASS: monitor clipping and switches, real shader at 24/60 FPS, age continuity, FPS changes, clear, manual stop and source destruction');
         } finally {
             this._settings.set_boolean('active', false);
             this._clear();

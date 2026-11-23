@@ -1,5 +1,5 @@
 > - **File name** `README.md`
-> - **Full path** `/run/media/umberto/Repo/vibekit/Widgets/RetroTerminal/README.md`
+> - **Full path** `E:\vibekit\Widgets\RetroTerminal\README.md`
 > - **Path relative to the VibeKit repository root** `Widgets/RetroTerminal/README.md`
 
 # Retro Terminal
@@ -17,11 +17,22 @@ Ghostty settings.
 
 ## GNOME 50 / Wayland
 
-The extension applies one offscreen GPU effect to GNOME's desktop UI group,
-including the top bar and windows. The hardware pointer remains unchanged.
-It starts **off**. The terminal icon in the top bar offers the power switch,
-three styles, **Try for 15 seconds**, Preferences and Stop.
-**Super+Shift+F12** stops the effect, including while a menu is open.
+The extension applies an offscreen GPU filter to GNOME's desktop UI group on
+the selected monitors, including the top bar and windows. The hardware pointer
+remains unchanged. The effect starts **off**. The terminal icon in the top bar
+offers the power switch, three styles, **Try for 15 seconds**, Preferences and Stop.
+
+In **Settings → Monitors**, switch each named display on or off. The changes apply
+immediately while **Effect** is on. All displays are selected by default. Once
+you change the list, the panel saves each selection, including the selections
+of disconnected displays. Turning every display off leaves **Effect** armed
+until a monitor is selected again.
+
+The **Emergency shortcut** footer shows **Super + Shift + F12** and allows you
+to enable or disable the binding. When registered, the shortcut stops the effect
+on every monitor, including while a menu is open, and cancels pending recovery.
+The footer reports an unavailable binding. **Stop** remains available in the panel
+and the top-bar menu.
 
 The Debian package adds **Retro Terminal** to Ubuntu's applications grid. Search
 for "Retro Terminal" or "CRT" to open its native preferences. The same panel is
@@ -67,8 +78,9 @@ libraries. **Custom** detaches the controls from the saved selection.
 The library holds up to 64 personal pipelines and is stored in
 `$XDG_CONFIG_HOME/VibeWare/RetroTerminal/pipelines.json`.
 Existing saved looks are migrated without deleting the original GSettings data
-or changing the active appearance. Power, status, shortcuts, preview requests
-and the jokes preference are excluded. Malformed libraries are preserved and
+or changing the active appearance. Power, status, monitor selection, performance
+limits, shortcuts, preview requests and the jokes preference are local preferences.
+Malformed libraries are preserved and
 reported; concurrent panels cannot silently overwrite each other's changes.
 A panel that loses a save conflict preserves the current shared settings and
 blocks further library writes until reopened.
@@ -80,42 +92,61 @@ scheduler. Only one glitch runs at a time, followed by at least two seconds of
 rest. **Try a glitch now** works with random mode off, respects the allowed types
 and rest period, and requires CRT to be active. Disabling random mode cancels a
 current episode and its pending wakeup. Master effect mix zero suppresses events.
-All glitches have a soft envelope, and interference is localized; there are no
-full-screen flashes. Random scheduling uses a single future wakeup; a 34 ms
-animation timer runs only during an episode.
+All glitches have a soft envelope and local interference. Random scheduling uses
+a single future wakeup. The animation timer runs during an episode.
 
-With persistence and glitches disabled, the filter adds no animation or capture
-loop. Its static shader samples the scene once, with four extra samples when glow
-is on; RGB separation adds two and a tear adds one during its episode. Compositor
-redraws still cost more while the filter is enabled; it follows the desktop's
-redraw cadence, not a separate FPS limit. GNOME owns the main offscreen allocation.
+### Compositor and performance
 
-**Temporal afterglow** is actual previous-frame content, not spatial blur. Two
-fixed GPU textures alternate, retaining exponentially decaying scene history.
-Decay is an e-folding time on GNOME; Windows uses a half-life, so the same numeric
-value does not imply identical trails. Visible mix is separate from history decay.
-GNOME captures/composes at most 24 times per second while afterglow is enabled,
-including on an otherwise idle desktop. No CPU readback or image file is involved.
-For large or mixed-scale desktops, the history capture is downsampled on the GPU
-to fit at most 9 million pixels and 8192 pixels per dimension. The overlay still
-covers the complete desktop, while the main CRT shader keeps its normal
-resolution. Status shows the actual history dimensions and whether they are
-scaled. This can soften afterglow detail; it does not move input coordinates.
-The history overlay does not receive input. Stop or disabling persistence removes
-it and releases the history references. A capture error or gap over 250 ms stops
-CRT without automatic recovery. This mode uses additional GPU time and memory;
-it is off by default. The two RGBA8 texture payloads alone require
-`capture_width × capture_height × 4 × 2` bytes (at most 72 MB), excluding compositor
-resources and driver overhead.
+Water Ripple draws local patches alongside their source actors. When both effects
+run on a monitor, Retro Terminal filters the GNOME UI group containing those
+patches. GNOME composites and presents the resulting monitor view. The base CRT
+filter uses the compositor's ordinary redraws. With glitches and afterglow off,
+the effect has no independent animation or capture loop.
 
-Before enabling, the desktop layout must fit within 9 million physical pixels
-and 8192 pixels per dimension. This is a layout preflight check, not a GPU memory
-budget measurement or a hard bound on GNOME's internal allocations.
-The scale factor is conservatively included. Some multi-monitor/HiDPI layouts
-will therefore be refused. Vignette coordinates cover the combined desktop.
-The effect stops on lock, monitor/scale changes, a delay over 1.5 seconds, or
-three accumulated desktop event-loop delays over 0.5 seconds. These observations
-are responsiveness checks, not GPU timings. It never resumes automatically.
+```mermaid
+flowchart LR
+    subgraph GNOME[GNOME Shell compositor]
+        Actors[Desktop and window actors]
+        Ripple[Water Ripple local patches]
+        CRT[Retro Terminal UI group filter]
+        History[Retro Terminal optional GPU history]
+        View[GNOME monitor view and presentation]
+        Actors -->|source region| Ripple
+        Actors -->|desktop pixels| CRT
+        Ripple -->|ripple pixels in the UI group| CRT
+        CRT -->|current filtered scene| View
+        CRT -.->|bounded scene sample| History
+        History -.->|decaying overlay| View
+    end
+```
+
+**Animation limit** caps CRT-generated updates from 15 to 120 fps, with a
+default of 60 fps. Ordinary GNOME redraws still follow the compositor's cadence.
+**Capture limit** applies to optional temporal afterglow. Its range is 5 to 60 fps
+and its default is 30 fps. The history scheduler also enforces an aggregate
+ceiling of about 24 updates per second, cycling through selected monitors.
+That sampling rate controls history updates. GNOME continues to own final display
+presentation.
+
+**Temporal afterglow** retains previous scene samples in two alternating GPU
+textures per history region. Decay is an e-folding time on GNOME and a half-life
+on Windows. Mix controls how much of the retained image is visible. Afterglow
+is off by default and uses additional GPU time and memory when enabled. It keeps
+history on the GPU without CPU readback or image files. Large or mixed-scale
+layouts are downsampled to keep each dimension within 8192 pixels and the total
+within 9 million pixels per set of history textures. The two RGBA8 sets have a
+combined maximum payload of 72 MB before compositor and driver overhead. Scaling
+can soften the trail. The input-transparent history overlay is released when you
+stop the effect, deselect a monitor, or disable afterglow.
+
+Layout and scale checks protect compositor resources before activation. Some
+large or HiDPI layouts can be refused. **Resume automatically** is enabled by
+default for a temporary performance pause. **Recovery** starts with a minimum
+delay of 60 seconds, adjustable from 30 to 300 seconds, and requires 30 seconds of
+continuous healthy operation. Recovery attempts are limited to two per manual
+start. Stop and the emergency shortcut cancel recovery. Lock, display changes
+that stop the effect, resource failures, and graphics errors require manual
+restart. The performance guard measures desktop responsiveness.
 
 Build the archive and Debian package (no installation or session changes):
 
@@ -123,8 +154,14 @@ Build the archive and Debian package (no installation or session changes):
 python3 Linux/build-package.py --output-dir /tmp/retro-terminal
 ```
 
-Install using the normal package manager, then enable
-`retro-terminal@vibeware.local` in GNOME Extensions. For a user installation,
+Install the Debian package, then enable `retro-terminal@vibeware.local` in
+GNOME Extensions.
+
+```sh
+sudo apt install /tmp/retro-terminal/vibeware-retro-terminal_0.4.5_all.deb
+```
+
+For a user installation,
 use `gnome-extensions install` with the generated archive instead. New extension
 discovery can require a new login; never restart or close the user's session
 automatically. The top-bar switch remains off until explicitly enabled.
@@ -229,5 +266,5 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
 </p>
 
 > - **File name** `README.md`
-> - **Full path** `/run/media/umberto/Repo/vibekit/Widgets/RetroTerminal/README.md`
+> - **Full path** `E:\vibekit\Widgets\RetroTerminal\README.md`
 > - **Path relative to the VibeKit repository root** `Widgets/RetroTerminal/README.md`

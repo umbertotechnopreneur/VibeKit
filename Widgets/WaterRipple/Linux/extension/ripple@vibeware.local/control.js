@@ -104,9 +104,10 @@ function activate(startMinimized) {
             console.warn('Ripple lease helper failed to start', error.message);
         }
     }
-    const {page, active, about, settingsSection} = buildControls(window, settings, app, Boolean(leaseProcess), startMinimized);
+    const {page, footer, active, about, settingsSection} = buildControls(window, settings, app, Boolean(leaseProcess), startMinimized);
     const toolbar = new Adw.ToolbarView({content: page});
     toolbar.add_top_bar(header);
+    toolbar.add_bottom_bar(footer);
     window.set_content(toolbar);
     let panelReady = false;
     if (!smokeTest) {

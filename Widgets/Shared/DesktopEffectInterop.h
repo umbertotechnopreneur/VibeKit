@@ -17,9 +17,12 @@ namespace vibeware::desktop_effect
     inline constexpr wchar_t RippleTarget[] = L"VibeWare.Ripple.FrameTarget.v1";
     inline constexpr wchar_t RippleGeneration[] = L"VibeWare.Ripple.FrameGeneration.v1";
     inline constexpr wchar_t CrtInput[] = L"VibeWare.CRT.RippleInput.v1";
+    inline constexpr wchar_t CrtPresentation[] = L"VibeWare.CRT.PresentedAt.v1";
+    inline constexpr wchar_t CrtPresentationGeneration[] = L"VibeWare.CRT.PresentedGeneration.v1";
     inline constexpr UINT64 ProducerKey = 0;
     inline constexpr UINT64 ConsumerKey = 1;
     inline constexpr auto DiscoveryInterval = std::chrono::milliseconds(250);
+    inline constexpr auto PresentationLease = std::chrono::milliseconds(500);
     using Clock = std::chrono::steady_clock;
     using Microsoft::WRL::ComPtr;
 
@@ -30,6 +33,14 @@ namespace vibeware::desktop_effect
         return window && IsWindowVisible(window) && MonitorFromWindow(window, MONITOR_DEFAULTTONULL) == monitor
             && GetWindowRect(window, &actual) && EqualRect(&actual, &bounds)
             && GetWindowDisplayAffinity(window, &affinity) && affinity == WDA_EXCLUDEFROMCAPTURE;
+    }
+
+    inline bool IsWindowAbove(HWND window, HWND reference) noexcept
+    {
+        HWND above = GetWindow(reference, GW_HWNDPREV);
+        for (int index = 0; above && index < 1024; ++index, above = GetWindow(above, GW_HWNDPREV))
+            if (above == window) return true;
+        return false;
     }
 
     inline bool ReadUserSid(HANDLE process, void* data, DWORD dataSize)

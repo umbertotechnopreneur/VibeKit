@@ -1,5 +1,5 @@
 > - **File name** `README.md`
-> - **Full path** `/run/media/umberto/Repo/vibekit/Widgets/RetroTerminal/Windows/README.md`
+> - **Full path** `E:\vibekit\Widgets\RetroTerminal\Windows\README.md`
 > - **Path relative to the VibeKit repository root** `Widgets/RetroTerminal/Windows/README.md`
 
 # Retro Terminal for Windows (prototype)
@@ -96,8 +96,10 @@ History resets after parameter changes and is freed when persistence or CRT is
 disabled. With no new capture or glitch, decay draws stop after eight half-lives
 and one final clean frame. With mix zero, the output is an exact desktop passthrough.
 
-- One hardware monitor, at most 8,294,400 pixels; rotated outputs rejected. HDR
-  color fidelity is not validated by this SDR prototype.
+- Each hardware display supports up to 8,294,400 pixels and uses the current
+  Windows display orientation. In WinUI Studio, **Settings → Monitors** selects
+  which displays run the effect. The legacy Win32 panel uses its current display.
+  HDR color fidelity is unverified.
 - Two capture buffers, two presentation buffers and one retained desktop texture,
   plus two optional history textures. No CPU pixel readback or screenshot logging.
 - A 34 ms timer limits render submissions to under 30 Hz. Drawing requires a new
@@ -166,5 +168,5 @@ motion, glitches and persistence separately on that host.
 Original MIT-licensed code; no third-party shader collection is copied.
 
 > - **File name** `README.md`
-> - **Full path** `/run/media/umberto/Repo/vibekit/Widgets/RetroTerminal/Windows/README.md`
+> - **Full path** `E:\vibekit\Widgets\RetroTerminal\Windows\README.md`
 > - **Path relative to the VibeKit repository root** `Widgets/RetroTerminal/Windows/README.md`

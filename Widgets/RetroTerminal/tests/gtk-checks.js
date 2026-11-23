@@ -17,6 +17,18 @@ const legacy = settings.get_string('saved-presets');
 const window = new Adw.PreferencesWindow();
 const ui = buildControls(window, settings);
 check(!ui.active.active, 'Must start disabled');
+check(ui.animationLimit.get_value() === 60 && ui.captureLimit.get_value() === 30 && ui.recovery.value === 60,
+    'Performance controls expose the default limits and cooldown');
+ui.animationLimit.set_value(48);
+ui.captureLimit.set_value(20);
+ui.recovery.value = 90;
+check(settings.get_int('animation-fps') === 48 && settings.get_int('capture-fps') === 20 &&
+    settings.get_int('recovery-delay') === 90, 'Performance controls save their settings');
+ui.shortcut.active = false;
+check(!settings.get_boolean('panic-enabled'), 'Emergency toggle is optional');
+settings.set_boolean('recovery-pending', true);
+check(ui.stop.label === 'Cancel recovery', 'The Stop action can cancel pending recovery');
+settings.set_boolean('recovery-pending', false);
 check(!ui.controls['mask-strength'].sensitive, 'Mask strength is inactive with no mask');
 settings.set_double('scanlines', 0);
 settings.set_double('glow', 0);

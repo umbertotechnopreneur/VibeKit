@@ -19,6 +19,8 @@ def build(output):
         stage = Path(tmp) / 'package'
         extension = stage / 'usr/share/gnome-shell/extensions' / UUID
         shutil.copytree(source, extension, ignore=shutil.ignore_patterns('gschemas.compiled', '__pycache__'))
+        shutil.copytree(ROOT.parent.parent / 'Shared/Linux', extension / 'shared',
+                        ignore=shutil.ignore_patterns('tests'))
         subprocess.run(['glib-compile-schemas', '--strict', str(extension / 'schemas')], check=True)
         schemas = stage / 'usr/share/glib-2.0/schemas'
         schemas.mkdir(parents=True)

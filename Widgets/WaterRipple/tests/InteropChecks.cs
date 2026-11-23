@@ -14,6 +14,10 @@ internal static class InteropChecks
         Check(!new NativeStats { Status = CaptureStatus.ValidCapture | CaptureStatus.PresentBusy }.HasPresentedCapture &&
             new NativeStats { Status = CaptureStatus.VisibleCapture | CaptureStatus.Clipped }.HasPresentedCapture,
             "Capture validity accepts a frame that has not been presented.");
+        var delegated = new NativeStats { Status = CaptureStatus.ValidCapture | CaptureStatus.CrtPresentation };
+        Check(delegated.HasCrtPresentation && !delegated.HasPresentedCapture &&
+            !new NativeStats { Status = CaptureStatus.CrtPresentation }.HasCrtPresentation,
+            "CRT presentation must validate capture while leaving the local surface hidden.");
         var settings = new AppSettings { WaveSize = 100, ChromaticSeparation = 40, CrestEnabled = false, CrestIntensity = 80 };
         var bounds = new GpuCapabilities { Left = -1920, Width = 1920, Height = 1080 };
         var parameters = RenderParameters.From(settings, bounds, 1.5f, captureEnabled: false, captureDue: true);

@@ -7,11 +7,17 @@ internal static class Native
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern nint RetroCreate(nint owner);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroDestroy(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroStart(nint engine, nint monitor);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroSetDisplays(nint engine, [In] nint[] monitors, int count);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroActiveDisplayCount(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroIsArmed(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern uint RetroDisplayTopologyGeneration(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroRunning(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroStop(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern EmergencyShortcutState RetroSetEmergencyShortcut(nint engine, int enabled);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern SystemClose RetroSystemClose(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroRecoveryPending(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroSetRecovery(nint engine,int enabled,int seconds);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroSetFrameLimits(nint engine, int animationFps, int captureFps);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroSetTarget(nint engine, int target);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] private static extern nint RetroGpuJoke(uint index);
     internal static string GpuJoke(uint index) => Marshal.PtrToStringUni(RetroGpuJoke(index)) ?? string.Empty;
@@ -46,3 +52,4 @@ internal static class Native
 
 internal enum TrayAction { None, Open, Quit, Preferences, About }
 internal enum SystemClose { None, Saved, SaveFailed }
+internal enum EmergencyShortcutState { Disabled = 0, Registered = 1, Unavailable = 2 }

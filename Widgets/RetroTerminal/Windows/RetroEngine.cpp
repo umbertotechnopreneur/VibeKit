@@ -9,19 +9,31 @@
 #include <windows.h>
 #include <wtsapi32.h>
 #include <commctrl.h>
+#include <dbt.h>
 #include <winrt/base.h>
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <algorithm>
 #include <iterator>
+#include <utility>
+#include <vector>
 
 namespace {
 using Clock = std::chrono::steady_clock;
 constexpr wchar_t EngineClass[] = L"VibeWareRetroEngineMessage";
 constexpr wchar_t OverlayClass2[] = L"VibeWareRetroEngineOverlay";
-constexpr UINT_PTR RenderTimer = 1, RecoveryTimer = 2;
+constexpr UINT RenderMessage = WM_APP + 1;
+constexpr UINT_PTR RecoveryTimer = 2;
+using TimerTicks = std::chrono::duration<LONGLONG, std::ratio<1, 10000000>>;
+struct RenderWakeup { HWND window{}; WPARAM generation{}; };
 enum class SystemClose { None, Saved, SaveFailed };
+enum class EmergencyShortcutState { Disabled = 0, Registered = 1, Unavailable = 2 };
+constexpr int EmergencyHotkeyId = 1;
+constexpr wchar_t StoppedStatus[] = L"Stopped. Your desktop is unchanged.";
+constexpr wchar_t ShortcutUnavailable[] = L"Ctrl + Alt + F11 is unavailable. Effect cannot start safely.";
+constexpr wchar_t SessionUnavailable[] = L"Session notifications unavailable. Effect cannot start safely.";
 
 class HealthSampler
 {
@@ -57,34 +69,137 @@ private:
     bool haveSample{};
 };
 
+struct DisplaySession
+{
+    HMONITOR monitor{};
+    HWND overlay{};
+    Renderer renderer;
+    std::wstring name = L"Selected display";
+    bool opaque{}, dirty{true};
+
+    explicit DisplaySession(HMONITOR target) : monitor(target) {}
+
+    ~DisplaySession()
+    {
+        Hide();
+        renderer.Stop();
+        if (overlay) DestroyWindow(overlay);
+    }
+
+    void Hide() noexcept
+    {
+        renderer.ClearPresentation();
+        if (overlay && IsWindowVisible(overlay)) ShowWindow(overlay, SW_HIDE);
+        opaque = false;
+    }
+
+    void Start(HINSTANCE instance, const std::wstring& shaderPath, int captureFps)
+    {
+        MONITORINFOEXW info{};
+        info.cbSize = sizeof(info);
+        if (!GetMonitorInfoW(monitor, &info))
+            throw winrt::hresult_error(E_FAIL, L"The display is no longer available.");
+        const std::wstring device = info.szDevice;
+        const std::wstring prefix = L"\\\\.\\DISPLAY";
+        name = device.starts_with(prefix) ? L"Display " + device.substr(prefix.size()) : device;
+        const auto& bounds = info.rcMonitor;
+        overlay = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST,
+            OverlayClass2, L"Retro Terminal screen effect", WS_POPUP, bounds.left, bounds.top,
+            bounds.right - bounds.left, bounds.bottom - bounds.top, nullptr, nullptr, instance, nullptr);
+        if (!overlay) winrt::throw_last_error();
+        if (!SetLayeredWindowAttributes(overlay, 0, 0, LWA_ALPHA)) winrt::throw_last_error();
+        if (!SetWindowDisplayAffinity(overlay, WDA_EXCLUDEFROMCAPTURE))
+            throw winrt::hresult_error(HRESULT_FROM_WIN32(GetLastError()), L"Capture exclusion unavailable.");
+        ShowWindow(overlay, SW_SHOWNOACTIVATE);
+        renderer.Start(overlay, monitor, shaderPath, captureFps);
+    }
+
+    bool Tick(const EffectSettings& settings, const GlitchFrame& glitch, bool animated, int effectTarget, int captureFps)
+    {
+        const bool presented = renderer.Tick(settings, glitch, dirty, animated, effectTarget, captureFps);
+        if (renderer.WaitingForInput())
+        {
+            if (opaque)
+            {
+                renderer.ClearPresentation();
+                if (!SetLayeredWindowAttributes(overlay, 0, 0, LWA_ALPHA)) winrt::throw_last_error();
+                opaque = false;
+            }
+            return false;
+        }
+        if (!presented) return false;
+        if (!opaque)
+        {
+            if (!SetLayeredWindowAttributes(overlay, 0, 255, LWA_ALPHA)) winrt::throw_last_error();
+            opaque = true;
+        }
+        dirty = false;
+        renderer.ConfirmVisiblePresentation();
+        return true;
+    }
+};
+
+struct DisplayFailure
+{
+    HMONITOR monitor{};
+    std::wstring name, reason;
+};
+
 struct Engine {
-    HWND window{}, owner{}, overlay{};
+    HWND window{}, owner{};
     HINSTANCE instance{};
     ControllerState model;
-    Renderer renderer;
     TrayIcon tray;
     GpuJokeNotifications gpuJokes;
     PerformanceRecovery recovery;
     HealthSampler health;
-    HMONITOR monitor{};
-    bool firstFrame{};
-    bool running{}, hotkey{}, dirty{};
+    std::vector<HMONITOR> requestedDisplays;
+    std::vector<std::unique_ptr<DisplaySession>> displays;
+    std::vector<DisplayFailure> displayFailures;
+    std::uint32_t displayTopologyGeneration{};
+    bool explicitDisplays{}, armed{}, firstFrame{};
+    bool emergencyShortcutEnabled{true}, hotkeyRegistered{}, sessionNotifications{};
     SystemClose systemClose{};
     int slowFrames{}, frames{};
     int effectTarget{};
     float cpuTotal{};
     Clock::time_point previousTick{}, statsSince{};
-    std::wstring status = L"Stopped. Your desktop is unchanged.";
+    int animationFps = 60;
+    int captureFps = 30;
+    winrt::handle renderTimer;
+    PTP_WAIT renderWait{};
+    RenderWakeup renderWakeup;
+    std::wstring status = StoppedStatus;
+    bool Running() const noexcept { return !displays.empty(); }
+    int ActiveDisplayCount() const noexcept { return static_cast<int>(displays.size()); }
     double Time() const { return std::chrono::duration<double>(Clock::now().time_since_epoch()).count(); }
-    void Change() { model.Change(Time()); dirty = true; }
+    void MarkDirty() { for (const auto& display : displays) display->dirty = true; }
+    void Change() { model.Change(Time()); MarkDirty(); }
+    EmergencyShortcutState SetEmergencyShortcut(bool enabled) {
+        emergencyShortcutEnabled = enabled;
+        if (enabled && !hotkeyRegistered) {
+            hotkeyRegistered = RegisterHotKey(window, EmergencyHotkeyId, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_F11) != FALSE;
+        } else if (!enabled && hotkeyRegistered) {
+            hotkeyRegistered = UnregisterHotKey(window, EmergencyHotkeyId) == FALSE;
+        }
+        if (enabled && !hotkeyRegistered) {
+            if (armed || recovery.Pending()) Stop(ShortcutUnavailable);
+            else if (sessionNotifications) status = ShortcutUnavailable;
+            return EmergencyShortcutState::Unavailable;
+        }
+        if (status == ShortcutUnavailable) status = StoppedStatus;
+        return enabled ? EmergencyShortcutState::Registered : EmergencyShortcutState::Disabled;
+    }
     void Stop(const std::wstring& reason, bool notify = true) {
-        const bool wasRunning = running;
+        const bool wasRunning = Running();
         recovery.Cancel();
         firstFrame = false;
+        armed = false;
         KillTimer(window, RecoveryTimer);
-        running=false; model.glitches.Cancel(Time(),model.settings); KillTimer(window, RenderTimer);
-        if(overlay) ShowWindow(overlay,SW_HIDE);
-        renderer.Stop(); if(overlay) { DestroyWindow(overlay); overlay=nullptr; }
+        model.glitches.Cancel(Time(), model.settings);
+        for (const auto& display : displays) display->Hide();
+        StopRenderTimer();
+        displays.clear();
         status=reason;
         if (wasRunning && notify) tray.Notify(L"CRT effect off", status.c_str());
     }
@@ -101,38 +216,175 @@ struct Engine {
         if(!n || n>=path.size()) winrt::throw_last_error(); path.resize(n);
         return path.substr(0,path.find_last_of(L"\\/"))+L"\\Shaders\\Retro.hlsl";
     }
-    void Start(bool automatic = false, HMONITOR requestedDisplay = nullptr) {
-        if(running || !hotkey || systemClose != SystemClose::None) return;
-        if (!automatic) recovery.Reset();
-        KillTimer(window, RecoveryTimer);
-        firstFrame = true;
-        const wchar_t* stage = L"checking the control and display";
-        try {
-            if(!IsWindow(owner)) throw winrt::hresult_error(E_FAIL,L"The control window is unavailable.");
-            if(!IsWindow(window)) throw winrt::hresult_error(E_FAIL,L"The internal message window is unavailable.");
-            if (!automatic) monitor = requestedDisplay ? requestedDisplay : MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST);
-            MONITORINFO info{sizeof(info)}; if(!GetMonitorInfoW(monitor,&info)) winrt::throw_last_error();
-            stage = L"creating the overlay";
-            overlay=CreateWindowExW(WS_EX_LAYERED|WS_EX_TRANSPARENT|WS_EX_TOOLWINDOW|WS_EX_NOACTIVATE|WS_EX_TOPMOST,
-                OverlayClass2,L"Retro Terminal screen effect",WS_POPUP,info.rcMonitor.left,info.rcMonitor.top,
-                info.rcMonitor.right-info.rcMonitor.left,info.rcMonitor.bottom-info.rcMonitor.top,nullptr,nullptr,instance,nullptr);
-            if(!overlay) winrt::throw_last_error();
-            if(!SetLayeredWindowAttributes(overlay,0,0,LWA_ALPHA)) winrt::throw_last_error();
-            if(!SetWindowDisplayAffinity(overlay,WDA_EXCLUDEFROMCAPTURE)) throw winrt::hresult_error(HRESULT_FROM_WIN32(GetLastError()),L"Capture exclusion unavailable.");
-            ShowWindow(overlay,SW_SHOWNOACTIVATE);
-            stage = L"initializing capture and rendering";
-            renderer.Start(overlay,monitor,ShaderPath());
-            previousTick=statsSince=Clock::now(); slowFrames=frames=0; cpuTotal=0; dirty=true; model.glitches.Reset(Time(),model.settings);
-            stage = L"starting the render timer";
-            if(!SetTimer(window,RenderTimer,34,nullptr)) winrt::throw_last_error(); running=true; status=L"Waiting for a screen frame…";
-        } catch(const winrt::hresult_error& e) { Stop(L"Stopped while "+std::wstring(stage)+L": "+e.message().c_str()); }
-        catch(...) { Stop(L"Stopped: the effect could not start. No automatic restart."); }
-        if (automatic && !running) tray.Notify(L"CRT restart failed", status.c_str());
+    void ScheduleRender(Clock::time_point due)
+    {
+        // Leave a short input window when a draw has already exceeded its time budget.
+        const auto remaining = std::max(due - Clock::now(), std::chrono::ceil<Clock::duration>(std::chrono::milliseconds(1)));
+        LARGE_INTEGER delay{};
+        delay.QuadPart = -std::chrono::ceil<TimerTicks>(remaining).count();
+        SetThreadpoolWait(renderWait, renderTimer.get(), nullptr);
+        if (!SetWaitableTimer(renderTimer.get(), &delay, 0, nullptr, nullptr, FALSE)) winrt::throw_last_error();
+    }
+    void StartRenderTimer()
+    {
+        renderTimer.attach(CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION,
+            SYNCHRONIZE | TIMER_MODIFY_STATE));
+        if (!renderTimer) winrt::throw_last_error();
+        // Discard wakeups already posted by an earlier render session.
+        renderWakeup.window = window;
+        ++renderWakeup.generation;
+        renderWait = CreateThreadpoolWait(RenderTimerReady, &renderWakeup, nullptr);
+        if (!renderWait) winrt::throw_last_error();
+        ScheduleRender(Clock::now());
+    }
+    static void CALLBACK RenderTimerReady(PTP_CALLBACK_INSTANCE, void* context, PTP_WAIT, TP_WAIT_RESULT)
+    {
+        // The worker only queues a wakeup. Each render schedules its successor on the owning thread.
+        const auto& wakeup = *static_cast<const RenderWakeup*>(context);
+        PostMessageW(wakeup.window, RenderMessage, wakeup.generation, 0);
+    }
+    void StopRenderTimer()
+    {
+        if (renderWait) {
+            SetThreadpoolWait(renderWait, nullptr, nullptr);
+            WaitForThreadpoolWaitCallbacks(renderWait, TRUE);
+            CloseThreadpoolWait(renderWait);
+            renderWait = nullptr;
+        }
+        renderTimer.close();
+    }
+    bool IsRequested(HMONITOR display) const
+    {
+        return std::find(requestedDisplays.begin(), requestedDisplays.end(), display) != requestedDisplays.end();
+    }
+
+    void UpdateDisplayStatus(float elapsed = 0)
+    {
+        const auto visible = std::count_if(displays.begin(), displays.end(), [](const auto& display) { return display->opaque; });
+        if (visible == 0) status = L"Waiting for a screen frame…";
+        else if (displays.size() == 1 && displayFailures.empty()) status = L"Active · " + displays.front()->renderer.Description();
+        else status = L"Active · " + std::to_wstring(visible) + L" of " + std::to_wstring(requestedDisplays.size()) + L" displays";
+
+        status += L"\n";
+        if (elapsed > 0)
+        {
+            status += std::to_wstring(frames) + L" presentations / " + std::to_wstring(int(elapsed)) + L" s";
+            if (frames) status += L" · CPU submission " + std::to_wstring(cpuTotal / frames).substr(0, 4) + L" ms/frame";
+        }
+        for (const auto& display : displays)
+            status += L"\n" + display->name + L" · " + (display->opaque ? display->renderer.Description() : L"Waiting for a screen frame");
+        for (const auto& failure : displayFailures)
+            status += L"\n" + failure.name + L" · " + failure.reason;
+    }
+
+    void StopAfterDisplayFailures(bool notify = false)
+    {
+        std::wstring reason = L"The effect could not run on the selected displays.";
+        for (const auto& failure : displayFailures)
+            reason += L" " + failure.name + L" · " + failure.reason;
+        Stop(reason);
+        if (notify) tray.Notify(L"CRT effect off", status.c_str());
+    }
+
+    void ReconcileDisplays()
+    {
+        if (!IsWindow(owner) || !IsWindow(window))
+            throw winrt::hresult_error(E_FAIL, L"The control window is unavailable.");
+        for (const auto& display : displays)
+            if (!IsRequested(display->monitor)) display->Hide();
+        std::erase_if(displays, [&](const auto& display) { return !IsRequested(display->monitor); });
+        const bool retainedDisplay = Running();
+        if (!retainedDisplay) StopRenderTimer();
+        if (requestedDisplays.empty())
+        {
+            firstFrame = false;
+            model.glitches.Cancel(Time(), model.settings);
+            status = L"Select a display to show the effect.";
+            return;
+        }
+
+        std::wstring shaderPath;
+        for (const auto monitor : requestedDisplays)
+        {
+            const auto active = std::find_if(displays.begin(), displays.end(), [=](const auto& display) { return display->monitor == monitor; });
+            const auto failed = std::find_if(displayFailures.begin(), displayFailures.end(), [=](const auto& failure) { return failure.monitor == monitor; });
+            if (active != displays.end() || failed != displayFailures.end()) continue;
+            if (shaderPath.empty()) shaderPath = ShaderPath();
+            auto display = std::make_unique<DisplaySession>(monitor);
+            try { display->Start(instance, shaderPath, captureFps); }
+            catch (const winrt::hresult_error& error)
+            {
+                displayFailures.push_back({monitor, display->name, error.message().c_str()});
+                continue;
+            }
+            displays.push_back(std::move(display));
+        }
+        if (!Running()) { StopAfterDisplayFailures(); return; }
+        if (!retainedDisplay)
+        {
+            model.glitches.Reset(Time(), model.settings);
+            firstFrame = true;
+            StartRenderTimer();
+        }
+        previousTick = statsSince = Clock::now();
+        slowFrames = frames = 0;
+        cpuTotal = 0;
+        UpdateDisplayStatus();
+    }
+
+    void Start(bool automatic = false, HMONITOR requestedDisplay = nullptr)
+    {
+        if (Running() || systemClose != SystemClose::None) return;
+        if (!sessionNotifications) { Stop(SessionUnavailable); return; }
+        if (emergencyShortcutEnabled && !hotkeyRegistered) { Stop(ShortcutUnavailable); return; }
+        try
+        {
+            if (!automatic)
+            {
+                recovery.Reset();
+                displayFailures.clear();
+                if (!explicitDisplays)
+                {
+                    const auto target = requestedDisplay ? requestedDisplay : MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST);
+                    if (!target) throw winrt::hresult_error(E_FAIL, L"No display is available.");
+                    requestedDisplays = {target};
+                }
+            }
+            KillTimer(window, RecoveryTimer);
+            armed = true;
+            ReconcileDisplays();
+        }
+        catch (const winrt::hresult_error& error) { Stop(L"Stopped: " + std::wstring(error.message().c_str())); }
+        catch (...) { Stop(L"Stopped: the effect could not start. Enable manually to retry."); }
+        if (automatic && !armed) tray.Notify(L"CRT restart failed", status.c_str());
+    }
+
+    int SetDisplays(const HMONITOR* monitors, int count)
+    {
+        if (count < 0 || (count && !monitors)) return ActiveDisplayCount();
+        try
+        {
+            std::vector<HMONITOR> selected;
+            for (int i = 0; i < count; ++i)
+            {
+                const auto monitor = monitors[i];
+                if (monitor && std::find(selected.begin(), selected.end(), monitor) == selected.end()) selected.push_back(monitor);
+            }
+            if (explicitDisplays && requestedDisplays == selected) return ActiveDisplayCount();
+            explicitDisplays = true;
+            requestedDisplays = std::move(selected);
+            std::erase_if(displayFailures, [&](const auto& failure) { return !IsRequested(failure.monitor); });
+            if (armed && !recovery.Pending()) ReconcileDisplays();
+        }
+        catch (const winrt::hresult_error& error) { Stop(L"Stopped: " + std::wstring(error.message().c_str())); }
+        catch (...) { Stop(L"Stopped: the selected displays could not be updated. Enable manually to retry."); }
+        return ActiveDisplayCount();
     }
     void PauseForPerformance(const wchar_t* reason) {
         Stop(reason, false);
         health = {};
         if (recovery.Pause(Clock::now()) && SetTimer(window, RecoveryTimer, 1000, nullptr)) {
+            armed = true;
             status += L" Waiting for system stability.";
         } else {
             recovery.Cancel();
@@ -148,39 +400,69 @@ struct Engine {
     void SetRecovery(bool enabled, int seconds) {
         if (recovery.Configure(enabled, seconds)) {
             KillTimer(window, RecoveryTimer);
+            armed = false;
             status = L"Automatic restart cancelled. CRT is off.";
         }
     }
-    void Tick() {
-        if(!running) return;
-        auto start=Clock::now();
-        if(!IsWindow(owner)) { Stop(L"Stopped because the control window closed."); return; }
-        if(start-previousTick>std::chrono::milliseconds(250)) { PauseForPerformance(L"The desktop stopped responding."); return; }
-        previousTick=start;
-        try {
-            auto glitch=model.glitches.Sample(Time(),model.settings); bool animated=model.glitches.Changed(glitch);
-            bool presented=renderer.Tick(model.settings,glitch,dirty,animated,effectTarget);
-            float ms=std::chrono::duration<float,std::milli>(Clock::now()-start).count();
-            slowFrames=ms>80?slowFrames+1:0; if(slowFrames>=3) { PauseForPerformance(L"Rendering was repeatedly slow."); return; }
-            if(presented) {
-                dirty=false;
-                if(!SetLayeredWindowAttributes(overlay,0,255,LWA_ALPHA)) winrt::throw_last_error();
-                if (firstFrame) {
+    void Tick()
+    {
+        if (!Running()) return;
+        const auto start = Clock::now();
+        if (!IsWindow(owner)) { Stop(L"Stopped because the control window closed."); return; }
+        if (start - previousTick > std::chrono::milliseconds(250)) { PauseForPerformance(L"The desktop stopped responding."); return; }
+        previousTick = start;
+        try
+        {
+            const auto glitch = model.glitches.Sample(Time(), model.settings);
+            const bool animated = model.glitches.Changed(glitch);
+            int presented = 0;
+            bool displayChanged = false;
+            for (auto current = displays.begin(); current != displays.end();)
+            {
+                auto& display = **current;
+                const bool wasOpaque = display.opaque;
+                try
+                {
+                    if (display.Tick(model.settings, glitch, animated, effectTarget, captureFps)) ++presented;
+                    displayChanged |= wasOpaque != display.opaque;
+                    ++current;
+                }
+                catch (const winrt::hresult_error& error)
+                {
+                    displayFailures.push_back({display.monitor, display.name, error.message().c_str()});
+                    current = displays.erase(current);
+                    displayChanged = true;
+                }
+            }
+            if (!Running()) { StopAfterDisplayFailures(true); return; }
+
+            const float ms = std::chrono::duration<float, std::milli>(Clock::now() - start).count();
+            slowFrames = ms > 80 ? slowFrames + 1 : 0;
+            if (slowFrames >= 3) { PauseForPerformance(L"Rendering was repeatedly slow."); return; }
+            if (presented)
+            {
+                frames += presented;
+                cpuTotal += ms;
+                if (firstFrame)
+                {
                     firstFrame = false;
                     tray.Notify(L"CRT effect on", L"The screen effect is active.");
                 }
-                ++frames;
-                cpuTotal+=ms;
             }
-            float elapsed=std::chrono::duration<float>(start-statsSince).count();
-            if(elapsed>=2) { status=L"Active · "+renderer.Description()+L"\n"+std::to_wstring(frames)+L" presentations / "+std::to_wstring(int(elapsed))+L" s";
-                if(frames) status+=L" · CPU submission "+std::to_wstring(cpuTotal/frames).substr(0,4)+L" ms/frame";
-                status+=L"\nGPU frame time is not measured here."; statsSince=start; frames=0; cpuTotal=0; }
-        } catch(const winrt::hresult_error& e) {
-            Stop(L"Stopped: "+std::wstring(e.message().c_str()));
-        } catch(...) {
-            Stop(L"Stopped after an unexpected renderer error. Enable manually to retry.");
+            const float elapsed = std::chrono::duration<float>(start - statsSince).count();
+            if (elapsed >= 2)
+            {
+                UpdateDisplayStatus(elapsed);
+                statsSince = start;
+                frames = 0;
+                cpuTotal = 0;
+            }
+            else if (displayChanged) UpdateDisplayStatus();
+            const auto interval = std::chrono::ceil<Clock::duration>(std::chrono::duration<double>(1.0 / animationFps));
+            ScheduleRender(start + interval);
         }
+        catch (const winrt::hresult_error& error) { Stop(L"Stopped: " + std::wstring(error.message().c_str())); }
+        catch (...) { Stop(L"Stopped after an unexpected renderer error. Enable manually to retry."); }
     }
 };
 LRESULT CALLBACK OverlayProc(HWND w,UINT m,WPARAM a,LPARAM b) {
@@ -205,15 +487,26 @@ LRESULT CALLBACK EngineProc(HWND w,UINT m,WPARAM a,LPARAM b) {
             return 0;
         }
         break;
+    case RenderMessage:
+        if (a == e->renderWakeup.generation) e->Tick();
+        return 0;
     case WM_TIMER:
-        if(a==RenderTimer) e->Tick();
-        else if (a==RecoveryTimer) e->TickRecovery();
+        if (a==RecoveryTimer) e->TickRecovery();
         else if (a==GpuJokeNotifications::TimerId) e->gpuJokes.Tick(w, e->tray);
         return 0;
-    case WM_HOTKEY: if(a==1) e->Stop(L"Emergency stop · Ctrl + Alt + F11. Enable manually to resume."); return 0;
+    case WM_HOTKEY:
+        if (a == EmergencyHotkeyId && e->emergencyShortcutEnabled && e->hotkeyRegistered)
+            e->Stop(L"Emergency stop · Ctrl + Alt + F11. Enable manually to resume.");
+        return 0;
     case WM_WTSSESSION_CHANGE: if(a==WTS_SESSION_LOCK||a==WTS_SESSION_LOGOFF||a==WTS_CONSOLE_DISCONNECT||a==WTS_REMOTE_DISCONNECT) e->Stop(L"Stopped because the desktop session became unavailable."); return 0;
     case WM_POWERBROADCAST: if(a==PBT_APMSUSPEND) e->Stop(L"Stopped before system sleep."); return TRUE;
-    case WM_DISPLAYCHANGE: e->Stop(L"Stopped after a display change."); return 0;
+    case WM_DISPLAYCHANGE:
+        ++e->displayTopologyGeneration;
+        e->Stop(L"Stopped after a display change.");
+        return 0;
+    case WM_DEVICECHANGE:
+        if (a == DBT_DEVNODES_CHANGED) ++e->displayTopologyGeneration;
+        break;
     }
     return DefWindowProcW(w,m,a,b);
 }
@@ -242,25 +535,50 @@ API void* __cdecl RetroCreate(HWND owner) {
     e->window=CreateWindowExW(WS_EX_TOOLWINDOW,EngineClass,L"",WS_POPUP,0,0,0,0,nullptr,nullptr,e->instance,e.get()); if(!e->window) return nullptr;
     e->tray.Initialize(e->window, owner);
     if(!SetWindowSubclass(owner,OwnerSubclass,1,reinterpret_cast<DWORD_PTR>(e.get()))) { DestroyWindow(e->window); return nullptr; }
-    e->model.Load(); e->hotkey=RegisterHotKey(e->window,1,MOD_CONTROL|MOD_ALT|MOD_NOREPEAT,VK_F11)!=FALSE;
-    if(!e->hotkey) e->status=L"Ctrl + Alt + F11 is already in use. Effect cannot start safely.";
-    if(!WTSRegisterSessionNotification(e->window,NOTIFY_FOR_THIS_SESSION)) { e->hotkey=false; e->status=L"Session notifications unavailable. Effect cannot start safely."; }
+    e->model.Load();
+    e->sessionNotifications = WTSRegisterSessionNotification(e->window, NOTIFY_FOR_THIS_SESSION) != FALSE;
+    if (!e->sessionNotifications) e->status = SessionUnavailable;
+    e->SetEmergencyShortcut(true);
     if (GpuJokeNotifications::ReadPreference()) e->gpuJokes.Start(e->window);
     return e.release();
  } catch(...) { return nullptr; }
 }
-API void __cdecl RetroDestroy(void* p) { if(!p) return; auto* e=E(p); e->Stop(L"Stopped"); e->gpuJokes.Cancel(e->window); e->tray.Remove(); if(e->owner) RemoveWindowSubclass(e->owner,OwnerSubclass,1); UnregisterHotKey(e->window,1); WTSUnRegisterSessionNotification(e->window); DestroyWindow(e->window); delete e; }
+API void __cdecl RetroDestroy(void* p) {
+    if (!p) return;
+    auto* e = E(p);
+    e->Stop(L"Stopped");
+    e->gpuJokes.Cancel(e->window);
+    e->tray.Remove();
+    if (e->owner) RemoveWindowSubclass(e->owner, OwnerSubclass, 1);
+    if (e->hotkeyRegistered) UnregisterHotKey(e->window, EmergencyHotkeyId);
+    if (e->sessionNotifications) WTSUnRegisterSessionNotification(e->window);
+    DestroyWindow(e->window);
+    delete e;
+}
 API int __cdecl RetroSave(void* p) { return p&&E(p)->model.Save(); }
-API int __cdecl RetroStart(void* p, HMONITOR monitor) { if(!p) return 0; E(p)->Start(false, monitor); return E(p)->running; }
+API int __cdecl RetroStart(void* p, HMONITOR monitor) { if(!p) return 0; E(p)->Start(false, monitor); return E(p)->Running(); }
+API int __cdecl RetroSetDisplays(void* p, const HMONITOR* monitors, int count) { return p ? E(p)->SetDisplays(monitors, count) : 0; }
+API int __cdecl RetroActiveDisplayCount(void* p) { return p ? E(p)->ActiveDisplayCount() : 0; }
+API int __cdecl RetroIsArmed(void* p) { return p && E(p)->armed; }
+API std::uint32_t __cdecl RetroDisplayTopologyGeneration(void* p) { return p ? E(p)->displayTopologyGeneration : 0; }
 API void __cdecl RetroStop(void* p) { if(p) E(p)->Stop(L"Stopped by you."); }
+API int __cdecl RetroSetEmergencyShortcut(void* p, int enabled) {
+    return static_cast<int>(p ? E(p)->SetEmergencyShortcut(enabled != 0) : EmergencyShortcutState::Unavailable);
+}
 API int __cdecl RetroSystemClose(void* p) { return p ? static_cast<int>(E(p)->systemClose) : 0; }
-API int __cdecl RetroRunning(void* p) { return p&&E(p)->running; }
+API int __cdecl RetroRunning(void* p) { return p && E(p)->Running(); }
 API int __cdecl RetroRecoveryPending(void* p) { return p && E(p)->recovery.Pending(); }
 API void __cdecl RetroSetRecovery(void* p, int enabled, int seconds) { if (p) E(p)->SetRecovery(enabled != 0, seconds); }
+API void __cdecl RetroSetFrameLimits(void* p, int animationFps, int captureFps)
+{
+    if (!p) return;
+    E(p)->animationFps = std::clamp(animationFps, 15, 120);
+    E(p)->captureFps = std::clamp(captureFps, 5, 60);
+}
 API void __cdecl RetroSetTarget(void* p, int target) {
     if (!p || target < 0 || target > 2) return;
     E(p)->effectTarget = target;
-    E(p)->dirty = true;
+    E(p)->MarkDirty();
 }
 API const wchar_t* __cdecl RetroGpuJoke(unsigned index) { return GpuJokeNotifications::Caption(index); }
 API int __cdecl RetroSetGpuJokes(void* p, int enabled) {
@@ -302,5 +620,5 @@ API int __cdecl RetroPreset(void* p, int index)
     return 1;
 }
 API int __cdecl RetroSavePreset(void* p,int i) { return p&&i>=1&&i<=3&&E(p)->model.SavePersonalPreset(i); }
-API int __cdecl RetroTryGlitch(void* p) { return p&&E(p)->running&&E(p)->model.glitches.Trigger(E(p)->Time(),E(p)->model.settings); }
+API int __cdecl RetroTryGlitch(void* p) { return p && E(p)->Running() && E(p)->model.glitches.Trigger(E(p)->Time(), E(p)->model.settings); }
 API void __cdecl RetroStatus(void* p,wchar_t* buffer,int capacity) { if(buffer&&capacity>0) { buffer[0]=0; if(p) wcsncpy_s(buffer,size_t(capacity),E(p)->status.c_str(),_TRUNCATE); } }

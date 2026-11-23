@@ -77,6 +77,9 @@ def main():
         env['RETRO_TEST_MONITOR'] = '6720x2160' if args.oversized_capture else '1280x800'
         extension = stage / 'data/gnome-shell/extensions' / uuid
         shutil.copytree(root / 'Linux/extension' / uuid, extension)
+        shared = extension / 'shared'
+        shared.mkdir(exist_ok=True)
+        shutil.copy2(root.parent / 'Shared/Linux/monitor-selection.js', shared)
         (extension / 'extension.js').rename(extension / 'production-extension.js')
         shutil.copy2(root / 'tests/gnome-smoke.js', extension / 'extension.js')
         subprocess.run(['glib-compile-schemas', '--strict', str(extension / 'schemas')], check=True)

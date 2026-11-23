@@ -77,7 +77,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PROJECT_URL = "https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/OpenAI"
 MANIFESTO_URL = "https://umbertogiacobbi.biz/vibeware/manifesto"
 from backend import invoke
-from settings_ui import SettingsUiMixin
+from settings_ui import LARGER_WIDGET_PERCENT, SettingsUiMixin
 from ui_helpers import text, box, about_mark, about_link
 
 
@@ -101,11 +101,11 @@ window.micro {
 }
 window.micro:backdrop { border-color: transparent; box-shadow: none; }
 .micro .flip-caption { font-size: 12px; opacity: .85; }
-.micro.big .flip-caption { font-size: 15px; }
+.micro.big .flip-caption { font-size: 14px; }
 .micro separator.metric-divider { background-color: alpha(@window_fg_color, .26); min-width: 1px; }
 .micro menubutton.voucher-count > button { padding: 0; border-width: 0; min-width: 0; min-height: 0; }
-.micro.big button.icon-action { padding: 6px; min-width: 23px; min-height: 23px; }
-.micro.big button.icon-action image { -gtk-icon-size: 20px; }
+.micro.big button.icon-action { padding: 6px; min-width: 21px; min-height: 21px; }
+.micro.big button.icon-action image { -gtk-icon-size: 18px; }
 .micro button.icon-action { padding: 5px; min-width: 18px; min-height: 18px; }
 .micro button.icon-action image { -gtk-icon-size: 16px; }
 .micro button.icon-action.brand-action { padding: 0; }
@@ -251,7 +251,7 @@ class FlipTile(LabeledDisplay):
         pitch = font_size * self.CHARACTER_ADVANCE
         columns = max(minimum, math.floor(space / pitch + .00001))
         lines = tuple(self.wrap(value, columns)) if self.wrap_value else (value,)
-        layout = SlotLayout(width, font_size, pitch, columns, len(lines), round(34 * self.scale))
+        layout = SlotLayout(width, font_size, pitch, columns, len(lines), round(26 * self.scale))
         now = time.monotonic()
         rebuild = layout != self.layout
         previous_columns = self.layout.columns if self.layout else 0
@@ -485,13 +485,15 @@ class WrapLayout(Gtk.LayoutManager):
         super().__init__()
         self.spacing = spacing
         self.center = center
+        self.tile_widths = None
 
     def do_get_request_mode(self, widget):
         return Gtk.SizeRequestMode.HEIGHT_FOR_WIDTH
 
     def do_measure(self, widget, orientation, for_size):
         if orientation == Gtk.Orientation.HORIZONTAL:
-            sizes = [child.measure(orientation, -1)[1] for child in self.children(widget)]
+            sizes = (list(self.tile_widths.values()) if self.tile_widths is not None
+                     else [child.measure(orientation, -1)[1] for child in self.children(widget)])
             return 0, sum(sizes) + max(0, len(sizes) - 1) * self.spacing, -1, -1
         width = for_size if for_size >= 0 else 1240
         height = self.rows(widget, width)[1]
@@ -520,9 +522,11 @@ class WrapLayout(Gtk.LayoutManager):
         rows, row = [], []
         x = row_height = height = 0
         for child in self.children(widget):
-            w = max(1, min(width, child.measure(Gtk.Orientation.HORIZONTAL, -1)[1]))
+            w = self.tile_widths.get(child) if self.tile_widths is not None else None
+            if w is None:
+                w = max(1, min(width, child.measure(Gtk.Orientation.HORIZONTAL, -1)[1]))
             h = child.measure(Gtk.Orientation.VERTICAL, w)[1]
-            if row and x + self.spacing + w > width:
+            if self.tile_widths is None and row and x + self.spacing + w > width:
                 rows.append((row, x, row_height))
                 height += row_height + self.spacing
                 row, x, row_height = [], 0, 0
@@ -546,7 +550,7 @@ class TrafficSignal(Gtk.Box):
     LIGHTS = ((1, .26, .19), (1, .76, .16), (.27, .91, .38))
 
     def __init__(self):
-        super().__init__(valign=Gtk.Align.CENTER, margin_start=12, margin_end=10, margin_top=8)
+        super().__init__(valign=Gtk.Align.CENTER)
         self.set_size_request(44, 128)
         self.glow = Gtk.DrawingArea(can_target=False)
         overlay = Gtk.Overlay(hexpand=True, vexpand=True)
@@ -633,6 +637,10 @@ class TrafficSignal(Gtk.Box):
 
 
 class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
+    APP_ICON_SIZE = 64
+    MANIFESTO_ICON_SIZE = 84
+    BRAND_SPACING = 8
+
     def __init__(self, app):
         # Adw.ApplicationWindow imposes a minimum height larger than the strip.
         super().__init__(application=app, title="OpenAI Usage", default_width=1240, default_height=110,
@@ -668,6 +676,8 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.set_resizable(True)
         self.set_size_request(300, -1)
         self.layout_pending = False
+        self.expanded_width = None
+        self.pending_width = None
         self.layout_width = 1240
         self.resize_surface = None
         self.highest_credits = 0
@@ -679,15 +689,13 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.brand = Gtk.Image.new_from_file(str(ROOT / "Branding/app-icon-512.png"))
         self.project_link = Gtk.LinkButton(uri=PROJECT_URL, child=self.brand, valign=Gtk.Align.CENTER,
                                            tooltip_text="OpenAI Usage project page\nConnecting to Codex…")
-        self.manifesto_mark = about_mark("VibeWare.png", 206)
+        self.manifesto_mark = about_mark("VibeWare.png", self.MANIFESTO_ICON_SIZE)
+        self.manifesto_mark.set_pixel_size(self.MANIFESTO_ICON_SIZE)
+        self.manifesto_mark.set_size_request(self.MANIFESTO_ICON_SIZE, self.MANIFESTO_ICON_SIZE)
         self.manifesto_mark.set_halign(Gtk.Align.CENTER)
         self.manifesto_mark.set_valign(Gtk.Align.CENTER)
         self.manifesto_mark.set_can_target(False)
-        # Extend the artwork past the button without changing its layout or click area.
-        self.manifesto_face = Gtk.Overlay(overflow=Gtk.Overflow.VISIBLE)
-        self.manifesto_face.add_overlay(self.manifesto_mark)
-        manifesto = Gtk.LinkButton(uri=MANIFESTO_URL, child=self.manifesto_face, valign=Gtk.Align.CENTER,
-                                   overflow=Gtk.Overflow.VISIBLE,
+        manifesto = Gtk.LinkButton(uri=MANIFESTO_URL, child=self.manifesto_mark, valign=Gtk.Align.CENTER,
                                    tooltip_text="VibeWare manifesto")
         for link, label in ((self.project_link, "OpenAI Usage project page"), (manifesto, "VibeWare manifesto")):
             link.add_css_class("icon-action")
@@ -736,11 +744,11 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         close.add_css_class("icon-action")
         close.connect("clicked", lambda _: self.close())
         actions.append(close)
-        brands = self.brands = box(4, True)
+        brands = self.brands = box(self.BRAND_SPACING, True)
         brands.set_halign(Gtk.Align.CENTER)
         brands.append(self.project_link)
         brands.append(manifesto)
-        rail = box(6)
+        rail = self.rail = box(6)
         rail.set_valign(Gtk.Align.START)
         rail.append(actions)
         rail.append(brands)
@@ -766,7 +774,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         body.set_margin_start(8)
         body.set_margin_end(8)
         body.set_margin_top(8)
-        body.set_margin_bottom(4)
+        body.set_margin_bottom(8)
         body.append(self.signal)
         body.append(strip)
         body.append(rail)
@@ -778,6 +786,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         surface.add_controller(drag)
         self.set_child(surface)
         self.details_button.connect("toggled", self.details_toggled)
+        self.problem.connect("notify::visible", lambda *_: self.fit_layout(max(300, self.get_width() or 1240)))
         keys = Gtk.EventControllerKey()
         keys.connect("key-pressed", self.details_key_pressed)
         self.add_controller(keys)
@@ -1152,26 +1161,66 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.fit_layout(max(300, self.get_width() or 1240))
 
     def fit_layout(self, width):
-        narrow = width < 530
+        compact = self.settings.get("enableDetailsBar", False) and not self.details_button.get_active()
+        strip_layout = self.strip.get_layout_manager()
         big = self.settings.get("bigSize", False) and width >= 375
-        scale = 1.25 if big else 1
+        scale = 1 + LARGER_WIDGET_PERCENT / 100 if big else 1
         (self.add_css_class if big else self.remove_css_class)("big")
+        natural = [child.measure(Gtk.Orientation.HORIZONTAL, -1)[1] for child in WrapLayout.children(self.actions)]
+        command_width = sum(natural) + max(0, len(natural) - 1) * self.actions.get_layout_manager().spacing
+        previous_width = width
+        minimum = 300
+        gaps_between_sections = self.body.get_spacing() * (1 if compact else 2)
+        gutters = self.body.get_margin_start() + self.body.get_margin_end() + gaps_between_sections + 2
+        if compact:
+            tiles = list(WrapLayout.children(self.strip))
+            gaps = max(0, len(tiles) - 1) * strip_layout.spacing
+            min_tiles = len(tiles) * 30
+            extra = gutters + command_width
+            minimum = max(minimum, round(extra + gaps + max(min_tiles, sum(tile.base_width for tile in tiles) * scale * .6)))
+            surface = self.get_surface()
+            monitor = self.get_display().get_monitor_at_surface(surface) if surface is not None else None
+            if monitor is not None:
+                minimum = min(minimum, monitor.get_geometry().width)
+            if width < minimum and self.expanded_width is None:
+                self.expanded_width = width
+            width = max(width, minimum)
+        elif self.expanded_width is not None:
+            width, self.expanded_width = self.expanded_width, None
+        self.pending_width = width if width != previous_width else None
+        self.set_size_request(minimum, -1)
+        narrow = not compact and width < 530
         self.set_opacity(self.settings.get("windowOpacityPercent", 100) / 100)
-        self.brand.set_pixel_size(64)
-        self.manifesto_face.set_size_request(64, 64)
-        self.manifesto_mark.set_pixel_size(84)
+        self.brand.set_pixel_size(self.APP_ICON_SIZE)
+        self.brands.set_visible(not compact)
         self.brands.set_orientation(Gtk.Orientation.VERTICAL if narrow else Gtk.Orientation.HORIZONTAL)
-        rail = 64 if narrow else (186 if self.problem.get_visible() else 158) + (32 if big else 0)
+        self.rail.set_valign(Gtk.Align.CENTER if compact else Gtk.Align.START)
+        brand_width = self.APP_ICON_SIZE + self.BRAND_SPACING + self.MANIFESTO_ICON_SIZE
+        action_width = (186 if self.problem.get_visible() else 158) + (20 if big else 0)
+        rail = command_width if compact else self.MANIFESTO_ICON_SIZE if narrow else max(brand_width, action_width)
         self.actions.set_size_request(rail, -1)
+        self.signal.set_visible(not compact)
         signal_width = 30 if narrow else 44
-        self.signal.set_size_request(signal_width, 92 if narrow else 128)
-        available = width - 56 - rail - signal_width
+        available = width - gutters - rail - (0 if compact else signal_width)
+        tile_widths = None
+        if compact:
+            flexible = sum(tile.base_width * scale for tile in tiles) - min_tiles
+            portion = max(0, min(1, (available - gaps - min_tiles) / flexible)) if flexible else 1
+            tile_widths = {tile: int(30 + (tile.base_width * scale - 30) * portion) for tile in tiles}
+        if strip_layout.tile_widths != tile_widths:
+            strip_layout.tile_widths = tile_widths
+            self.strip.queue_resize()
+        label = "Expand widget to show usage details" if compact else "Compact widget"
+        self.details_button.set_tooltip_text(label)
+        self.details_button.update_property([Gtk.AccessibleProperty.LABEL], [label])
         position = self.settings.get("labelPosition", "above")
-        for tile in (*self.metrics, *self.detail_tiles):
+        for tile in (*self.metrics, self.reset_clock, *self.detail_tiles):
             tile.set_label_position(position)
-            tile.resize(scale, available)
-        self.reset_clock.set_label_position("hidden" if position == "hidden" else "below")
-        self.reset_clock.resize(scale, available)
+            tile.resize(scale, tile_widths.get(tile, available) if tile_widths is not None else available)
+        content_height = max(self.strip.measure(Gtk.Orientation.VERTICAL, available)[1],
+                             self.rail.measure(Gtk.Orientation.VERTICAL, rail)[1])
+        signal_cap = 92 if narrow else 128
+        self.signal.set_size_request(signal_width, min(signal_cap, content_height))
         if self.get_mapped():
             self.queue_fit_height()
 
@@ -1184,13 +1233,14 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
             self.layout_pending = False
             if self.closed or not self.get_mapped():
                 return False
-            width = max(300, self.get_width())
+            width = self.pending_width or max(300, self.get_width())
+            self.pending_width = None
             desired = self.body.measure(Gtk.Orientation.VERTICAL, width)[1]
             display = self.get_display()
             surface = self.get_surface()
             monitor = display.get_monitor_at_surface(surface) if surface is not None else None
             height = min(desired, monitor.get_geometry().height - 48) if monitor is not None else desired
-            if abs(height - self.get_height()) > 1:
+            if abs(height - self.get_height()) > 1 or abs(width - self.get_width()) > 1:
                 self.set_default_size(width, height)
             return False
 

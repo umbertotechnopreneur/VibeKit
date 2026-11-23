@@ -90,8 +90,7 @@ public sealed class TrayIcon : IDisposable
                 case 6: manifesto(); break;
                 case 7: exit(); break;
                 case 8:
-                    using (System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
-                        "https://umbertogiacobbi.biz/mini-utilities/") { UseShellExecute = true })) { }
+                    MainWindow.OpenLink("https://umbertogiacobbi.biz/mini-utilities/");
                     break;
             }
         }

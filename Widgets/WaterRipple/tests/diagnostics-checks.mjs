@@ -8,7 +8,7 @@ const {RecoveryPolicy, readResourceSample, retryDelay} = await import(`data:text
 const pacingSource = readFileSync(new URL('../Linux/extension/ripple@vibeware.local/frame-pacing.js', import.meta.url), 'utf8');
 const {FramePacer} = await import(`data:text/javascript;base64,${Buffer.from(pacingSource).toString('base64')}`);
 const source = name => readFileSync(new URL(`../Linux/extension/ripple@vibeware.local/${name}`, import.meta.url), 'utf8')
-    .replace(/^import .*;\n/gm, '');
+    .replace(/^import .*;\r?\n/gm, '');
 const timers = new Map();
 let lastDelay = 0;
 let useLatestDelay = true;
@@ -40,6 +40,8 @@ const {shellPressure, watchMemory} = vm.runInNewContext(
 const Extension = vm.runInNewContext(source('extension.js')
     .replace('export default class RippleExtension', 'class RippleExtension') + '\nRippleExtension;', {
     GLib, Extension: class {}, RecoveryPolicy, readResourceSample, retryDelay, FramePacer, scheduleStartupGpuJoke,
+    MONITOR_SELECTION_KEY: 'target-monitors', getShellMonitors: () => [{id: 'test-output'}],
+    selectMonitors: monitors => monitors,
     shellPressure, watchMemory, TextDecoder,
     Clutter: {ModifierType: {BUTTON1_MASK: 1}},
     console: {log: message => logs.push(JSON.parse(message.slice('Ripple: '.length)))},
@@ -53,6 +55,7 @@ const settings = {
     get_boolean: key => values[key] ?? false,
     get_double: key => values[key] ?? 0,
     get_int: key => values[key] ?? 0,
+    get_strv: key => values[key] ?? ['*'],
     get_value: key => ({deep_unpack: () => values[key] ?? 0}),
     connect(signal, callback) {
         assert.equal(signal, 'changed::show-gpu-jokes');
@@ -212,9 +215,9 @@ function checkStartup(autostart) {
         Gio: {File: {new_for_uri: () => ({get_parent: () => ({})})},
             ApplicationFlags: {}, Settings: {new_full: () => settings}},
         Adw: {Application, ApplicationWindow: Window,
-            HeaderBar: class {pack_end() {}}, ToolbarView: class {add_top_bar() {}}},
+            HeaderBar: class {pack_end() {}}, ToolbarView: class {add_top_bar() {} add_bottom_bar() {}}},
         Gtk: {Button},
-        buildControls: () => ({page: {}, settingsSection, active: {connect() {}, active: true, sensitive: true}}),
+        buildControls: () => ({page: {}, footer: {}, settingsSection, active: {connect() {}, active: true, sensitive: true}}),
         TrayIndicator: class {
             constructor(callbacks, callback) { actions = callbacks; availability = callback; }
             setEffect() {}

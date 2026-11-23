@@ -10,12 +10,15 @@ namespace OpenAIUsage.Windows;
 public sealed partial class MainWindow
 {
     private const int MinimumWidth = 300;
-    private readonly Grid layout = new() { Padding = new(8, 8, 8, 4), ColumnSpacing = 8, MinHeight = 96 };
+    private const int LargerWidgetPercent = 15;
+    private const double TileSpacing = 8;
+    private readonly Grid layout = new() { Padding = new(8) };
     private readonly WrappingPanel actions = new(3, centerRows: true);
     private readonly StackPanel brands = new()
     {
-        Orientation = Orientation.Horizontal, Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center
+        Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center
     };
+    private readonly StackPanel rail = new() { Spacing = 6, Margin = new(TileSpacing, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
     private readonly Viewbox layoutView = new() { VerticalAlignment = VerticalAlignment.Top };
     private readonly ScrollViewer viewport = new()
     {
@@ -26,6 +29,7 @@ public sealed partial class MainWindow
     private Module[] modules = [];
     private bool layoutQueued;
     private int lastMinimumWidth;
+    private double? expandedWidth;
     private static readonly WindowSubclass ResizeProcedure = HorizontalResize;
 
     private sealed record Module(string Key, string Label, string Description, FrameworkElement Element, FlipTile? Tile = null, bool Detail = false);
@@ -56,7 +60,8 @@ public sealed partial class MainWindow
         layout.Children.Add(strip);
         brands.Children.Add(appWebsiteButton);
         brands.Children.Add(manifestoButton);
-        var rail = new StackPanel { Spacing = 6, VerticalAlignment = VerticalAlignment.Top, Children = { actions, brands } };
+        rail.Children.Add(actions);
+        rail.Children.Add(brands);
         Grid.SetColumn(rail, 2);
         layout.Children.Add(rail);
         layoutView.Child = layout;
@@ -98,7 +103,6 @@ public sealed partial class MainWindow
         }
         foreach (var tile in modules.Select(module => module.Tile).OfType<FlipTile>())
             tile.SetLabelPosition(settings.LabelPosition);
-        resetClock.SetLabelPosition(settings.LabelPosition == "hidden" ? "hidden" : "below");
         UpdateSnapshotMetrics();
         UpdateDetails(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         QueueLayout();
@@ -118,49 +122,92 @@ public sealed partial class MainWindow
     private void FitWindow()
     {
         double dpi = root.XamlRoot.RasterizationScale;
-        double zoom = settings.BigSize && root.ActualWidth >= 375 ? 1.25 : 1;
+        double zoom = settings.BigSize && root.ActualWidth >= 375 ? 1 + LargerWidgetPercent / 100d : 1;
         var size = AppWindow.ClientSize;
-        int minimum = (int)Math.Ceiling(MinimumWidth * dpi);
-        int minimumWindowWidth = minimum + AppWindow.Size.Width - size.Width;
+        var outer = AppWindow.Size;
+        int frameWidth = outer.Width - size.Width;
+        int frameHeight = outer.Height - size.Height;
+        var workArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest)?.WorkArea;
+        bool compact = IsCompact;
+        var visibleTiles = modules.Where(module => strip.Children.Contains(module.Element))
+            .Select(module => module.Tile).OfType<FlipTile>().ToArray();
+        int commandCount = actions.Children.Count(child => child.Visibility == Visibility.Visible);
+        double commandWidth = commandCount * 28 + Math.Max(0, commandCount - 1) * 3;
+        double gutters = layout.Padding.Left + layout.Padding.Right + (compact ? TileSpacing : 2 * TileSpacing);
+        double gaps = Math.Max(0, visibleTiles.Length - 1) * TileSpacing;
+        double preferredTiles = visibleTiles.Sum(tile => tile.PreferredWidth);
+        double minimumTiles = visibleTiles.Length * FlipTile.MinimumWidth;
+        double compactChrome = gutters + commandWidth;
+        double minimumWidth = MinimumWidth;
+        if (compact)
+        {
+            double comfortable = compactChrome + gaps + Math.Max(minimumTiles, preferredTiles * .6);
+            minimumWidth = Math.Max(MinimumWidth, comfortable * zoom);
+        }
+        int minimum = (int)Math.Ceiling(minimumWidth * dpi);
+        if (workArea is { } display) minimum = Math.Min(minimum, Math.Max(1, display.Width - frameWidth));
+
+        int clientWidth = size.Width;
+        if (compact && clientWidth < minimum)
+            expandedWidth ??= clientWidth / dpi;
+        else if (!compact && expandedWidth is { } normalWidth)
+        {
+            clientWidth = (int)Math.Round(normalWidth * dpi);
+            expandedWidth = null;
+        }
+        clientWidth = Math.Max(minimum, clientWidth);
+        int minimumWindowWidth = minimum + frameWidth;
         if (lastMinimumWidth != minimumWindowWidth && AppWindow.Presenter is OverlappedPresenter presenter)
         {
             presenter.PreferredMinimumWidth = minimumWindowWidth;
             lastMinimumWidth = minimumWindowWidth;
         }
-        double width = Math.Max(MinimumWidth, AppWindow.ClientSize.Width / dpi) / zoom;
-        bool narrow = width < 530;
-        int commandCount = actions.Children.Count(child => child.Visibility == Visibility.Visible);
-        actions.Width = narrow ? BrandButtonSize : Math.Max(2 * BrandButtonSize + brands.Spacing, commandCount * 28 + (commandCount - 1) * 3);
+
+        if (compact)
+        {
+            // Keep one row even on a display narrower than the minimum tile widths.
+            double hardWidth = compactChrome + gaps + minimumTiles;
+            zoom = Math.Min(zoom, clientWidth / (dpi * hardWidth));
+        }
+        double width = clientWidth / (dpi * zoom);
+        bool narrow = !compact && width < 530;
+        brands.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         brands.Orientation = narrow ? Orientation.Vertical : Orientation.Horizontal;
+        rail.VerticalAlignment = compact ? VerticalAlignment.Center : VerticalAlignment.Top;
+        double brandWidth = narrow ? Math.Max(appWebsiteButton.Width, manifestoButton.Width)
+            : appWebsiteButton.Width + brands.Spacing + manifestoButton.Width;
+        actions.Width = compact ? commandWidth : narrow ? brandWidth : Math.Max(brandWidth, commandWidth);
+        signalHousing.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         signalHousing.Width = narrow ? 30 : 44;
-        signalHousing.Height = narrow ? 92 : 128;
-        double tileWidth = width - 54 - signalHousing.Width - actions.Width;
+        double tileWidth = width - gutters - (compact ? 0 : signalHousing.Width) - actions.Width;
+        strip.SingleRow = compact;
         strip.Width = tileWidth;
-        foreach (var tile in modules.Select(module => module.Tile).OfType<FlipTile>())
-            tile.FitWidth(tileWidth);
+        double flexibleWidth = preferredTiles - minimumTiles;
+        double fraction = compact && flexibleWidth > 0
+            ? Math.Clamp((tileWidth - gaps - minimumTiles) / flexibleWidth, 0, 1) : 1;
+        foreach (var tile in visibleTiles)
+            tile.FitWidth(compact ? FlipTile.MinimumWidth + (tile.PreferredWidth - FlipTile.MinimumWidth) * fraction : tileWidth);
+
         layout.Width = width;
         strip.Measure(new(tileWidth, double.PositiveInfinity));
-        actions.Measure(new(actions.Width, double.PositiveInfinity));
-        brands.Measure(new(actions.Width, double.PositiveInfinity));
-        double contentHeight = Math.Max(strip.DesiredSize.Height,
-            Math.Max(signalHousing.Height + signalHousing.Margin.Top,
-                actions.DesiredSize.Height + brands.DesiredSize.Height + 6));
-        layout.Height = Math.Max(layout.MinHeight, contentHeight + layout.Padding.Top + layout.Padding.Bottom);
+        rail.Measure(new(actions.Width + rail.Margin.Left, double.PositiveInfinity));
+        double contentHeight = Math.Max(strip.DesiredSize.Height, rail.DesiredSize.Height);
+        signalHousing.Height = Math.Min(narrow ? 92 : 128, contentHeight);
+        layout.Height = contentHeight + layout.Padding.Top + layout.Padding.Bottom;
         layoutView.Width = width * zoom;
         layoutView.Height = layout.Height * zoom;
         int desiredHeight = (int)Math.Ceiling(layoutView.Height * dpi);
-        var display = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest);
-        if (display is not null)
+        var position = AppWindow.Position;
+        int x = position.X, y = position.Y;
+        if (workArea is { } area)
         {
-            int frame = AppWindow.Size.Height - size.Height;
-            var area = display.WorkArea;
-            desiredHeight = Math.Min(desiredHeight, Math.Max(100, area.Height - frame));
-            var position = AppWindow.Position;
-            int y = Math.Clamp(position.Y, area.Y, Math.Max(area.Y, area.Y + area.Height - desiredHeight - frame));
-            if (position.Y != y) AppWindow.Move(new(position.X, y));
+            desiredHeight = Math.Min(desiredHeight, Math.Max(100, area.Height - frameHeight));
+            y = Math.Clamp(y, area.Y, Math.Max(area.Y, area.Y + area.Height - desiredHeight - frameHeight));
+            if (clientWidth != size.Width)
+                x = Math.Clamp(x, area.X, Math.Max(area.X, area.X + area.Width - clientWidth - frameWidth));
         }
-        if (size.Height != desiredHeight || size.Width < minimum)
-            AppWindow.ResizeClient(new(Math.Max(minimum, size.Width), desiredHeight));
+        if (size.Height != desiredHeight || size.Width != clientWidth || x != position.X || y != position.Y)
+            AppWindow.MoveAndResize(new(x, y, clientWidth + frameWidth, desiredHeight + frameHeight));
         root.UpdateLayout();
         UpdateDragRegions();
     }
@@ -172,7 +219,9 @@ public sealed partial class MainWindow
         int width = (int)Math.Round(root.ActualWidth * dpi), height = (int)Math.Round(root.ActualHeight * dpi);
         var caption = new List<RectInt32> { new(0, 0, width, height) };
         var controls = actions.Children.OfType<FrameworkElement>()
-            .Concat(strip.Children.OfType<FrameworkElement>()).Concat([appWebsiteButton, manifestoButton, signalHousing]);
+            .Concat(strip.Children.OfType<FrameworkElement>()).Append(signalHousing);
+        if (brands.Visibility == Visibility.Visible)
+            controls = controls.Concat([appWebsiteButton, manifestoButton]);
         foreach (var control in controls)
         {
             if (control.Visibility != Visibility.Visible) continue;

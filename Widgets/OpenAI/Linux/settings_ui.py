@@ -8,6 +8,8 @@ from gi.repository import Gdk, GLib, Gtk
 from ui_helpers import box, text
 from watchdog import record as log_event
 
+LARGER_WIDGET_PERCENT = 15
+
 
 class SettingsUiMixin:
     def refresh(self):
@@ -291,7 +293,7 @@ class SettingsUiMixin:
                ("above", "below", "hidden"), "labelPosition", "above")
         details = switch(widget, "Enable usage details", "enableDetailsBar")
         details.connect("notify::active", lambda item, _: self.details_button.set_active(item.get_active()))
-        switch(widget, "Larger widget (+25%)", "bigSize")
+        switch(widget, f"Larger widget (+{LARGER_WIDGET_PERCENT}%)", "bigSize")
         choice(widget, "Window opacity", ["25%", "50%", "75%", "100%"],
                (25, 50, 75, 100), "windowOpacityPercent", 100)
         widget.append(text("Desktop", "heading"))

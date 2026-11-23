@@ -20,6 +20,7 @@ enum RippleCaptureStatus : int32_t
     StatusValidCapture = 32,
     StatusPresentedCapture = 64,
     StatusCrtComposition = 128,
+    StatusCrtPresentation = 256,
 };
 
 struct RippleStats

@@ -47,7 +47,7 @@ User preferences are bound to `AppSettings`, and transient UI state belongs to `
 
 ## Performance
 
-Capture uses Windows.Graphics.Capture with two GPU buffers and no CPU pixel readback. The ripple shader uses one desktop texture, a 192-byte constant buffer and at most eight waves. Capture and animation rates have separate limits. One monitor is supported at a time; rotated displays remain unsupported.
+Capture uses Windows.Graphics.Capture with two GPU buffers per selected display and keeps pixels on the GPU. The ripple shader uses one desktop texture, a 192-byte constant buffer and at most eight waves. Capture and animation rates have separate limits. Open **Settings → Monitors** to switch individual displays on or off while the main effect is enabled. Rotated displays use their current Windows desktop geometry.
 
 Screen mode retains the hardware Direct3D 11 requirement and at least 8,000,000,000 bytes of dedicated VRAM. Shared memory does not count. The resource monitor samples private RAM, working set and CPU; it warns at 500 MB private RAM about a possible memory leak and asks for a report. GPU budget and CPU submission timings are shown separately from presentation rates.
 

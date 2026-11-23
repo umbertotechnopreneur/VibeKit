@@ -11,6 +11,8 @@ import {RippleEffect} from './effect.js';
 import {RecoveryPolicy, readResourceSample, retryDelay} from './recovery.js';
 import {FramePacer} from './frame-pacing.js';
 import {scheduleStartupGpuJoke} from './gpu-joke-notifications.js';
+import {clipRipplePatch} from './patch-geometry.js';
+import {getShellMonitors, MONITOR_SELECTION_KEY, selectMonitors} from './shared/monitor-selection.js';
 
 const NUMBERS = ['strength', 'speed', 'wavelength', 'rings', 'lifetime',
     'damping', 'light', 'radius', 'aspect', 'chromatic-separation', 'chromatic-blend',
@@ -23,6 +25,7 @@ export default class RippleExtension extends Extension {
         this._settings = this.getSettings();
         this._startRamWatch();
         this._patches = [];
+        this._monitors = [];
         this._signals = [];
         this._panicRegistered = false;
         this._settings.set_boolean('panic-available', false);
@@ -52,11 +55,11 @@ export default class RippleExtension extends Extension {
                 if (!this._settings.get_boolean('active')) {
                     this._clear();
                     this._stopPointerPolling();
+                    this._settings.set_string('status', 'Stopped');
                 } else {
                     this._cancelRecovery();
-                    this._startPointerPolling();
+                    this._refreshMonitors();
                 }
-                this._settings.set_string('status', this._settings.get_boolean('active') ? 'Active' : 'Stopped');
             }
             else if (key === 'recovery-pending' && !this._settings.get_boolean('recovery-pending')) {
                 this._cancelRecovery();
@@ -69,6 +72,8 @@ export default class RippleExtension extends Extension {
                 this._syncPanic();
             else if (key === 'fps')
                 this._pacer.setRate(this._settings.get_int('fps'));
+            else if (key === MONITOR_SELECTION_KEY)
+                this._refreshMonitors();
             else if (['target', 'patch-size'].includes(key))
                 this._clear();
             else if (key === 'max-waves') {
@@ -89,8 +94,9 @@ export default class RippleExtension extends Extension {
             return Clutter.EVENT_PROPAGATE;
         });
         this._connect(Main.overview, 'showing', () => this._clear());
-        this._connect(Main.layoutManager, 'monitors-changed', () => this._clear());
+        this._connect(Main.layoutManager, 'monitors-changed', () => this._refreshMonitors());
         this._connect(Main.sessionMode, 'updated', () => this._clear());
+        this._refreshMonitors();
         this._syncPanic();
         this._logDiagnostic('extension-enabled');
         this._leaseTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, () => {
@@ -116,6 +122,32 @@ export default class RippleExtension extends Extension {
             this._panicRegistered = action !== Meta.KeyBindingAction.NONE;
         }
         this._settings.set_boolean('panic-available', this._panicRegistered);
+    }
+
+    _refreshMonitors() {
+        const selection = this._settings.get_strv(MONITOR_SELECTION_KEY);
+        this._monitors = selectMonitors(getShellMonitors(Main.layoutManager.monitors, global.display), selection);
+        for (const patch of [...this._patches]) {
+            const previous = patch.monitor;
+            if (!this._monitors.some(monitor => monitor.id === previous.id && monitor.x === previous.x &&
+                monitor.y === previous.y && monitor.width === previous.width && monitor.height === previous.height &&
+                monitor.scale === previous.scale))
+                this._removePatch(patch);
+        }
+        if (!this._settings.get_boolean('active'))
+            return;
+        if (this._monitors.length) {
+            this._startPointerPolling();
+            this._settings.set_string('status', 'Active');
+        } else {
+            this._stopPointerPolling();
+            this._settings.set_string('status', selection.length ? 'No selected monitor is connected' : 'No monitors selected');
+        }
+    }
+
+    _monitorAt(x, y) {
+        return this._monitors.find(monitor => x >= monitor.x && x < monitor.x + monitor.width &&
+            y >= monitor.y && y < monitor.y + monitor.height);
     }
 
     _startPointerPolling() {
@@ -167,6 +199,7 @@ export default class RippleExtension extends Extension {
         for (const key of ['active', 'status', 'target', 'fps', 'patch-size',
             'max-waves', 'panic-enabled', 'panic-available'])
             values[key] = this._settings.get_value(key).deep_unpack();
+        values.selectedMonitors = this._monitors.length;
         return values;
     }
 
@@ -222,6 +255,9 @@ export default class RippleExtension extends Extension {
         if (!this._settings.get_boolean('active') || !this._leaseValid() ||
             Main.overview.visible || Main.sessionMode.isLocked)
             return;
+        const monitor = this._monitorAt(x, y);
+        if (!monitor)
+            return;
         const time = now();
         if (time - this._lastClick < 0.18)
             return;
@@ -236,7 +272,7 @@ export default class RippleExtension extends Extension {
                 metaWindow.is_fullscreen() || !metaWindow.showing_on_its_workspace())
                 return;
             this._lastClick = time;
-            this._addPatch(windowActor, x, y, false);
+            this._addPatch(windowActor, x, y, false, monitor);
             return;
         }
         if (target === 'windows')
@@ -254,13 +290,13 @@ export default class RippleExtension extends Extension {
         });
         if (background) {
             this._lastClick = time;
-            this._addPatch(background, x, y, true);
+            this._addPatch(background, x, y, true, monitor);
         }
     }
 
-    _addPatch(source, stageX, stageY, desktop) {
+    _addPatch(source, stageX, stageY, desktop, monitor = this._monitorAt(stageX, stageY)) {
         try {
-            if (source.scale_x !== 1 || source.scale_y !== 1 || source.opacity !== 255)
+            if (!monitor || source.scale_x !== 1 || source.scale_y !== 1 || source.opacity !== 255)
                 return;
             const [ok, localX, localY] = source.transform_stage_point(stageX, stageY);
             if (!ok)
@@ -268,18 +304,25 @@ export default class RippleExtension extends Extension {
             const parent = source.get_parent();
             if (!parent)
                 return;
-            const size = Math.min(512, this._settings.get_int('patch-size'));
-            const width = Math.min(size, source.width);
-            const height = Math.min(size, source.height);
-            if (width < 16 || height < 16)
+            // These are stage-logical bounds. Skip animated/scaled actors until their
+            // transform is a translation, so local cropping cannot cross monitor edges.
+            const [sourceX, sourceY] = source.get_transformed_position();
+            const [sourceWidth, sourceHeight] = source.get_transformed_size();
+            if (Math.abs(sourceWidth - source.width) > 0.01 || Math.abs(sourceHeight - source.height) > 0.01 ||
+                Math.abs(stageX - sourceX - localX) > 0.01 || Math.abs(stageY - sourceY - localY) > 0.01)
                 return;
-            const scale = Math.max(1, St.ThemeContext.get_for_stage(global.stage).scale_factor);
+            const size = Math.min(512, this._settings.get_int('patch-size'));
+            const crop = clipRipplePatch(source.width, source.height, localX, localY, {
+                x: monitor.x - sourceX, y: monitor.y - sourceY, width: monitor.width, height: monitor.height,
+            }, size);
+            if (!crop)
+                return;
+            const {left, top, width, height} = crop;
+            const scale = Math.max(1, monitor.scale, St.ThemeContext.get_for_stage(global.stage).scale_factor);
             if ((width + 8) * (height + 8) * scale * scale > 1048576) {
                 this._settings.set_string('status', 'Area exceeds the safety limit');
                 return;
             }
-            const left = Math.max(0, Math.min(source.width - width, localX - width / 2));
-            const top = Math.max(0, Math.min(source.height - height, localY - height / 2));
             const actor = new Clutter.Actor({
                 width, height, x: source.x + left, y: source.y + top,
                 reactive: false, clip_to_allocation: true,
@@ -291,7 +334,7 @@ export default class RippleExtension extends Extension {
             actor.add_effect(effect);
             // Sibling of the source: cloning can never recurse into our own overlay.
             parent.insert_child_above(actor, source);
-            const patch = {actor, effect, source, born: now(), sourceSignals: [], desktop};
+            const patch = {actor, effect, source, monitor, born: now(), sourceSignals: [], desktop};
             patch.sourceSignals.push(source.connect('destroy', () => this._removePatch(patch)));
             patch.sourceSignals.push(source.connect('notify::allocation', () => this._removePatch(patch)));
             this._patches.push(patch);

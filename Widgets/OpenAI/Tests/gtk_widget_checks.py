@@ -69,9 +69,10 @@ def poll():
             manifesto = project.get_next_sibling()
             assert isinstance(manifesto, widget.Gtk.LinkButton)
             assert manifesto.get_uri() == widget.MANIFESTO_URL
-            assert view.brand.get_width() >= 64
-            face = manifesto.get_child()
-            assert face.get_width() == face.get_height() == 64
+            assert view.brand.get_width() >= view.APP_ICON_SIZE
+            assert manifesto.get_child() == view.manifesto_mark
+            assert view.manifesto_mark.get_width() >= view.MANIFESTO_ICON_SIZE
+            assert view.manifesto_mark.get_height() >= view.MANIFESTO_ICON_SIZE
             assert not view.manifesto_mark.get_can_target()
             assert not view.details_button.get_visible()
             assert view.signal.last_remaining == snapshot["remaining"]
@@ -85,6 +86,7 @@ def poll():
             assert view.reset_tile.value == "30/09 09:44"
             assert view.reset_clock.caption.get_text() == "Next reset date"
             assert view.reset_clock.caption.get_visible()
+            assert view.reset_clock.get_first_child() == view.reset_clock.caption
             size = view.get_width()
             assert not view.voucher_tile.count_button.get_popover().get_visible()
             assert view.voucher_tile.count_button.activate()
@@ -127,6 +129,7 @@ def poll():
             assert all(tile.get_first_child() == tile.display for tile in view.metrics)
             positions.set_selected(2)
             assert not any(tile.caption.get_visible() for tile in view.metrics)
+            assert not view.reset_clock.caption.get_visible()
             toggles = {}
             for control in controls:
                 if isinstance(control, widget.Gtk.Switch) and (label_group := control.get_prev_sibling()) is not None:

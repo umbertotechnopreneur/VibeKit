@@ -28,8 +28,9 @@ internal sealed class RippleView : Grid
     internal RippleView(StudioModel model, StudioController controller, Window window, Grid root, ToggleSwitch effectSwitch)
     {
         pipelines = model.Pipelines;
-        var displayPicker = new DisplayTargetPicker(() => model.Settings.TargetDisplay,
-            device => model.Settings.TargetDisplay = device, compact: true);
+        var displayPicker = new DisplayTargetPicker(WinRT.Interop.WindowNative.GetWindowHandle(window),
+            () => controller.DisplaySelection, ids => model.Settings.TargetDisplays = ids,
+            () => model.Settings.TargetDisplay);
         var settings = BuildSettings(model, displayPicker, effectSwitch);
         var diagnostics = new StackPanel { Spacing = 12 };
         var pages = new StudioPages(
@@ -44,6 +45,7 @@ internal sealed class RippleView : Grid
         Children.Add(pages);
         foreach (var scroll in pages.Scrollers) Ui.HoverScrollBar(scroll, scroll, root);
         controller.SettingsRequested += () => pages.Select("Settings");
+        controller.DisplaysChanged += displayPicker.Refresh;
         pages.Select("Settings");
         var target = ApplyToPicker();
         Ui.Bind(target, ComboBox.SelectedIndexProperty, model.Settings, nameof(AppSettings.TargetIndex), BindingMode.TwoWay);
@@ -251,11 +253,11 @@ internal sealed class RippleView : Grid
         recoveryTiming.TextAlignment = TextAlignment.Right;
 
         var settings = SettingsPage();
-        settings.Children.Add(RowGroup("Display & appearance",
+        settings.Children.Add(RowGroup("Appearance",
             PreferenceRow("Effect", "Enable or disable the water ripple effect.", effectSwitch),
             PreferenceRow("Theme", "App theme.", theme),
-            PreferenceRow("Target display", "Display used for the effect.", displayPicker),
             PreferenceRow("Acrylic background", "Use a translucent background for this window.", acrylic)));
+        settings.Children.Add(displayPicker);
         settings.Children.Add(RowGroup("Startup",
             PreferenceRow("Start with Windows", startupStatus, startup),
             PreferenceRow("Resume automatically", "Resume after a temporary performance pause.", recovery)));

@@ -11,6 +11,7 @@ import {pipelineControls} from './pipeline-ui.js';
 import {createAbout} from './about.js';
 import {createAccordion, addThemeSetting} from './preferences-layout.js';
 import {createGpuJokes} from './gpu-jokes.js';
+import {createMonitorGroup} from './shared/monitor-settings.js';
 
 export function buildControls(window, settings, application = null, externalLease = false, startEffect = false, extensionConnection = Gio.DBus.session) {
     window.set_title('Ripple');
@@ -25,6 +26,7 @@ export function buildControls(window, settings, application = null, externalLeas
     const settingsSection = addSection('Settings');
     const aboutSection = addSection('About');
     addThemeSetting(window, settings, settingsSection, application);
+    settingsSection.add(createMonitorGroup(settings));
     const about = createAbout(window);
     const aboutGroup = new Adw.PreferencesGroup({title: 'VibeWare', description: 'Desktop toys by Umberto Giacobbi'});
     const aboutRow = new Adw.ActionRow({title: 'About Ripple', subtitle: 'Version, credits, license and project links', activatable: true});
@@ -46,23 +48,42 @@ export function buildControls(window, settings, application = null, externalLeas
     settings.bind('active', active, 'active', Gio.SettingsBindFlags.DEFAULT);
     group.add(active);
     const autoRestart = new Adw.SwitchRow({
-        title: 'Auto restart',
+        title: 'Resume automatically',
         subtitle: 'Resume after a performance pause when the system is stable',
     });
     settings.bind('auto-restart', autoRestart, 'active', Gio.SettingsBindFlags.DEFAULT);
-    group.add(autoRestart);
-    const emergency = new Adw.SwitchRow({
-        title: 'Emergency stop shortcut',
-        subtitle: 'Super + Shift + Esc stops the effect',
+    const footer = new Gtk.Box({
+        spacing: 10, margin_start: 12, margin_end: 12, margin_top: 6, margin_bottom: 6,
     });
+    footer.append(new Gtk.Image({icon_name: 'input-keyboard-symbolic'}));
+    const shortcutText = new Gtk.Label({
+        label: 'Emergency shortcut · Super + Shift + Esc', xalign: 0, wrap: true, hexpand: true,
+    });
+    const shortcutStatus = new Gtk.Label({xalign: 0, wrap: true, css_classes: ['dim-label']});
+    const shortcut = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, hexpand: true});
+    shortcut.append(shortcutText);
+    shortcut.append(shortcutStatus);
+    footer.append(shortcut);
+    const emergency = new Gtk.Switch({valign: Gtk.Align.CENTER});
+    shortcutText.set_mnemonic_widget(emergency);
     settings.bind('panic-enabled', emergency, 'active', Gio.SettingsBindFlags.DEFAULT);
-    group.add(emergency);
+    footer.append(emergency);
+    const brand = new Gtk.Button({label: 'VibeWare', css_classes: ['flat'], valign: Gtk.Align.CENTER});
+    brand.set_tooltip_text('About Ripple');
+    brand.connect('clicked', () => about.show());
+    footer.append(brand);
+    if (!application) {
+        const foot = new Adw.PreferencesGroup();
+        foot.add(new Gtk.ListBoxRow({child: footer, activatable: false, selectable: false}));
+        page.add(foot);
+    }
     const syncEmergency = () => {
-        emergency.subtitle = !settings.get_boolean('panic-enabled')
-            ? 'Shortcut disabled'
-            : settings.get_boolean('panic-available')
-                ? 'Super + Shift + Esc stops the effect'
-                : 'Shortcut unavailable; GNOME may not have registered it';
+        const enabled = settings.get_boolean('panic-enabled');
+        const available = settings.get_boolean('panic-available');
+        const status = !enabled ? 'Shortcut disabled' : available ? 'Stops the effect' : 'Shortcut unavailable';
+        emergency.set_tooltip_text(status);
+        shortcutStatus.label = status;
+        shortcutStatus.visible = enabled && !available;
     };
     const emergencyChanges = [
         settings.connect('changed::panic-enabled', syncEmergency),
@@ -147,33 +168,34 @@ export function buildControls(window, settings, application = null, externalLeas
         pipelines.changed(key);
         if (parameters.has(key)) for (const update of filterUpdates) update();
     });
-    const limits = new Adw.PreferencesGroup({title: 'Limits', description: 'Animation follows the monitor frame clock, up to this FPS limit. 60 FPS is recommended for a 60 Hz display.'});
+    const limits = new Adw.PreferencesGroup({
+        title: 'Performance protection',
+        description: 'Water Ripple uses GNOME’s compositor directly. Retro Terminal’s afterglow has a separate capture limit.',
+    });
     settingsSection.add(limits);
-    for (const [key, title, low, high, step] of [
-        ['patch-size', 'Area · px', 256, 512, 64],
-        ['max-waves', 'Simultaneous waves', 1, 2, 1],
-        ['fps', 'FPS limit', 15, 120, 1],
+    for (const [key, title, subtitle, low, high, step] of [
+        ['fps', 'Animation limit', 'Maximum ripple updates per second, up to the monitor’s frame rate.', 15, 120, 1],
+        ['patch-size', 'Ripple area · px', 'Maximum width or height of the area affected by a ripple.', 256, 512, 64],
+        ['max-waves', 'Simultaneous waves', 'Maximum number of ripples across the selected monitors.', 1, 2, 1],
     ]) {
-        const row = new Adw.SpinRow({title, adjustment: new Gtk.Adjustment({
+        const row = new Adw.SpinRow({title, subtitle, adjustment: new Gtk.Adjustment({
             lower: low, upper: high, step_increment: step, page_increment: step,
         })});
         settings.bind(key, row, 'value', Gio.SettingsBindFlags.DEFAULT);
         limits.add(row);
     }
-    const foot = new Adw.PreferencesGroup({
-        description: application
-            ? 'Super + Shift + Esc stops the effect. You can leave Ripple in the top bar.'
-            : 'Super + Shift + Esc stops the effect. Closing this panel also stops it.',
-    });
-    page.add(foot);
-    const stop = new Gtk.Button({label: 'Stop', css_classes: ['destructive-action'], margin_top: 6});
+    const recovery = new Adw.ActionRow({title: 'Recovery', subtitle: 'Resume only after the system becomes stable again.'});
+    recovery.add_suffix(new Gtk.Label({label: 'At least 1 min delay · 30 s stable', wrap: true, xalign: 1}));
+    limits.add(recovery);
+    limits.add(autoRestart);
+    const stop = new Gtk.Button({label: 'Stop', css_classes: ['destructive-action'], valign: Gtk.Align.CENTER});
+    status.add_suffix(stop);
     let enableWhenReady = application ? true : startEffect;
     stop.connect('clicked', () => {
         enableWhenReady = false;
         settings.set_boolean('recovery-pending', false);
         settings.set_boolean('active', false);
     });
-    foot.add(stop);
     let closed = false;
     let timeout = 0;
     const renewLease = () => {
@@ -247,6 +269,6 @@ export function buildControls(window, settings, application = null, externalLeas
         enableExtension();
         window.connect('close-request', () => { cancellable.cancel(); return false; });
     }
-    return {page, active, preset, stop, status, pipelines, library, about, aboutRow, aboutSection: aboutSection.row,
+    return {page, footer, active, preset, stop, status, pipelines, library, about, aboutRow, aboutSection: aboutSection.row,
         settingsSection: settingsSection.row, jokes};
 }

@@ -6,6 +6,7 @@ on:
       - 'openai-usage/v*'
       - 'desktop-ripple/v*'
       - 'retro-terminal/v*'
+      - 'vignette/v*'
 
 permissions:
   contents: read
@@ -24,14 +25,18 @@ jobs:
   retro-terminal:
     if: startsWith(github.ref_name, 'retro-terminal/v')
     uses: ./.github/workflows/ci-retro-terminal.yml
+  vignette:
+    if: startsWith(github.ref_name, 'vignette/v')
+    uses: ./.github/workflows/ci-vignette.yml
 
   release:
-    needs: [openai-usage, desktop-ripple, retro-terminal]
+    needs: [openai-usage, desktop-ripple, retro-terminal, vignette]
     if: |
       always() && !cancelled() &&
       (needs.openai-usage.result == 'success' ||
        needs.desktop-ripple.result == 'success' ||
-       needs.retro-terminal.result == 'success')
+       needs.retro-terminal.result == 'success' ||
+       needs.vignette.result == 'success')
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -58,6 +63,7 @@ jobs:
               'openai-usage': 'OpenAIUsage',
               'desktop-ripple': 'WaterRipple',
               'retro-terminal': 'RetroTerminal',
+              'vignette': 'Vignette',
           }
           if not re.fullmatch(r'\d+\.\d+\.\d+', version):
               raise SystemExit('Use the MSI product version in the release tag.')

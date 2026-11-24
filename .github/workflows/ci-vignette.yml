@@ -1,0 +1,55 @@
+name: Vignette checks
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check gradients and compositing
+        run: node Widgets/Vignette/Tests/gradient-checks.mjs
+      - name: Build and inspect Debian package
+        run: |
+          python3 Widgets/Vignette/Linux/build-package.py --output-dir "$RUNNER_TEMP/vignette-deb"
+          dpkg-deb --info "$RUNNER_TEMP"/vignette-deb/*.deb
+      - uses: actions/upload-artifact@v6
+        with:
+          name: vignette-linux
+          path: ${{ runner.temp }}/vignette-deb/*.deb
+          if-no-files-found: error
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            10.0.x
+            6.0.x
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Stage WiX 5
+        shell: pwsh
+        run: |
+          dotnet tool install wix --version 5.0.2 --tool-path "$env:RUNNER_TEMP/widget-wix"
+          if ($LASTEXITCODE -ne 0) { throw 'WiX installation failed.' }
+      - name: Build unsigned MSI from source
+        shell: pwsh
+        run: ./Widgets/Vignette/Windows/Packaging/Build-MSI.ps1 -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe" -OutputDirectory "$env:RUNNER_TEMP/vignette-msi"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: vignette-windows-x64
+          path: ${{ runner.temp }}/vignette-msi/*.msi
+          if-no-files-found: error

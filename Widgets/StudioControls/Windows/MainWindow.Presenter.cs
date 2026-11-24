@@ -32,18 +32,25 @@ public sealed partial class MainWindow
         private readonly Border board = new() { CornerRadius = new(12), BorderThickness = new(1) };
         private Storyboard? blend;
         private string? displayedSignal;
-        internal readonly StackPanel Body = Column(10);
+        private readonly Viewbox scalableDigits = new() { Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left };
+        internal readonly Grid Body = new();
 
         public PresenterFace(MainWindow owner)
         {
             this.owner = owner;
+            Body.RowDefinitions.Add(new() { Height = GridLength.Auto });
+            Body.RowDefinitions.Add(new() { Height = new(1, GridUnitType.Star) });
+            Body.RowDefinitions.Add(new() { Height = GridLength.Auto });
             var stripe = WithTrailing(mode, options);
             Body.Children.Add(stripe);
             options.Click += async (_, _) => await owner.EditTimerSettingsAsync();
 
             var display = Column(8);
             board.Child = display;
-            Body.Children.Add(board);
+            var scroll = new ScrollViewer { Content = board, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollMode = ScrollMode.Disabled, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+            Grid.SetRow(scroll, 1);
+            Body.Children.Add(scroll);
             Body.ActualThemeChanged += (_, _) => Paint();
             Paint();
             var clockRow = new Grid { ColumnSpacing = 12 };
@@ -85,7 +92,8 @@ public sealed partial class MainWindow
             clock.FontFamily = total.FontFamily = new FontFamily("Consolas");
             clock.FontWeight = current.FontWeight = next.FontWeight = FontWeights.SemiBold;
             mainTime.Children.Add(clockCaption);
-            var scalableDigits = new Viewbox { Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left, Child = clock };
+            scalableDigits.Child = clock;
+            clock.TextWrapping = TextWrapping.NoWrap;
             mainTime.Children.Add(scalableDigits);
             Grid.SetColumn(mainTime, 1);
             clockRow.Children.Add(mainTime);
@@ -132,10 +140,15 @@ public sealed partial class MainWindow
                 if (owner.recordingCue?.IsPending == true) return;
                 owner.player.Next(); await owner.AdvanceWorkflowAsync();
             };
-            stop.Click += (_, _) => { if (!owner.CancelRecordingCue()) owner.StopWorkflow("Workflow stopped."); };
+            stop.Click += (_, _) =>
+            {
+                if (owner.recordingCue is not null) owner.CancelRecordingCue();
+                else owner.StopWorkflow("Workflow stopped.");
+            };
             obs.Opacity = .78;
             var footer = WithTrailing(obs, actions);
             footer.Margin = new(2, 4, 2, 0);
+            Grid.SetRow(footer, 2);
             Body.Children.Add(footer);
         }
 
@@ -167,15 +180,16 @@ public sealed partial class MainWindow
         internal void ApplySize(Window window, bool large)
         {
             Body.Padding = new(large ? 22 : 12);
-            Body.Spacing = large ? 14 : 8;
+            Body.RowSpacing = large ? 12 : 8;
+            scalableDigits.MaxHeight = large ? 124 : 78;
             board.Padding = new(large ? 24 : 12);
             clock.FontSize = large ? 104 : 66;
             current.FontSize = next.FontSize = large ? 27 : 20;
             signal.Height = large ? 124 : 77;
             signal.Width = large ? 48 : 29;
             double scale = Body.XamlRoot?.RasterizationScale ?? owner.root.XamlRoot?.RasterizationScale ?? 1;
-            window.AppWindow.ResizeClient(new((int)Math.Ceiling((large ? 660 : 440) * scale),
-                (int)Math.Ceiling((large ? 380 : 278) * scale)));
+            window.AppWindow.ResizeClient(new((int)Math.Ceiling((large ? 690 : 458) * scale),
+                (int)Math.Ceiling((large ? 406 : 302) * scale)));
         }
 
         private static void Set(TextBlock field, string value)
@@ -257,6 +271,16 @@ public sealed partial class MainWindow
             }
             blend = transition;
             transition.Begin();
+        }
+
+        internal void VerifyLayout()
+        {
+            var corner = stop.TransformToVisual(Body).TransformPoint(new(stop.ActualWidth, stop.ActualHeight));
+            var sceneCorner = current.TransformToVisual(Body).TransformPoint(new(current.ActualWidth, current.ActualHeight));
+            var toolbarTop = hold.TransformToVisual(Body).TransformPoint(new(0, 0));
+            if (stop.ActualHeight < 20 || corner.X > Body.ActualWidth + 1 || corner.Y > Body.ActualHeight + 1 ||
+                sceneCorner.Y > toolbarTop.Y + 1)
+                throw new InvalidOperationException("The presenter must fit the scene and all transport controls in its viewport.");
         }
 
         internal void Close() => blend?.Stop();

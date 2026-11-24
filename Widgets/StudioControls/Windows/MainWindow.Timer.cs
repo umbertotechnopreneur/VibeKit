@@ -55,7 +55,11 @@ public sealed partial class MainWindow
             RefreshPlayback();
         };
         next.Click += async (_, _) => { player.Next(); await AdvanceWorkflowAsync(); };
-        stopButton.Click += (_, _) => { if (!CancelRecordingCue()) StopWorkflow("Workflow stopped."); };
+        stopButton.Click += (_, _) =>
+        {
+            if (recordingCue is not null) CancelRecordingCue();
+            else StopWorkflow("Workflow stopped.");
+        };
         row.Children.Add(hold); row.Children.Add(next); row.Children.Add(stopButton);
     }
 
@@ -66,7 +70,7 @@ public sealed partial class MainWindow
         timerWindow = window;
         var face = new PresenterFace(this);
         timerFace = face;
-        window.Content = new ScrollViewer { Content = face.Body, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        window.Content = face.Body;
         face.Body.RequestedTheme = root.RequestedTheme;
         face.Body.Language = localization.Language;
         timerLocalization.Language = localization.Language;

@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using VibeKit.StudioControls.Core;
 using global::Windows.Graphics.Imaging;
@@ -36,6 +37,7 @@ public sealed partial class MainWindow
             timerFace.ApplySize(timerWindow, large);
             RefreshPlayback();
             await Task.Delay(330);
+            timerFace.VerifyLayout();
             await SaveElementAsync((FrameworkElement)timerWindow.Content, directory, large ? "timer-large.png" : "timer-compact.png");
         }
         Activate();
@@ -48,7 +50,10 @@ public sealed partial class MainWindow
             await opening.Task.WaitAsync(TimeSpan.FromSeconds(5));
             await Task.Delay(330);
             // Capture the dialog's layout surface, excluding the rest of the desktop.
-            await SaveElementAsync(editor.Dialog, directory, "timer-settings.png");
+            FrameworkElement surface = editor.Sections;
+            for (var item = (DependencyObject?)editor.Sections; item is not null; item = VisualTreeHelper.GetParent(item))
+                if (item is FrameworkElement { Name: "BackgroundElement" } panel) { surface = panel; break; }
+            await SaveElementAsync(surface, directory, "timer-settings.png");
         }
         finally
         {

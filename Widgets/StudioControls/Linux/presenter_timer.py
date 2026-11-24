@@ -8,7 +8,7 @@ from workflow_widgets import add, box, button, icon, icon_button, margins, text,
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("GdkPixbuf", "2.0")
-from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, Pango  # noqa: E402
+from gi.repository import Gdk, GdkPixbuf, GObject, Gtk, Pango  # noqa: E402
 
 
 def clock_text(seconds):
@@ -35,6 +35,10 @@ class SignalLight(Gtk.Stack):
             # Overlay children do not impose the natural size of the source texture.
             layer = Gtk.Overlay(child=Gtk.Box())
             layer.add_overlay(picture)
+            if color != "off":
+                glow = Gtk.Box(can_target=False)
+                glow.add_css_class("presenter-glow-" + color)
+                layer.add_overlay(glow)
             self.add_named(layer, color)
         self.set_visible_child_name("off")
 
@@ -54,33 +58,44 @@ def text_field(style):
 
 
 def caption_label():
-    return text(style="presenter-caption")
+    label = text(style="presenter-caption")
+    label.set_ellipsize(Pango.EllipsizeMode.END)
+    label.set_max_width_chars(20)
+    return label
 
 
 class PresenterTimer(Gtk.Window):
     def __init__(self, flow):
-        super().__init__(title=flow.tr("Timer"), transient_for=flow.panel.window,
-                         destroy_with_parent=True, hide_on_close=True)
+        super().__init__(
+            title=flow.tr("Timer"),
+            transient_for=flow.panel.window,
+            destroy_with_parent=True,
+            hide_on_close=True,
+        )
         self.flow = flow
         self.settings_window = None
         self.add_css_class("umberto-lab")
         self.add_css_class("presenter")
         self.header = Gtk.HeaderBar()
         self.set_titlebar(self.header)
-        self.heading = text(style="heading")
+        self.heading = text(style="heading", truncate=True)
         self.header.set_title_widget(self.heading)
-        self.config_button = icon_button("emblem-system-symbolic", flow.tr("Timer settings"), self.open_settings)
+        self.config_button = icon_button(
+            "emblem-system-symbolic", flow.tr("Timer settings"), self.open_settings
+        )
         self.header.pack_end(self.config_button)
 
         self.body = box(True, 0)
-        self.body.set_valign(Gtk.Align.CENTER)
+        self.body.set_valign(Gtk.Align.FILL)
         self.set_child(self.body)
         self.stage = box(True, 0)
         self.stage.add_css_class("presenter-stage")
+        self.stage.set_vexpand(True)
         self.body.append(self.stage)
 
         self.clock_row = box(spacing=18)
         self.clock_row.add_css_class("presenter-clock-row")
+        self.clock_row.set_vexpand(True)
         self.stage.append(self.clock_row)
         self.signal = SignalLight()
         self.clock_caption = caption_label()
@@ -116,14 +131,20 @@ class PresenterTimer(Gtk.Window):
         footer.set_margin_top(9)
         self.body.append(footer)
         controls = box(spacing=4)
-        self.pause = icon_button("media-playback-pause-symbolic", flow.tr("Pause"), flow.toggle_pause)
+        self.pause = icon_button(
+            "media-playback-pause-symbolic", flow.tr("Pause"), flow.toggle_pause
+        )
         self.advance = icon_button("media-skip-forward-symbolic", flow.tr("Next"), flow.next_step)
-        self.stop_button = icon_button("media-playback-stop-symbolic", flow.tr("Stop"), self.stop_pressed)
+        self.stop_button = icon_button(
+            "media-playback-stop-symbolic", flow.tr("Stop"), self.stop_pressed
+        )
         for control in (self.pause, self.advance, self.stop_button):
             control.add_css_class("presenter-command")
             controls.append(control)
         self.obs = Gtk.Label(xalign=1, hexpand=True, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR)
-        self.obs.set_max_width_chars(1)
+        self.obs.set_lines(2)
+        self.obs.set_ellipsize(Pango.EllipsizeMode.END)
+        self.obs.set_max_width_chars(32)
         self.obs.add_css_class("presenter-obs")
         add(footer, controls, self.obs)
         self.connect("hide", self.on_hide)
@@ -139,19 +160,18 @@ class PresenterTimer(Gtk.Window):
         self.layout_size = opts.size
         self.add_css_class("presenter-" + opts.size)
         large = opts.size == "large"
-        self.set_default_size(710 if large else 458, 390 if large else 260)
-        self.signal.set_size_request(52 if large else 31, 156 if large else 93)
+        self.set_default_size(710 if large else 458, 442 if large else 296)
+        self.signal.set_size_request(74 if large else 42, 146 if large else 82)
         margins(self.body, 18 if large else 12)
 
     def on_hide(self, *_):
-        if self.flow.record_cue is not None:
-            self.flow.panel.cancel_record_cue()
+        self.flow.panel.cancel_record_cue()
 
     def stop_pressed(self):
-        if self.flow.record_cue is not None:
+        if self.flow.active:
+            self.flow.stop()
+        else:
             self.flow.panel.cancel_record_cue()
-            return
-        self.flow.stop()
 
     def open_settings(self):
         if self.settings_window is None:
@@ -168,13 +188,18 @@ class PresenterTimer(Gtk.Window):
         active = flow.active
         free = player.mode == "timer" and active
         clock_active = active and not flow.checking and player.state != "switching"
-        steps = player.steps if active and not flow.checking else flow.flow["steps"]
+        if active and not flow.checking:
+            steps = player.steps
+        elif player.state in ("finished", "stopped"):
+            steps = []
+        else:
+            steps = flow.flow["steps"]
         index = player.index if active and not flow.checking else 0
         current = steps[index] if not free and 0 <= index < len(steps) else None
         upcoming = steps[index + 1] if current and index + 1 < len(steps) else None
 
         if cue:
-            heading = tr("Recording in")
+            heading = tr("Timer")
         elif active and not free and not flow.checking:
             mode = "OBS" if player.mode == "live" else tr("Rehearsal")
             heading = mode + " · " + tr(state)
@@ -182,11 +207,18 @@ class PresenterTimer(Gtk.Window):
             heading = tr("Free timer") if free and player.state == "running" else tr(state)
         self.heading.set_label(heading)
         self.set_title(tr("Timer"))
-        self.clock_caption.set_label(tr("Recording in" if cue else "Free timer" if free else "Scene remaining"))
+        self.clock_caption.set_label(
+            tr("Recording in" if cue else "Free timer" if free else "Scene remaining")
+        )
         remaining = player.remaining if clock_active else 0
         if not active and current:
             remaining = current["seconds"]
-        self.clock.set_label(clock_text(cue[1] if cue else remaining))
+        digits = clock_text(cue[1] if cue else remaining)
+        self.clock.set_label(digits)
+        if len(digits) > 6:
+            self.clock.add_css_class("long-time")
+        else:
+            self.clock.remove_css_class("long-time")
         self.total_caption.set_label(tr("Workflow remaining"))
         total = player.total_remaining if clock_active else sum(s["seconds"] for s in steps[index:])
         self.total.set_label(clock_text(total))
@@ -202,10 +234,17 @@ class PresenterTimer(Gtk.Window):
         self.note.set_label(note)
         self.note.set_tooltip_text(note or None)
         self.note.set_visible(opts.show_note and bool(note) and cue is None)
-        warning = opts.end_warning and clock_active and player.state == "running" and 0 < remaining <= opts.warning_seconds
+        warning = (
+            opts.end_warning
+            and clock_active
+            and player.state == "running"
+            and 0 < remaining <= opts.warning_seconds
+        )
         signal = cue[0] if cue else "green" if warning else "off"
         self.signal.set_visible(opts.lead_in_enabled or opts.end_warning)
-        self.signal.update(signal, tr("Recording countdown" if cue else "End warning" if warning else "Signals"))
+        self.signal.update(
+            signal, tr("Recording countdown" if cue else "End warning" if warning else "Signals")
+        )
         status = flow.panel.obs_status.get_label()
         if player.reason:
             status = tr(player.reason) + (" · " + status if opts.show_obs else "")
@@ -213,15 +252,26 @@ class PresenterTimer(Gtk.Window):
         self.obs.set_visible((opts.show_obs and bool(status)) or bool(player.reason))
         self.obs.set_tooltip_text(status)
         paused = player.state == "paused"
-        self.pause.set_icon_name("media-playback-start-symbolic" if paused else "media-playback-pause-symbolic")
-        for control, label in ((self.pause, "Resume" if paused else "Pause"), (self.advance, "Next"),
-                               (self.stop_button, "Stop"), (self.config_button, "Timer settings")):
+        pause_icon = "media-playback-start-symbolic" if paused else "media-playback-pause-symbolic"
+        if self.pause.get_icon_name() != pause_icon:
+            self.pause.set_icon_name(pause_icon)
+        self.config_button.set_sensitive(cue is None)
+        for control, label in (
+            (self.pause, "Resume" if paused else "Pause"),
+            (self.advance, "Next"),
+            (self.stop_button, "Stop"),
+            (self.config_button, "Timer settings"),
+        ):
             description = tr(label)
             if control.get_tooltip_text() != description:
                 control.set_tooltip_text(description)
                 control.update_property([Gtk.AccessibleProperty.LABEL], [description])
-        self.pause.set_sensitive(not flow.checking and player.state in ("paused", "running") and cue is None)
-        self.advance.set_sensitive(not flow.checking and not free and player.state == "running" and cue is None)
+        self.pause.set_sensitive(
+            not flow.checking and player.state in ("paused", "running") and cue is None
+        )
+        self.advance.set_sensitive(
+            not flow.checking and not free and player.state == "running" and cue is None
+        )
         self.stop_button.set_sensitive(active or cue is not None)
         if self.settings_window:
             self.settings_window.start.set_sensitive(not active and cue is None)
@@ -232,11 +282,16 @@ class TimerSettings(Gtk.Window):
         self.timer = timer
         self.flow = timer.flow
         self.tr = self.flow.tr
-        super().__init__(title=self.tr("Timer settings"), transient_for=timer, modal=True,
-                         destroy_with_parent=True)
+        super().__init__(
+            title=self.tr("Timer settings"),
+            transient_for=timer,
+            modal=True,
+            destroy_with_parent=True,
+        )
         self.add_css_class("umberto-lab")
+        self.add_css_class("timer-settings")
         self.set_titlebar(Gtk.HeaderBar())
-        self.set_default_size(474, 530)
+        self.set_default_size(474, 512)
         self.connect("close-request", self.on_close)
         key = Gtk.EventControllerKey()
         key.connect("key-pressed", self.key_pressed)
@@ -255,14 +310,20 @@ class TimerSettings(Gtk.Window):
         self.size = Gtk.DropDown.new_from_strings([self.tr("Compact"), self.tr("Large")])
         self.size.set_selected(("compact", "large").index(opts.size))
         self.row(display, "Timer size", self.size)
-        for key, caption in (("show_next", "Show next scene"), ("show_total", "Show total remaining"),
-                             ("show_note", "Show scene note"), ("show_obs", "Show OBS status")):
+        for key, caption in (
+            ("show_next", "Show next scene"),
+            ("show_total", "Show total remaining"),
+            ("show_note", "Show scene note"),
+            ("show_obs", "Show OBS status"),
+        ):
             self.switch(display, key, caption)
         signals = self.section("Signals", False)
         self.switch(signals, "lead_in_enabled", "Recording countdown")
         self.switch(signals, "end_warning", "End warning")
         self.warning = self.spin(signals, "Warning (seconds)", 60, opts.warning_seconds)
-        self.values["end_warning"].bind_property("active", self.warning, "sensitive", 2)
+        self.values["end_warning"].bind_property(
+            "active", self.warning, "sensitive", GObject.BindingFlags.SYNC_CREATE
+        )
         free = self.section("Free timer", False)
         self.free = self.spin(free, "Free timer (seconds)", 86400, opts.free_seconds)
         self.start = button(self.tr("Start timer"), lambda: self.save(True))
@@ -321,10 +382,12 @@ class TimerSettings(Gtk.Window):
         self.warning.update()
         self.free.update()
         try:
-            opts = TimerOptions(size=("compact", "large")[self.size.get_selected()],
-                                warning_seconds=self.warning.get_value_as_int(),
-                                free_seconds=self.free.get_value_as_int(),
-                                **{key: ctrl.get_active() for key, ctrl in self.values.items()})
+            opts = TimerOptions(
+                size=("compact", "large")[self.size.get_selected()],
+                warning_seconds=self.warning.get_value_as_int(),
+                free_seconds=self.free.get_value_as_int(),
+                **{key: ctrl.get_active() for key, ctrl in self.values.items()},
+            )
             self.flow.apply_timer_options(opts)
         except (ValueError, OSError):
             self.error.set_label(self.tr("Could not save timer settings."))

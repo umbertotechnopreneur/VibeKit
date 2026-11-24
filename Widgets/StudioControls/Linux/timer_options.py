@@ -26,8 +26,14 @@ class TimerOptions:
     def __post_init__(self):
         if self.size not in ("compact", "large"):
             raise ValueError("Invalid timer size")
-        for flag in (self.show_next, self.show_total, self.show_note, self.show_obs,
-                     self.lead_in_enabled, self.end_warning):
+        for flag in (
+            self.show_next,
+            self.show_total,
+            self.show_note,
+            self.show_obs,
+            self.lead_in_enabled,
+            self.end_warning,
+        ):
             if type(flag) is not bool:
                 raise ValueError("Invalid timer switch")
         for value, limit in ((self.warning_seconds, 60), (self.free_seconds, 86400)):

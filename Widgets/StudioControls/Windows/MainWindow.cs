@@ -103,10 +103,10 @@ public sealed partial class MainWindow : Window
             root.Language = selected.Code;
             localization.Language = selected.Code;
             timerLocalization.Language = selected.Code;
-            if (timerWindow is { Content: ScrollViewer viewer } timer)
+            if (timerWindow is { Content: FrameworkElement body } timer)
             {
                 timer.Title = localization.Text("Timer");
-                if (viewer.Content is FrameworkElement body) body.Language = selected.Code;
+                body.Language = selected.Code;
             }
             RefreshPlayback();
             RefreshWorkflowEditor();
@@ -273,7 +273,7 @@ public sealed partial class MainWindow : Window
     private void ApplyTheme()
     {
         root.RequestedTheme = settings.Theme switch { "Dark" => ElementTheme.Dark, "Light" => ElementTheme.Light, _ => ElementTheme.Default };
-        if (timerWindow?.Content is ScrollViewer { Content: FrameworkElement timerContent }) timerContent.RequestedTheme = root.RequestedTheme;
+        if (timerWindow?.Content is FrameworkElement timerContent) timerContent.RequestedTheme = root.RequestedTheme;
         Color background = systemSettings.GetColorValue(UIColorType.Background);
         bool dark = settings.Theme == "Dark" || (settings.Theme == "System" && background.R + background.G + background.B < 384);
         root.Background = Brush(dark ? 0x171A1Eu : 0xF5F2EEu);

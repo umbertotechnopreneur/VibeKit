@@ -378,8 +378,8 @@ class WorkflowPanel:
     def open_timer(self):
         if self.timer_window is None:
             self.timer_window = PresenterTimer(self)
-        self.display()
         self.timer_window.present()
+        self.display()
         return self.timer_window
 
     def apply_timer_options(self, options):
@@ -408,12 +408,14 @@ class WorkflowPanel:
     def start_free(self):
         if self.active:
             return
+        self.panel.cancel_record_cue()
         self.player.start_timer(self.timer_options.free_seconds)
         self.schedule()
 
     def start(self, live):
         if self.active or not self.flow["steps"]:
             return
+        self.panel.cancel_record_cue()
         steps = deepcopy(self.flow["steps"])
         self.cancel = Event()
         self.dispatched = None
@@ -532,6 +534,7 @@ class WorkflowPanel:
         self.display()
 
     def stop(self, reason=""):
+        self.panel.cancel_record_cue()
         self.cancel.set()
         self.checking = False
         self.player.stop(reason)
@@ -605,13 +608,15 @@ class WorkflowPanel:
             title += " · " + tr("Free timer")
         elif not self.checking and player.steps and 0 <= player.index < len(player.steps):
             mode = "OBS" if player.mode == "live" else tr("Rehearsal")
-            title = mode + " · " + title + " · " + self.scene_title(player.steps[player.index]["scene"])
+            title = (
+                mode + " · " + title + " · " + self.scene_title(player.steps[player.index]["scene"])
+            )
         if player.reason and not self.checking:
             title += " · " + tr(player.reason)
         self.status.set_label(
             title + (" · " + timecode(player.remaining) if active and not self.checking else "")
         )
-        if self.timer_window is not None:
+        if self.timer_window is not None and self.timer_window.get_visible():
             self.timer_window.update_display("Checking OBS…" if self.checking else state)
 
     def close(self):

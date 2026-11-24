@@ -60,11 +60,16 @@ public sealed partial class StudioService
         throw new InvalidOperationException("The selected workflow transition is unavailable in OBS.");
     }
 
+    private void CheckWorkflowConnection(WorkflowSession session)
+    {
+        if (session.Generation != client.ConnectionGeneration) throw new InvalidOperationException("OBS connection changed.");
+    }
+
     private async Task CheckWorkflowSessionAsync(WorkflowSession session, CancellationToken token)
     {
+        CheckWorkflowConnection(session);
         if (await CurrentCollectionAsync(token).ConfigureAwait(false) != session.Collection)
             throw new InvalidOperationException("The OBS scene collection changed.");
-        if (session.Generation != client.ConnectionGeneration) throw new InvalidOperationException("OBS connection changed.");
     }
 
     private async Task<bool> CheckWorkflowInputAsync(WorkflowSession session, string expected, CancellationToken token)
@@ -76,6 +81,7 @@ public sealed partial class StudioService
             throw new InvalidOperationException("Recording was paused or stopped.");
         if (!await IsCurrentSceneAsync(expected, token).ConfigureAwait(false))
             throw new InvalidOperationException("The active OBS scene changed. Playback stopped.");
+        CheckWorkflowConnection(session);
         return recording;
     }
 
@@ -122,6 +128,7 @@ public sealed partial class StudioService
                 .GetProperty("transitionName").GetString();
         Task WriteOverrideAsync(string? name, CancellationToken ct)
         {
+            CheckWorkflowConnection(session);
             var fields = new Dictionary<string, string?>(target) { ["transitionName"] = name };
             return CallAsync("SetSceneSceneTransitionOverride", fields, ct);
         }

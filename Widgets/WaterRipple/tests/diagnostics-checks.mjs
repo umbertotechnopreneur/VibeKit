@@ -34,15 +34,18 @@ const GLib = {
 const scheduleStartupGpuJoke = vm.runInNewContext(
     source('gpu-joke-notifications.js').replace(/^export /gm, '') + '\nscheduleStartupGpuJoke;',
     {GLib});
-const {shellPressure, watchMemory} = vm.runInNewContext(
-    source('ram-guard.js').replace(/^export /gm, '') + '\n({shellPressure, watchMemory});',
-    {GLib, TextDecoder});
 const Extension = vm.runInNewContext(source('extension.js')
     .replace('export default class RippleExtension', 'class RippleExtension') + '\nRippleExtension;', {
     GLib, Extension: class {}, RecoveryPolicy, readResourceSample, retryDelay, FramePacer, scheduleStartupGpuJoke,
-    MONITOR_SELECTION_KEY: 'target-monitors', getShellMonitors: () => [{id: 'test-output'}],
+    MONITOR_SELECTION_KEY: 'target-monitors',
+    RipplePanelMenu: class { update() {} updateLease() {} destroy() {} },
+    acquireShellEffects: () => ({
+        displays: () => [{id: 'test-output'}],
+        subscribePressure: () => () => {},
+        release() {},
+    }),
     selectMonitors: monitors => monitors,
-    shellPressure, watchMemory, TextDecoder,
+    TextDecoder,
     Clutter: {ModifierType: {BUTTON1_MASK: 1}},
     console: {log: message => logs.push(JSON.parse(message.slice('Ripple: '.length)))},
     Main: {wm: {removeKeybinding() {}}, overview: {}, layoutManager: {}, sessionMode: {},
@@ -97,7 +100,7 @@ assert.equal(logs.length, count, 'Unchanged state must not be logged');
 values.active = true;
 values.status = 'Active';
 extension._previousFrame = 99.7;
-extension._tick();
+extension._tick(clock);
 assert.equal(values.active, false);
 assert.equal(logs.at(-1).event, 'effect-stopped');
 assert.equal(logs.at(-1).delayMs, 300);
@@ -118,7 +121,7 @@ settingsChanged = undefined; // The real extension disconnects its settings sign
 extension.enable();
 values.active = true;
 extension._previousFrame = clock - 0.3;
-extension._tick();
+extension._tick(clock);
 assert.equal(values['recovery-pending'], true, 'Compositor delays schedule recovery');
 assert.equal(notifications.at(-1).title, 'Ripple paused');
 assert.equal(values.active, false);
@@ -134,19 +137,19 @@ assert.equal(notifications.at(-1).title, 'Ripple resumed');
 assert.equal(values['recovery-pending'], false);
 timers.delete(timer); // The real GLib removes a source after SOURCE_REMOVE.
 extension._previousFrame = clock - 0.3;
-extension._tick();
+extension._tick(clock);
 assert.equal(extension._recovery.readyAt, clock + 120, 'Repeated failures back off');
 settings.set_boolean('recovery-pending', false);
 assert.equal(extension._recoveryTimer, 0, 'Explicit stop cancels a pending restart');
 assert.equal(values.status, 'Stopped');
 values.active = true;
 extension._previousFrame = clock - 0.3;
-extension._tick();
+extension._tick(clock);
 extension._stop('Stopped by keyboard shortcut');
 assert.equal(extension._recoveryTimer, 0, 'Emergency stop cancels recovery');
 values.active = true;
 extension._previousFrame = clock - 0.3;
-extension._tick();
+extension._tick(clock);
 const leaseTimer = extension._recoveryTimer;
 clock += 10;
 timers.get(leaseTimer)();
@@ -191,14 +194,19 @@ assert.equal(timers.size, 0, 'Extension shutdown cancels the startup timer');
 assert.equal(gpuJokesChanged, undefined);
 
 function checkStartup(autostart) {
-    let window, availability, actions;
+    let window, availability;
+    const actions = new Map();
     const settingsSection = {expanded: false};
     const handlers = {};
     class Application {
         connect(signal, callback) { handlers[signal] = callback; }
         get_dbus_connection() { return null; }
         activate() { handlers.activate(); }
-        run(args) { handlers['command-line'](this, {get_arguments: () => args}); }
+        add_action(action) { actions.set(action.name, action.activate); }
+        run(args) {
+            handlers.startup();
+            handlers['command-line'](this, {get_arguments: () => args});
+        }
     }
     class Window {
         constructor() { window = this; this.visible = false; }
@@ -212,25 +220,34 @@ function checkStartup(autostart) {
     vm.runInNewContext(source('control.js').replaceAll('import.meta.url', "'file:///ripple/control.js'"), {
         ARGV: autostart ? ['--autostart'] : [],
         GLib, loadSchema: () => ({}),
-        Gio: {File: {new_for_uri: () => ({get_parent: () => ({})})},
-            ApplicationFlags: {}, Settings: {new_full: () => settings}},
+        CONTROLLER_ID: 'local.vibeware.Ripple', PANEL_BUS_NAME: 'local.vibeware.Ripple.Panel',
+        watchMemory: () => 0,
+        Gio: {
+            File: {new_for_uri: () => ({get_parent: () => ({})})},
+            ApplicationFlags: {}, Settings: {new_full: () => settings},
+            DBus: {session: {}}, BusNameWatcherFlags: {},
+            bus_watch_name_on_connection(_bus, _name, _flags, acquired, lost) {
+                availability = available => available ? acquired() : lost();
+                return 1;
+            },
+            SimpleAction: class {
+                constructor({name}) { this.name = name; }
+                connect(_event, callback) { this.activate = callback; }
+            },
+        },
         Adw: {Application, ApplicationWindow: Window,
             HeaderBar: class {pack_end() {}}, ToolbarView: class {add_top_bar() {} add_bottom_bar() {}}},
         Gtk: {Button},
-        buildControls: () => ({page: {}, footer: {}, settingsSection, active: {connect() {}, active: true, sensitive: true}}),
-        TrayIndicator: class {
-            constructor(callbacks, callback) { actions = callbacks; availability = callback; }
-            setEffect() {}
-        },
+        buildControls: () => ({page: {}, footer: {}, settingsSection}),
     }, {filename: 'control.js'});
     assert.equal(window.visible, !autostart);
     availability(false);
     availability(true);
     assert.equal(window.visible, !autostart, 'Tray startup must not reveal the panel');
-    actions.show();
+    actions.get('open')();
     assert.equal(window.visible, true, 'Explicit Open must restore the panel');
     window.hide();
-    actions.preferences();
+    actions.get('preferences')();
     assert.equal(window.visible, true, 'Preferences must restore the panel');
     assert.equal(settingsSection.expanded, true);
     window.hide();

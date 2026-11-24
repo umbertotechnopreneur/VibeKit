@@ -40,31 +40,34 @@ def poll():
     global phase, failure
     try:
         if time.monotonic() - started > 10:
-            raise AssertionError("Recovery dialog check timed out")
+            raise AssertionError("Recovery panel check timed out")
         window = app.window
         if phase == 0 and window is not None and window.settings_ready:
             assert window.settings_error == message
             window.show_settings()
-            dialog = window.settings_dialog
+            dialog = window.settings_panel
             assert dialog is not None and dialog.get_visible()
             window.show_settings()
-            assert window.settings_dialog is dialog
+            assert window.settings_panel is dialog
             controls = list(descendants(dialog))
             assert any(isinstance(control, widget.Gtk.Label) and control.get_text() == message for control in controls)
             assert any(isinstance(control, widget.Gtk.Label) and control.get_text() == "Changes are saved automatically."
                        for control in controls)
             assert not any(isinstance(control, widget.Gtk.Button) and control.get_label() in ("Save settings", "Close")
                            for control in controls)
-            credits_row = next(control for control in controls if isinstance(control, widget.Gtk.ListBoxRow)
-                               and any(isinstance(child, widget.Gtk.Label) and child.get_text() == "Remaining Credits"
-                                       for child in descendants(control)))
-            toggle = next(child for child in descendants(credits_row) if isinstance(child, widget.Gtk.Switch))
+            fields = next(control for control in controls if isinstance(control, widget.Adw.ExpanderRow)
+                          and control.get_title() == "Widget fields")
+            fields.set_expanded(True)
+            label = next(control for control in descendants(fields)
+                         if isinstance(control, widget.Gtk.Label) and control.get_text() == "Remaining Credits")
+            toggle = label.get_parent().get_next_sibling()
+            assert isinstance(toggle, widget.Gtk.Switch)
             toggle.set_active(False)
             phase = 1
         elif phase == 1 and saved and not window.saving:
             assert window.settings_error is None
-            assert window.settings_dialog.get_visible()
-            window.settings_dialog.close()
+            assert window.settings_panel.get_visible()
+            window.hide_settings()
             window.exit_application()
             phase = 2
         return True
@@ -78,4 +81,4 @@ widget.GLib.timeout_add(50, poll)
 result = app.run(["openai-usage-settings-recovery-check"])
 assert failure is None, str(failure)
 assert result == 0 and phase == 2 and saved[-1]["timeZoneId"] == "UTC" and saved[-1]["showCredits"] is False
-print("PASS native GTK recovery message, reusable settings dialog and autosave while preferences remain open")
+print("PASS native GTK recovery message, reusable settings panel and autosave while preferences remain open")

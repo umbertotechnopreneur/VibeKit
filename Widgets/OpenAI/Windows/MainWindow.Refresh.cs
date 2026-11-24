@@ -26,6 +26,7 @@ public sealed partial class MainWindow
             UpdateSnapshotMetrics();
             CheckAlerts();
             Tick();
+            QueueLayout();
         }
         finally
         {

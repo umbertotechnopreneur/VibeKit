@@ -19,6 +19,7 @@ internal sealed class ScreenEffectSession : IDisposable
     private readonly Action<ScreenEffectSession, string> stopped;
     private readonly Action reportMetrics;
     private readonly DispatcherQueueTimer timer;
+    private readonly FrameSchedule schedule = new();
     private IntPtr renderer;
     private bool disposed, notified;
     private double invalidSince;
@@ -37,7 +38,9 @@ internal sealed class ScreenEffectSession : IDisposable
     {
         this.settings = settings; this.caps = caps; this.updated = updated; this.stopped = stopped;
         this.reportMetrics = reportMetrics;
-        timer = window.DispatcherQueue.CreateTimer(); timer.Interval = TimeSpan.FromMilliseconds(4); timer.Tick += (_, _) => Render();
+        timer = window.DispatcherQueue.CreateTimer();
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) => Render();
         window.Surface.Loaded += (_, _) => Initialize();
         window.Closed += (_, _) => { Release(false); NotifyStopped(); };
     }
@@ -56,7 +59,7 @@ internal sealed class ScreenEffectSession : IDisposable
             finally { Marshal.Release(panel); }
             Marshal.ThrowExceptionForHR(Native.RippleSetScreenMode(renderer, 1));
             Native.RippleSetInteropWindow(renderer, window.Handle);
-            timer.Start();
+            ArmTimer(0);
             Log.Information("OverlayInitialized WaitingForValidCapture");
         }
         catch (Exception ex) { Log.Error(ex, "Overlay initialization failed"); Stop("Screen effect could not start: " + ex.Message); }
@@ -65,8 +68,7 @@ internal sealed class ScreenEffectSession : IDisposable
     {
         if (disposed || renderer == IntPtr.Zero) return;
         double now = frame.Clock.Elapsed.TotalSeconds;
-        if (now < frame.NextFrame) return;
-        frame.NextFrame = Math.Max(frame.NextFrame + 1 / settings.AnimationFps, now);
+        bool retryPresent = false;
         try
         {
             bool inspecting = now < inspectionUntil;
@@ -77,21 +79,23 @@ internal sealed class ScreenEffectSession : IDisposable
                 window.SetInspectionCapture(false);
                 InspectionVisible = false;
                 changed = true;
+                schedule.RefreshCapture();
             }
             frame.Prepare(settings, now);
+            schedule.Rendered(now, settings.AnimationFps);
             if (settings.TargetIndex != targetIndex)
             {
                 targetIndex = settings.TargetIndex;
                 Native.RippleSetTarget(renderer, targetIndex);
             }
-            bool captureDue = !inspecting && now >= frame.NextCapture;
-            if (captureDue) frame.NextCapture = Math.Max(frame.NextCapture + 1 / settings.CaptureFps, now);
+            bool captureDue = !inspecting && schedule.CaptureDue(now, Math.Min(settings.AnimationFps, settings.CaptureFps));
             float rasterizationScale = (float)(window.Surface.XamlRoot?.RasterizationScale ?? 1);
             var parameters = RenderParameters.From(settings, caps, rasterizationScale, captureEnabled: !inspecting, captureDue);
             int renderResult = Native.Render(renderer, parameters, frame.ShaderWaves, frame.Waves.Count);
             Marshal.ThrowExceptionForHR(renderResult);
 
             if (Native.RippleGetStats(renderer, out var stats) < 0) return;
+            retryPresent = (stats.Status & CaptureStatus.PresentBusy) != 0;
             bool locallyVisible = stats.HasPresentedCapture;
             bool valid = locallyVisible || stats.HasCrtPresentation;
             bool visibilityChanged = locallyVisible != OverlayVisible;
@@ -133,12 +137,35 @@ internal sealed class ScreenEffectSession : IDisposable
             if (changed) updated(this);
         }
         catch (Exception ex) { Log.Error(ex, "Overlay render failed"); Stop("Screen effect was hidden after a graphics error: " + ex.Message); }
+        finally
+        {
+            if (!disposed)
+            {
+                var delay = schedule.DelayUntilWork(frame.Clock.Elapsed.TotalSeconds, frame.Waves.Count > 0,
+                    inspectionUntil, retryPresent);
+                ArmTimer(delay);
+            }
+        }
     }
+
+    private void ArmTimer(double seconds)
+    {
+        timer.Stop();
+        timer.Interval = TimeSpan.FromSeconds(Math.Max(.001, seconds));
+        timer.Start();
+    }
+
     internal bool AddClick(int x, int y)
     {
         int localX = x - caps.Left, localY = y - caps.Top;
         if (disposed || localX < 0 || localX >= caps.Width || localY < 0 || localY >= caps.Height) return false;
+        bool idle = frame.Waves.Count == 0;
         frame.AddWave(localX / (double)caps.Width, localY / (double)caps.Height);
+        if (idle && renderer != IntPtr.Zero)
+        {
+            schedule.BeginAnimation();
+            ArmTimer(0);
+        }
         return true;
     }
     private void Stop(string message) { reason = message; Dispose(); }
@@ -146,7 +173,6 @@ internal sealed class ScreenEffectSession : IDisposable
     {
         if (disposed || renderer == IntPtr.Zero || !CaptureValid) return;
         inspectionUntil = frame.Clock.Elapsed.TotalSeconds + 20;
-        frame.NextFrame = 0;
         Render();
     }
 
@@ -154,7 +180,7 @@ internal sealed class ScreenEffectSession : IDisposable
     {
         if (inspectionUntil <= 0) return;
         inspectionUntil = 0;
-        frame.NextFrame = 0;
+        schedule.RefreshCapture();
         Render();
     }
 

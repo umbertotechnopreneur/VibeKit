@@ -12,6 +12,7 @@ internal static class Native
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroIsArmed(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern uint RetroDisplayTopologyGeneration(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern int RetroRunning(nint engine);
+    [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroPreview(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern void RetroStop(nint engine);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern EmergencyShortcutState RetroSetEmergencyShortcut(nint engine, int enabled);
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl)] internal static extern SystemClose RetroSystemClose(nint engine);
@@ -50,6 +51,6 @@ internal static class Native
     [DllImport(Library, CallingConvention=CallingConvention.Cdecl, CharSet=CharSet.Unicode)] internal static extern void RetroStatus(nint engine,StringBuilder buffer,int capacity);
 }
 
-internal enum TrayAction { None, Open, Quit, Preferences, About }
+internal enum TrayAction { None, Open, Quit, Preferences, About, Enable, Stop, Preview, Green, Amber, Arcade, Glitch }
 internal enum SystemClose { None, Saved, SaveFailed }
 internal enum EmergencyShortcutState { Disabled = 0, Registered = 1, Unavailable = 2 }

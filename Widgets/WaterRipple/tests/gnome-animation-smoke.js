@@ -2,6 +2,7 @@
 // Replaces extension.js only in the private smoke-test installation.
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
+import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -57,13 +58,13 @@ export default class AnimationSmoke extends ProductionExtension {
         }
         Main.layoutManager.uiGroup.add_child(source);
         const assertCleared = label => {
-            assert(this._patches.length === 0 && this._timeline === null && this._frameSignal === 0,
+            assert(this._patches.length === 0 && this._frameSubscription === null,
                 `${label}: retained patch or native timeline`);
         };
         const addPatch = () => {
             const [x, y] = source.get_transformed_position();
             this._addPatch(source, x + source.width / 2, y + source.height / 2, false);
-            assert(this._patches.length === 1 && this._timeline?.is_playing(),
+            assert(this._patches.length === 1 && this._frameSubscription,
                 'Cannot start animation: ' + this._settings.get_string('status'));
             return this._patches[0];
         };
@@ -74,6 +75,12 @@ export default class AnimationSmoke extends ProductionExtension {
             try { await new Shell.Screenshot().screenshot(false, stream); }
             finally { stream.close(null); }
         };
+        const renewLease = () => {
+            this._settings.set_double('lease-until', now() + 7.5);
+            return GLib.SOURCE_CONTINUE;
+        };
+        renewLease();
+        const heartbeat = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, renewLease);
         try {
             await delay(700); // Complete overview and fixture allocation before adding a clone.
             this._settings.set_boolean('auto-restart', false);
@@ -84,8 +91,33 @@ export default class AnimationSmoke extends ProductionExtension {
             this._settings.set_double('lifetime', 6);
             this._settings.set_int('patch-size', 512);
             this._settings.set_int('fps', 24);
-            this._settings.set_double('lease-until', now() + 7.5);
             this._settings.set_boolean('active', true);
+            assert(this._startTimer && !this._pointerTimer, 'Ripple started without the activation delay');
+            this._settings.set_boolean('active', false);
+            assert(!this._startTimer, 'Stop retained the pending activation');
+            const activationTime = now();
+            this._settings.set_boolean('active', true);
+            await delay(9000);
+            assert(this._startTimer && !this._pointerTimer, 'Ripple armed before ten seconds');
+            await delay(1050);
+            assert(!this._startTimer && this._pointerTimer && now() - activationTime >= 10,
+                'Ripple did not arm after the activation delay');
+            this._settings.set_string('target', 'desktop');
+            const pointer = global.stage.get_context().get_backend().get_default_seat()
+                .create_virtual_device(Clutter.InputDeviceType.POINTER_DEVICE);
+            const clickTime = GLib.get_monotonic_time();
+            pointer.notify_absolute_motion(clickTime, 180, 400);
+            await delay(40);
+            for (let i = 0; i < 4; i++) {
+                // A short press can occur entirely between two pointer polls.
+                pointer.notify_button(GLib.get_monotonic_time(), 1, Clutter.ButtonState.PRESSED);
+                await delay(2);
+                pointer.notify_button(GLib.get_monotonic_time(), 1, Clutter.ButtonState.RELEASED);
+                await delay(55);
+                assert(this._patches[0]?.desktop, 'A short desktop click did not render a Ripple patch');
+                this._clear();
+                await delay(155 + i * 4);
+            }
             const [x, y] = source.get_transformed_position();
             const centerX = x + source.width / 2;
             const centerY = y + source.height / 2;
@@ -95,8 +127,16 @@ export default class AnimationSmoke extends ProductionExtension {
             this._addPatch(source, centerX, centerY, false, {...monitor, width: edge - monitor.x});
             await delay(35);
             const clipped = this._patches[0]?.actor;
-            assert(clipped && clipped.get_transformed_position()[0] + clipped.get_transformed_size()[0] <= edge + 0.01,
+            assert(clipped, 'A click next to the selected display edge did not start a wave');
+            const [clippedWidth] = clipped.get_transformed_size();
+            assert(clipped.get_transformed_position()[0] + clippedWidth <= edge + 0.01,
                 'A source spanning two logical viewports drew ripple pixels across the selected edge');
+            assert(Math.abs(clippedWidth - (edge - x)) < 0.01,
+                'The crop lost usable area on the selected display');
+            this._clear();
+            this._addPatch(source, centerX, centerY, false, {...monitor, scale: 2});
+            assert(this._patches[0]?.actor.width === 504,
+                'A 2× display should shrink a 512 px crop to fit the framebuffer budget');
             this._settings.set_strv('target-monitors', []);
             assertCleared('Last monitor switched off');
             assert(!this._pointerTimer && this._settings.get_boolean('active'), 'All monitors off must leave Effect armed without polling');
@@ -116,10 +156,10 @@ export default class AnimationSmoke extends ProductionExtension {
             samples = [];
             await delay(1500);
             const cap24 = statistics('native-cap-24', samples);
-            const timeline = this._timeline;
+            const subscription = this._frameSubscription;
             const ageBefore = samples.at(-1).age;
             this._settings.set_int('fps', 60);
-            assert(this._patches[0] === patch && this._timeline === timeline,
+            assert(this._patches[0] === patch && this._frameSubscription === subscription,
                 'Changing FPS destroyed an active wave or its timeline');
             await delay(100);
             assert(samples.at(-1).age > ageBefore, 'FPS change reset animation age');
@@ -149,8 +189,8 @@ export default class AnimationSmoke extends ProductionExtension {
             await delay(150);
             assert(!this._settings.get_boolean('active'), 'Manual stop restarted itself');
 
-            this._settings.set_double('lease-until', now() + 7.5);
             this._settings.set_boolean('active', true);
+            await delay(10050);
             addPatch();
             await delay(100);
             source.destroy();
@@ -159,6 +199,7 @@ export default class AnimationSmoke extends ProductionExtension {
             this._settings.set_boolean('active', false);
             console.log('RIPPLES_SMOKE_PASS: monitor clipping and switches, real shader at 24/60 FPS, age continuity, FPS changes, clear, manual stop and source destruction');
         } finally {
+            GLib.source_remove(heartbeat);
             this._settings.set_boolean('active', false);
             this._clear();
             source?.destroy();

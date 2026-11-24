@@ -15,12 +15,12 @@ public sealed partial class MainWindow
     private const double BrandButtonSize = 64;
     private const double ManifestoButtonSize = 84;
     private readonly WrappingPanel strip = new(TileSpacing);
-    private readonly FlipTile remaining = new("Allowance remaining", 148, 24, SecondaryText, showAccent: true, worn: true, compactAccent: true);
-    private readonly FlipTile credits = new("Remaining credits", 136, 24, SecondaryText, showAccent: true, worn: true, compactAccent: true);
-    private readonly FlipTile forecast = new("Estimated time remaining", 178, 24, SecondaryText);
-    private readonly FlipTile vouchers = new("Resets available", 122, 25, SecondaryText);
-    private readonly FlipTile compactReset = new("First reset", 178, 23, SecondaryText);
-    private readonly FlipTile resetClock = new("Next reset date", 430, 28, SecondaryText,
+    private readonly FlipTile remaining = new("Allowance remaining", 115, 20, SecondaryText, label: "Allowance left", showAccent: true, worn: true, compactAccent: true);
+    private readonly FlipTile credits = new("Remaining Credits", 108, 20, SecondaryText, sizingCharacters: 7, showAccent: true, worn: true, compactAccent: true);
+    private readonly FlipTile forecast = new("Time to run out", 152, 20, SecondaryText);
+    private readonly FlipTile vouchers = new("Available vouchers", 104, 20, SecondaryText, label: "Vouchers");
+    private readonly FlipTile voucherExpiry = new("Next voucher expiry", 160, 20, SecondaryText, sizingCharacters: 11);
+    private readonly FlipTile resetClock = new("Auto reset clock", 403, 20, SecondaryText,
         sizingCharacters: "WEDNESDAY 00 SEPTEMBER 00".Length);
     private readonly Stopwatch clockCycle = new();
     private readonly Button appWebsiteButton = BrandLink(Logo(BrandButtonSize), "Open OpenAI Usage project page", ProjectUrl);
@@ -31,9 +31,8 @@ public sealed partial class MainWindow
     }, "VibeWare manifesto", ManifestoUrl);
     private readonly Button usageLink = Button("", "Open usage and resets in ChatGPT");
     private readonly Button forecastLink = Button("", "Open usage and resets in ChatGPT");
-    private readonly Button vouchersButton = Button("", "View reset voucher expiration dates");
+    private readonly Button vouchersButton = Button("", "Show voucher expiration dates");
     private readonly TextBlock voucherExpirations = Text("", 14);
-    private readonly Button resetLink = Button("", "Open usage and resets in ChatGPT");
     private readonly Button countdownLink = Button("", "Open usage and resets in ChatGPT");
     private readonly HashSet<int> notifiedThresholds = [];
     private readonly HashSet<int> soundedThresholds = [];
@@ -48,7 +47,6 @@ public sealed partial class MainWindow
         BuildSignal();
         ConfigureUsageLink(usageLink, remaining);
         ConfigureUsageLink(forecastLink, forecast);
-        ConfigureUsageLink(resetLink, compactReset);
         BuildVoucherButton();
 
         ConfigureUsageLink(countdownLink, resetClock);
@@ -84,7 +82,7 @@ public sealed partial class MainWindow
                 Spacing = 8,
                 Children =
                 {
-                    Text("Reset voucher expiration dates", 16, bold: true),
+                    Text("Voucher expiration dates", 16, bold: true),
                     new ScrollViewer { Content = voucherExpirations, MaxHeight = 220 }
                 }
             }
@@ -112,22 +110,20 @@ public sealed partial class MainWindow
         remaining.Set(allowance, animate);
         string resetCount = state.ResetVoucherCount?.ToString(CultureInfo.InvariantCulture) ?? "—";
         vouchers.Set(resetCount, animate && settings.ShowAvailableResets);
-        credits.Set(state.CreditsLabel.ToUpperInvariant(), animate && settings.ShowCredits);
+        credits.Set(state.CreditsLabel == "Unavailable" ? "—" : state.CreditsLabel.ToUpperInvariant(), animate && settings.ShowCredits);
         forecast.Set(state.ForecastAvailable ? state.ForecastCompact : "—", animate && settings.ShowEstimatedTime);
-        var firstReset = state.ResetDisplays.FirstOrDefault();
-        compactReset.Set(firstReset?.Value ?? state.SelectedResetCompact ?? "—", animate);
+        UpdateVoucherExpiry(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
 
-        string remainingDetail = $"{state.AllowanceLabel}: {allowance}. {state.ResetLabel}";
+        string remainingDetail = $"Percentage available in the {SelectedQuotaName}: {allowance}. {state.ResetLabel}";
         DescribeMetric(usageLink, remainingDetail);
-        DescribeMetric(forecastLink, $"Estimated time remaining: {(state.ForecastAvailable ? state.ForecastCompact : "—")}. {state.ForecastDetail}");
-        DescribeMetric(resetLink, $"First reset: {firstReset?.Detail ?? state.ResetLabel}");
-        AutomationProperties.SetName(vouchersButton, $"Resets available: {resetCount}. View reset voucher expiration dates.");
+        DescribeMetric(forecastLink, $"Estimated time until the {SelectedQuotaName} runs out at your observed usage rate. {state.ForecastDetail}");
+        AutomationProperties.SetName(vouchersButton, $"Vouchers available to use now: {resetCount}. Show voucher expiration dates.");
         voucherExpirations.Text = state.ResetVoucherCount switch
         {
-            null => "Reset voucher information is unavailable.",
-            0 => "There are no reset vouchers available.",
+            null => "Voucher balance unavailable.",
+            0 => "No vouchers are available.",
             _ when state.ResetVoucherExpirations.Count == 0 => "Codex did not provide expiration dates.",
-            _ => string.Join(Environment.NewLine, state.ResetVoucherExpirations.Select((item, index) => $"Reset {index + 1}: {item.Detail}"))
+            _ => string.Join(Environment.NewLine, state.ResetVoucherExpirations.Select((item, index) => $"Voucher {index + 1}: {item.Detail}"))
         };
         if (state.CreditsBalance is { } balance && balance > highestCreditBalance)
             highestCreditBalance = balance;
@@ -143,6 +139,26 @@ public sealed partial class MainWindow
             if (parts[3].Length > 2) parts[3] = parts[3][^2..];
             resetCalendarText = string.Join(" ", parts).ToUpperInvariant();
         }
+    }
+
+    private string SelectedQuotaName => state.Windows.FirstOrDefault(window => window.Key == state.SelectedWindow)?.Minutes switch
+    {
+        300 => "five-hour quota",
+        10080 => "weekly quota",
+        _ => "selected quota"
+    };
+
+    private void UpdateVoucherExpiry(long now)
+    {
+        var next = state.ResetVoucherCount > 0
+            ? state.ResetVoucherExpirations.Where(item => item.ExpiresAt > now).MinBy(item => item.ExpiresAt)
+            : null;
+        voucherExpiry.Set(next?.Value ?? "—", false);
+        DescribeMetric(voucherExpiry, next is not null
+            ? "Earliest reported expiration of an available voucher: " + next.Detail
+            : state.ResetVoucherCount == 0
+                ? "No vouchers are available."
+                : "No upcoming expiration date was reported for an available voucher.");
     }
 
     private static void DescribeMetric(FrameworkElement element, string detail)
@@ -186,9 +202,7 @@ public sealed partial class MainWindow
         {
             resetClock.Set("—", false);
         }
-        DescribeMetric(countdownLink, showCalendar
-            ? $"Reset date: {state.ResetCalendarDate}"
-            : "Countdown until the selected allowance resets.");
+        DescribeMetric(countdownLink, $"Automatic renewal of the {SelectedQuotaName}. {state.ResetLabel} This display alternates between the date and the time remaining.");
     }
 
     private void CheckAlerts()

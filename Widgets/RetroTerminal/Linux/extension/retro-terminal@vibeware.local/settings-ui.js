@@ -32,15 +32,23 @@ export function buildControls(window, settings) {
     const about = createAbout(window);
     window.add(page);
     const signals = [];
-    const showRequestedAbout = () => {
-        const requested = settings.get_int64('about-request');
+    const handleRequest = (key, action) => {
+        const requested = settings.get_int64(key);
         if (!requested || !window.get_mapped()) return;
-        settings.reset('about-request');
+        settings.reset(key);
         const age = GLib.get_monotonic_time() - requested;
-        if (age >= 0 && age < 10 * GLib.USEC_PER_SEC) about.show();
+        if (age >= 0 && age < 10 * GLib.USEC_PER_SEC) action();
     };
-    signals.push(settings.connect('changed::about-request', showRequestedAbout));
-    const aboutMap = window.connect('map', showRequestedAbout);
+    const showAbout = () => handleRequest('about-request', () => about.show());
+    const showSettings = () => handleRequest('preferences-request', () => {
+        settingsSection.row.expanded = true;
+        settingsSection.row.grab_focus();
+    });
+    signals.push(settings.connect('changed::about-request', showAbout));
+    signals.push(settings.connect('changed::preferences-request', showSettings));
+    signals.push(settings.connect('changed::quit-request', () => window.close()));
+    settings.get_int64('quit-request');
+    const aboutMap = window.connect('map', () => { showSettings(); showAbout(); });
     const {controls, expanders, group, section, switchRow, spinRow} = createControlBuilders(effect, settings);
 
     const active = switchRow(power, 'active', 'CRT effect', 'Turn on CRT to preview changes on the desktop.');

@@ -10,27 +10,33 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {CrtEffect, MAX_MONITOR_REGIONS} from './effect.js';
 import {DelayGuard, MAX_DESKTOP_PIXELS, MAX_STAGE_PIXELS, surfaceAllowed} from './guard.js';
-import {shellPressure, watchMemory} from './ram-guard.js';
+import {acquireShellEffects} from './shared/shell-effects.js';
 import {PhosphorPersistence} from './persistence.js';
 import {GlitchSequence} from './glitches.js';
 import {DEFAULTS, readValues} from './settings-model.js';
 import {scheduleStartupGpuJoke} from './gpu-joke-notifications.js';
-import {getShellMonitors, selectMonitors} from './shared/monitor-selection.js';
+import {selectMonitors} from './shared/monitor-selection.js';
 import {MAX_RECOVERY_ATTEMPTS, RecoveryWindow, parseResources} from './recovery.js';
 
+const STARTUP_GRACE_US = 5_000_000;
 const now = () => GLib.get_monotonic_time() / 1e6;
 export default class RetroTerminal extends Extension {
     enable() {
         this._settings = this.getSettings();
-        this._startRamWatch();
+        this._effects = acquireShellEffects(global.stage, Main.layoutManager,
+            () => this._stop('Display changed; enable again to resume'));
+        this._memoryWatch = null;
         this._signals = [];
         this._timer = 0;
         this._previewTimer = 0;
+        this._previewRequested = false;
+        this._startupTimer = 0;
+        this._readyAt = GLib.get_monotonic_time() + STARTUP_GRACE_US;
         this._settingsUpdate = 0;
         this._effect = null;
         this._unredirectInhibited = false;
         this._persistence = null;
-        this._glitchTimer = 0;
+        this._glitchFrames = null;
         this._glitchWake = 0;
         this._glitchSequence = new GlitchSequence();
         this._panic = Meta.KeyBindingAction.NONE;
@@ -44,32 +50,35 @@ export default class RetroTerminal extends Extension {
         this._settings.set_string('status', 'Stopped');
         this._button = new PanelMenu.Button(0.0, 'Retro Terminal');
         this._button.add_child(new St.Icon({icon_name: 'utilities-terminal-symbolic', style_class: 'system-status-icon'}));
-        this._button.menu.addAction('Preferences', () => this.openPreferences());
+        this._button.menu.addAction('Preferences', () => {
+            this._settings.set_int64('preferences-request', GLib.get_monotonic_time());
+            this.openPreferences();
+        });
+        this._button.menu.addAction('Open', () => this.openPreferences());
         this._button.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        this._toggle = new PopupMenu.PopupSwitchMenuItem('CRT desktop', false);
+        this._toggle = new PopupMenu.PopupSwitchMenuItem('Effect', false);
         this._toggle.connect('toggled', (_item, state) => this._settings.set_boolean('active', state));
         this._button.menu.addMenuItem(this._toggle);
         this._button.menu.addAction('Try for 15 seconds', () => {
             if (this._settings.get_boolean('active')) return;
+            this._previewRequested = true;
             this._settings.set_boolean('active', true);
-            if (this._effect) {
-                this._previewTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 15, () => {
-                    this._previewTimer = 0;
-                    this._stop('Preview finished');
-                    return GLib.SOURCE_REMOVE;
-                });
-            } else if (this._settings.get_boolean('active')) this._stop('Select a display before starting the preview');
         });
         const palette = new PopupMenu.PopupSubMenuMenuItem('Palette');
         ['Green phosphor', 'Amber terminal', 'Arcade color'].forEach((name, index) => {
             palette.menu.addAction(name, () => this._selectPalette(index));
         });
         this._button.menu.addMenuItem(palette);
-        this._button.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this._button.menu.addAction('Try a glitch now', () => this._startGlitch(true));
         this._button.menu.addAction('Stop', () => this._stop('Stopped manually'));
         this._status = new PopupMenu.PopupMenuItem('Stopped', {reactive: false});
         this._button.menu.addMenuItem(this._status);
+        this._button.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        this._button.menu.addAction('Quit', () => {
+            this._stop('Stopped manually');
+            this._settings.set_int64('quit-request', GLib.get_monotonic_time());
+            Main.extensionManager.disableExtension(this.uuid);
+        });
         this._button.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this._button.menu.addAction('Mini Utilities', () => {
             Gio.AppInfo.launch_default_for_uri('https://umbertogiacobbi.biz/mini-utilities/', global.create_app_launch_context(0, -1));
@@ -94,7 +103,7 @@ export default class RetroTerminal extends Extension {
                 this._recovery.window = new RecoveryWindow(this._recovery.started, this._settings.get_int('recovery-delay'), this._recoveryAttempts);
             else if (key === 'animation-fps' || key === 'capture-fps') {
                 try {
-                    if (key === 'animation-fps' && this._glitchTimer) this._startGlitchFrames();
+                    if (key === 'animation-fps' && this._glitchFrames) this._startGlitchFrames();
                     if (this._effect) this._configurePersistence();
                 } catch (error) {
                     console.error('Retro Terminal:', error);
@@ -115,7 +124,9 @@ export default class RetroTerminal extends Extension {
                 }
             }
         });
-        this._connect(Main.layoutManager, 'monitors-changed', () => this._stop('Display changed; enable again to resume'));
+        // Read the keys after connecting so dconf changes from Preferences are observed.
+        this._status.label.text = this._settings.get_string('status');
+        this._sync();
         this._connect(St.ThemeContext.get_for_stage(global.stage), 'notify::scale-factor',
             () => this._stop('Display scale changed; enable again to resume'));
         this._connect(Main.sessionMode, 'updated', () => {
@@ -144,7 +155,7 @@ export default class RetroTerminal extends Extension {
     }
 
     _monitors() {
-        return selectMonitors(getShellMonitors(Main.layoutManager.monitors, global.display), this._settings.get_strv('target-monitors'));
+        return selectMonitors(this._effects.displays(), this._settings.get_strv('target-monitors'));
     }
 
     _userSession() {
@@ -174,8 +185,17 @@ export default class RetroTerminal extends Extension {
         });
     }
     _configure() {
-        const [width, height, scale] = this._dimensions();
-        this._effect.configure(this._settings, width * scale, height * scale);
+        const enabled = this._settings.get_double('intensity') > 0;
+        if (enabled !== this._unredirectInhibited) {
+            if (enabled) global.compositor.disable_unredirect();
+            else global.compositor.enable_unredirect();
+            this._unredirectInhibited = enabled;
+        }
+        this._effect.set_enabled(enabled);
+        if (enabled) {
+            const [width, height, scale] = this._dimensions();
+            this._effect.configure(this._settings, width * scale, height * scale);
+        }
     }
     _configurePersistence() {
         if (!this._persistence) return;
@@ -201,9 +221,10 @@ export default class RetroTerminal extends Extension {
         this._armGlitch();
     }
     _cancelGlitchTimers() {
-        if (this._glitchTimer) GLib.source_remove(this._glitchTimer);
+        this._glitchFrames?.();
+        this._glitchFrames = null;
         if (this._glitchWake) GLib.source_remove(this._glitchWake);
-        this._glitchTimer = this._glitchWake = 0;
+        this._glitchWake = 0;
     }
     _armGlitch() {
         if (!this._effect) return;
@@ -234,24 +255,26 @@ export default class RetroTerminal extends Extension {
     }
 
     _startGlitchFrames() {
-        if (this._glitchTimer) GLib.source_remove(this._glitchTimer);
-        const interval = Math.ceil(1000 / this._settings.get_int('animation-fps'));
-        this._glitchTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, interval, () => {
+        this._glitchFrames?.();
+        const period = 1 / this._settings.get_int('animation-fps');
+        const tolerance = Math.min(.002, period * .2);
+        let next = now();
+        this._glitchFrames = this._effects.subscribeFrames(time => {
+            if (time + tolerance < next) return;
+            next += (1 + Math.floor((time + tolerance - next) / period)) * period;
             try {
-                const frame = this._glitchSequence.frame(now());
+                const frame = this._glitchSequence.frame(time);
                 if (!frame || !this._effect) {
-                    this._glitchTimer = 0;
+                    this._glitchFrames();
+                    this._glitchFrames = null;
                     this._effect?.setGlitch(0, 0, 0, 0);
                     this._armGlitch();
-                    return GLib.SOURCE_REMOVE;
+                    return;
                 }
                 this._effect.setGlitch(frame.type, frame.progress, frame.intensity, frame.seed);
-                return GLib.SOURCE_CONTINUE;
             } catch (error) {
-                this._glitchTimer = 0;
                 console.error('Retro Terminal glitch:', error);
                 this._stop('Glitch rendering failed; restart manually');
-                return GLib.SOURCE_REMOVE;
             }
         });
     }
@@ -273,10 +296,22 @@ export default class RetroTerminal extends Extension {
             this._stop('Available only in the unlocked desktop');
             return;
         }
+        const waitMs = Math.ceil((this._readyAt - GLib.get_monotonic_time()) / 1000);
+        if (this._startupTimer) return;
+        if (waitMs > 0) {
+            this._startupTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, waitMs, () => {
+                this._startupTimer = 0;
+                this._sync();
+                return GLib.SOURCE_REMOVE;
+            });
+            this._settings.set_string('status', 'Starting…');
+            return;
+        }
         try {
             const monitors = this._monitors();
             if (!monitors.length) {
-                if (this._previewTimer) this._stop('Preview stopped because no displays are selected');
+                if (this._previewRequested || this._previewTimer)
+                    this._stop('Preview stopped because no displays are selected');
                 else {
                     this._clear();
                     this._settings.set_string('status', 'Select a display to show the effect');
@@ -296,26 +331,37 @@ export default class RetroTerminal extends Extension {
                 this._configurePersistence();
                 return;
             }
-            // Fullscreen surfaces must pass through the compositor while CRT is active.
-            global.compositor.disable_unredirect();
-            this._unredirectInhibited = true;
             this._effect = new CrtEffect();
             this._configure();
             this._effect.setMonitors(monitors, width, height);
             // The base CRT pass transforms uiGroup once, without clones or input grabs.
             // Optional temporal afterglow separately captures the composed stage on the GPU.
             Main.layoutManager.uiGroup.add_effect_with_name(this.uuid, this._effect);
+            this._memoryWatch = this._effects.subscribePressure(event => {
+                console.warn(JSON.stringify({kind: 'guard.memory-pressure', app: 'RetroTerminal', ...event}));
+                this._stop('Stopped because system memory is low. Enable the effect manually to resume.');
+                Main.notify('Retro Terminal stopped', 'System memory is low. You can enable the effect again after memory recovers.');
+            });
             this._persistence = new PhosphorPersistence({
                 onError: error => {
                     console.error('Retro Terminal persistence:', error);
                     this._stop(`Afterglow stopped: ${error.message}. Enable CRT again to retry.`);
                 },
                 onDelay: delay => this._pauseAfterDelay(delay),
+                onOverlayAdded: () => this._effects.raisePostEffect(),
             });
             this._configurePersistence();
             if (!this._effect) return;
             this._configureGlitches();
             this._updateActiveStatus();
+            if (this._previewRequested) {
+                this._previewRequested = false;
+                this._previewTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 15, () => {
+                    this._previewTimer = 0;
+                    this._stop('Preview finished');
+                    return GLib.SOURCE_REMOVE;
+                });
+            }
             const guard = new DelayGuard(now());
             this._timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
                 if (guard.sample(now())) {
@@ -380,6 +426,11 @@ export default class RetroTerminal extends Extension {
     }
 
     _clear() {
+        this._memoryWatch?.();
+        this._memoryWatch = null;
+        if (this._startupTimer) GLib.source_remove(this._startupTimer);
+        this._startupTimer = 0;
+        this._previewRequested = false;
         if (this._previewTimer) GLib.source_remove(this._previewTimer);
         if (this._timer) GLib.source_remove(this._timer);
         if (this._settingsUpdate) GLib.source_remove(this._settingsUpdate);
@@ -405,24 +456,12 @@ export default class RetroTerminal extends Extension {
         }
         this._settings.set_string('status', reason);
     }
-    _startRamWatch() {
-        this._ramTimer = watchMemory(
-            () => this._effect ? shellPressure() : null,
-            event => {
-                this._ramTimer = 0;
-                console.warn(JSON.stringify({kind: 'guard.memory-pressure', app: 'RetroTerminal', ...event}));
-                this._stop('Stopped because system memory is low. Enable the effect manually to resume.');
-                Main.notify('Retro Terminal stopped', 'System memory is low. You can enable the effect again after memory recovers.');
-                this._startRamWatch();
-            });
-    }
-
     disable() {
-        if (this._ramTimer) GLib.source_remove(this._ramTimer);
-        this._ramTimer = 0;
         this._cancelGpuJokes?.();
         this._cancelGpuJokes = null;
         this._stop('Extension disabled');
+        this._effects.release();
+        this._effects = null;
         for (const [object, id] of this._signals) object.disconnect(id);
         this._signals = [];
         if (this._panic !== Meta.KeyBindingAction.NONE) Main.wm.removeKeybinding('retro-terminal-panic');

@@ -2,7 +2,6 @@ using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using System.Runtime.InteropServices;
 using global::Windows.Graphics;
 
 namespace OpenAIUsage.Windows;
@@ -13,7 +12,7 @@ public sealed partial class MainWindow
     private const int LargerWidgetPercent = 15;
     private const double TileSpacing = 8;
     private readonly Grid layout = new() { Padding = new(8) };
-    private readonly WrappingPanel actions = new(3, centerRows: true);
+    private readonly StackPanel actions = new() { Orientation = Orientation.Horizontal, Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
     private readonly StackPanel brands = new()
     {
         Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center
@@ -28,9 +27,9 @@ public sealed partial class MainWindow
     private readonly Button pinButton = Button("\uE718", "Keep on top");
     private Module[] modules = [];
     private bool layoutQueued;
-    private int lastMinimumWidth;
-    private double? expandedWidth;
-    private static readonly WindowSubclass ResizeProcedure = HorizontalResize;
+    private bool fitHeight = true;
+    private SizeInt32? requestedSize;
+    private SizeInt32? expandedSize;
 
     private sealed record Module(string Key, string Label, string Description, FrameworkElement Element, FlipTile? Tile = null, bool Detail = false);
 
@@ -38,19 +37,19 @@ public sealed partial class MainWindow
     {
         modules =
         [
-            new("allowance", "Allowance remaining", "Percentage left in the allowance currently selected by Codex.", usageLink, remaining),
-            new("credits", "Remaining credits", "Available credits. The bar compares your balance with the highest balance seen since launch.", credits, credits),
-            new("estimate", "Estimated time remaining", "Estimated time before the current allowance runs out at the observed usage rate.", forecastLink, forecast),
-            new("vouchers", "Resets available", "Number of reset vouchers. Select the tile to see their expiration dates.", vouchersButton, vouchers),
-            new("first-reset", "First reset", "Date and time of the first upcoming allowance reset.", resetLink, compactReset),
-            new("clock", "Next reset countdown and date", "Switches between the countdown and the calendar date of the next reset.", countdownLink, resetClock),
-            new("five-hour", "5-hour allowance", "Percentage left in the rolling five-hour allowance.", fiveHour, fiveHour, true),
-            new("five-reset", "5-hour reset in", "Time left before the five-hour allowance resets.", fiveReset, fiveReset, true),
-            new("weekly", "Weekly allowance", "Percentage left in the weekly allowance.", weekly, weekly, true),
-            new("weekly-reset", "Weekly reset at", "Date and time when the weekly allowance resets.", weeklyReset, weeklyReset, true),
-            new("detail-estimate", "Detailed time estimate", "Time the current allowance is expected to last at the observed rate.", detailsEstimate, detailsEstimate, true),
-            new("time-to-reset", "Time to reset", "Time until the current allowance resets.", timeToReset, timeToReset, true),
-            new("forecast", "At the current rate", "Whether the allowance will last to the reset and how early it could run out.", forecastMessage, forecastMessage, true)
+            new("allowance", "Allowance remaining", "Percentage still available in the selected Codex quota.", usageLink, remaining),
+            new("credits", "Remaining Credits", "Remaining credit balance. The bar compares it with the highest balance seen this session.", credits, credits),
+            new("estimate", "Time to run out", "Estimated time until the selected quota runs out at your observed usage rate.", forecastLink, forecast),
+            new("vouchers", "Available vouchers", "Vouchers you can use now for a manual quota reset. Click the count for their expiration dates.", vouchersButton, vouchers),
+            new("first-reset", "Next voucher expiry", "When the next available voucher with a reported date expires. A dash means no date is available.", voucherExpiry, voucherExpiry),
+            new("clock", "Auto reset clock", "Alternates between a countdown and the date when the selected quota renews automatically.", countdownLink, resetClock),
+            new("five-hour", "5-hour allowance", "Percentage remaining in the five-hour quota.", fiveHour, fiveHour, true),
+            new("five-reset", "5-hour auto reset in", "Hours and minutes until the five-hour quota renews automatically.", fiveReset, fiveReset, true),
+            new("weekly", "Weekly allowance", "Percentage remaining in the weekly quota.", weekly, weekly, true),
+            new("weekly-reset", "Weekly auto reset", "Local date and time when the weekly quota renews automatically.", weeklyReset, weeklyReset, true),
+            new("detail-estimate", "Run-out estimate", "Same usage estimate as Time to run out, shown in the expanded details.", detailsEstimate, detailsEstimate, true),
+            new("time-to-reset", "Selected auto reset in", "Time left until the selected quota renews automatically. The Auto reset clock also shows this countdown.", timeToReset, timeToReset, true),
+            new("forecast", "Will the quota last?", "Compares the estimated time to run out with the automatic renewal of the selected quota.", forecastMessage, forecastMessage, true)
         ];
         layout.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
         layout.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
@@ -88,13 +87,7 @@ public sealed partial class MainWindow
 
     private void ApplySize()
     {
-        if (!settings.EnableDetailsBar && detailsOpen)
-        {
-            SetDetailsOpen(false);
-            return;
-        }
-        detailsButton.Visibility = settings.EnableDetailsBar ? Visibility.Visible : Visibility.Collapsed;
-        var visible = OrderedModules().Where(module => ModuleEnabled(module.Key) && (!module.Detail || detailsOpen))
+        var visible = OrderedModules().Where(module => ModuleEnabled(module.Key) && (!module.Detail || (detailsOpen && settings.EnableDetailsBar)))
             .Select(module => module.Element).ToArray();
         if (!strip.Children.SequenceEqual(visible))
         {
@@ -119,89 +112,104 @@ public sealed partial class MainWindow
         })) layoutQueued = false;
     }
 
+    private void RequestWidgetFit(SizeInt32? restore = null)
+    {
+        fitHeight = true;
+        requestedSize = restore;
+        QueueLayout();
+    }
+
     private void FitWindow()
     {
         double dpi = root.XamlRoot.RasterizationScale;
-        double zoom = settings.BigSize && root.ActualWidth >= 375 ? 1 + LargerWidgetPercent / 100d : 1;
         var size = AppWindow.ClientSize;
         var outer = AppWindow.Size;
         int frameWidth = outer.Width - size.Width;
         int frameHeight = outer.Height - size.Height;
         var workArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest)?.WorkArea;
+        int maxWidth = workArea is { } display ? Math.Max(1, display.Width - frameWidth) : int.MaxValue;
+        int maxHeight = workArea is { } screen ? Math.Max(1, screen.Height - frameHeight) : int.MaxValue;
+        bool panelOpen = settingsPane is not null;
         bool compact = IsCompact;
-        var visibleTiles = modules.Where(module => strip.Children.Contains(module.Element))
+        var restore = requestedSize;
+        bool resizeHeight = fitHeight;
+        requestedSize = null;
+        fitHeight = false;
+
+        var tiles = modules.Where(module => strip.Children.Contains(module.Element))
             .Select(module => module.Tile).OfType<FlipTile>().ToArray();
         int commandCount = actions.Children.Count(child => child.Visibility == Visibility.Visible);
-        double commandWidth = commandCount * 28 + Math.Max(0, commandCount - 1) * 3;
-        double gutters = layout.Padding.Left + layout.Padding.Right + (compact ? TileSpacing : 2 * TileSpacing);
-        double gaps = Math.Max(0, visibleTiles.Length - 1) * TileSpacing;
-        double preferredTiles = visibleTiles.Sum(tile => tile.PreferredWidth);
-        double minimumTiles = visibleTiles.Length * FlipTile.MinimumWidth;
-        double compactChrome = gutters + commandWidth;
-        double minimumWidth = MinimumWidth;
-        if (compact)
-        {
-            double comfortable = compactChrome + gaps + Math.Max(minimumTiles, preferredTiles * .6);
-            minimumWidth = Math.Max(MinimumWidth, comfortable * zoom);
-        }
-        int minimum = (int)Math.Ceiling(minimumWidth * dpi);
-        if (workArea is { } display) minimum = Math.Min(minimum, Math.Max(1, display.Width - frameWidth));
-
-        int clientWidth = size.Width;
-        if (compact && clientWidth < minimum)
-            expandedWidth ??= clientWidth / dpi;
-        else if (!compact && expandedWidth is { } normalWidth)
-        {
-            clientWidth = (int)Math.Round(normalWidth * dpi);
-            expandedWidth = null;
-        }
+        double commandWidth = commandCount * 28 + Math.Max(0, commandCount - 1) * actions.Spacing;
+        double plainChrome = layout.Padding.Left + layout.Padding.Right + TileSpacing + commandWidth;
+        double gaps = Math.Max(0, tiles.Length - 1) * TileSpacing;
+        double preferredWidth = tiles.Sum(tile => tile.PreferredWidth);
+        int clientWidth = restore?.Width ?? size.Width;
+        if (panelOpen && resizeHeight)
+            clientWidth = Math.Max(clientWidth, (int)Math.Ceiling(640 * dpi));
+        double zoom = settings.BigSize && clientWidth >= 375 * dpi ? 1 + LargerWidgetPercent / 100d : 1;
+        double minimumWidth = compact
+            ? Math.Max(MinimumWidth, (plainChrome + gaps + Math.Max(tiles.Length * FlipTile.MinimumWidth, preferredWidth * .6)) * zoom)
+            : MinimumWidth;
+        int minimum = Math.Min(maxWidth, (int)Math.Ceiling(minimumWidth * dpi));
         clientWidth = Math.Max(minimum, clientWidth);
-        int minimumWindowWidth = minimum + frameWidth;
-        if (lastMinimumWidth != minimumWindowWidth && AppWindow.Presenter is OverlappedPresenter presenter)
-        {
-            presenter.PreferredMinimumWidth = minimumWindowWidth;
-            lastMinimumWidth = minimumWindowWidth;
-        }
-
+        if (resizeHeight || restore.HasValue)
+            clientWidth = Math.Min(clientWidth, maxWidth);
         if (compact)
-        {
-            // Keep one row even on a display narrower than the minimum tile widths.
-            double hardWidth = compactChrome + gaps + minimumTiles;
-            zoom = Math.Min(zoom, clientWidth / (dpi * hardWidth));
-        }
+            zoom = Math.Min(zoom, clientWidth / (dpi * (plainChrome + gaps + tiles.Length * FlipTile.MinimumWidth)));
+
         double width = clientWidth / (dpi * zoom);
-        bool narrow = !compact && width < 530;
-        brands.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        brands.Orientation = narrow ? Orientation.Vertical : Orientation.Horizontal;
-        rail.VerticalAlignment = compact ? VerticalAlignment.Center : VerticalAlignment.Top;
-        double brandWidth = narrow ? Math.Max(appWebsiteButton.Width, manifestoButton.Width)
-            : appWebsiteButton.Width + brands.Spacing + manifestoButton.Width;
-        actions.Width = compact ? commandWidth : narrow ? brandWidth : Math.Max(brandWidth, commandWidth);
-        signalHousing.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        signalHousing.Width = narrow ? 30 : 44;
-        double tileWidth = width - gutters - (compact ? 0 : signalHousing.Width) - actions.Width;
+        bool decorate = !compact && tiles.Length > 1 && preferredWidth + gaps > width - plainChrome;
+        brands.Visibility = decorate ? Visibility.Visible : Visibility.Collapsed;
+        signalHousing.Visibility = decorate ? Visibility.Visible : Visibility.Collapsed;
+        signalHousing.Width = width < 530 ? 30 : 44;
+        double railWidth = decorate ? Math.Max(commandWidth, BrandButtonSize + brands.Spacing + ManifestoButtonSize) : commandWidth;
+        double chrome = plainChrome - commandWidth + railWidth + (decorate ? TileSpacing + signalHousing.Width : 0);
+        double tileWidth = Math.Max(FlipTile.MinimumWidth, width - chrome);
+        actions.Width = commandWidth;
         strip.SingleRow = compact;
         strip.Width = tileWidth;
-        double flexibleWidth = preferredTiles - minimumTiles;
-        double fraction = compact && flexibleWidth > 0
-            ? Math.Clamp((tileWidth - gaps - minimumTiles) / flexibleWidth, 0, 1) : 1;
-        foreach (var tile in visibleTiles)
-            tile.FitWidth(compact ? FlipTile.MinimumWidth + (tile.PreferredWidth - FlipTile.MinimumWidth) * fraction : tileWidth);
+        double halfRow = Math.Max(100, Math.Floor((tileWidth - TileSpacing) / 2));
+        double[] tileWidths = compact
+            ? FitCompactWidths(tiles, tileWidth - gaps)
+            : tiles.Select(tile => Math.Min(tile.PreferredWidth, tiles.Length > 2 && tileWidth < 320 && tile.PreferredWidth <= 160
+                ? Math.Min(tileWidth, halfRow) : tileWidth)).ToArray();
+        double fontSize = 20;
+        for (int i = 0; i < tiles.Length; i++)
+            fontSize = Math.Min(fontSize, tiles[i].FontLimit(tileWidths[i]));
+        for (int i = 0; i < tiles.Length; i++)
+            tiles[i].FitWidth(tileWidths[i], fontSize);
 
         layout.Width = width;
         strip.Measure(new(tileWidth, double.PositiveInfinity));
-        rail.Measure(new(actions.Width + rail.Margin.Left, double.PositiveInfinity));
-        double contentHeight = Math.Max(strip.DesiredSize.Height, rail.DesiredSize.Height);
-        signalHousing.Height = Math.Min(narrow ? 92 : 128, contentHeight);
-        layout.Height = contentHeight + layout.Padding.Top + layout.Padding.Bottom;
+        rail.Measure(new(railWidth + rail.Margin.Left, double.PositiveInfinity));
+        double insets = layout.Padding.Top + layout.Padding.Bottom;
+        double stripHeight = strip.DesiredSize.Height;
+        double railHeight = rail.DesiredSize.Height;
+        signalHousing.Height = Math.Min(128, stripHeight);
+        layout.Height = Math.Max(stripHeight, railHeight) + insets;
         layoutView.Width = width * zoom;
         layoutView.Height = layout.Height * zoom;
-        int desiredHeight = (int)Math.Ceiling(layoutView.Height * dpi);
+        double previewHeight = panelOpen
+            ? Math.Max((railHeight + insets) * zoom, Math.Min(Math.Min(240, maxHeight / (3 * dpi)), layoutView.Height))
+            : layoutView.Height;
+        root.RowDefinitions[0].Height = panelOpen ? new(previewHeight) : new(1, GridUnitType.Star);
+        root.RowDefinitions[1].Height = panelOpen ? new(1, GridUnitType.Star) : new(0);
+        int minHeight = Math.Min(maxHeight, (int)Math.Ceiling((panelOpen ? previewHeight + 124 : (railHeight + insets) * zoom) * dpi));
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            if (presenter.PreferredMinimumWidth != minimum + frameWidth)
+                presenter.PreferredMinimumWidth = minimum + frameWidth;
+            if (presenter.PreferredMinimumHeight != minHeight + frameHeight)
+                presenter.PreferredMinimumHeight = minHeight + frameHeight;
+        }
+        int desiredHeight = resizeHeight
+            ? Math.Min(maxHeight, Math.Max(restore?.Height ?? 0, (int)Math.Ceiling((previewHeight + (panelOpen ? 450 : 0)) * dpi)))
+            : size.Height;
+        desiredHeight = Math.Max(minHeight, desiredHeight);
         var position = AppWindow.Position;
         int x = position.X, y = position.Y;
-        if (workArea is { } area)
+        if (resizeHeight && workArea is { } area)
         {
-            desiredHeight = Math.Min(desiredHeight, Math.Max(100, area.Height - frameHeight));
             y = Math.Clamp(y, area.Y, Math.Max(area.Y, area.Y + area.Height - desiredHeight - frameHeight));
             if (clientWidth != size.Width)
                 x = Math.Clamp(x, area.X, Math.Max(area.X, area.X + area.Width - clientWidth - frameWidth));
@@ -210,6 +218,28 @@ public sealed partial class MainWindow
             AppWindow.MoveAndResize(new(x, y, clientWidth + frameWidth, desiredHeight + frameHeight));
         root.UpdateLayout();
         UpdateDragRegions();
+    }
+
+    private static double[] FitCompactWidths(FlipTile[] tiles, double available)
+    {
+        double low = 0, high = 20;
+        foreach (var tile in tiles)
+            high = Math.Min(high, tile.FontLimit(tile.PreferredWidth));
+        for (int step = 0; step < 8; step++)
+        {
+            double size = (low + high) / 2;
+            if (tiles.Sum(tile => Math.Min(tile.PreferredWidth, tile.WidthForFont(size))) <= available)
+                low = size;
+            else
+                high = size;
+        }
+        var widths = tiles.Select(tile => Math.Min(tile.PreferredWidth, tile.WidthForFont(low))).ToArray();
+        double used = widths.Sum();
+        double flexible = tiles.Sum(tile => tile.PreferredWidth) - used;
+        double fraction = flexible > 0 ? Math.Clamp((available - used) / flexible, 0, 1) : 0;
+        for (int i = 0; i < widths.Length; i++)
+            widths[i] += Math.Floor((tiles[i].PreferredWidth - widths[i]) * fraction);
+        return widths;
     }
 
     private void UpdateDragRegions()
@@ -222,6 +252,8 @@ public sealed partial class MainWindow
             .Concat(strip.Children.OfType<FrameworkElement>()).Append(signalHousing);
         if (brands.Visibility == Visibility.Visible)
             controls = controls.Concat([appWebsiteButton, manifestoButton]);
+        if (settingsPane is not null)
+            controls = controls.Append(settingsPane);
         foreach (var control in controls)
         {
             if (control.Visibility != Visibility.Visible) continue;
@@ -266,26 +298,4 @@ public sealed partial class MainWindow
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(pinButton, label);
     }
 
-    private static nint HorizontalResize(nint hwnd, uint message, nuint wParam, nint lParam, nuint id, nuint data)
-    {
-        if (message == 0x0082) RemoveWindowSubclass(hwnd, ResizeProcedure, id); // WM_NCDESTROY
-        nint result = DefSubclassProc(hwnd, message, wParam, lParam);
-        if (message != 0x0084) return result; // WM_NCHITTEST
-        return (int)result switch
-        {
-            12 or 15 => 18, // Top and bottom borders cannot resize.
-            13 or 16 => 10,
-            14 or 17 => 11,
-            _ => result
-        };
-    }
-
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-    private delegate nint WindowSubclass(nint hwnd, uint message, nuint wParam, nint lParam, nuint id, nuint data);
-    [DllImport("comctl32.dll")]
-    private static extern bool SetWindowSubclass(nint hwnd, WindowSubclass callback, nuint id, nuint data);
-    [DllImport("comctl32.dll")]
-    private static extern bool RemoveWindowSubclass(nint hwnd, WindowSubclass callback, nuint id);
-    [DllImport("comctl32.dll")]
-    private static extern nint DefSubclassProc(nint hwnd, uint message, nuint wParam, nint lParam);
 }

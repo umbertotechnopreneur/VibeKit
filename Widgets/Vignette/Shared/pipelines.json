@@ -1,0 +1,17 @@
+[
+  {"id":"classic-crt","name":"Classic CRT","description":"Neutral falloff around the edges, with darker corners.","color":"#000000","intensity":0.39,"radius":0.43,"softness":0.43,"aspect":1.0},
+  {"id":"soft-corners","name":"Soft Corners","description":"A subtle fade concentrated in the corners.","color":"#08090F","intensity":0.23,"radius":0.62,"softness":0.36,"aspect":1.0},
+  {"id":"deep-crt","name":"Deep CRT","description":"Stronger shadow and a more visible oval.","color":"#010104","intensity":0.70,"radius":0.33,"softness":0.43,"aspect":1.0},
+  {"id":"wide-tube","name":"Wide Tube","description":"Preserves the center of wide displays and shades the top and bottom.","color":"#0B0C12","intensity":0.48,"radius":0.51,"softness":0.33,"aspect":1.34},
+  {"id":"portrait-tube","name":"Portrait Tube","description":"Brings the falloff inward along the left and right edges.","color":"#09070D","intensity":0.46,"radius":0.50,"softness":0.34,"aspect":0.74},
+  {"id":"blue-hour","name":"Blue Hour","description":"Cool blue shadows with a broad transition.","color":"#0C1936","intensity":0.53,"radius":0.30,"softness":0.60,"aspect":1.08},
+  {"id":"warm-film","name":"Warm Film","description":"Soft brown shading inspired by warm film prints.","color":"#301B13","intensity":0.47,"radius":0.40,"softness":0.48,"aspect":1.0},
+  {"id":"plum-shadow","name":"Plum Shadow","description":"Muted violet gathers in the corners.","color":"#29182F","intensity":0.54,"radius":0.54,"softness":0.38,"aspect":1.02},
+  {"id":"green-phosphor","name":"Green Phosphor","description":"Deep green edges around a clear center.","color":"#0B2819","intensity":0.54,"radius":0.46,"softness":0.47,"aspect":0.94},
+  {"id":"silver-halo","name":"Silver Halo","description":"A faint neutral glow lifts the edges.","color":"#E6EEF5","intensity":0.22,"radius":0.50,"softness":0.43,"aspect":1.0},
+  {"id":"warm-halo","name":"Warm Halo","description":"A pale amber tint brightens the outer oval.","color":"#FFE2B3","intensity":0.29,"radius":0.37,"softness":0.57,"aspect":1.10},
+  {"id":"ice-light","name":"Ice Light","description":"A wider, cool-white fade.","color":"#C5E8FF","intensity":0.33,"radius":0.32,"softness":0.60,"aspect":1.17},
+  {"id":"rose-light","name":"Rose Light","description":"A gentle pink glow, mostly in the corners.","color":"#FFD3E3","intensity":0.29,"radius":0.65,"softness":0.31,"aspect":1.0},
+  {"id":"mint-glow","name":"Mint Glow","description":"A broad pale-green tint across the outer edges.","color":"#C6F8DF","intensity":0.27,"radius":0.44,"softness":0.43,"aspect":0.91},
+  {"id":"white-bloom","name":"White Bloom","description":"A bright, smooth white vignette.","color":"#FFFFFF","intensity":0.56,"radius":0.47,"softness":0.42,"aspect":1.0}
+]

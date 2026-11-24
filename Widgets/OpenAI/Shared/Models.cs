@@ -14,7 +14,7 @@ public record AccountUsage(string Identity, string Plan, List<QuotaWindow> Windo
     public ResetVoucherBalance? ResetVouchers { get; init; }
 }
 public record ResetVoucherBalance(int AvailableCount, IReadOnlyList<long?> Expirations);
-public record ResetVoucherDisplay(string Value, string Detail);
+public record ResetVoucherDisplay(string Value, string Detail, long? ExpiresAt = null);
 public record Sample(long At, double Used, long? Reset, string Plan);
 public record QuotaDay(string Date, double? Used, double Coverage);
 public record Forecast(double? Average, double? DaysLeft, int CompleteDays, string Headline, string Detail);

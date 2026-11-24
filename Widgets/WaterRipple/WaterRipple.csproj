@@ -25,6 +25,7 @@
     <Compile Include="../Shared/WidgetFooter.cs" Link="WidgetFooter.cs" />
     <Compile Include="../Shared/EffectStudioLayout.cs" Link="EffectStudioLayout.cs" />
     <Compile Include="../Shared/DisplayTarget.cs" Link="DisplayTarget.cs" />
+    <Compile Include="../Shared/DisplayTargetPicker.cs" Link="DisplayTargetPicker.cs" />
     <Compile Include="../Shared/VibeWareDiagnostics.cs" Link="VibeWareDiagnostics.cs" />
     <Compile Include="../Shared/ProcessMemoryWatchdog.cs" Link="ProcessMemoryWatchdog.cs" />
     <Compile Include="../Shared/DiagnosticAboutActions.cs" Link="DiagnosticAboutActions.cs" />

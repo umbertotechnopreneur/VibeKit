@@ -46,7 +46,7 @@ def main():
         shutil.copytree(root / 'Linux/extension' / uuid, extension)
         shared = extension / 'shared'
         shared.mkdir(exist_ok=True)
-        shutil.copy2(root.parent / 'Shared/Linux/monitor-selection.js', shared)
+        shutil.copytree(root.parent / 'Shared/Linux', shared, dirs_exist_ok=True, ignore=shutil.ignore_patterns('tests'))
         (extension / 'extension.js').rename(extension / 'production-extension.js')
         shutil.copy2(root / 'tests/gnome-animation-smoke.js', extension / 'extension.js')
         subprocess.run(['glib-compile-schemas', '--strict', str(extension / 'schemas')], check=True)
@@ -64,8 +64,8 @@ gsettings set org.gnome.shell welcome-dialog-last-shown-version '50'
 exec gnome-shell --headless --wayland --no-x11 --virtual-monitor=1280x800 --wayland-display=ripple-test-only --mode="$RIPPLES_TEST_MODE"
 ''')
         result = subprocess.run(
-            ['timeout', '--signal=TERM', '--kill-after=3s', '25s', 'dbus-run-session', '--', 'sh', str(runner)],
-            env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=32)
+            ['timeout', '--signal=TERM', '--kill-after=3s', '55s', 'dbus-run-session', '--', 'sh', str(runner)],
+            env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=62)
         log = output / 'gnome-animation-smoke.log'
         log.write_text(result.stdout)
         metrics = []

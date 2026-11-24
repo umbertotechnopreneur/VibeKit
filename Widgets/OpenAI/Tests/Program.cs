@@ -103,6 +103,10 @@ try
     var voucherState = new UsageService(store).Build(withVouchers, settings, now);
     Check(voucherState.ResetVoucherCount == 3 && voucherState.ResetVoucherExpirations.Count == 3,
         "All reported voucher expirations are available to the details popup");
+    var firstVoucher = voucherState.ResetVoucherExpirations[0];
+    Check(firstVoucher.ExpiresAt == now.AddDays(1).ToUnixTimeSeconds() &&
+        firstVoucher.Value == now.AddDays(1).ToString("dd/MM HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+        "Voucher expiry keeps its own timestamp and compact date in the configured zone");
     Check(new UsageService(store).Build(parsed with { UnlimitedCredits = true }, settings, now).CreditsBalance is null,
         "Unlimited credits do not trigger a balance threshold");
     Check(state.ResetDisplays.Count == 2 && state.ResetDisplays[0].Heading == "First reset" && state.ResetDisplays[1].Heading == "Second reset", "Available reset dates are numbered in chronological order");

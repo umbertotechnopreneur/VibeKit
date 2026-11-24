@@ -97,6 +97,8 @@ WIDGETS = {
                      "Desktop water ripple effect.", "WaterRipple", "Assets/WaterRipple.ico"),
     "retro-terminal": ("Retro Terminal", "RetroStudio.exe", "RetroTerminal", "83fb29fe-a2f5-46b7-ba1b-a74ed0f45606",
                        "Desktop CRT effect and control panel.", "RetroTerminal", "Windows/Studio/RetroTerminal.ico"),
+    "vignette": ("Vignette", "Vignette.exe", "Vignette", "88c39ecd-1581-4af1-9d14-6ee462e55f71",
+                 "Elliptical desktop edge lighting and shading.", "Vignette", "Windows/Vignette.ico"),
 }
 
 
@@ -120,9 +122,11 @@ if __name__ == "__main__":
                        app_id=f"biz.umbertogiacobbi.{identifier}", minimum_build=22000,
                        requirement=f"{name} requires 64-bit Windows 11 or newer.", description=description)
     root = ET.parse(args.output).getroot()
-    add_installer_ui(root, payload=args.payload, executable=exe, output=args.output,
-                     home_url=f"https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/{folder}",
-                     logo=repository / "Widgets" / folder / logo)
+    # Vignette ships its own .NET Desktop runtime and needs no download dialog.
+    if args.widget != "vignette":
+        add_installer_ui(root, payload=args.payload, executable=exe, output=args.output,
+                         home_url=f"https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/{folder}",
+                         logo=repository / "Widgets" / folder / logo)
     ET.indent(root)
     ET.ElementTree(root).write(args.output, encoding="utf-8", xml_declaration=True)
     print(f"Files in installer: {count}")

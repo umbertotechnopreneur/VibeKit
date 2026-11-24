@@ -45,13 +45,14 @@ namespace
         GpuJokeNotifications gpuJokes;
         HWND jokeCaption{};
         unsigned jokeIndex{};
-        bool running = false, hotkeyAvailable = false, dirty = false, firstFrame = false;
+        bool running = false, hotkeyAvailable = false, dirty = false, firstFrame = false, overlayOpaque = false;
         int slowFrames = 0, frames = 0;
         float cpuTotal = 0;
         Clock::time_point previousTick{}, statsSince{};
 
         int Dip(int value) const { return MulDiv(value, int(GetDpiForWindow(window)), 96); }
-        void Status(const std::wstring& text) { SetWindowTextW(status, text.c_str()); }
+        std::wstring statusText = L"Stopped";
+        void Status(const std::wstring& text) { statusText = text; SetWindowTextW(status, text.c_str()); }
         double Time() const { return std::chrono::duration<double>(Clock::now().time_since_epoch()).count(); }
         bool SavePreferences()
         {
@@ -279,6 +280,7 @@ namespace
         }
         void Stop(const std::wstring& reason)
         {
+            tray.CancelPreview();
             const bool wasRunning = running;
             running = false;
             firstFrame = false;
@@ -304,6 +306,7 @@ namespace
                     info.rcMonitor.left, info.rcMonitor.top, info.rcMonitor.right - info.rcMonitor.left,
                     info.rcMonitor.bottom - info.rcMonitor.top, nullptr, nullptr, instance, nullptr);
                 if (!overlay) winrt::throw_last_error();
+                overlayOpaque = false;
                 if (!SetLayeredWindowAttributes(overlay, 0, 0, LWA_ALPHA)) winrt::throw_last_error();
                 if (!SetWindowDisplayAffinity(overlay, WDA_EXCLUDEFROMCAPTURE))
                     throw winrt::hresult_error(HRESULT_FROM_WIN32(GetLastError()), L"The overlay could not be excluded from screen capture. The effect will stay off.");
@@ -345,10 +348,21 @@ namespace
                     Stop(L"Stopped after repeated slow render submissions. Enable manually to retry.");
                     return;
                 }
+                if (renderer.WaitingForInput() && overlayOpaque)
+                {
+                    renderer.ClearPresentation();
+                    if (!SetLayeredWindowAttributes(overlay, 0, 0, LWA_ALPHA)) winrt::throw_last_error();
+                    overlayOpaque = false;
+                }
                 if (presented)
                 {
                     dirty = false;
-                    if (!SetLayeredWindowAttributes(overlay, 0, 255, LWA_ALPHA)) winrt::throw_last_error();
+                    if (!overlayOpaque)
+                    {
+                        if (!SetLayeredWindowAttributes(overlay, 0, 255, LWA_ALPHA)) winrt::throw_last_error();
+                        overlayOpaque = true;
+                    }
+                    renderer.ConfirmVisiblePresentation();
                     if (firstFrame) {
                         firstFrame = false;
                         tray.Notify(L"CRT effect on", L"The screen effect is active.");
@@ -361,7 +375,9 @@ namespace
                 {
                     std::wstring stats = frames ? std::to_wstring(frames) + L" presentations / " + std::to_wstring(int(elapsed)) + L" s" : L"No new frames in this interval";
                     if (frames) stats += L" · CPU submission " + std::to_wstring(cpuTotal / frames).substr(0, 4) + L" ms/frame";
-                    Status(L"Active · " + renderer.Description() + L"\n" + stats + L"\nGPU frame time is not measured here.");
+                    Status(overlayOpaque
+                        ? L"Active · " + renderer.Description() + L"\n" + stats + L"\nGPU frame time is not measured here."
+                        : L"Waiting for a screen frame…");
                     statsSince = start;
                     frames = 0;
                     cpuTotal = 0;
@@ -390,10 +406,27 @@ namespace
             SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(app));
         }
         if (!app) return DefWindowProcW(window, message, wParam, lParam);
-        if (app->tray.HandleMessage(message, wParam, lParam))
+        if (app->tray.HandleMessage(message, wParam, lParam, app->running, app->running, app->statusText))
         {
-            switch (app->tray.TakeAction())
+            const auto action = app->tray.TakeAction();
+            switch (action)
             {
+            case TrayIcon::Action::Enable:
+            case TrayIcon::Action::Preview:
+                if (!app->running) {
+                    app->Start();
+                    if (app->running && action == TrayIcon::Action::Preview && !app->tray.BeginPreview())
+                        app->Stop(L"Could not schedule the end of the preview.");
+                }
+                break;
+            case TrayIcon::Action::Stop: app->Stop(L"Stopped by you."); break;
+            case TrayIcon::Action::Glitch: SendMessageW(window, WM_COMMAND, TryId, 0); break;
+            case TrayIcon::Action::Green:
+            case TrayIcon::Action::Amber:
+            case TrayIcon::Action::Arcade:
+                app->settings.palette = Palette(int(action) - int(TrayIcon::Action::Green));
+                app->Changed(); app->SyncControls();
+                break;
             case TrayIcon::Action::Open:
             case TrayIcon::Action::Preferences:
                 ShowWindow(window, SW_RESTORE);
@@ -508,7 +541,8 @@ namespace
             app->ScrollTo(app->scrollOffset - GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA * app->Dip(60));
             return 0;
         case WM_TIMER:
-            if (wParam == RenderTimer) app->Tick();
+            if (wParam == TrayIcon::PreviewTimer && app->tray.PreviewDue()) app->Stop(L"Preview finished");
+            else if (wParam == RenderTimer) app->Tick();
             else if (wParam == GpuJokeNotifications::TimerId) app->gpuJokes.Tick(window, app->tray);
             return 0;
         case WM_HOTKEY:

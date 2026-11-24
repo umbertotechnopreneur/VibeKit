@@ -13,14 +13,14 @@ public sealed partial class MainWindow
     private static readonly SolidColorBrush QuotaGreen = new(Rgb(0x36CD73));
     private readonly Button detailsButton = Button(DetailsIcon(), "Show usage details");
     private bool detailsOpen;
-    private bool IsCompact => settings.EnableDetailsBar && !detailsOpen;
-    private readonly FlipTile fiveHour = new("5-hour allowance", 136, 25, SecondaryText, showAccent: true);
-    private readonly FlipTile fiveReset = new("5-hour reset in", 104, 25, SecondaryText);
-    private readonly FlipTile weekly = new("Weekly allowance", 140, 25, SecondaryText, showAccent: true);
-    private readonly FlipTile weeklyReset = new("Weekly reset at", 184, 25, SecondaryText);
-    private readonly FlipTile detailsEstimate = new("Estimated time remaining", 174, 25, SecondaryText);
-    private readonly FlipTile timeToReset = new("Time to reset", 128, 25, SecondaryText);
-    private readonly FlipTile forecastMessage = new("At the current rate", 530, 25, SecondaryText, wrapValue: true);
+    private bool IsCompact => !detailsOpen;
+    private readonly FlipTile fiveHour = new("5-hour allowance", 112, 20, SecondaryText, showAccent: true);
+    private readonly FlipTile fiveReset = new("5-hour auto reset in", 125, 20, SecondaryText, label: "5-hour reset in");
+    private readonly FlipTile weekly = new("Weekly allowance", 118, 20, SecondaryText, showAccent: true);
+    private readonly FlipTile weeklyReset = new("Weekly auto reset", 152, 20, SecondaryText);
+    private readonly FlipTile detailsEstimate = new("Run-out estimate", 158, 20, SecondaryText);
+    private readonly FlipTile timeToReset = new("Selected auto reset in", 132, 20, SecondaryText, label: "Auto reset in");
+    private readonly FlipTile forecastMessage = new("Will the quota last?", 442, 20, SecondaryText, wrapValue: true);
 
     private static UIElement DetailsIcon()
     {
@@ -32,9 +32,21 @@ public sealed partial class MainWindow
 
     private void SetDetailsOpen(bool open)
     {
-        if (open && !settings.EnableDetailsBar) return;
+        if (open != detailsOpen)
+        {
+            if (!open)
+                expandedSize = settingsRestoreSize ?? AppWindow.ClientSize;
+            if (settingsPane is null)
+                RequestWidgetFit(open ? expandedSize : null);
+            else if (open && expandedSize is { } normal)
+                settingsRestoreSize = normal;
+            else if (!open && settingsRestoreSize is { } previous)
+                settingsRestoreSize = new(previous.Width, 0);
+            if (open)
+                expandedSize = null;
+        }
         detailsOpen = open;
-        string description = open ? "Compact widget" : "Expand widget to show usage details";
+        string description = open ? "Compact mode" : "Expand widget";
         ToolTipService.SetToolTip(detailsButton, description);
         AutomationProperties.SetName(detailsButton, description);
         ApplySize();
@@ -50,7 +62,7 @@ public sealed partial class MainWindow
 
     private void UpdateDetails(long now)
     {
-        if (!detailsOpen) return;
+        if (!detailsOpen || !settings.EnableDetailsBar) return;
         bool animate = CanAnimateWidget;
         PresentAllowance(state.FiveHourAllowance, fiveHour, fiveReset, now, animate, countdown: true);
         PresentAllowance(state.WeeklyAllowance, weekly, weeklyReset, now, animate, countdown: false);
@@ -59,6 +71,8 @@ public sealed partial class MainWindow
         bool passed = reset <= now;
         detailsEstimate.Set(state.ForecastAvailable && !passed ? state.ForecastCompact : "—", animate);
         timeToReset.Set(reset is { } end ? FormatResetDuration(end - now) : "—", animate);
+        DescribeMetric(timeToReset, $"Time left until the {SelectedQuotaName} renews automatically. {state.ResetLabel}");
+        DescribeMetric(detailsEstimate, $"Estimated time until the {SelectedQuotaName} runs out at your observed usage rate. {state.ForecastDetail}");
         bool waiting = passed && state.Remaining is not <= 0;
         forecastMessage.SetInk(!waiting && state.ResetForecast?.Warning == true ? ForecastAmber : null);
         string message = waiting ? "Waiting for reset data" : state.ResetForecast?.Message ?? "Allowance unavailable";
@@ -74,10 +88,14 @@ public sealed partial class MainWindow
         percent.SetProgress(allowance?.Remaining, ProgressColor(allowance?.Remaining));
         long minutes = (Math.Max(0, (allowance?.ResetsAt ?? now) - now) + 59) / 60;
         string? value = countdown && allowance?.ResetsAt is not null
-            ? FormattableString.Invariant($"{minutes / 60:00}:{minutes % 60:00}")
+            ? FormattableString.Invariant($"{minutes / 60:00}h {minutes % 60:00}m")
             : allowance?.ResetCompact;
         reset.Set(value ?? "—", animate);
-        DescribeMetric(reset, allowance?.ResetCompact ?? "Reset time unavailable");
+        string quota = countdown ? "five-hour quota" : "weekly quota";
+        DescribeMetric(reset, allowance?.ResetCompact is { } timestamp
+            ? $"The {quota} renews automatically on {timestamp} ({settings.TimeZoneId})."
+            : $"Automatic renewal time for the {quota} is unavailable.");
+        DescribeMetric(percent, $"Percentage remaining in the {quota}.");
     }
 
     private static string FormatResetDuration(long seconds)

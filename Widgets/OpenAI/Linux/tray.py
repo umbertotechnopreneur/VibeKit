@@ -78,7 +78,7 @@ class StatusTray:
             7: ("Quit", "exit"),
             10: (None, None),
             11: ("Mini Utilities", "utilities"),
-            3: ("About OpenAI Usage", "about"),
+            3: ("About", "about"),
         }
 
     @property

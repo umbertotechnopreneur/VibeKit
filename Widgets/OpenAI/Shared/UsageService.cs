@@ -54,8 +54,8 @@ public sealed class UsageService(Storage storage)
             {
                 if (expiry is null) return new ResetVoucherDisplay("—", "Codex did not provide an expiration date for this voucher.");
                 var local = TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeSeconds(expiry.Value), zone);
-                return new ResetVoucherDisplay(local.ToString("MMMM d · HH:mm", CultureInfo.InvariantCulture),
-                    local.ToString("dddd, MMMM d, yyyy · HH:mm:ss zzz", CultureInfo.InvariantCulture) + " · " + zone.Id);
+                return new ResetVoucherDisplay(local.ToString("dd/MM HH:mm", CultureInfo.InvariantCulture),
+                    local.ToString("dddd, MMMM d, yyyy · HH:mm:ss zzz", CultureInfo.InvariantCulture) + " · " + zone.Id, expiry);
             }).ToArray();
         }
         string? limitPrefix = selected?.Key.Split(':')[0];

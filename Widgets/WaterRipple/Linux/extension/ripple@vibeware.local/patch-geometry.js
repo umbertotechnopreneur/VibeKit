@@ -1,21 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Preserve the normal source crop, then restrict the sampled area to the selected monitor.
+// Keep the full crop where possible without sampling across the source or display edge.
 export function clipRipplePatch(sourceWidth, sourceHeight, x, y, monitor, maxSize) {
-    if (x < 0 || y < 0 || x >= sourceWidth || y >= sourceHeight)
+    const minX = Math.max(0, monitor.x);
+    const minY = Math.max(0, monitor.y);
+    const maxX = Math.min(sourceWidth, monitor.x + monitor.width);
+    const maxY = Math.min(sourceHeight, monitor.y + monitor.height);
+    if (x < minX || y < minY || x >= maxX || y >= maxY)
         return null;
 
-    const width = Math.min(maxSize, sourceWidth);
-    const height = Math.min(maxSize, sourceHeight);
-    const originX = Math.max(0, Math.min(sourceWidth - width, x - width / 2));
-    const originY = Math.max(0, Math.min(sourceHeight - height, y - height / 2));
-    const left = Math.max(originX, monitor.x);
-    const top = Math.max(originY, monitor.y);
-    const clippedWidth = Math.min(originX + width, monitor.x + monitor.width) - left;
-    const clippedHeight = Math.min(originY + height, monitor.y + monitor.height) - top;
-    if (clippedWidth < 16 || clippedHeight < 16 || x < left || y < top ||
-        x >= left + clippedWidth || y >= top + clippedHeight)
+    const width = Math.min(maxSize, maxX - minX);
+    const height = Math.min(maxSize, maxY - minY);
+    if (width < 16 || height < 16)
         return null;
 
-    return {left, top, width: clippedWidth, height: clippedHeight};
+    const left = Math.max(minX, Math.min(maxX - width, x - width / 2));
+    const top = Math.max(minY, Math.min(maxY - height, y - height / 2));
+    return {left, top, width, height};
 }

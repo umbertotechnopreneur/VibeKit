@@ -38,6 +38,20 @@ window.present();
 
 let appWindow;
 let next;
+let shellState = 8; // ACTIVATING
+let stateQueries = 0;
+const shell = {
+    call(_name, _path, _interface, method, _params, _type, _flags, _timeout, _cancellable, callback) {
+        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+            if (method === 'GetExtensionInfo') stateQueries++;
+            const result = method === 'EnableExtension' ? new GLib.Variant('(b)', [true]) :
+                new GLib.Variant('(a{sv})', [{state: new GLib.Variant('d', shellState)}]);
+            callback(this, result);
+            return GLib.SOURCE_REMOVE;
+        });
+    },
+    call_finish(result) { return result; },
+};
 const steps = [
     [() => window.get_mapped(), 'Preferences window did not map.', () => {
         check(!controls.jokes.running, 'Collapsed settings must leave the ticker idle.');
@@ -65,12 +79,19 @@ const steps = [
         appWindow = new Adw.ApplicationWindow({application: app});
         // The real controller intercepts close while offering Hide / Quit / Cancel.
         appWindow.connect('close-request', () => true);
-        next = buildControls(appWindow, settings, app, true, false, null);
+        next = buildControls(appWindow, settings, app, true, false, shell);
         appWindow.set_content(next.page);
         check(next.pipelines.selected?.id === selectedId, 'Selected pipeline did not restore.');
         next.settingsSection.expanded = true;
         appWindow.present();
     }],
+    [() => stateQueries > 0, 'Controller did not inspect Shell extension state.', () => {
+        check(!next.active.sensitive && !settings.get_boolean('active'),
+            'Controller started the effect before GNOME activated the extension.');
+        shellState = 1; // ACTIVE
+    }],
+    [() => next.active.sensitive && settings.get_boolean('active'),
+        'Controller did not start the effect after GNOME confirmed activation.', () => next.stop.emit('clicked')],
     [() => next.jokes.running, 'Application view did not start the optional ticker.', () => {
         appWindow.close();
         check(next.jokes.running, 'Intercepted close disposed a panel that remains open.');

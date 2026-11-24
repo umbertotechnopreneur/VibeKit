@@ -25,6 +25,24 @@ internal static class InteropChecks
             parameters.HeightDips == 720 && parameters.BandDips == 35 && parameters.ChromaticSeparationRatio == .4f &&
             parameters.CrestRatio == 0 && !parameters.CaptureDue,
             "DPI, filter units or paused-capture arguments changed at the native boundary.");
-        Console.WriteLine("PASS managed/native ABI layout, capture flags and render parameter units");
+        var schedule = new FrameSchedule();
+        schedule.Rendered(1, 60);
+        Check(schedule.CaptureDue(1, 30) && !schedule.CaptureDue(1.02, 30),
+            "Capture should wait for its own deadline.");
+        Check(Math.Abs(schedule.DelayUntilWork(1, false, 0, false) - 1d / 30) < .0001,
+            "Idle ripple should wake for capture without waking at the animation rate.");
+        Check(Math.Abs(schedule.DelayUntilWork(1, true, 0, false) - 1d / 60) < .0001,
+            "Live waves should still use the animation cadence.");
+        Check(Math.Abs(schedule.DelayUntilWork(1, false, 1.5, true) - 1d / 60) < .0001,
+            "A busy final presentation must be retried before the next maintenance tick.");
+        Check(Math.Abs(schedule.DelayUntilWork(1, false, 1.5, false) - .1) < .0001 &&
+            Math.Abs(schedule.DelayUntilWork(1.45, false, 1.5, false) - .05) < .0001,
+            "A frozen capture should service maintenance and wake at the end of inspection.");
+        schedule.Rendered(3, 60);
+        Check(schedule.CaptureDue(3, 30) && !schedule.CaptureDue(3, 30) &&
+            schedule.DelayUntilWork(3, true, 0, false) > 0, "A delayed render should not replay past deadlines.");
+        schedule.RefreshCapture();
+        Check(schedule.CaptureDue(3, 30), "Leaving inspection should capture immediately.");
+        Console.WriteLine("PASS managed/native ABI layout, capture flags, render parameters and one-shot deadlines");
     }
 }

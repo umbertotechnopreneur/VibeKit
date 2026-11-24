@@ -86,7 +86,8 @@ internal sealed partial class StudioController : IDisposable
         startup = new StartupService(model.State);
         captureConsent = new CaptureConsentService(model.State);
         hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
-        tray = new TrayService(hwnd, Path.Combine(AppContext.BaseDirectory, "Assets", "WaterRipple.ico"), ShowFromTray, OpenSettings, () => new AboutWindow(model.Settings).Activate(), ExitApp);
+        tray = new TrayService(hwnd, Path.Combine(AppContext.BaseDirectory, "Assets", "WaterRipple.ico"), ShowFromTray, OpenSettings, () => new AboutWindow(model.Settings).Activate(), ExitApp,
+            () => (model.State.EffectEnabled, model.State.EffectEnabled || CanStartFromTray()), SetTrayEffect);
         window.AppWindow.Closing += MainWindowClosing;
         RestartCommand = new DelegateCommand(CheckCapabilities);
         OpenSettingsCommand = new DelegateCommand(OpenSettings);
@@ -162,6 +163,20 @@ internal sealed partial class StudioController : IDisposable
         await captureConsent.EnsureAsync(((FrameworkElement)window.Content).XamlRoot);
         if (model.State.IsClosing || model.State.EffectEnabled) return;
         StartScreen();
+    }
+
+    private bool CanStartFromTray() => model.State.CanApply && !model.State.IsClosing &&
+        !closeSequence.IsPending && !model.State.IsSettingsOpen && !model.State.IsCaptureConsentOpen &&
+        !model.State.IsClosePromptOpen;
+
+    private void SetTrayEffect(bool enabled)
+    {
+        if (!enabled) { StopScreen(); return; }
+        if (!model.State.EffectEnabled && CanStartFromTray())
+        {
+            CancelRecovery();
+            StartScreen();
+        }
     }
 
     internal void StartAtSignIn()

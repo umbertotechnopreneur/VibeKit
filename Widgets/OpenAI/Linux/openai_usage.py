@@ -87,7 +87,6 @@ headerbar { background-color: @window_bg_color; box-shadow: none; border: none; 
 notebook, notebook > stack, notebook > header { background: transparent; border: none; box-shadow: none; }
 notebook > header > tabs > tab { background: transparent; padding: 10px 20px; }
 notebook > header > tabs > tab:checked { box-shadow: inset 0 -3px @accent_bg_color; }
-.title { font-size: 21px; font-weight: 650; }
 .huge { font-family: monospace; font-size: 64px; font-weight: 700; }
 .forecast { font-family: monospace; font-size: 32px; font-weight: 700; }
 .metric { font-family: monospace; font-size: 30px; font-weight: 650; }
@@ -100,6 +99,13 @@ window.micro {
     box-shadow: inset 0 0 3px alpha(#bc683d, .12);
 }
 window.micro:backdrop { border-color: transparent; box-shadow: none; }
+window.micro.settings-open { background: transparent; border-color: transparent; box-shadow: none; }
+.settings-open .widget-preview, .settings-panel {
+    background: @window_bg_color;
+    color: @window_fg_color;
+    border-radius: 20px;
+    box-shadow: inset 0 0 0 1px alpha(@window_fg_color, .18);
+}
 .micro .flip-caption { font-size: 12px; opacity: .85; }
 .micro.big .flip-caption { font-size: 14px; }
 .micro separator.metric-divider { background-color: alpha(@window_fg_color, .26); min-width: 1px; }
@@ -108,6 +114,10 @@ window.micro:backdrop { border-color: transparent; box-shadow: none; }
 .micro.big button.icon-action image { -gtk-icon-size: 18px; }
 .micro button.icon-action { padding: 5px; min-width: 18px; min-height: 18px; }
 .micro button.icon-action image { -gtk-icon-size: 16px; }
+.micro button.compact-action { background: alpha(@window_fg_color, .10); border: 1px solid alpha(@window_fg_color, .35); }
+.micro button.icon-action.close-action { color: #e01b24; }
+.micro button.icon-action.close-action image { -gtk-icon-size: 22px; }
+.micro.big button.icon-action.close-action image { -gtk-icon-size: 24px; }
 .micro button.icon-action.brand-action { padding: 0; }
 .heading { font-size: 15px; }
 .dim { opacity: .70; font-size: 12px; }
@@ -186,8 +196,13 @@ class SlotLayout:
 class FlipTile(LabeledDisplay):
     DEFAULT_SHADOW = CreaseShadow(5, (52/255, 10/255, 13/255, .44), (24/255, 6/255, 7/255))
     CHARACTER_ADVANCE = .62
+    VALUE_FONT_SIZE = 20
+    MINIMUM_WIDTH = 30
+    FACE_PADDING = 12
+    INFO_WIDTH = 22
+    VERTICAL_PADDING = 2
 
-    def __init__(self, name, caption, width, font_size=21, *, info=False, wrap_value=False, worn=False,
+    def __init__(self, name, caption, width, *, info=False, wrap_value=False, worn=False,
                  sizing_text=None, crease_shadow=DEFAULT_SHADOW, digit_delay=(300, 1000), compact_accent=False):
         face = Gtk.DrawingArea()
         display = box(4, True)
@@ -197,7 +212,6 @@ class FlipTile(LabeledDisplay):
         self.face = face
         self.name = name
         self.base_width = width
-        self.base_font_size = font_size
         self.wrap_value = wrap_value
         self.sizing_text = sizing_text
         self.crease_shadow = crease_shadow
@@ -227,10 +241,26 @@ class FlipTile(LabeledDisplay):
         self.face.update_property([Gtk.AccessibleProperty.LABEL], [f"{name}: unavailable"])
         self.resize(1)
 
-    def resize(self, scale, available=None):
-        self.scale = scale
-        self.available_width = max(30, round(self.base_width * scale if available is None else min(self.base_width * scale, available)))
-        self.font_size = self.base_font_size * scale
+    def text_columns(self, value):
+        return 1 if self.wrap_value else max(1, len(value), len(self.sizing_text or ""))
+
+    def face_insets(self):
+        return self.FACE_PADDING + (self.INFO_WIDTH if self.info is not None else 0)
+
+    def font_limit(self, available, value):
+        return max(1, available - self.face_insets()) / (self.CHARACTER_ADVANCE * self.text_columns(value))
+
+    def width_for_font(self, font_size):
+        text_width = font_size * self.CHARACTER_ADVANCE * self.text_columns(self.value)
+        return max(self.MINIMUM_WIDTH, math.ceil(text_width + self.face_insets()))
+
+    def resize(self, scale, available=None, font_size=None):
+        available = round(self.base_width * scale) if available is None else available
+        available = max(self.MINIMUM_WIDTH, available)
+        font_size = self.VALUE_FONT_SIZE * scale if font_size is None else font_size
+        if (scale, available, font_size) == (self.scale, self.available_width, getattr(self, "font_size", None)):
+            return
+        self.scale, self.available_width, self.font_size = scale, available, font_size
         self.update_slots(self.value, False, (), .20)
         self.face.queue_draw()
 
@@ -244,14 +274,15 @@ class FlipTile(LabeledDisplay):
         yield value
 
     def update_slots(self, value, animate, flaps, duration):
-        width = self.available_width - (22 if self.info is not None else 0)
-        space = max(1, width - 12)
+        width = self.available_width - (self.INFO_WIDTH if self.info is not None else 0)
+        space = max(1, width - self.FACE_PADDING)
         minimum = 1 if self.wrap_value else max(1, len(value), len(self.sizing_text or ""))
-        font_size = min(self.font_size, space / (self.CHARACTER_ADVANCE * minimum))
+        font_size = min(self.font_size, self.font_limit(self.available_width, value))
         pitch = font_size * self.CHARACTER_ADVANCE
         columns = max(minimum, math.floor(space / pitch + .00001))
         lines = tuple(self.wrap(value, columns)) if self.wrap_value else (value,)
-        layout = SlotLayout(width, font_size, pitch, columns, len(lines), round(26 * self.scale))
+        row_height = round(26 * self.scale) + 2 * self.VERTICAL_PADDING
+        layout = SlotLayout(width, font_size, pitch, columns, len(lines), row_height)
         now = time.monotonic()
         rebuild = layout != self.layout
         previous_columns = self.layout.columns if self.layout else 0
@@ -294,6 +325,7 @@ class FlipTile(LabeledDisplay):
     def set_detail(self, detail):
         if self.face.get_tooltip_text() != detail:
             self.face.set_tooltip_text(detail)
+            self.caption.set_tooltip_text(f"{self.name}\n{detail}")
             if self.info is not None:
                 self.info.set_tooltip_text(detail)
 
@@ -455,10 +487,10 @@ class FlipTile(LabeledDisplay):
 
 class VoucherTile(FlipTile):
     def __init__(self):
-        super().__init__("Resets available", "Resets available", 82)
+        super().__init__("Available vouchers", "Vouchers", 104)
         self.display.remove(self.face)
         self.count_button = Gtk.MenuButton(child=self.face, has_frame=False,
-                                           tooltip_text="Show reset voucher expirations")
+                                           tooltip_text="See when available vouchers expire")
         self.count_button.add_css_class("voucher-count")
         self.display.append(self.count_button)
         self.expirations = Gtk.Label(xalign=0, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR,
@@ -471,13 +503,13 @@ class VoucherTile(FlipTile):
 
     def show_vouchers(self, count, expirations, animate):
         self.update(str(count) if count is not None else "—", animate)
-        summary = "Reset voucher balance unavailable" if count is None else f"Resets available: {count}"
-        details = [f"Reset {index}: {expiry['detail']}" for index, expiry in enumerate(expirations, 1)]
+        summary = "Voucher balance unavailable" if count is None else f"Vouchers available to use now: {count}"
+        details = [f"Voucher {index}: {expiry['detail']}" for index, expiry in enumerate(expirations, 1)]
         if count and not details:
             details.append("Expiration dates are unavailable.")
         self.expirations.set_text("\n".join([summary, *details]))
         self.count_button.update_property([Gtk.AccessibleProperty.LABEL],
-                                          [summary + ". Show reset voucher expirations."])
+                                          [summary + ". Show voucher expirations."])
 
 
 class WrapLayout(Gtk.LayoutManager):
@@ -485,16 +517,20 @@ class WrapLayout(Gtk.LayoutManager):
         super().__init__()
         self.spacing = spacing
         self.center = center
-        self.tile_widths = None
+        self.tile_widths = {}
+        self.single_row = False
 
     def do_get_request_mode(self, widget):
         return Gtk.SizeRequestMode.HEIGHT_FOR_WIDTH
 
     def do_measure(self, widget, orientation, for_size):
         if orientation == Gtk.Orientation.HORIZONTAL:
-            sizes = (list(self.tile_widths.values()) if self.tile_widths is not None
-                     else [child.measure(orientation, -1)[1] for child in self.children(widget)])
-            return 0, sum(sizes) + max(0, len(sizes) - 1) * self.spacing, -1, -1
+            sizes = [self.tile_widths.get(child) or child.measure(orientation, -1)[1] for child in self.children(widget)]
+            natural = sum(sizes) + max(0, len(sizes) - 1) * self.spacing
+            requested = widget.get_size_request().width
+            if requested > 0:
+                natural = min(natural, requested)
+            return 0, natural, -1, -1
         width = for_size if for_size >= 0 else 1240
         height = self.rows(widget, width)[1]
         return height, height, -1, -1
@@ -522,11 +558,11 @@ class WrapLayout(Gtk.LayoutManager):
         rows, row = [], []
         x = row_height = height = 0
         for child in self.children(widget):
-            w = self.tile_widths.get(child) if self.tile_widths is not None else None
+            w = self.tile_widths.get(child)
             if w is None:
                 w = max(1, min(width, child.measure(Gtk.Orientation.HORIZONTAL, -1)[1]))
             h = child.measure(Gtk.Orientation.VERTICAL, w)[1]
-            if self.tile_widths is None and row and x + self.spacing + w > width:
+            if row and not self.single_row and x + self.spacing + w > width:
                 rows.append((row, x, row_height))
                 height += row_height + self.spacing
                 row, x, row_height = [], 0, 0
@@ -643,13 +679,14 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
 
     def __init__(self, app):
         # Adw.ApplicationWindow imposes a minimum height larger than the strip.
-        super().__init__(application=app, title="OpenAI Usage", default_width=1240, default_height=110,
+        super().__init__(application=app, title="OpenAI Usage", default_width=1240, default_height=80,
                          icon_name="biz.umbertogiacobbi.OpenAIUsage")
         self.state = {}
         self.clock_cycle_start = None
         self.settings = {}
         self.settings_ready = False
-        self.settings_dialog = None
+        self.settings_panel = None
+        self.settings_window_size = None
         self.settings_status_label = None
         self.settings_save_source = 0
         self.backend = invoke
@@ -675,9 +712,9 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.set_decorated(False)
         self.set_resizable(True)
         self.set_size_request(300, -1)
-        self.layout_pending = False
-        self.expanded_width = None
-        self.pending_width = None
+        self.fit_source = 0
+        self.expanded_size = None
+        self.initial_fit_done = False
         self.layout_width = 1240
         self.resize_surface = None
         self.highest_credits = 0
@@ -687,6 +724,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         strip.set_hexpand(True)
         strip.set_valign(Gtk.Align.START)
         self.brand = Gtk.Image.new_from_file(str(ROOT / "Branding/app-icon-512.png"))
+        self.brand.set_pixel_size(self.APP_ICON_SIZE)
         self.project_link = Gtk.LinkButton(uri=PROJECT_URL, child=self.brand, valign=Gtk.Align.CENTER,
                                            tooltip_text="OpenAI Usage project page\nConnecting to Codex…")
         self.manifesto_mark = about_mark("VibeWare.png", self.MANIFESTO_ICON_SIZE)
@@ -703,16 +741,18 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
             link.update_property([Gtk.AccessibleProperty.LABEL], [label])
 
         self.signal = TrafficSignal()
-        self.allowance_tile = FlipTile("Allowance remaining", "Allowance remaining", 115, 20, worn=True, compact_accent=True)
-        self.credits_tile = FlipTile("Remaining Credits", "Remaining Credits", 108, 20, worn=True, compact_accent=True)
-        self.estimate_tile = FlipTile("Estimated time remaining", "Estimated time remaining", 152, 18)
+        self.signal.set_valign(Gtk.Align.START)
+        self.allowance_tile = FlipTile("Allowance remaining", "Allowance left", 115, worn=True, compact_accent=True)
+        self.credits_tile = FlipTile("Remaining Credits", "Remaining Credits", 108, sizing_text="000,000", worn=True, compact_accent=True)
+        self.estimate_tile = FlipTile("Time to run out", "Time to run out", 152)
         self.voucher_tile = VoucherTile()
-        self.reset_tile = FlipTile("First reset", "First reset", 123, 17, info=True)
-        self.metrics = (self.allowance_tile, self.credits_tile, self.estimate_tile, self.voucher_tile, self.reset_tile)
-        self.reset_clock = FlipTile("Next reset date", "Next reset date", 403, 24,
+        self.voucher_expiry_tile = FlipTile("Next voucher expiry", "Next voucher expiry", 160, info=True, sizing_text="00/00 00:00")
+        self.metrics = (self.allowance_tile, self.credits_tile, self.estimate_tile, self.voucher_tile, self.voucher_expiry_tile)
+        self.reset_clock = FlipTile("Auto reset clock", "Auto reset clock", 403,
                                     sizing_text="WEDNESDAY 00 SEPTEMBER 00")
 
-        actions = self.actions = wrap_box(3, center=True)
+        actions = self.actions = box(3, True)
+        actions.set_halign(Gtk.Align.END)
         self.problem=Gtk.Button(icon_name="dialog-warning-symbolic",tooltip_text="Connection status")
         self.problem.add_css_class("icon-action")
         self.problem.connect("clicked",self.show_settings)
@@ -724,17 +764,21 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.pin.set_tooltip_text("Always on top is available on X11 with a compatible window manager")
         self.syncing_pin = False
         self.pin.connect("toggled", self.on_pin_toggled)
-        self.details_icon = Gtk.DrawingArea(content_width=16, content_height=16,
-                                            halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
-        self.details_icon.set_draw_func(self.draw_details_icon)
-        self.details_button = Gtk.ToggleButton(child=self.details_icon, tooltip_text="Usage details", valign=Gtk.Align.CENTER)
+        compact_icon = Gtk.DrawingArea(content_width=16, content_height=16, can_target=False)
+        def draw_compact_icon(_area, cr, _width, _height):
+            color = self.get_color()
+            cr.set_source_rgba(color.red, color.green, color.blue, color.alpha)
+            for x, height in ((2, 6), (7, 10), (12, 15)):
+                cr.rectangle(x, 16 - height, 3, height)
+            cr.fill()
+        compact_icon.set_draw_func(draw_compact_icon)
+        self.details_button = Gtk.ToggleButton(child=compact_icon, valign=Gtk.Align.CENTER)
         self.details_button.add_css_class("icon-action")
-        self.details_button.update_property([Gtk.AccessibleProperty.LABEL], ["Usage details"])
-        self.details_button.set_visible(False)
+        self.details_button.add_css_class("compact-action")
+        self.details_button.set_active(True)
         actions.append(self.pin)
-        actions.append(self.details_button)
         self.connect("map", self.on_window_mapped)
-        for icon,title,callback in [("emblem-system-symbolic","Settings",self.show_settings),
+        for icon,title,callback in [("emblem-system-symbolic","Settings",self.toggle_settings),
                                     ("help-about-symbolic","About OpenAI Usage",self.show_about)]:
             button=Gtk.Button(icon_name=icon,tooltip_text=title)
             button.add_css_class("icon-action")
@@ -742,7 +786,9 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
             actions.append(button)
         close = Gtk.Button(icon_name="window-close-symbolic", tooltip_text="Close")
         close.add_css_class("icon-action")
+        close.add_css_class("close-action")
         close.connect("clicked", lambda _: self.close())
+        actions.append(self.details_button)
         actions.append(close)
         brands = self.brands = box(self.BRAND_SPACING, True)
         brands.set_halign(Gtk.Align.CENTER)
@@ -754,20 +800,21 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         rail.append(brands)
         self.build_details()
         self.modules = [
-            ("allowance", self.allowance_tile, "Percentage left in the allowance currently selected by Codex."),
-            ("credits", self.credits_tile, "Available credits compared with the highest balance seen since launch."),
-            ("estimate", self.estimate_tile, "Estimated time before the current allowance runs out."),
-            ("vouchers", self.voucher_tile, "Number of reset vouchers. Select the tile to see expiration dates."),
-            ("first-reset", self.reset_tile, "Date and time of the first upcoming allowance reset."),
-            ("clock", self.reset_clock, "Switches between the countdown and the date of the next reset."),
+            ("allowance", self.allowance_tile, "Percentage still available in the selected Codex quota."),
+            ("credits", self.credits_tile, "Remaining credit balance. The bar compares it with the highest balance seen this session."),
+            ("estimate", self.estimate_tile, "Estimated time until the selected quota runs out at your observed usage rate."),
+            ("vouchers", self.voucher_tile, "Vouchers you can use now for a manual quota reset. Click the count for their expiration dates."),
+            # Keep the existing field ID for saved visibility and ordering.
+            ("first-reset", self.voucher_expiry_tile, "When the next available voucher with a reported date expires. A dash means no date is available."),
+            ("clock", self.reset_clock, "Alternates between a countdown and the date when the selected quota renews automatically."),
             *[(key, tile, purpose) for (key, purpose), tile in zip((
-                ("five-hour", "Percentage left in the rolling five-hour allowance."),
-                ("five-reset", "Time left before the five-hour allowance resets."),
-                ("weekly", "Percentage left in the weekly allowance."),
-                ("weekly-reset", "Date and time when the weekly allowance resets."),
-                ("detail-estimate", "Time the allowance is expected to last at the observed rate."),
-                ("time-to-reset", "Time until the current allowance resets."),
-                ("forecast", "Whether the allowance will last to the reset and how early it could run out.")
+                ("five-hour", "Percentage remaining in the five-hour quota."),
+                ("five-reset", "Hours and minutes until the five-hour quota renews automatically."),
+                ("weekly", "Percentage remaining in the weekly quota."),
+                ("weekly-reset", "Local date and time when the weekly quota renews automatically."),
+                ("detail-estimate", "Same usage estimate as Time to run out, shown in the expanded details."),
+                ("time-to-reset", "Time left until the selected quota renews automatically. The Auto reset clock also shows this countdown."),
+                ("forecast", "Compares the estimated time to run out with the automatic renewal of the selected quota.")
             ), self.detail_tiles)]
         ]
         body = self.body = box(8, True)
@@ -778,15 +825,23 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         body.append(self.signal)
         body.append(strip)
         body.append(rail)
-        surface = Gtk.ScrolledWindow(child=body, hscrollbar_policy=Gtk.PolicyType.NEVER,
+        surface = self.widget_preview = Gtk.ScrolledWindow(child=body, overlay_scrolling=True, hscrollbar_policy=Gtk.PolicyType.NEVER,
                                     vscrollbar_policy=Gtk.PolicyType.AUTOMATIC)
         drag = Gtk.GestureClick(button=Gdk.BUTTON_PRIMARY)
         drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         drag.connect("pressed", self.begin_move)
-        surface.add_controller(drag)
-        self.set_child(surface)
+        surface.add_css_class("widget-preview")
+        surface.set_vexpand(True)
+        self.window_content = box(6)
+        self.window_content.append(surface)
+        self.window_content.add_controller(drag)
+        motion = Gtk.EventControllerMotion()
+        motion.connect("motion", self.edge_cursor)
+        motion.connect("leave", lambda controller: controller.get_widget().set_cursor(None))
+        self.window_content.add_controller(motion)
+        self.set_child(self.window_content)
         self.details_button.connect("toggled", self.details_toggled)
-        self.problem.connect("notify::visible", lambda *_: self.fit_layout(max(300, self.get_width() or 1240)))
+        self.problem.connect("notify::visible", lambda *_: self.fit_layout(self.layout_width))
         keys = Gtk.EventControllerKey()
         keys.connect("key-pressed", self.details_key_pressed)
         self.add_controller(keys)
@@ -812,9 +867,10 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         surface = self.get_surface()
         if surface is not None and surface is not self.resize_surface:
             self.resize_surface = surface
-            self.layout_width = self.get_width()
             surface.connect("layout", self.on_surface_layout)
-        self.fit_layout(max(300, self.get_width()))
+        if surface is not None:
+            self.on_surface_layout(surface, surface.get_width(), surface.get_height())
+        self.fit_initial_size()
 
     def sync_taskbar(self):
         surface = self.x11_surface()
@@ -881,17 +937,19 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.update_metrics(state)
         self.check_alerts()
         self.tick()
+        self.fit_layout(self.layout_width)
+        self.fit_initial_size()
         return False
 
     def update_metrics(self, state):
         animate = self.animations_enabled()
         remaining = state.get("remaining")
         self.allowance_tile.update(f"{remaining:g}%" if remaining is not None else "—", animate)
-        self.allowance_tile.set_detail("Percentage remaining for the selected Codex allowance. "
-                                       + state.get("resetLabel", "Reset unavailable"))
+        self.allowance_tile.set_detail(f"Percentage available in the {self.selected_quota_name()}. "
+                                       + state.get("resetLabel", "Renewal time unavailable."))
         forecast = state.get("forecastCompact", "—") if state.get("forecastAvailable", False) else "—"
         self.estimate_tile.update(forecast, animate and self.estimate_tile.get_mapped())
-        estimate_detail = ("Estimated time until the displayed allowance is exhausted at the observed usage rate; the allowance may reset first. "
+        estimate_detail = (f"Estimated time until the {self.selected_quota_name()} runs out at your observed usage rate. "
                            + state.get("forecastDetail", "Collecting quota history."))
         self.estimate_tile.set_detail(estimate_detail)
         credits = state.get("creditsLabel", "Unavailable")
@@ -905,11 +963,25 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.credits_tile.set_detail(f"Credits remaining as reported by Codex: {credits}. The displayed balance is rounded to a whole number.")
         self.voucher_tile.show_vouchers(state.get("resetVoucherCount"), state.get("resetVoucherExpirations", []),
                                        animate and self.voucher_tile.get_mapped())
-        scheduled = state.get("resetDisplays", [])
-        first = scheduled[0] if scheduled else {}
-        self.reset_tile.update(first.get("value") or state.get("selectedResetCompact") or "—", animate)
-        details = [item["detail"] for item in scheduled] or [state.get("resetLabel", "Reset unavailable")]
-        self.reset_tile.set_detail("\n".join(details))
+
+    def update_voucher_expiry(self, now):
+        expirations = self.state.get("resetVoucherExpirations") or []
+        upcoming = (entry for entry in expirations if (entry.get("expiresAt") or 0) > now)
+        count = self.state.get("resetVoucherCount")
+        first = min(upcoming, default=None, key=lambda entry: entry["expiresAt"]) if count else None
+        self.voucher_expiry_tile.update(first["value"] if first else "—", False)
+        if first:
+            detail = "Earliest reported expiration of an available voucher: " + first["detail"]
+        elif count == 0:
+            detail = "No vouchers are available."
+        else:
+            detail = "No upcoming expiration date was reported for an available voucher."
+        self.voucher_expiry_tile.set_detail(detail)
+
+    def selected_quota_name(self):
+        key = self.state.get("selectedWindow")
+        selected = next((window for window in self.state.get("windows", []) if window["key"] == key), {})
+        return {300: "five-hour quota", 10080: "weekly quota"}.get(selected.get("minutes"), "selected quota")
 
     def animations_enabled(self):
         return self.get_mapped() and Gtk.Settings.get_default().get_property("gtk-enable-animations")
@@ -917,36 +989,40 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
     def build_details(self):
         self.detail_tiles = (
             FlipTile("5-hour allowance", "5-hour allowance", 112),
-            FlipTile("5-hour reset in", "5-hour reset in", 105),
+            FlipTile("5-hour auto reset in", "5-hour reset in", 125),
             FlipTile("Weekly allowance", "Weekly allowance", 118),
-            FlipTile("Weekly reset at", "Weekly reset at", 152),
-            FlipTile("Estimated time remaining", "Estimated time remaining", 158),
-            FlipTile("Time to reset", "Time to reset", 111),
-            FlipTile("At the current rate", "At the current rate", 442, wrap_value=True),
+            FlipTile("Weekly auto reset", "Weekly auto reset", 152),
+            FlipTile("Run-out estimate", "Run-out estimate", 158),
+            FlipTile("Selected auto reset in", "Auto reset in", 132),
+            FlipTile("Will the quota last?", "Will the quota last?", 442, wrap_value=True),
         )
 
-    @staticmethod
-    def draw_details_icon(area, cr, width, height):
-        color = area.get_color()
-        cr.set_source_rgba(color.red, color.green, color.blue, color.alpha)
-        for index, fraction in enumerate((.38, .62, .88)):
-            cr.rectangle(width * (.15 + .26 * index), height * (.94 - fraction), width * .18, height * fraction)
-        cr.fill()
-
     def details_toggled(self, button):
-        opened = button.get_active() and self.settings.get("enableDetailsBar", False)
+        surface = self.get_surface()
+        restore = self.expanded_size if button.get_active() else None
+        if not button.get_active() and surface is not None:
+            self.expanded_size = self.settings_window_size or (surface.get_width(), surface.get_height())
+        elif button.get_active():
+            self.expanded_size = None
         self.apply_size()
-        if opened:
-            self.update_details(int(time.time()))
+        if self.settings_panel is None:
+            self.queue_fit_height(restore)
+        elif restore:
+            self.settings_window_size = restore
+        elif not button.get_active() and self.settings_window_size is not None:
+            self.settings_window_size = (self.settings_window_size[0], 0)
 
     def details_key_pressed(self, _, key, *_args):
+        if key == Gdk.KEY_Escape and self.settings_panel is not None:
+            self.hide_settings()
+            return True
         if key == Gdk.KEY_Escape and self.details_button.get_active():
             self.details_button.set_active(False)
             return True
         return False
 
     def update_details(self, now):
-        if not self.details_button.get_active():
+        if not any(tile.get_parent() is self.strip for tile in self.detail_tiles):
             return
         animate = self.animations_enabled()
         for name, percent_tile, reset_tile, countdown in (
@@ -960,9 +1036,14 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
             value = allowance.get("resetCompact")
             if countdown and reset is not None:
                 minutes = (max(0, reset - now) + 59) // 60
-                value = f"{minutes // 60:02}:{minutes % 60:02}"
+                value = f"{minutes // 60:02}h {minutes % 60:02}m"
             reset_tile.update(value or "—", animate)
-            reset_tile.set_detail(allowance.get("resetCompact") or "Reset time unavailable")
+            quota = "five-hour quota" if countdown else "weekly quota"
+            timestamp = allowance.get("resetCompact")
+            zone = self.settings.get("timeZoneId", "local time")
+            reset_tile.set_detail(f"The {quota} renews automatically on {timestamp} ({zone})." if timestamp
+                                  else f"Automatic renewal time for the {quota} is unavailable.")
+            percent_tile.set_detail(f"Percentage remaining in the {quota}.")
 
         estimate, reset_tile, message = self.detail_tiles[4:]
         reset = self.state.get("resetsAt")
@@ -977,10 +1058,14 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         else:
             reset_value = "—"
         reset_tile.update(reset_value, animate)
+        quota = self.selected_quota_name()
+        reset_tile.set_detail(f"Time left until the {quota} renews automatically. "
+                              + self.state.get("resetLabel", "Renewal time unavailable."))
+        estimate.set_detail(f"Estimated time until the {quota} runs out at your observed usage rate. "
+                            + self.state.get("forecastDetail", "Collecting quota history."))
         waiting = passed and (remaining is None or remaining > 0)
         value = "WAITING FOR RESET DATA" if waiting else prediction.get("message", "ALLOWANCE UNAVAILABLE")
         message.update(re.sub(r"(?<=\d)[DHM]\b", lambda match: match[0].lower(), value.upper()), animate)
-        self.queue_fit_height()
         message.set_colors(warning=not waiting and prediction.get("warning", False))
         message.set_detail(self.state.get("forecastDetail", "Allowance data is unavailable."))
 
@@ -1074,11 +1159,14 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
             log_event("guard.failure","Separate guard exited unexpectedly; closing the widget.")
             self.get_application().quit()
             return False
+        now = int(time.time())
         end=self.state.get("resetsAt")
-        seconds=max(0,int(end-time.time())) if end is not None else None
+        seconds=max(0,end-now) if end is not None else None
         self.update_clock(seconds)
-        self.update_details(int(time.time()))
-        self.signal.maybe_flicker(self.animations_enabled())
+        self.update_details(now)
+        self.update_voucher_expiry(now)
+        if self.signal.get_mapped():
+            self.signal.maybe_flicker(self.animations_enabled())
         status=self.state.get("status","Connecting to Codex…")
         updated=self.state.get("updatedAt")
         stale=False
@@ -1120,9 +1208,11 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
             self.reset_clock.update(value, animate, flaps=flaps, duration=.32)
         else:
             self.reset_clock.update("—", False)
+        quota = self.selected_quota_name()
         self.reset_clock.set_detail(
-            f"Reset date: {self.state['resetCalendarDate']}" if show_date
-            else "Countdown until the selected allowance resets."
+            f"Automatic renewal of the {quota}. "
+            + self.state.get("resetLabel", "Renewal time unavailable.")
+            + " This display alternates between the date and the time remaining."
         )
 
     LEGACY_MODULE_KEYS = {"credits": "showCredits", "estimate": "showEstimatedTime", "vouchers": "showAvailableResets"}
@@ -1147,107 +1237,165 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.update_settings(hiddenFields=hidden if enabled else hidden + [key])
 
     def apply_size(self):
-        enabled = self.settings.get("enableDetailsBar", False)
-        self.details_button.set_visible(enabled)
-        details = enabled and self.details_button.get_active()
+        expanded = self.details_button.get_active()
+        details = expanded and self.settings.get("enableDetailsBar", False)
         visible = [widget for key, widget, _ in self.ordered_modules()
                    if self.module_enabled(key) and (widget not in self.detail_tiles or details)]
+        label = "Compact mode" if expanded else "Expand widget"
+        self.details_button.set_tooltip_text(label)
+        self.details_button.update_property([Gtk.AccessibleProperty.LABEL], [label])
         current = list(WrapLayout.children(self.strip))
         if current != visible:
             while self.strip.get_first_child() is not None:
                 self.strip.remove(self.strip.get_first_child())
             for child in visible:
                 self.strip.append(child)
-        self.fit_layout(max(300, self.get_width() or 1240))
+            self.update_details(int(time.time()))
+        self.fit_layout(self.layout_width)
 
     def fit_layout(self, width):
-        compact = self.settings.get("enableDetailsBar", False) and not self.details_button.get_active()
-        strip_layout = self.strip.get_layout_manager()
+        layout = self.strip.get_layout_manager()
+        expanded = self.details_button.get_active()
         big = self.settings.get("bigSize", False) and width >= 375
         scale = 1 + LARGER_WIDGET_PERCENT / 100 if big else 1
         (self.add_css_class if big else self.remove_css_class)("big")
-        natural = [child.measure(Gtk.Orientation.HORIZONTAL, -1)[1] for child in WrapLayout.children(self.actions)]
-        command_width = sum(natural) + max(0, len(natural) - 1) * self.actions.get_layout_manager().spacing
-        previous_width = width
-        minimum = 300
-        gaps_between_sections = self.body.get_spacing() * (1 if compact else 2)
-        gutters = self.body.get_margin_start() + self.body.get_margin_end() + gaps_between_sections + 2
-        if compact:
-            tiles = list(WrapLayout.children(self.strip))
-            gaps = max(0, len(tiles) - 1) * strip_layout.spacing
-            min_tiles = len(tiles) * 30
-            extra = gutters + command_width
-            minimum = max(minimum, round(extra + gaps + max(min_tiles, sum(tile.base_width for tile in tiles) * scale * .6)))
+        opacity = self.settings.get("windowOpacityPercent", 100) / 100
+        settings_open = self.settings_panel is not None
+        self.set_opacity(1 if settings_open else opacity)
+        self.widget_preview.set_opacity(opacity if settings_open else 1)
+        tiles = list(WrapLayout.children(self.strip))
+        preferred = {tile: round(tile.base_width * scale) for tile in tiles}
+
+        command_width = self.actions.measure(Gtk.Orientation.HORIZONTAL, -1)[1]
+        gaps = max(0, len(tiles) - 1) * layout.spacing
+        margins = self.body.get_margin_start() + self.body.get_margin_end() + 2
+        spacing = self.body.get_spacing()
+        plain_width = command_width + margins + spacing
+        # Reserve the real command width before deciding whether metrics wrap.
+        decorate = expanded and len(tiles) > 1 and sum(preferred.values()) + gaps > width - plain_width
+        self.signal.set_visible(decorate)
+        self.brands.set_visible(decorate)
+        signal_width = 30 if width < 530 else 44
+        rail_width = self.rail.measure(Gtk.Orientation.HORIZONTAL, -1)[1]
+        chrome = rail_width + margins + spacing
+        if decorate:
+            chrome += signal_width + spacing
+
+        minimum = max(300, chrome + FlipTile.MINIMUM_WIDTH)
+        if not expanded:
+            minimum_tiles = len(tiles) * FlipTile.MINIMUM_WIDTH
+            minimum = max(minimum, chrome + gaps + round(max(minimum_tiles, sum(preferred.values()) * .6)))
             surface = self.get_surface()
-            monitor = self.get_display().get_monitor_at_surface(surface) if surface is not None else None
-            if monitor is not None:
+            monitor = self.get_display().get_monitor_at_surface(surface) if surface else None
+            if monitor:
                 minimum = min(minimum, monitor.get_geometry().width)
-            if width < minimum and self.expanded_width is None:
-                self.expanded_width = width
-            width = max(width, minimum)
-        elif self.expanded_width is not None:
-            width, self.expanded_width = self.expanded_width, None
-        self.pending_width = width if width != previous_width else None
-        self.set_size_request(minimum, -1)
-        narrow = not compact and width < 530
-        self.set_opacity(self.settings.get("windowOpacityPercent", 100) / 100)
-        self.brand.set_pixel_size(self.APP_ICON_SIZE)
-        self.brands.set_visible(not compact)
-        self.brands.set_orientation(Gtk.Orientation.VERTICAL if narrow else Gtk.Orientation.HORIZONTAL)
-        self.rail.set_valign(Gtk.Align.CENTER if compact else Gtk.Align.START)
-        brand_width = self.APP_ICON_SIZE + self.BRAND_SPACING + self.MANIFESTO_ICON_SIZE
-        action_width = (186 if self.problem.get_visible() else 158) + (20 if big else 0)
-        rail = command_width if compact else self.MANIFESTO_ICON_SIZE if narrow else max(brand_width, action_width)
-        self.actions.set_size_request(rail, -1)
-        self.signal.set_visible(not compact)
-        signal_width = 30 if narrow else 44
-        available = width - gutters - rail - (0 if compact else signal_width)
-        tile_widths = None
-        if compact:
-            flexible = sum(tile.base_width * scale for tile in tiles) - min_tiles
-            portion = max(0, min(1, (available - gaps - min_tiles) / flexible)) if flexible else 1
-            tile_widths = {tile: int(30 + (tile.base_width * scale - 30) * portion) for tile in tiles}
-        if strip_layout.tile_widths != tile_widths:
-            strip_layout.tile_widths = tile_widths
+        available = max(FlipTile.MINIMUM_WIDTH, max(width, minimum) - chrome)
+        if expanded:
+            # On narrow windows, leave room for two ordinary fields per row.
+            # The calendar and the long forecast still get the full row.
+            half_row = max(100, (available - layout.spacing) // 2)
+            widths = {tile: min(available, half_row if len(tiles) > 2 and available < 320 and tile.base_width <= 160
+                               else available, preferred[tile]) for tile in tiles}
+        else:
+            widths = self.fit_compact_widths(preferred, available - gaps, scale)
+        if layout.tile_widths != widths or layout.single_row != (not expanded):
+            layout.tile_widths, layout.single_row = widths, not expanded
             self.strip.queue_resize()
-        label = "Expand widget to show usage details" if compact else "Compact widget"
-        self.details_button.set_tooltip_text(label)
-        self.details_button.update_property([Gtk.AccessibleProperty.LABEL], [label])
         position = self.settings.get("labelPosition", "above")
         for tile in (*self.metrics, self.reset_clock, *self.detail_tiles):
             tile.set_label_position(position)
-            tile.resize(scale, tile_widths.get(tile, available) if tile_widths is not None else available)
-        content_height = max(self.strip.measure(Gtk.Orientation.VERTICAL, available)[1],
-                             self.rail.measure(Gtk.Orientation.VERTICAL, rail)[1])
-        signal_cap = 92 if narrow else 128
-        self.signal.set_size_request(signal_width, min(signal_cap, content_height))
-        if self.get_mapped():
+        self.fit_tile_fonts(scale, widths)
+
+        strip_height = self.strip.measure(Gtk.Orientation.VERTICAL, available)[1]
+        rail_height = self.rail.measure(Gtk.Orientation.VERTICAL, rail_width)[1]
+        if decorate:
+            self.signal.set_size_request(signal_width, min(128, strip_height))
+        vertical_insets = self.body.get_margin_top() + self.body.get_margin_bottom() + 2
+        # Keep the controls and both logos in view even when a resized window needs scrolling.
+        height = max(strip_height, rail_height) + vertical_insets
+        if settings_open:
+            surface = self.get_surface()
+            monitor = self.get_display().get_monitor_at_surface(surface) if surface else None
+            preview_cap = min(240, monitor.get_geometry().height // 3) if monitor else 240
+            preview = max(rail_height + vertical_insets, min(height, preview_cap))
+            self.widget_preview.set_size_request(-1, preview - 2)
+            self.set_size_request(minimum, preview + 124)
+            height = preview + 450
+        else:
+            self.widget_preview.set_size_request(-1, -1)
+            self.set_size_request(minimum, rail_height + vertical_insets)
+        return max(width, minimum), height
+
+    @staticmethod
+    def fit_compact_widths(preferred, available, scale):
+        # Reserve enough room for the same text size in every field before
+        # distributing spare space towards the preferred widths.
+        low, high = 0, FlipTile.VALUE_FONT_SIZE * scale
+        for tile, width in preferred.items():
+            high = min(high, tile.font_limit(width, tile.value))
+        for _ in range(8):
+            size = (low + high) / 2
+            if sum(min(preferred[tile], tile.width_for_font(size)) for tile in preferred) <= available:
+                low = size
+            else:
+                high = size
+        widths = {tile: min(width, tile.width_for_font(low)) for tile, width in preferred.items()}
+        used = sum(widths.values())
+        flexible = sum(preferred.values()) - used
+        fraction = max(0, min(1, (available - used) / flexible)) if flexible else 0
+        return {tile: width + int((preferred[tile] - width) * fraction) for tile, width in widths.items()}
+
+    @staticmethod
+    def fit_tile_fonts(scale, widths):
+        font_size = FlipTile.VALUE_FONT_SIZE * scale
+        for tile, width in widths.items():
+            font_size = min(font_size, tile.font_limit(width, tile.value))
+        for tile, width in widths.items():
+            tile.resize(scale, width, font_size)
+
+    def fit_initial_size(self):
+        if self.settings_panel is None and not self.initial_fit_done and self.settings_ready and self.get_mapped():
+            self.initial_fit_done = True
             self.queue_fit_height()
 
-    def queue_fit_height(self):
-        if self.layout_pending:
-            return
-        self.layout_pending = True
+    def cancel_fit_height(self):
+        if self.fit_source:
+            GLib.source_remove(self.fit_source)
+            self.fit_source = 0
+
+    def queue_fit_height(self, restore=None, minimum_width=0):
+        self.cancel_fit_height()
 
         def fit():
-            self.layout_pending = False
-            if self.closed or not self.get_mapped():
-                return False
-            width = self.pending_width or max(300, self.get_width())
-            self.pending_width = None
-            desired = self.body.measure(Gtk.Orientation.VERTICAL, width)[1]
-            display = self.get_display()
+            self.fit_source = 0
             surface = self.get_surface()
-            monitor = display.get_monitor_at_surface(surface) if surface is not None else None
-            height = min(desired, monitor.get_geometry().height - 48) if monitor is not None else desired
-            if abs(height - self.get_height()) > 1 or abs(width - self.get_width()) > 1:
-                self.set_default_size(width, height)
+            if self.closed or not self.get_mapped() or surface is None:
+                return False
+            width = restore[0] if restore else surface.get_width()
+            width, height = self.fit_layout(max(width, minimum_width))
+            if restore:
+                height = max(height, restore[1])
+            monitor = self.get_display().get_monitor_at_surface(surface)
+            if monitor:
+                height = min(height, monitor.get_geometry().height - 48)
+            self.set_default_size(width, height)
+
+            def finish_resize():
+                self.fit_source = 0
+                if not self.closed and self.get_mapped() and self.get_surface() == surface:
+                    if abs(surface.get_width() - width) > 2 or abs(surface.get_height() - height) > 12:
+                        self.set_default_size(width, height)
+                return False
+
+            # GTK can receive a configure for the new minimum size before the
+            # requested size takes effect, particularly when both axes change.
+            self.fit_source = GLib.timeout_add(100, finish_resize)
             return False
 
-        GLib.idle_add(fit)
+        self.fit_source = GLib.idle_add(fit)
 
     def on_surface_layout(self, surface, width, height):
-        if width != self.layout_width:
+        if width > 1 and width != self.layout_width:
             self.layout_width = width
             self.fit_layout(width)
 
@@ -1327,29 +1475,61 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         dialog.add_controller(keys)
         dialog.present()
 
+    @staticmethod
+    def resize_edge(widget, x, y):
+        west, east = x < 8, x >= widget.get_width() - 8
+        north, south = y < 8, y >= widget.get_height() - 8
+        if north:
+            return Gdk.SurfaceEdge.NORTH_WEST if west else Gdk.SurfaceEdge.NORTH_EAST if east else Gdk.SurfaceEdge.NORTH
+        if south:
+            return Gdk.SurfaceEdge.SOUTH_WEST if west else Gdk.SurfaceEdge.SOUTH_EAST if east else Gdk.SurfaceEdge.SOUTH
+        return Gdk.SurfaceEdge.WEST if west else Gdk.SurfaceEdge.EAST if east else None
+
+    def edge_cursor(self, controller, x, y):
+        widget = controller.get_widget()
+        edge = self.resize_edge(widget, x, y)
+        cursor = {
+            Gdk.SurfaceEdge.NORTH: "n-resize",
+            Gdk.SurfaceEdge.SOUTH: "s-resize",
+            Gdk.SurfaceEdge.WEST: "w-resize",
+            Gdk.SurfaceEdge.EAST: "e-resize",
+            Gdk.SurfaceEdge.NORTH_WEST: "nw-resize",
+            Gdk.SurfaceEdge.NORTH_EAST: "ne-resize",
+            Gdk.SurfaceEdge.SOUTH_WEST: "sw-resize",
+            Gdk.SurfaceEdge.SOUTH_EAST: "se-resize",
+        }.get(edge)
+        widget.set_cursor_from_name(cursor)
+
     def begin_move(self, gesture, presses, x, y):
-        """Ask the compositor to drag from any non-button part of the micro strip."""
         if self.closed or presses != 1:
             return
-        target=gesture.get_widget().pick(x,y,Gtk.PickFlags.DEFAULT)
-        while target is not None:
-            if isinstance(target, (Gtk.Button, Gtk.MenuButton)):
-                gesture.set_state(Gtk.EventSequenceState.DENIED)
-                return
-            target=target.get_parent()
-        event=gesture.get_current_event()
-        surface=self.get_surface()
-        if event is None or surface is None:
+        widget = gesture.get_widget()
+        edge = self.resize_edge(widget, x, y)
+        if edge is None:
+            target = widget.pick(x, y, Gtk.PickFlags.DEFAULT)
+            while target is not None:
+                if (target is self.settings_panel
+                        or isinstance(target, (Gtk.Button, Gtk.MenuButton, Gtk.Scrollbar))):
+                    gesture.set_state(Gtk.EventSequenceState.DENIED)
+                    return
+                target = target.get_parent()
+        device = gesture.get_current_event_device()
+        surface = self.get_surface()
+        if surface is None or device is None:
             return
-        valid, surface_x, surface_y=event.get_position()
-        device=event.get_device()
-        if valid and device is not None:
-            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
-            if surface_x < 8 or surface_x >= self.get_width() - 8:
-                edge = Gdk.SurfaceEdge.WEST if surface_x < 8 else Gdk.SurfaceEdge.EAST
-                surface.begin_resize(edge, device, Gdk.BUTTON_PRIMARY, surface_x, surface_y, event.get_time())
-            else:
-                surface.begin_move(device, Gdk.BUTTON_PRIMARY, surface_x, surface_y, event.get_time())
+        point = widget.translate_coordinates(self, x, y)
+        if point is None:
+            return
+        # GTK native coordinates include the translation from the GDK surface.
+        offset_x, offset_y = self.get_surface_transform()
+        sx, sy = point[0] - offset_x, point[1] - offset_y
+        timestamp = gesture.get_current_event_time()
+        gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+        if edge is not None:
+            self.cancel_fit_height()
+            surface.begin_resize(edge, device, Gdk.BUTTON_PRIMARY, sx, sy, timestamp)
+        else:
+            surface.begin_move(device, Gdk.BUTTON_PRIMARY, sx, sy, timestamp)
 
     def exit_application(self):
         self.exit_pending = True

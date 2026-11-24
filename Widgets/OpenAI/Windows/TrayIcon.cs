@@ -68,8 +68,8 @@ public sealed class TrayIcon : IDisposable
         try
         {
             const uint separator = 0x800;
-            if (!AppendMenu(menu, 0, 1, "Open application") ||
-                !AppendMenu(menu, 0, 4, "Preferences") ||
+            if (!AppendMenu(menu, 0, 4, "Preferences") ||
+                !AppendMenu(menu, 0, 1, "Open") ||
                 !AppendMenu(menu, separator, 0, null) ||
                 !AppendMenu(menu, 0, 5, "Website") ||
                 !AppendMenu(menu, 0, 6, "VibeWare manifesto") ||
@@ -77,7 +77,7 @@ public sealed class TrayIcon : IDisposable
                 !AppendMenu(menu, 0, 7, "Quit") ||
                 !AppendMenu(menu, separator, 0, null) ||
                 !AppendMenu(menu, 0, 8, "Mini Utilities") ||
-                !AppendMenu(menu, 0, 3, "About OpenAI Usage")) return;
+                !AppendMenu(menu, 0, 3, "About")) return;
             GetCursorPos(out var point); SetForegroundWindow(window);
             uint command=TrackPopupMenuEx(menu,0x100|2,point.X,point.Y,window,0);
             PostMessage(window,0,0,0);

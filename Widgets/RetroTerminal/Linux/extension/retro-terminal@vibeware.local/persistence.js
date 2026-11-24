@@ -5,6 +5,7 @@ import GLib from 'gi://GLib';
 import Mtk from 'gi://Mtk';
 import {MAX_PIXELS} from './guard.js';
 import {planCapture} from './capture-plan.js';
+import {paintHistory} from './shared/capture-pass.js';
 
 // Preserve the existing compositor workload ceiling when more displays are selected.
 const MAX_CAPTURE_FPS = 24;
@@ -13,9 +14,10 @@ const now = () => GLib.get_monotonic_time() / 1e6;
 // The history actors stay above uiGroup, so the CRT color pass is applied once.
 // Each selected monitor has two fixed textures, alternating as source/destination.
 export class PhosphorPersistence {
-    constructor({onError, onDelay}) {
+    constructor({onError, onDelay, onOverlayAdded}) {
         this._onError = onError;
         this._onDelay = onDelay;
+        this._onOverlayAdded = onOverlayAdded;
         this._timer = 0;
         this._slots = [];
         this._selection = '';
@@ -74,6 +76,7 @@ export class PhosphorPersistence {
                     reactive: false, x, y, width, height, opacity: 0, clip_to_allocation: true});
                 global.stage.add_child(slot.overlay);
             }
+            this._onOverlayAdded();
             this._captureCount = 0;
             this._nextSlot = 0;
             this._startTimer();
@@ -116,8 +119,9 @@ export class PhosphorPersistence {
         slot.overlay.opacity = slot.history ? Math.round(255 * decay) : 0;
         const target = slot.buffers[slot.next];
         try {
-            global.stage.paint_to_framebuffer(target.framebuffer, slot.rect, slot.info.scale,
-                global.stage.get_color_state(), Clutter.PaintFlag.NO_CURSORS | Clutter.PaintFlag.CLEAR);
+            const stage = global.stage;
+            paintHistory(stage, () => stage.paint_to_framebuffer(target.framebuffer, slot.rect, slot.info.scale,
+                stage.get_color_state(), Clutter.PaintFlag.NO_CURSORS | Clutter.PaintFlag.CLEAR));
         } finally {
             slot.overlay.opacity = Math.round(255 * this._strength);
         }

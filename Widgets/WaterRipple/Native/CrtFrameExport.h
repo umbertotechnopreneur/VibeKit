@@ -32,14 +32,14 @@ public:
         shared.Reset();
         peer = nullptr;
         generation = nullptr;
-        nextDiscovery = {};
+        nextDiscovery = lastPublish = {};
+        framePending = false;
     }
 
-    Publication Publish(ID3D11Device* device, ID3D11DeviceContext* context, IDXGIAdapter1* adapter,
-        IDXGISwapChain1* swapChain, HMONITOR monitor, const RECT& bounds)
+    Publication Observe(ID3D11Device* device, IDXGIAdapter1* adapter, HMONITOR monitor,
+        const RECT& bounds, ipc::Clock::time_point now, bool changed)
     {
         if (!owner) return {};
-        const auto now = ipc::Clock::now();
         if (now >= nextDiscovery)
         {
             auto candidate = ipc::FindPeer(monitor, bounds, ipc::CrtReady, reinterpret_cast<HANDLE>(1));
@@ -56,31 +56,33 @@ public:
             }
         }
         if (!sharedHandle) return {};
+        framePending |= changed;
+        return PresentationStatus(monitor, bounds);
+    }
 
-        const auto status = PresentationStatus(monitor, bounds);
+    bool NeedsFrame(ipc::Clock::time_point now) const
+    {
+        // The consumer still expires shared input after 500 ms without a copy.
+        return sharedHandle && (framePending || now >= lastPublish + ipc::PresentationLease / 4);
+    }
+
+    bool Publish(ID3D11DeviceContext* context, ID3D11Texture2D* texture, ipc::Clock::time_point now, bool willPresentLocally)
+    {
         const HRESULT acquired = mutex->AcquireSync(ipc::ProducerKey, 0);
-        if (acquired == WAIT_TIMEOUT) return status;
+        if (acquired == WAIT_TIMEOUT) return true;
         if (acquired != S_OK)
         {
             Reset();
-            return {};
+            return false;
         }
 
-        Microsoft::WRL::ComPtr<ID3D11Texture2D> result;
-        if (FAILED(swapChain->GetBuffer(0, IID_PPV_ARGS(&result))))
-        {
-            mutex->ReleaseSync(ipc::ProducerKey);
-            Reset();
-            return {};
-        }
-        context->OMSetRenderTargets(0, nullptr, nullptr);
-        context->CopyResource(shared.Get(), result.Get());
-        // When CRT presents, our swap chain no longer submits the producer's work.
-        if (status.presentedByCrt) context->Flush();
+        context->CopyResource(shared.Get(), texture);
+        // No local Present submits this copy while CRT owns presentation or our local frame is unchanged.
+        if (!willPresentLocally) context->Flush();
         if (FAILED(mutex->ReleaseSync(ipc::ConsumerKey)))
         {
             Reset();
-            return {};
+            return false;
         }
         if (!generation)
         {
@@ -91,11 +93,13 @@ public:
                 !SetPropW(owner, ipc::RippleGeneration, reinterpret_cast<HANDLE>(serial.QuadPart)))
             {
                 Reset();
-                return {};
+                return false;
             }
             generation = reinterpret_cast<HANDLE>(serial.QuadPart);
         }
-        return status;
+        lastPublish = now;
+        framePending = false;
+        return true;
     }
 
 private:
@@ -104,10 +108,13 @@ private:
         if (!generation || GetPropW(peer, ipc::CrtInput) != owner) return {};
         if (GetPropW(peer, ipc::CrtPresentationGeneration) != generation) return {true, false};
         const auto presentedAt = reinterpret_cast<LONG_PTR>(GetPropW(peer, ipc::CrtPresentation));
-        LARGE_INTEGER now{}, frequency{};
-        if (presentedAt <= 0 || !QueryPerformanceCounter(&now) || now.QuadPart < presentedAt ||
-            !QueryPerformanceFrequency(&frequency) || frequency.QuadPart <= 0 ||
-            std::chrono::duration<double>(double(now.QuadPart - presentedAt) / double(frequency.QuadPart)) >= ipc::PresentationLease)
+        static const auto frequency = [] {
+            LARGE_INTEGER ticks{};
+            return QueryPerformanceFrequency(&ticks) ? ticks.QuadPart : 0LL;
+        }();
+        LARGE_INTEGER now{};
+        if (presentedAt <= 0 || frequency <= 0 || !QueryPerformanceCounter(&now) || now.QuadPart < presentedAt ||
+            std::chrono::duration<double>(double(now.QuadPart - presentedAt) / double(frequency)) >= ipc::PresentationLease)
             return {true, false};
 
         BYTE alpha{};
@@ -147,7 +154,8 @@ private:
 
     HWND owner{}, peer{};
     HANDLE generation{};
-    ipc::Clock::time_point nextDiscovery{};
+    ipc::Clock::time_point nextDiscovery{}, lastPublish{};
+    bool framePending{};
     winrt::handle sharedHandle;
     Microsoft::WRL::ComPtr<ID3D11Texture2D> shared;
     Microsoft::WRL::ComPtr<IDXGIKeyedMutex> mutex;

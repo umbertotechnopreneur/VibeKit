@@ -100,6 +100,18 @@ namespace vibeware::desktop_effect
         return search.peer;
     }
 
+    // A capture-excluded post-effect surface may stay above both renderers.
+    // Check it only when placing an overlay, never in the frame-copy path.
+    inline HWND FindVignetteOverlay(HMONITOR monitor, const RECT& bounds)
+    {
+        constexpr wchar_t VignettePostEffect[] = L"VibeWare.Vignette.PostEffect.v1";
+        const auto window = FindPeer(monitor, bounds, VignettePostEffect, reinterpret_cast<HANDLE>(1));
+        if (!window || !(GetWindowLongPtrW(window, GWL_EXSTYLE) & WS_EX_TOPMOST) ||
+            !OpenPeer(window, L"Vignette.exe", 0) || !IsEffectWindow(window, monitor, bounds))
+            return nullptr;
+        return window;
+    }
+
     inline bool HasTextureBudget(IDXGIAdapter1* adapter, UINT width, UINT height)
     {
         ComPtr<IDXGIAdapter3> budgetAdapter;

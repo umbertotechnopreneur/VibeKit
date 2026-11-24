@@ -56,7 +56,7 @@ Section: gnome
 Priority: optional
 Architecture: all
 Maintainer: Umberto Giacobbi
-Depends: gnome-shell (>= 50), gnome-shell (<< 51), gjs, libadwaita-1-0 (>= 1.5), libgtk-4-1, libglib2.0-bin, gir1.2-dbusmenu-glib-0.4
+Depends: gnome-shell (>= 50), gnome-shell (<< 51), gjs, libadwaita-1-0 (>= 1.5), libgtk-4-1, libglib2.0-bin
 Description: Bounded click refraction for GNOME Shell 50
  Real image refraction on the background or clicked window, with a compact
  controller, a heartbeat timeout and bounded rendering surfaces.

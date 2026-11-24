@@ -13,7 +13,8 @@ import {createAccordion, addThemeSetting} from './preferences-layout.js';
 import {createGpuJokes} from './gpu-jokes.js';
 import {createMonitorGroup} from './shared/monitor-settings.js';
 
-export function buildControls(window, settings, application = null, externalLease = false, startEffect = false, extensionConnection = Gio.DBus.session) {
+export function buildControls(window, settings, application = null, externalLease = false, startEffect = false,
+    extensionConnection = Gio.DBus.session, enableOnStartup = Boolean(application) || startEffect) {
     window.set_title('Ripple');
     window.set_default_size(760, 860);
     const {model: pipelines, path: libraryPath} = loadPipelines(settings);
@@ -90,7 +91,7 @@ export function buildControls(window, settings, application = null, externalLeas
         settings.connect('changed::panic-available', syncEmergency),
     ];
     syncEmergency();
-    const status = new Adw.ActionRow({title: settings.get_string('status')});
+    const status = new Adw.ActionRow({title: settings.get_string('status'), use_markup: false});
     group.add(status);
     const target = new Adw.ComboRow({
         title: 'Apply to', model: Gtk.StringList.new(['Wallpaper only', 'Windows only', 'Wallpaper and windows']),
@@ -190,9 +191,10 @@ export function buildControls(window, settings, application = null, externalLeas
     limits.add(autoRestart);
     const stop = new Gtk.Button({label: 'Stop', css_classes: ['destructive-action'], valign: Gtk.Align.CENTER});
     status.add_suffix(stop);
-    let enableWhenReady = application ? true : startEffect;
+    let enableWhenReady = enableOnStartup;
+    const cancelStartup = () => { enableWhenReady = false; };
     stop.connect('clicked', () => {
-        enableWhenReady = false;
+        cancelStartup();
         settings.set_boolean('recovery-pending', false);
         settings.set_boolean('active', false);
     });
@@ -230,45 +232,89 @@ export function buildControls(window, settings, application = null, externalLeas
     // Let GNOME load the installed extension through its supported API only.
     if (application && extensionConnection) {
         active.set_sensitive(false);
+        status.set_title('Waiting for GNOME Shell…');
         const cancellable = new Gio.Cancellable();
+        const busName = 'org.gnome.Shell.Extensions';
+        const busPath = '/org/gnome/Shell/Extensions';
+        const uuid = new GLib.Variant('(s)', [UUID]);
         let retries = startEffect ? 3 : 0;
-        function enableExtension() {
-            extensionConnection.call('org.gnome.Shell.Extensions', '/org/gnome/Shell/Extensions',
-                'org.gnome.Shell.Extensions', 'EnableExtension', new GLib.Variant('(s)', [UUID]),
+        let timer = 0;
+        let readyDeadline = 0;
+
+        function schedule(delayMs, callback) {
+            timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delayMs, () => {
+                timer = 0;
+                callback();
+                return GLib.SOURCE_REMOVE;
+            });
+        }
+
+        function fail(message) {
+            settings.set_boolean('active', false);
+            settings.set_string('status', message);
+            status.set_title(message);
+        }
+
+        function request(method, onReply) {
+            extensionConnection.call(busName, busPath, busName, method, uuid,
                 null, Gio.DBusCallFlags.NONE, 2000, cancellable, (connection, result) => {
-                    if (closed)
-                        return;
-
-                    let ok = false;
-                    let failure = 'Extension available after the next sign-in';
+                    if (closed) return;
+                    let reply;
                     try {
-                        [ok] = connection.call_finish(result).deep_unpack();
-                    } catch {
-                        failure = 'GNOME is unavailable';
+                        [reply] = connection.call_finish(result).recursiveUnpack();
+                    } catch (error) {
+                        if (!cancellable.is_cancelled())
+                            fail(`Could not contact GNOME Shell: ${error.message}`);
+                        return;
                     }
-
-                    if (ok) {
-                        if (enableWhenReady) {
-                            renewLease();
-                            settings.set_boolean('active', true);
-                        }
-                        active.set_sensitive(true);
-                    } else if (retries > 0) {
-                        retries--;
-                        GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, () => {
-                            if (!closed)
-                                enableExtension();
-                            return GLib.SOURCE_REMOVE;
-                        });
-                    } else {
-                        settings.set_boolean('active', false);
-                        settings.set_string('status', failure);
-                    }
+                    onReply(reply);
                 });
         }
+
+        function waitForActive() {
+            request('GetExtensionInfo', info => {
+                // GNOME Shell 50's Extensions D-Bus API uses ACTIVE = 1,
+                // ERROR = 3 and OUT_OF_DATE = 4.
+                if (info.state === 1) {
+                    status.set_title(settings.get_string('status'));
+                    if (enableWhenReady) {
+                        renewLease();
+                        settings.set_boolean('active', true);
+                    }
+                    active.set_sensitive(true);
+                } else if (info.state === 3 || info.state === 4) {
+                    fail(info.error ? `Could not load Ripple: ${info.error}` :
+                        'Ripple could not load in this GNOME session');
+                } else if (GLib.get_monotonic_time() < readyDeadline) {
+                    schedule(200, waitForActive);
+                } else {
+                    fail('GNOME did not activate the Ripple extension');
+                }
+            });
+        }
+
+        function enableExtension() {
+            request('EnableExtension', accepted => {
+                // An accepted request only changes the extension list. Shell may
+                // still be loading the module and reset active during enable().
+                if (accepted) {
+                    readyDeadline = GLib.get_monotonic_time() + 5_000_000;
+                    waitForActive();
+                } else if (retries > 0) {
+                    retries--;
+                    schedule(1000, enableExtension);
+                } else {
+                    fail('Ripple extension unavailable in this GNOME session');
+                }
+            });
+        }
         enableExtension();
-        window.connect('close-request', () => { cancellable.cancel(); return false; });
+        window.connect('close-request', () => {
+            cancellable.cancel();
+            if (timer) GLib.source_remove(timer);
+            return false;
+        });
     }
     return {page, footer, active, preset, stop, status, pipelines, library, about, aboutRow, aboutSection: aboutSection.row,
-        settingsSection: settingsSection.row, jokes};
+        settingsSection: settingsSection.row, jokes, cancelStartup};
 }

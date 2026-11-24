@@ -4,11 +4,44 @@ using Microsoft.UI.Xaml.Automation;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using Windows.ApplicationModel;
+using global::Windows.Graphics;
 
 namespace OpenAIUsage.Windows;
 
 public sealed partial class MainWindow
 {
+    private FrameworkElement? settingsPane;
+    private SizeInt32? settingsRestoreSize;
+
+    private void ApplyWidgetOpacity(int percent)
+    {
+        ApplyOpacity(settingsPane is null ? percent : 100);
+        viewport.Opacity = settingsPane is null ? 1 : percent / 100d;
+    }
+
+    private async Task HideSettingsAsync()
+    {
+        if (settingsPane is null) return;
+        root.Children.Remove(settingsPane);
+        settingsPane = null;
+        settingsStatus = null;
+        var restore = settingsRestoreSize;
+        settingsRestoreSize = null;
+        RequestWidgetFit(restore);
+        try
+        {
+            ApplyWidgetOpacity(settings.WindowOpacityPercent);
+            if (!exitPending && !closed)
+                await settingsWriter.FlushAsync();
+        }
+        catch (Exception failure) when (failure is IOException or System.ComponentModel.Win32Exception)
+        {
+            settingsError = failure.Message;
+            Tick();
+        }
+        QueueLayout();
+    }
+
     private void UpdateSettingsStatus()
     {
         if (settingsStatus is null) return;
@@ -23,7 +56,7 @@ public sealed partial class MainWindow
         edit(next);
         next.Validate();
         if (next.WindowOpacityPercent != previous.WindowOpacityPercent)
-            ApplyOpacity(next.WindowOpacityPercent);
+            ApplyWidgetOpacity(next.WindowOpacityPercent);
 
         settings = next;
         settingsWriter.Queue(next);
@@ -37,10 +70,10 @@ public sealed partial class MainWindow
 
     private static async Task AddStartupPreferenceAsync(StackPanel content)
     {
-        var startup = Switch("Start with Windows", false);
+        var startup = Switch("Start on sign-in", false);
         startup.IsEnabled = false;
         var hint = Text("Available with the MSIX installation.", 12);
-        content.Children.Add(startup);
+        content.Children.Add(SettingsRow("Start on sign-in", startup));
         content.Children.Add(hint);
 
         StartupTask task;
@@ -134,25 +167,23 @@ public sealed partial class MainWindow
 
     private async Task ShowSettingsAsync()
     {
-        if (exitPending) return;
+        if (exitPending || closed) return;
         ShowWindow();
-        if (activeDialog is not null) return;
-        var executable = new TextBox { Header = "Codex executable", Text = settings.CodexPath };
-        var timezone = new ComboBox { Header = "Time zone", HorizontalAlignment = HorizontalAlignment.Stretch,
+        if (settingsPane is not null || activeDialog is not null) return;
+        var executable = new TextBox { Text = settings.CodexPath, MinWidth = 124, MaxWidth = 220 };
+        var timezone = new ComboBox { MinWidth = 124, MaxWidth = 240,
             ItemsSource = TimeZoneInfo.GetSystemTimeZones(), DisplayMemberPath = "DisplayName", SelectedValuePath = "Id",
             SelectedValue = settings.TimeZoneId };
         var taskbar = Switch("Show in taskbar", settings.ShowInTaskbar);
         var bigSize = Switch($"Larger widget (+{LargerWidgetPercent}%)", settings.BigSize);
         var opacity = new ComboBox
         {
-            Header = "Window opacity",
             ItemsSource = WindowOpacityOptions.Select(percent => $"{percent}%").ToArray(),
             SelectedIndex = Array.IndexOf(WindowOpacityOptions, settings.WindowOpacityPercent)
         };
         (string Id, string Text)[] labelPositions = [("above", "Above values"), ("below", "Below values"), ("hidden", "Hidden")];
         var labelPosition = new ComboBox
         {
-            Header = "Field labels",
             ItemsSource = labelPositions.Select(position => position.Text).ToArray(),
             SelectedIndex = Math.Max(0, Array.FindIndex(labelPositions, position => position.Id == settings.LabelPosition))
         };
@@ -163,62 +194,75 @@ public sealed partial class MainWindow
         var alertSound = Switch("Play a sound for alerts", settings.AlertSound);
         var creditsThreshold = new TextBox
         {
-            Header = "Credit alert threshold",
             PlaceholderText = "Example: 1000",
             Text = settings.CreditsAlertThreshold?.ToString(CultureInfo.CurrentCulture) ?? "",
-            Margin = new(0, 6, 0, 0)
+            MinWidth = 124
         };
-        var thresholdHint = Text("Send a notification when remaining credits reach this number or fall below it. Enter a whole number of credits, such as 1000. An empty field disables credit alerts.", 12);
         var thresholdError = Text("Enter a whole number from 0 to 2147483647.", 12);
         thresholdError.Foreground = WarningText;
-        thresholdError.TextWrapping = TextWrapping.Wrap;
         thresholdError.Visibility = Visibility.Collapsed;
         var pathError = Text("Choose a Codex executable.", 12);
         pathError.Foreground = WarningText;
         pathError.Visibility = Visibility.Collapsed;
 
-        // The native scrollbar overlays the viewport. Reserve its gutter before adding the content gap.
-        const double scrollbarGutter = 14;
-        var content = new StackPanel { Spacing = 10, Padding = new(0, 0, scrollbarGutter + 8, 0) };
-        var connection = new Grid { ColumnSpacing = 24 };
-        connection.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
-        connection.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
-        var executableSettings = new StackPanel { Spacing = 4, Children = { executable, pathError } };
-        connection.Children.Add(executableSettings);
-        Grid.SetColumn(timezone, 1);
-        connection.Children.Add(timezone);
-        content.Children.Add(connection);
-        content.Children.Add(Text("Uses your existing Codex ChatGPT sign-in.", 12));
+        var content = new StackPanel { Spacing = 4, MaxWidth = 640 };
+        var sections = new List<Expander>();
 
-        var columns = new Grid { ColumnSpacing = 24, Margin = new(0, 8, 0, 0) };
-        columns.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
-        columns.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
-        var windowOptions = new StackPanel { Spacing = 4 };
-        windowOptions.Children.Add(Text("Widget", 16, true));
-        windowOptions.Children.Add(labelPosition);
-        windowOptions.Children.Add(enableDetailsBar);
-        windowOptions.Children.Add(bigSize);
-        windowOptions.Children.Add(opacity);
-        var desktopHeading = Text("Desktop", 16, true);
-        desktopHeading.Margin = new(0, 10, 0, 0);
-        windowOptions.Children.Add(desktopHeading);
-        windowOptions.Children.Add(taskbar);
-        await AddStartupPreferenceAsync(windowOptions);
-        if (closed || exitPending || activeDialog is not null) return;
-        columns.Children.Add(windowOptions);
+        StackPanel Section(string title, string subtitle, string icon)
+        {
+            var headerText = new StackPanel { Spacing = 2 };
+            headerText.Children.Add(Text(title, 15, true));
+            var description = Text(subtitle, 12);
+            description.Foreground = SecondaryText;
+            headerText.Children.Add(description);
+            var headerContent = new Grid { ColumnSpacing = 12 };
+            headerContent.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+            headerContent.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
+            headerContent.Children.Add(new FontIcon { Glyph = icon, FontSize = 16 });
+            Grid.SetColumn(headerText, 1);
+            headerContent.Children.Add(headerText);
+            var body = new StackPanel { Spacing = 10 };
+            var expander = new Expander
+            {
+                Header = headerContent, Content = body, HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch
+            };
+            AutomationProperties.SetName(expander, title);
+            expander.Expanding += (_, _) =>
+            {
+                foreach (var other in sections)
+                    if (other != expander) other.IsExpanded = false;
+            };
+            sections.Add(expander);
+            content.Children.Add(expander);
+            return body;
+        }
 
-        var notifications = new StackPanel { Spacing = 4 };
-        notifications.Children.Add(Text("Alerts", 16, true));
-        notifications.Children.Add(alert50);
-        notifications.Children.Add(alert20);
-        notifications.Children.Add(alert5);
-        notifications.Children.Add(alertSound);
-        notifications.Children.Add(creditsThreshold);
-        notifications.Children.Add(thresholdHint);
+        var appearance = Section("Appearance", "Labels, usage details, size and opacity", "\uE790");
+        appearance.Children.Add(SettingsRow("Field labels", labelPosition));
+        appearance.Children.Add(SettingsRow("Enable usage details", enableDetailsBar));
+        appearance.Children.Add(SettingsRow($"Larger widget (+{LargerWidgetPercent}%)", bigSize));
+        appearance.Children.Add(SettingsRow("Window opacity", opacity));
+
+        var fields = Section("Widget fields", "Choose what the widget shows and in which order", "\uE8FD");
+        fields.Children.Add(Text("Drag to reorder. Use the switches to show or hide fields. Details appear in normal mode when usage details are enabled.", 12));
+
+        var notifications = Section("Alerts", "Allowance and credit thresholds", "\uE7ED");
+        notifications.Children.Add(SettingsRow("50% remaining", alert50));
+        notifications.Children.Add(SettingsRow("20% remaining", alert20));
+        notifications.Children.Add(SettingsRow("5% remaining", alert5));
+        notifications.Children.Add(SettingsRow("Play a sound for alerts", alertSound));
+        notifications.Children.Add(SettingsRow("Credit alert threshold", creditsThreshold,
+            "Send an alert at or below this balance. Leave blank to disable."));
         notifications.Children.Add(thresholdError);
-        Grid.SetColumn(notifications, 1);
-        columns.Children.Add(notifications);
-        content.Children.Add(columns);
+
+        var connection = Section("Codex connection", "Executable and time zone", "\uE753");
+        connection.Children.Add(SettingsRow("Codex executable", executable, "Uses your existing Codex ChatGPT sign-in."));
+        connection.Children.Add(pathError);
+        connection.Children.Add(SettingsRow("Time zone", timezone));
+
+        var desktop = Section("Desktop", "Taskbar visibility and startup", "\uE7F8");
+        desktop.Children.Add(SettingsRow("Show in taskbar", taskbar));
 
         var footer = new StackPanel { Spacing = 4, Margin = new(24, 0, 24, 16) };
         var error = Text("", 12);
@@ -284,34 +328,72 @@ public sealed partial class MainWindow
             control.Toggled += (_, _) => Apply(next => edit(next, control.IsOn));
         BindCheck(taskbar, (next, value) => next.ShowInTaskbar = value);
         BindCheck(bigSize, (next, value) => next.BigSize = value);
-        enableDetailsBar.Toggled += (_, _) =>
-        {
-            Apply(next => next.EnableDetailsBar = enableDetailsBar.IsOn);
-            SetDetailsOpen(enableDetailsBar.IsOn);
-        };
+        BindCheck(enableDetailsBar, (next, value) => next.EnableDetailsBar = value);
         BindCheck(alert50, (next, value) => next.Alert50 = value);
         BindCheck(alert20, (next, value) => next.Alert20 = value);
         BindCheck(alert5, (next, value) => next.Alert5 = value);
         BindCheck(alertSound, (next, value) => next.AlertSound = value);
-        content.Children.Add(Text("Widget modules", 16, true));
-        content.Children.Add(Text("Drag the grip to change the order. Use the switch to show or hide a module.", 12));
-        content.Children.Add(BuildModuleList(Apply));
-        try
+        fields.Children.Add(BuildModuleList(Apply));
+        footer.Children.Add(Text("Changes are saved automatically.", 12));
+        var header = new Grid { Margin = new(24, 0, 24, 0), ColumnSpacing = 8 };
+        header.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
+        header.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+        var title = Text("Settings", 16, true);
+        title.VerticalAlignment = VerticalAlignment.Center;
+        header.Children.Add(title);
+        var done = new Button { Content = "Done" };
+        done.Click += async (_, _) => await HideSettingsAsync();
+        Grid.SetColumn(done, 1);
+        header.Children.Add(done);
+        var pane = new Grid { Padding = new(0, 12, 0, 0), RowSpacing = 6 };
+        pane.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        pane.RowDefinitions.Add(new() { Height = new(1, GridUnitType.Star) });
+        pane.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        pane.Children.Add(header);
+        var scroll = new ScrollViewer
         {
-            await ShowDialogAsync("OpenAI Usage · Preferences", content, closeButtonText: null,
-                width: 620, height: 590, footer: footer, showScrollbarOnHover: true);
-            if (!exitPending && !closed)
-                await settingsWriter.FlushAsync();
-        }
-        catch (IOException failure)
+            Content = content, Margin = new(24, 8, 24, 0),
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
+        Grid.SetRow(scroll, 1);
+        pane.Children.Add(scroll);
+        Grid.SetRow(footer, 2);
+        pane.Children.Add(footer);
+        var panel = new Border { Child = pane, Margin = new(0, 6, 0, 0), CornerRadius = new(12),
+            Background = SettingsPanelFill };
+        Grid.SetRow(panel, 1);
+        settingsRestoreSize = AppWindow.ClientSize;
+        settingsPane = panel;
+        root.Children.Add(panel);
+        try { ApplyWidgetOpacity(settings.WindowOpacityPercent); }
+        catch (System.ComponentModel.Win32Exception failure) { Diagnostics.Record("window.opacity.failed", failure.Message); }
+        RequestWidgetFit();
+        await AddStartupPreferenceAsync(desktop);
+    }
+
+    private static Grid SettingsRow(string title, Control input, string? subtitle = null)
+    {
+        var row = new Grid { ColumnSpacing = 12, MinHeight = 34 };
+        row.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+        var labels = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        labels.Children.Add(Text(title, 14));
+        if (subtitle is not null)
         {
-            settingsError = failure.Message;
-            Tick();
+            var description = Text(subtitle, 12);
+            description.Foreground = SecondaryText;
+            labels.Children.Add(description);
         }
-        finally
-        {
-            if (settingsStatus == saveStatus) settingsStatus = null;
-        }
+        if (input is ToggleSwitch toggle)
+            toggle.OffContent = toggle.OnContent = "";
+        input.HorizontalAlignment = HorizontalAlignment.Right;
+        input.VerticalAlignment = VerticalAlignment.Center;
+        AutomationProperties.SetName(input, title);
+        row.Children.Add(labels);
+        Grid.SetColumn(input, 1);
+        row.Children.Add(input);
+        return row;
     }
 
     private static ToggleSwitch Switch(string label, bool isOn)

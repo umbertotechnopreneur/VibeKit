@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
-import {shellPressure, watchMemory} from './ram-guard.js';
+import {acquireShellEffects} from './shared/shell-effects.js';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
@@ -10,29 +10,36 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {RippleEffect} from './effect.js';
 import {RecoveryPolicy, readResourceSample, retryDelay} from './recovery.js';
 import {FramePacer} from './frame-pacing.js';
+import {RipplePanelMenu} from './panel-menu.js';
 import {scheduleStartupGpuJoke} from './gpu-joke-notifications.js';
 import {clipRipplePatch} from './patch-geometry.js';
-import {getShellMonitors, MONITOR_SELECTION_KEY, selectMonitors} from './shared/monitor-selection.js';
+import {MONITOR_SELECTION_KEY, selectMonitors} from './shared/monitor-selection.js';
 
 const NUMBERS = ['strength', 'speed', 'wavelength', 'rings', 'lifetime',
     'damping', 'light', 'radius', 'aspect', 'chromatic-separation', 'chromatic-blend',
     'crest-intensity', 'ripples-intensity', 'liquid-intensity'];
 const SWITCHES = ['invert', 'chromatic-enabled', 'crest-enabled', 'ripples-enabled', 'liquid-enabled'];
+const START_DELAY_MS = 10_000;
+const POINTER_POLL_MS = 8;
 const now = () => GLib.get_monotonic_time() / 1e6;
 
 export default class RippleExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
-        this._startRamWatch();
+        this._effects = acquireShellEffects(global.stage, Main.layoutManager, () => {
+            this._clear();
+            this._refreshMonitors();
+        });
+        this._memoryWatch = null;
         this._patches = [];
         this._monitors = [];
         this._signals = [];
         this._panicRegistered = false;
         this._settings.set_boolean('panic-available', false);
-        this._timeline = null;
-        this._frameSignal = 0;
+        this._frameSubscription = null;
         this._pacer = new FramePacer(this._settings.get_int('fps'));
         this._pointerTimer = 0;
+        this._startTimer = 0;
         this._lastPressed = false;
         this._lastClick = 0;
         this._previousFrame = 0;
@@ -47,18 +54,31 @@ export default class RippleExtension extends Extension {
         this._settings.set_boolean('recovery-pending', false);
         this._settings.set_boolean('active', false);
         this._settings.set_string('status', 'Ready');
+        this._panel = new RipplePanelMenu(this, this._settings, () => this._leaseValid(), () => {
+            this._cancelRecovery();
+            this._settings.set_boolean('active', false);
+        });
         this._connect(this._settings, 'changed', (_settings, key) => {
             // Heartbeats change every second and must never produce log traffic.
             if (key !== 'lease-until')
                 this._queueDiagnostic();
             if (key === 'active') {
                 if (!this._settings.get_boolean('active')) {
+                    this._cancelStart();
                     this._clear();
                     this._stopPointerPolling();
                     this._settings.set_string('status', 'Stopped');
                 } else {
                     this._cancelRecovery();
-                    this._refreshMonitors();
+                    this._startTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, START_DELAY_MS, () => {
+                        this._startTimer = 0;
+                        if (this._leaseValid())
+                            this._refreshMonitors();
+                        else
+                            this._stop('Controller heartbeat expired or invalid');
+                        return GLib.SOURCE_REMOVE;
+                    });
+                    this._settings.set_string('status', 'Starting…');
                 }
             }
             else if (key === 'recovery-pending' && !this._settings.get_boolean('recovery-pending')) {
@@ -85,16 +105,19 @@ export default class RippleExtension extends Extension {
                 for (const patch of this._patches)
                     patch.effect.configure(values);
             }
+            if (key === 'active' || key === 'status' || key === 'recovery-pending')
+                this._panel?.update();
+            else if (key === 'lease-until')
+                this._panel?.updateLease();
         });
-        this._connect(global.stage, 'captured-event', (_stage, event) => {
+        this._connect(global.stage, 'captured-event', (stage, event) => {
             if (event.type() === Clutter.EventType.BUTTON_PRESS && event.get_button() === 1) {
                 const [x, y] = event.get_coords();
-                this._onClick(x, y, event.get_source());
+                this._onClick(x, y, stage.get_event_actor(event));
             }
             return Clutter.EVENT_PROPAGATE;
         });
         this._connect(Main.overview, 'showing', () => this._clear());
-        this._connect(Main.layoutManager, 'monitors-changed', () => this._refreshMonitors());
         this._connect(Main.sessionMode, 'updated', () => this._clear());
         this._refreshMonitors();
         this._syncPanic();
@@ -102,6 +125,7 @@ export default class RippleExtension extends Extension {
         this._leaseTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, () => {
             if (this._settings.get_boolean('active') && !this._leaseValid())
                 this._stop('Controller heartbeat expired or invalid');
+            this._panel.updateLease();
             return GLib.SOURCE_CONTINUE;
         });
         this._cancelGpuJokes = scheduleStartupGpuJoke(this._settings, joke => {
@@ -124,9 +148,15 @@ export default class RippleExtension extends Extension {
         this._settings.set_boolean('panic-available', this._panicRegistered);
     }
 
+    _cancelStart() {
+        if (this._startTimer)
+            GLib.source_remove(this._startTimer);
+        this._startTimer = 0;
+    }
+
     _refreshMonitors() {
         const selection = this._settings.get_strv(MONITOR_SELECTION_KEY);
-        this._monitors = selectMonitors(getShellMonitors(Main.layoutManager.monitors, global.display), selection);
+        this._monitors = selectMonitors(this._effects.displays(), selection);
         for (const patch of [...this._patches]) {
             const previous = patch.monitor;
             if (!this._monitors.some(monitor => monitor.id === previous.id && monitor.x === previous.x &&
@@ -134,7 +164,7 @@ export default class RippleExtension extends Extension {
                 monitor.scale === previous.scale))
                 this._removePatch(patch);
         }
-        if (!this._settings.get_boolean('active'))
+        if (this._startTimer || !this._settings.get_boolean('active'))
             return;
         if (this._monitors.length) {
             this._startPointerPolling();
@@ -153,10 +183,14 @@ export default class RippleExtension extends Extension {
     _startPointerPolling() {
         if (this._pointerTimer)
             return;
+        this._memoryWatch = this._effects.subscribePressure(event => {
+            console.warn(JSON.stringify({kind: 'guard.memory-pressure', app: 'WaterRipple', ...event}));
+            this._stop('Stopped because system memory is low. Enable the effect manually to resume.');
+        });
         this._lastPressed = Boolean(global.get_pointer()[2] & Clutter.ModifierType.BUTTON1_MASK);
         // Wayland forwards application clicks before Clutter emits captured-event.
         // Read the cached pointer state only while active; never grab input.
-        this._pointerTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
+        this._pointerTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, POINTER_POLL_MS, () => {
             const [x, y, modifiers] = global.get_pointer();
             const pressed = Boolean(modifiers & Clutter.ModifierType.BUTTON1_MASK);
             if (pressed && !this._lastPressed) {
@@ -177,6 +211,8 @@ export default class RippleExtension extends Extension {
     }
 
     _stopPointerPolling() {
+        this._memoryWatch?.();
+        this._memoryWatch = null;
         if (this._pointerTimer) {
             GLib.source_remove(this._pointerTimer);
             this._pointerTimer = 0;
@@ -252,7 +288,7 @@ export default class RippleExtension extends Extension {
     }
 
     _onClick(x, y, source) {
-        if (!this._settings.get_boolean('active') || !this._leaseValid() ||
+        if (this._startTimer || !this._settings.get_boolean('active') || !this._leaseValid() ||
             Main.overview.visible || Main.sessionMode.isLocked)
             return;
         const monitor = this._monitorAt(x, y);
@@ -312,17 +348,24 @@ export default class RippleExtension extends Extension {
                 Math.abs(stageX - sourceX - localX) > 0.01 || Math.abs(stageY - sourceY - localY) > 0.01)
                 return;
             const size = Math.min(512, this._settings.get_int('patch-size'));
-            const crop = clipRipplePatch(source.width, source.height, localX, localY, {
+            const viewport = {
                 x: monitor.x - sourceX, y: monitor.y - sourceY, width: monitor.width, height: monitor.height,
-            }, size);
+            };
+            let crop = clipRipplePatch(source.width, source.height, localX, localY, viewport, size);
             if (!crop)
                 return;
-            const {left, top, width, height} = crop;
             const scale = Math.max(1, monitor.scale, St.ThemeContext.get_for_stage(global.stage).scale_factor);
-            if ((width + 8) * (height + 8) * scale * scale > 1048576) {
-                this._settings.set_string('status', 'Area exceeds the safety limit');
-                return;
+            const maxTextureSide = 1024;
+            const padding = 8;
+            if ((crop.width + padding) * (crop.height + padding) * scale * scale > maxTextureSide ** 2) {
+                const safeSize = Math.floor(maxTextureSide / scale) - padding;
+                crop = clipRipplePatch(source.width, source.height, localX, localY, viewport, safeSize);
+                if (!crop) {
+                    this._settings.set_string('status', 'Area exceeds the safety limit');
+                    return;
+                }
             }
+            const {left, top, width, height} = crop;
             const actor = new Clutter.Actor({
                 width, height, x: source.x + left, y: source.y + top,
                 reactive: false, clip_to_allocation: true,
@@ -348,32 +391,24 @@ export default class RippleExtension extends Extension {
     }
 
     _startAnimation() {
-        if (this._timeline || !this._patches.length) return;
+        if (this._frameSubscription || !this._patches.length) return;
         this._previousFrame = now();
         this._pacer.setRate(this._settings.get_int('fps'));
-        this._timeline = Clutter.Timeline.new_for_actor(this._patches[0].actor, 1000);
-        this._timeline.set_repeat_count(-1);
-        this._frameSignal = this._timeline.connect('new-frame', () => {
-            try { this._tick(); }
+        this._frameSubscription = this._effects.subscribeFrames(time => {
+            try { this._tick(time); }
             catch (error) {
                 this._stop('Animation stopped. ' + error.message);
                 console.error('Ripple:', error);
             }
         });
-        this._timeline.start();
     }
 
     _stopAnimation() {
-        if (!this._timeline) return;
-        this._timeline.stop();
-        if (this._frameSignal) this._timeline.disconnect(this._frameSignal);
-        this._timeline.set_actor(null);
-        this._timeline = null;
-        this._frameSignal = 0;
+        this._frameSubscription?.();
+        this._frameSubscription = null;
     }
 
-    _tick() {
-        const time = now();
+    _tick(time) {
         const delay = time - this._previousFrame;
         this._previousFrame = time;
         if (!this._leaseValid() || !this._settings.get_boolean('active')) {
@@ -412,7 +447,6 @@ export default class RippleExtension extends Extension {
             return;
         this._patches.splice(index, 1);
         if (!this._patches.length) this._stopAnimation();
-        else if (index === 0 && this._timeline) this._timeline.set_actor(this._patches[0].actor);
         for (const id of patch.sourceSignals)
             patch.source.disconnect(id);
         patch.actor.destroy();
@@ -497,25 +531,15 @@ export default class RippleExtension extends Extension {
         catch (error) { console.warn('Ripple notification unavailable:', error.message); }
     }
 
-    _startRamWatch() {
-        this._ramTimer = watchMemory(
-            () => this._settings.get_boolean('active') ? shellPressure() : null,
-            event => {
-                this._ramTimer = 0;
-                console.warn(JSON.stringify({kind: 'guard.memory-pressure', app: 'WaterRipple', ...event}));
-                this._stop('Stopped because system memory is low. Enable the effect manually to resume.');
-                this._startRamWatch();
-            });
-    }
-
     disable() {
-        if (this._ramTimer) GLib.source_remove(this._ramTimer);
-        this._ramTimer = 0;
         this._cancelGpuJokes?.();
         this._cancelGpuJokes = null;
+        this._cancelStart();
         this._cancelRecovery();
         this._stopPointerPolling();
         this._clear();
+        this._effects.release();
+        this._effects = null;
         if (this._panicRegistered)
             Main.wm.removeKeybinding('panic');
         this._settings.set_boolean('panic-available', false);
@@ -524,6 +548,8 @@ export default class RippleExtension extends Extension {
         for (const [object, id] of this._signals)
             object.disconnect(id);
         this._signals = [];
+        this._panel.destroy();
+        this._panel = null;
         this._settings.set_boolean('active', false);
         this._logDiagnostic('extension-disabled');
         this._diagnosticPrevious = null;

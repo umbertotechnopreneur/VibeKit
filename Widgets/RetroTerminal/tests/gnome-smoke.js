@@ -98,6 +98,9 @@ export default class SmokeTest extends ProductionExtension {
             };
             await shot('gnome-original');
             this._settings.set_boolean('active', true);
+            const startupDeadline = GLib.get_monotonic_time() + 5_000_000;
+            while (this._startupTimer && GLib.get_monotonic_time() < startupDeadline)
+                await delay(50);
             if (!this._effect) throw Error(this._settings.get_string('status'));
             if (GLib.getenv('RETRO_TEST_PRESETS') === '1') {
                 // Leave a margin around the sampled flat patch for spatial glow.
@@ -199,7 +202,7 @@ export default class SmokeTest extends ProductionExtension {
                 if (lastGlitch !== index + 1) throw Error(`${key} did not reach the shader`);
                 await shot(`gnome-${key}`, 0);
                 await delay(450);
-                if (this._glitchSequence.event || this._glitchTimer || lastGlitch !== 0)
+                if (this._glitchSequence.event || this._glitchFrames || lastGlitch !== 0)
                     throw Error(`${key} did not finish and reset`);
             }
             this._settings.set_double('persistence-duration', 0.5);
@@ -217,7 +220,7 @@ export default class SmokeTest extends ProductionExtension {
             this._settings.set_boolean('glitches-enabled', true);
             if (!this._glitchWake) throw Error('Random scheduling did not arm a wakeup');
             this._settings.set_boolean('glitches-enabled', false);
-            if (this._glitchWake || this._glitchTimer) throw Error('Turning off random glitches retained a timer');
+            if (this._glitchWake || this._glitchFrames) throw Error('Turning off random glitches retained a timer');
             this._settings.set_boolean('glitches-enabled', true);
             this._settings.set_boolean('persistence-enabled', true);
             this._settings.set_strv('target-monitors', []);
@@ -225,12 +228,21 @@ export default class SmokeTest extends ProductionExtension {
                 throw Error('Deselecting all monitors must release resources and leave CRT armed');
             this._settings.set_strv('target-monitors', ['*']);
             if (!this._effect || !this._persistence?.running) throw Error('Reselecting a monitor should resume CRT');
+            const intensity = this._settings.get_double('intensity');
+            this._settings.set_double('intensity', 0);
+            await delay(100);
+            if (this._effect.get_enabled() || this._unredirectInhibited || this._persistence.running)
+                throw Error('Zero intensity should skip the shader, capture and fullscreen composition override');
+            this._settings.set_double('intensity', intensity);
+            await delay(100);
+            if (!this._effect.get_enabled() || !this._unredirectInhibited)
+                throw Error('Increasing intensity did not restore the shader');
             this._settings.set_boolean('panic-enabled', false);
             if (!this._effect || this._settings.get_boolean('panic-available'))
                 throw Error('Disabling the optional shortcut must keep the effect active');
             // The same public settings path used by the native Stop button.
             this._settings.set_boolean('active', false);
-            if (this._effect || this._timer || this._settingsUpdate || this._previewTimer || this._glitchTimer || this._glitchWake || this._persistence)
+            if (this._effect || this._timer || this._settingsUpdate || this._previewTimer || this._glitchFrames || this._glitchWake || this._persistence)
                 throw Error('Stop retained resources');
             await delay(200);
             if (this._settings.get_boolean('active') || this._settings.get_boolean('recovery-pending'))

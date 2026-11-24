@@ -18,6 +18,7 @@ internal sealed class MainWindow : Window
 {
     private readonly nint engine;
     private readonly StudioPages pages;
+    private readonly Action prepareTrayStart;
     private readonly DisplayTargetPicker displayPicker;
     private uint displayTopologyGeneration;
     private string[]? fallbackDisplayIds;
@@ -219,6 +220,7 @@ internal sealed class MainWindow : Window
             ApplyDisplaySelection();
             RefreshStatus();
         }, () => legacyDisplay);
+        prepareTrayStart = () => ApplyDisplaySelection(pinDefault: true);
         effectSwitch.Toggled += (_, _) =>
         {
             if (syncingEffect) return;
@@ -547,8 +549,26 @@ internal sealed class MainWindow : Window
     private async void PollStatus(object? sender, object args)
     {
         RefreshStatus();
-        switch (Native.RetroTakeTrayAction(engine))
+        var action = Native.RetroTakeTrayAction(engine);
+        switch (action)
         {
+            case TrayAction.Enable:
+            case TrayAction.Preview:
+                if (!closing && !closePrompt && Native.RetroIsArmed(engine) == 0) {
+                    prepareTrayStart();
+                    if (action == TrayAction.Preview) Native.RetroPreview(engine);
+                    else Native.RetroStart(engine, 0);
+                    displayPicker.Refresh();
+                }
+                break;
+            case TrayAction.Stop: Native.RetroStop(engine); break;
+            case TrayAction.Green:
+            case TrayAction.Amber:
+            case TrayAction.Arcade:
+                Native.RetroSetPalette(engine, (int)action - (int)TrayAction.Green);
+                Changed();
+                break;
+            case TrayAction.Glitch: Native.RetroTryGlitch(engine); break;
             case TrayAction.Open: RestoreWindow(); break;
             case TrayAction.Preferences:
                 pages.Select("Settings");

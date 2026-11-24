@@ -31,6 +31,8 @@ namespace
     constexpr uint64_t MiB = 1024 * 1024;
     constexpr uint64_t MaxPixels = 3840 * 2160;
     constexpr int DesktopCaptureBuffers = 2;
+    // Each process can take one discovery interval to notice its peer.
+    constexpr auto RippleStartupGrace = 3 * vibeware::desktop_effect::DiscoveryInterval;
     struct alignas(16) Constants { float Surface[4], Phosphor[4], Scan[4], Tone[4], Finish[4], Glitch[4], Target[4]; };
     static_assert(sizeof(Constants) == 112);
 
@@ -82,6 +84,7 @@ namespace
 struct Renderer::State
 {
     HWND overlay{};
+    HMONITOR monitor{};
     RECT monitorBounds{};
     vibeware::desktop_effect::WindowCoverage coverage;
     UINT width{}, height{};
@@ -92,8 +95,9 @@ struct Renderer::State
     std::wstring adapterName;
     Clock::time_point started = Clock::now();
     Clock::time_point waitingSince = started;
+    Clock::time_point waitForRippleUntil{};
     Clock::time_point lastBudgetCheck = started;
-    std::shared_ptr<std::atomic_bool> sourceClosed = std::make_shared<std::atomic_bool>(false);
+    std::shared_ptr<std::atomic_bool> sourceClosed;
     winrt::event_token closedToken{};
     bool subscribed = false;
     bool supportsCaptureInterval = false;
@@ -148,6 +152,14 @@ struct Renderer::State
 
     void OpenDesktopCapture()
     {
+        if (!Capture::GraphicsCaptureSession::IsSupported()) Fail(L"Windows Graphics Capture is unavailable.");
+        auto interop = winrt::get_activation_factory<Capture::GraphicsCaptureItem, IGraphicsCaptureItemInterop>();
+        Check(interop->CreateForMonitor(monitor, winrt::guid_of<Capture::GraphicsCaptureItem>(), winrt::put_abi(item)));
+        sourceClosed = std::make_shared<std::atomic_bool>(false);
+        closedToken = item.Closed([flag = sourceClosed](auto const&, auto const&) { flag->store(true); });
+        subscribed = true;
+        supportsCaptureInterval = winrt::Windows::Foundation::Metadata::ApiInformation::IsPropertyPresent(
+            L"Windows.Graphics.Capture.GraphicsCaptureSession", L"MinUpdateInterval");
         const auto size = item.Size();
         if (size.Width != int(width) || size.Height != int(height))
             Fail(L"Capture dimensions do not match this monitor. Enable again after the display settles.");
@@ -174,10 +186,15 @@ struct Renderer::State
 
     void CloseDesktopCapture() noexcept
     {
+        // A closing capture cannot invalidate the independent shared input.
+        try { if (subscribed) item.Closed(closedToken); } catch (...) {}
+        subscribed = false;
+        sourceClosed.reset();
         try { if (session) session.Close(); } catch (...) {}
         session = nullptr;
         try { if (pool) pool.Close(); } catch (...) {}
         pool = nullptr;
+        item = nullptr;
         desktopView.Reset();
         desktop.Reset();
         validFrame = false;
@@ -250,11 +267,28 @@ struct Renderer::State
         historyValid = false;
     }
 
+    bool Present(Clock::time_point now, bool usingRipple)
+    {
+        HRESULT presented = swap->Present(0, DXGI_PRESENT_DO_NOT_WAIT);
+        if (presented == DXGI_ERROR_WAS_STILL_DRAWING)
+        {
+            if (!presentPending) busySince = now;
+            presentPending = true;
+            if (now - busySince >= std::chrono::seconds(1))
+                Fail(L"The GPU presentation queue stayed busy. Enable manually to retry.");
+            return false;
+        }
+        if (presented == DXGI_STATUS_OCCLUDED) Fail(L"Presentation became unavailable. The effect stopped.");
+        Check(presented);
+        presentPending = false;
+        waitingForInput = false;
+        presentedRippleFrame = usingRipple && presented == S_OK;
+        return true;
+    }
+
     ~State()
     {
         if (overlay) ShowWindow(overlay, SW_HIDE);
-        // Revocation precedes releasing the frame pool; callback only owns its atomic flag.
-        try { if (subscribed && item) item.Closed(closedToken); } catch (...) {}
         CloseDesktopCapture();
         if (context) { context->ClearState(); context->Flush(); }
     }
@@ -277,9 +311,9 @@ void Renderer::ClearPresentation() noexcept
 void Renderer::Start(HWND overlay, HMONITOR monitor, const std::wstring& shaderPath, int captureFps)
 {
     Stop();
-    if (!Capture::GraphicsCaptureSession::IsSupported()) Fail(L"Windows Graphics Capture is unavailable.");
     auto next = std::make_unique<State>();
     next->overlay = overlay;
+    next->monitor = monitor;
     MONITORINFO info{sizeof(info)};
     if (!GetMonitorInfoW(monitor, &info)) winrt::throw_last_error();
     next->monitorBounds = info.rcMonitor;
@@ -340,16 +374,19 @@ void Renderer::Start(HWND overlay, HMONITOR monitor, const std::wstring& shaderP
     raster.CullMode = D3D11_CULL_NONE;
     raster.DepthClipEnable = TRUE;
     Check(next->device->CreateRasterizerState(&raster, &next->rasterizer));
-    auto interop = winrt::get_activation_factory<Capture::GraphicsCaptureItem, IGraphicsCaptureItemInterop>();
-    Check(interop->CreateForMonitor(monitor, winrt::guid_of<Capture::GraphicsCaptureItem>(), winrt::put_abi(next->item)));
-    auto flag = next->sourceClosed;
-    next->closedToken = next->item.Closed([flag](auto const&, auto const&) { flag->store(true); });
-    next->subscribed = true;
-    next->supportsCaptureInterval = winrt::Windows::Foundation::Metadata::ApiInformation::IsPropertyPresent(
-        L"Windows.Graphics.Capture.GraphicsCaptureSession", L"MinUpdateInterval");
+    const auto vignette = vibeware::desktop_effect::FindVignetteOverlay(monitor, info.rcMonitor);
+    if (vignette && !vibeware::desktop_effect::IsWindowAbove(vignette, overlay))
+        SetWindowPos(overlay, vignette, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+
     next->SetCaptureLimit(captureFps);
-    next->OpenDesktopCapture();
     next->rippleInput.Start(overlay, monitor, info.rcMonitor);
+    // Preserve immediate standalone capture. A matching Ripple already on this
+    // display gets a bounded opportunity to supply input before capture starts.
+    if (next->rippleInput.HasRunningProducer())
+        next->waitForRippleUntil = Clock::now() + RippleStartupGrace;
+    else
+        next->OpenDesktopCapture();
     state = std::move(next);
 }
 
@@ -359,7 +396,8 @@ bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, b
     if (!state) return false;
     auto& s = *state;
     s.presentedRippleFrame = false;
-    if (s.sourceClosed->load()) Fail(L"The captured monitor became unavailable. Enable manually to retry.");
+    if (s.sourceClosed && s.sourceClosed->load())
+        Fail(L"The captured monitor became unavailable. Enable manually to retry.");
     Check(s.device->GetDeviceRemovedReason());
     auto now = Clock::now();
     if (now - s.lastBudgetCheck > std::chrono::seconds(2))
@@ -378,11 +416,19 @@ bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, b
     if (sourceChanged)
     {
         s.usedRippleFrame = usingRipple;
-        if (usingRipple) s.CloseDesktopCapture();
+        if (usingRipple)
+        {
+            s.waitForRippleUntil = {};
+            s.CloseDesktopCapture();
+        }
         else s.waitingForInput = true;
     }
     s.SetCaptureLimit(captureFps);
-    if (!usingRipple && !s.session) s.OpenDesktopCapture();
+    if (!usingRipple && !s.session)
+    {
+        if (now < s.waitForRippleUntil) return false;
+        s.OpenDesktopCapture();
+    }
     const bool inputUpdated = usingRipple ? ripple.updated : s.PollDesktopCapture(now);
     const bool newFrame = sourceChanged || inputUpdated;
     if (!s.validFrame && !usingRipple)
@@ -399,7 +445,10 @@ bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, b
     const bool finishTail = s.wasTail && !tail;
     s.wasTail = tail;
     if (finishTail) s.historyValid = false;
-    if (!newFrame && !settingsChanged && !s.presentPending && !animationChanged && !tail && !finishTail) return false;
+    const bool redraw = newFrame || settingsChanged || animationChanged || tail || finishTail;
+    // A busy swap chain still owns the drawn back buffer. Retry presenting
+    // it without updating constants or drawing again if the contents are current.
+    if (!redraw) return s.presentPending && s.Present(now, usingRipple);
     if (effectTarget == 0) s.coverage.Reset();
     else Check(s.coverage.Update(s.device.Get(), s.context.Get(), s.overlay, s.monitorBounds, now));
     const float dtMs = std::chrono::duration<float, std::milli>(now - s.lastDraw).count();
@@ -437,21 +486,7 @@ bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, b
     s.context->OMSetRenderTargets(0, nullptr, nullptr);
     if (persistence) { s.historyRead = historyWrite; s.historyValid = true; }
     s.lastDraw = now;
-    HRESULT presented = s.swap->Present(0, DXGI_PRESENT_DO_NOT_WAIT);
-    if (presented == DXGI_ERROR_WAS_STILL_DRAWING)
-    {
-        if (!s.presentPending) s.busySince = now;
-        s.presentPending = true;
-        if (now - s.busySince >= std::chrono::seconds(1))
-            Fail(L"The GPU presentation queue stayed busy. Enable manually to retry.");
-        return false;
-    }
-    if (presented == DXGI_STATUS_OCCLUDED) Fail(L"Presentation became unavailable. The effect stopped.");
-    Check(presented);
-    s.presentPending = false;
-    s.waitingForInput = false;
-    s.presentedRippleFrame = usingRipple && presented == S_OK;
-    return true;
+    return s.Present(now, usingRipple);
 }
 
 std::wstring Renderer::Description() const

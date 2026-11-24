@@ -29,7 +29,8 @@ float fade = pow(max(0.0,1.0-rippleAge/rippleFade.x),rippleFade.y)
            * min(1.0,rippleAge/0.09);
 // Taper displacement to zero at the crop edges, so adjacent original pixels match.
 float edge = min(min(p.x,p.y),min(rippleSize.x-p.x,rippleSize.y-p.y));
-float border = smoothstep(4.0,40.0,edge);
+float taper = min(40.0, 0.25 * min(rippleSize.x, rippleSize.y));
+float border = smoothstep(0.1 * taper, taper, edge);
 float phase = q * 6.28318530718 / rippleShape.z;
 float shape = sin(phase) + rippleFilters.w * 0.35 * sin(phase * 3.0)
     + rippleLiquid * 0.65 * clamp(q / max(sigma * 3.0, 1.0), -1.0, 1.0);

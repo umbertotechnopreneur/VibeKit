@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Numerics;
 
 namespace WaterRipple;
 
@@ -11,7 +10,6 @@ internal sealed class EffectFrameState
     internal readonly Stopwatch Clock = Stopwatch.StartNew(), StatisticsClock = Stopwatch.StartNew();
     internal readonly List<ActiveRipple> Waves = new(8);
     internal readonly NativeWave[] ShaderWaves = new NativeWave[8];
-    internal double NextFrame, NextCapture;
     internal int LastPresents, LastCaptures;
 
     internal void AddWave(double normalizedX, double normalizedY)
@@ -25,9 +23,7 @@ internal sealed class EffectFrameState
     {
         double lifetime = settings.Duration;
         for (int i = Waves.Count - 1; i >= 0; i--) if (now - Waves[i].Created >= lifetime) Waves.RemoveAt(i);
-        Array.Clear(ShaderWaves);
         for (int i = 0; i < Waves.Count; i++) ShaderWaves[i] = new NativeWave(Waves[i].X, Waves[i].Y, (float)(now - Waves[i].Created), 1);
-
     }
     internal readonly record struct ActiveRipple(float X, float Y, double Created);
 }

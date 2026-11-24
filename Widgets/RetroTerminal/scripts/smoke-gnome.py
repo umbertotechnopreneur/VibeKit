@@ -79,7 +79,7 @@ def main():
         shutil.copytree(root / 'Linux/extension' / uuid, extension)
         shared = extension / 'shared'
         shared.mkdir(exist_ok=True)
-        shutil.copy2(root.parent / 'Shared/Linux/monitor-selection.js', shared)
+        shutil.copytree(root.parent / 'Shared/Linux', shared, dirs_exist_ok=True, ignore=shutil.ignore_patterns('tests'))
         (extension / 'extension.js').rename(extension / 'production-extension.js')
         shutil.copy2(root / 'tests/gnome-smoke.js', extension / 'extension.js')
         subprocess.run(['glib-compile-schemas', '--strict', str(extension / 'schemas')], check=True)

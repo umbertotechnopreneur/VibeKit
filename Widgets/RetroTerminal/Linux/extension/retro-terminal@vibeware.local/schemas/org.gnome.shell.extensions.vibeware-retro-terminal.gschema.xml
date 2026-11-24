@@ -14,6 +14,8 @@
     <key name="recovery-pending" type="b"><default>false</default></key>
     <key name="panic-enabled" type="b"><default>true</default></key>
     <key name="panic-available" type="b"><default>false</default></key>
+    <key name="preferences-request" type="x"><default>0</default></key>
+    <key name="quit-request" type="x"><default>0</default></key>
     <key name="about-request" type="x"><default>0</default></key>
     <key name="show-gpu-jokes" type="b"><default>true</default><summary>Show GPU captions and a startup joke notification</summary></key>
     <key name="preset" type="i"><range min="0" max="2"/><default>0</default></key>

@@ -5,20 +5,22 @@ import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk?version=4.0';
 import {buildControls} from './settings-ui.js';
 import {loadSchema} from './schema.js';
-import {TrayIndicator} from './tray.js';
+import {CONTROLLER_ID, PANEL_BUS_NAME} from './panel-ipc.js';
 import {processMemory, watchMemory} from './ram-guard.js';
 
 const directory = Gio.File.new_for_uri(import.meta.url).get_parent();
 const schema = loadSchema(import.meta.url);
 const smokeTest = ARGV.includes('--smoke-test');
 const app = new Adw.Application({
-    application_id: 'local.vibeware.Ripple',
+    application_id: CONTROLLER_ID,
     flags: Gio.ApplicationFlags.HANDLES_COMMAND_LINE |
         (smokeTest ? Gio.ApplicationFlags.NON_UNIQUE : Gio.ApplicationFlags.DEFAULT_FLAGS),
 });
 
 let window = null;
-let tray = null;
+let panelAvailable = false;
+let panelWatch = 0;
+let controls = null;
 let closeDialog = null;
 let exiting = false;
 let leaseProcess = null;
@@ -33,17 +35,18 @@ function showPanel() {
 
 
 function hidePanel() {
-    if (tray?.available)
+    if (panelAvailable)
         window.hide();
 }
 
 function exitRipple() {
     exiting = true;
     leaseProcess?.force_exit();
-    window.close();
+    window?.close();
+    app.quit();
 }
 
-function activate(startMinimized) {
+function activate(startMinimized, enableOnStartup = true) {
     if (window) {
         if (!startMinimized)
             showPanel();
@@ -69,7 +72,7 @@ function activate(startMinimized) {
         closeDialog = new Adw.AlertDialog({
             heading: 'Hide the panel or quit Ripple?',
             prefer_wide_layout: true,
-            body: (tray?.available
+            body: (panelAvailable
                 ? 'Hide the panel to keep the effect running in the top bar. Quitting stops the effect.'
                 : 'The top bar icon is unavailable. Quitting stops the effect.')
                 + (settings.get_boolean('panic-enabled') && settings.get_boolean('panic-available')
@@ -80,8 +83,8 @@ function activate(startMinimized) {
         closeDialog.add_response('hide', 'Hide to tray');
         closeDialog.add_response('quit', 'Quit');
         closeDialog.set_close_response('cancel');
-        closeDialog.set_default_response(tray?.available ? 'hide' : 'cancel');
-        closeDialog.set_response_enabled('hide', Boolean(tray?.available));
+        closeDialog.set_default_response(panelAvailable ? 'hide' : 'cancel');
+        closeDialog.set_response_enabled('hide', Boolean(panelAvailable));
         closeDialog.set_response_appearance('quit', Adw.ResponseAppearance.DESTRUCTIVE);
         closeDialog.connect('response', (_dialog, response) => {
             closeDialog = null;
@@ -104,37 +107,27 @@ function activate(startMinimized) {
             console.warn('Ripple lease helper failed to start', error.message);
         }
     }
-    const {page, footer, active, about, settingsSection} = buildControls(window, settings, app, Boolean(leaseProcess), startMinimized);
+    controls = buildControls(window, settings, app, Boolean(leaseProcess), startMinimized, Gio.DBus.session, enableOnStartup);
+    const {page, footer} = controls;
     const toolbar = new Adw.ToolbarView({content: page});
     toolbar.add_top_bar(header);
     toolbar.add_bottom_bar(footer);
     window.set_content(toolbar);
-    let panelReady = false;
     if (!smokeTest) {
-        tray = new TrayIndicator({
-            show: showPanel,
-            preferences: () => { showPanel(); settingsSection.expanded = true; },
-            toggleEffect: () => {
-                if (active.sensitive)
-                    active.active = !active.active;
-            },
-            about: () => { showPanel(); about.show(); },
-            quit: exitRipple,
-        }, available => {
+        const updatePanel = available => {
+            const wasAvailable = panelAvailable;
+            panelAvailable = available;
             minimize.set_sensitive(available);
             closeDialog?.set_response_enabled('hide', available);
-            if (panelReady && !startupHidden && !available && !window.visible)
+            if (wasAvailable && !available && !exiting && !startupHidden && !window.visible)
                 showPanel();
-        });
-        const updateTrayEffect = () => tray.setEffect(active.active, active.sensitive);
-        active.connect('notify::active', updateTrayEffect);
-        active.connect('notify::sensitive', updateTrayEffect);
-        updateTrayEffect();
+        };
+        panelWatch = Gio.bus_watch_name_on_connection(Gio.DBus.session, PANEL_BUS_NAME, Gio.BusNameWatcherFlags.NONE,
+            () => updatePanel(true), () => updatePanel(false));
     }
     if (!startMinimized) {
         showPanel();
     }
-    panelReady = true;
     if (smokeTest)
         GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
             exitRipple();
@@ -142,8 +135,23 @@ function activate(startMinimized) {
         });
 }
 
+function openAction(action) {
+    activate(false, false);
+    if (action === 'preferences') controls.settingsSection.expanded = true;
+    else if (action === 'about') controls.about.show();
+}
+
 app.connect('activate', () => activate(false));
 app.connect('startup', () => {
+    for (const name of ['open', 'preferences', 'about', 'stop', 'quit']) {
+        const action = new Gio.SimpleAction({name});
+        action.connect('activate', () => {
+            if (name === 'stop') controls?.cancelStartup();
+            else if (name === 'quit') exitRipple();
+            else openAction(name);
+        });
+        app.add_action(action);
+    }
     const limitBytes = 500_000_000;
     memoryTimer = watchMemory(() => {
         const root = processMemory();
@@ -162,21 +170,22 @@ app.connect('startup', () => {
             notice.set_body('The controller exceeded its memory limit. See the system journal for details.');
             app.send_notification('memory-limit', notice);
         } finally {
-            if (window) exitRipple();
-            app.quit();
+            exitRipple();
         }
     });
 });
 app.connect('command-line', (_app, commandLine) => {
-    if (!smokeTest && commandLine.get_arguments().includes('--autostart'))
-        activate(true);
-    else
-        app.activate();
+    const args = commandLine.get_arguments();
+    if (!smokeTest && args.includes('--autostart')) activate(true);
+    else if (args.includes('--open')) openAction('open');
+    else if (args.includes('--preferences')) openAction('preferences');
+    else if (args.includes('--about')) openAction('about');
+    else app.activate();
     return 0;
 });
 app.connect('shutdown', () => {
     if (memoryTimer) GLib.source_remove(memoryTimer);
     leaseProcess?.force_exit();
-    tray?.destroy();
+    if (panelWatch) Gio.bus_unwatch_name(panelWatch);
 });
 app.run(['ripple', ...ARGV.filter(argument => argument !== '--smoke-test')]);

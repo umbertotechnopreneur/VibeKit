@@ -191,6 +191,7 @@ struct Engine {
         return enabled ? EmergencyShortcutState::Registered : EmergencyShortcutState::Disabled;
     }
     void Stop(const std::wstring& reason, bool notify = true) {
+        tray.CancelPreview();
         const bool wasRunning = Running();
         recovery.Cancel();
         firstFrame = false;
@@ -381,9 +382,10 @@ struct Engine {
         return ActiveDisplayCount();
     }
     void PauseForPerformance(const wchar_t* reason) {
+        const bool preview = tray.Previewing();
         Stop(reason, false);
         health = {};
-        if (recovery.Pause(Clock::now()) && SetTimer(window, RecoveryTimer, 1000, nullptr)) {
+        if (!preview && recovery.Pause(Clock::now()) && SetTimer(window, RecoveryTimer, 1000, nullptr)) {
             armed = true;
             status += L" Waiting for system stability.";
         } else {
@@ -474,7 +476,7 @@ LRESULT CALLBACK EngineProc(HWND w,UINT m,WPARAM a,LPARAM b) {
     auto* e=reinterpret_cast<Engine*>(GetWindowLongPtrW(w,GWLP_USERDATA));
     if(m==WM_NCCREATE) { e=static_cast<Engine*>(reinterpret_cast<CREATESTRUCTW*>(b)->lpCreateParams); e->window=w; SetWindowLongPtrW(w,GWLP_USERDATA,reinterpret_cast<LONG_PTR>(e)); }
     if(!e) return DefWindowProcW(w,m,a,b);
-    if (e->tray.HandleMessage(m,a,b)) return 0;
+    if (e->tray.HandleMessage(m,a,b,e->armed,e->Running(),e->status)) return 0;
     switch(m) {
     case WM_CLOSE:
         // A servicing fallback can broadcast WM_CLOSE to hidden top-level windows.
@@ -491,7 +493,8 @@ LRESULT CALLBACK EngineProc(HWND w,UINT m,WPARAM a,LPARAM b) {
         if (a == e->renderWakeup.generation) e->Tick();
         return 0;
     case WM_TIMER:
-        if (a==RecoveryTimer) e->TickRecovery();
+        if (a == TrayIcon::PreviewTimer && e->tray.PreviewDue()) e->Stop(L"Preview finished");
+        else if (a==RecoveryTimer) e->TickRecovery();
         else if (a==GpuJokeNotifications::TimerId) e->gpuJokes.Tick(w, e->tray);
         return 0;
     case WM_HOTKEY:
@@ -561,6 +564,14 @@ API int __cdecl RetroSetDisplays(void* p, const HMONITOR* monitors, int count) {
 API int __cdecl RetroActiveDisplayCount(void* p) { return p ? E(p)->ActiveDisplayCount() : 0; }
 API int __cdecl RetroIsArmed(void* p) { return p && E(p)->armed; }
 API std::uint32_t __cdecl RetroDisplayTopologyGeneration(void* p) { return p ? E(p)->displayTopologyGeneration : 0; }
+API void __cdecl RetroPreview(void* p) {
+    if (!p || E(p)->armed) return;
+    auto& engine = *E(p);
+    engine.Start();
+    if (!engine.armed) return;
+    if (!engine.Running()) engine.Stop(L"Select a display before starting the preview.");
+    else if (!engine.tray.BeginPreview()) engine.Stop(L"Could not schedule the end of the preview.");
+}
 API void __cdecl RetroStop(void* p) { if(p) E(p)->Stop(L"Stopped by you."); }
 API int __cdecl RetroSetEmergencyShortcut(void* p, int enabled) {
     return static_cast<int>(p ? E(p)->SetEmergencyShortcut(enabled != 0) : EmergencyShortcutState::Unavailable);

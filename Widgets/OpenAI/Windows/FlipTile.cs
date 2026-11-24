@@ -14,8 +14,8 @@ public sealed class FlipTile : Grid
     public readonly record struct DigitDelay(int MinimumMilliseconds, int MaximumMilliseconds);
     public readonly record struct Flap(int Start, int Length, int Milliseconds);
 
-    private const double FaceHeight = 36;
-    internal const double MinimumWidth = 32;
+    private const double FaceHeight = 30;
+    internal const double MinimumWidth = 30;
     private const double CharacterAdvance = .61;
     private static readonly CreaseShadow DefaultShadow = new(5,
         ColorHelper.FromArgb(112, 52, 10, 13), ColorHelper.FromArgb(255, 24, 6, 7));
@@ -37,7 +37,7 @@ public sealed class FlipTile : Grid
     private static readonly SolidColorBrush UpperFace = new(ColorHelper.FromArgb(255, 30, 30, 30));
     private static readonly SolidColorBrush LowerFace = new(ColorHelper.FromArgb(255, 15, 15, 15));
     private readonly string field;
-    private readonly double fontSize;
+    private double fittedFontSize;
     private readonly double preferredWidth;
     private readonly bool wrapValue;
     private readonly int sizingCharacters;
@@ -77,7 +77,7 @@ public sealed class FlipTile : Grid
         CreaseShadow? creaseShadow = null, DigitDelay? digitDelay = null, bool compactAccent = false)
     {
         this.field = field;
-        this.fontSize = fontSize;
+        fittedFontSize = fontSize;
         preferredWidth = width;
         this.wrapValue = wrapValue;
         this.sizingCharacters = sizingCharacters;
@@ -159,11 +159,21 @@ public sealed class FlipTile : Grid
         accentBar.Width = Math.Max(0, Width - 16) * Math.Clamp(percent.GetValueOrDefault() / 100, 0, 1);
     }
 
-    public void FitWidth(double available)
+    private int TextColumns(string value) => wrapValue ? 1 : Math.Max(1, Math.Max(value.Length, sizingCharacters));
+
+    internal double FontLimit(double available) => FontLimit(available, current);
+    private double FontLimit(double available, string value) =>
+        Math.Max(1, available - 14) / (CharacterAdvance * TextColumns(value));
+
+    internal double WidthForFont(double size) =>
+        Math.Max(MinimumWidth, Math.Ceiling(14 + size * CharacterAdvance * TextColumns(current)));
+
+    public void FitWidth(double available, double fontSize)
     {
         double width = Math.Clamp(available, MinimumWidth, preferredWidth);
-        if (Width == width) return;
+        if (Width == width && fittedFontSize == fontSize) return;
         Width = width;
+        fittedFontSize = fontSize;
         if (accentBar is not null)
             accentBar.Width = Math.Max(0, Width - 16) * Math.Clamp(progress.GetValueOrDefault() / 100, 0, 1);
         UpdateSlots(current, false, null, 200);
@@ -236,8 +246,8 @@ public sealed class FlipTile : Grid
     {
         double width = Width - 2;
         double space = Math.Max(1, width - 12);
-        int minimumColumns = wrapValue ? 1 : Math.Max(1, Math.Max(value.Length, sizingCharacters));
-        double size = Math.Min(fontSize, space / (CharacterAdvance * minimumColumns));
+        int minimumColumns = TextColumns(value);
+        double size = Math.Min(fittedFontSize, FontLimit(Width, value));
         double pitch = size * CharacterAdvance;
         int columns = Math.Max(minimumColumns, (int)Math.Floor(space / pitch + .00001));
         string[] lines = wrapValue ? Wrap(value, columns).ToArray() : [value];

@@ -14,15 +14,20 @@ internal sealed class TrayService : IDisposable
     private readonly IntPtr hwnd;
     private readonly DispatcherQueue dispatcher;
     private readonly Action show, settings, about, exit;
+    private readonly Func<(bool Active, bool Available)> effectState;
+    private readonly Action<bool> setEffect;
     private readonly SubclassCallback callback;
     private readonly uint taskbarCreated;
     private IntPtr icon;
     private bool ownsIcon, visible, kept, versionFour, disposed;
 
-    internal TrayService(IntPtr hwnd, string iconPath, Action show, Action settings, Action about, Action exit)
+    internal TrayService(IntPtr hwnd, string iconPath, Action show, Action settings, Action about, Action exit,
+        Func<(bool Active, bool Available)> effectState, Action<bool> setEffect)
     {
         if (hwnd == IntPtr.Zero) throw new ArgumentException("A window handle is required.", nameof(hwnd));
         this.hwnd = hwnd;
+        this.effectState = effectState;
+        this.setEffect = setEffect;
         this.show = show ?? throw new ArgumentNullException(nameof(show));
         this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
         this.about = about ?? throw new ArgumentNullException(nameof(about));
@@ -154,14 +159,18 @@ internal sealed class TrayService : IDisposable
         if (menu == IntPtr.Zero) return;
         try
         {
-            const uint separator = 0x800;
+            const uint separator = 0x800, checkedItem = 0x8, grayed = 0x1;
+            var effect = effectState();
+            uint flags = (effect.Active ? checkedItem : 0u) | (effect.Available ? 0u : grayed);
             if (!AppendMenu(menu, 0, 2, "Preferences") ||
-                !AppendMenu(menu, 0, 1, "Open Water Ripple") ||
+                !AppendMenu(menu, 0, 1, "Open") ||
+                !AppendMenu(menu, separator, 0, null) ||
+                !AppendMenu(menu, flags, 6, "Effect") ||
                 !AppendMenu(menu, separator, 0, null) ||
                 !AppendMenu(menu, 0, 3, "Quit") ||
                 !AppendMenu(menu, separator, 0, null) ||
                 !AppendMenu(menu, 0, 5, "Mini Utilities") ||
-                !AppendMenu(menu, 0, 4, "About Water Ripple")) return;
+                !AppendMenu(menu, 0, 4, "About")) return;
             var point = new Point();
             if (versionFour)
             {
@@ -178,6 +187,7 @@ internal sealed class TrayService : IDisposable
             else if (command == 3) Dispatch(exit);
             else if (command == 4) Dispatch(about);
             else if (command == 5) Dispatch(OpenMiniUtilities);
+            else if (command == 6) Dispatch(() => setEffect(!effect.Active));
         }
         finally { DestroyMenu(menu); }
     }

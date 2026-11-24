@@ -30,6 +30,14 @@ public:
         bounds = monitorBounds;
     }
 
+    bool HasRunningProducer() const
+    {
+        if (!owner) return false;
+        ProducerSearch search{monitor, bounds};
+        EnumWindows(FindRunningProducer, reinterpret_cast<LPARAM>(&search));
+        return search.found;
+    }
+
     Sample Poll(ID3D11Device* device, ID3D11DeviceContext* context, IDXGIAdapter1* adapter, ipc::Clock::time_point now)
     {
         if (!owner) return {};
@@ -114,6 +122,26 @@ public:
     }
 
 private:
+    struct ProducerSearch
+    {
+        HMONITOR monitor;
+        const RECT& bounds;
+        bool found = false;
+    };
+
+    static BOOL CALLBACK FindRunningProducer(HWND window, LPARAM parameter)
+    {
+        auto& search = *reinterpret_cast<ProducerSearch*>(parameter);
+        wchar_t title[64]{};
+        if (!GetWindowTextW(window, title, ARRAYSIZE(title)) ||
+            std::wcscmp(title, L"Water Ripple screen effect") != 0 ||
+            !ipc::IsEffectWindow(window, search.monitor, search.bounds) ||
+            !ipc::OpenPeer(window, L"WaterRipple.exe", 0))
+            return TRUE;
+        search.found = true;
+        return FALSE;
+    }
+
     HWND owner{}, producer{};
     HMONITOR monitor{};
     RECT bounds{};
@@ -183,9 +211,12 @@ private:
     {
         // Ripple may have started after CRT. Only adjust the overlay when the
         // matching Ripple surface really precedes it in the desktop Z order.
-        if (ipc::IsWindowAbove(producer, owner))
-            SetWindowPos(owner, HWND_TOPMOST, 0, 0, 0, 0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+        if (!ipc::IsWindowAbove(producer, owner)) return;
+        const auto vignette = ipc::FindVignetteOverlay(monitor, bounds);
+        // Keep CRT below Vignette only if this also puts CRT above the producer.
+        const auto after = vignette && ipc::IsWindowAbove(vignette, producer) ? vignette : HWND_TOPMOST;
+        SetWindowPos(owner, after, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
     }
 };
 }

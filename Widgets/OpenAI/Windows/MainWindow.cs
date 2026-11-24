@@ -23,6 +23,7 @@ public sealed partial class MainWindow : Window
     private const string ManifestoUrl = "https://umbertogiacobbi.biz/vibeware/manifesto";
     private static readonly int[] WindowOpacityOptions = [25, 50, 75, 100];
     private static readonly SolidColorBrush PrimaryText = new(), SecondaryText = new(), WarningText = new(), CloseText = new();
+    private static readonly SolidColorBrush SettingsPanelFill = new();
     private static readonly FontFamily MetricFont = new("Cascadia Mono, Consolas");
     private readonly Storage storage=new();
     private WidgetSettings settings;
@@ -54,7 +55,7 @@ public sealed partial class MainWindow : Window
             Diagnostics.Record("settings.failed", error.Message);
         }
         settings = editableSettings.Settings;
-        detailsOpen = settings.EnableDetailsBar;
+        detailsOpen = true;
         settingsError = editableSettings.RecoveryMessage;
         settingsWriter = new SettingsSaveQueue(storage.SaveSettings);
         settingsWriter.Saved += error => DispatcherQueue.TryEnqueue(() =>
@@ -81,8 +82,6 @@ public sealed partial class MainWindow : Window
         ApplySystemTheme();
         systemSettings.ColorValuesChanged+=ThemeChanged;
         BuildWidgetStrip();
-        if (!SetWindowSubclass(WinRT.Interop.WindowNative.GetWindowHandle(this), ResizeProcedure, 1, 0))
-            Diagnostics.Record("window.resize.failed", "Could not restrict resizing to horizontal borders.");
         pinButton.Click += (_, _) => UpdateSettings(next => next.AlwaysOnTop = !next.AlwaysOnTop);
         AddAction(pinButton);
         ApplyTopmost();
@@ -90,22 +89,27 @@ public sealed partial class MainWindow : Window
         connectionError.Click += async (_, _) => await ShowSettingsAsync();
         AddAction(connectionError);
         detailsButton.Click += (_, _) => SetDetailsOpen(!detailsOpen);
-        AddAction(detailsButton);
 
         var preferences = Button("\uE713", "Settings");
-        preferences.Click += async (_, _) => await ShowSettingsAsync();
+        preferences.Click += async (_, _) =>
+        {
+            if (settingsPane is null) await ShowSettingsAsync();
+            else await HideSettingsAsync();
+        };
         AddAction(preferences);
         var about = Button("\uE946", "About OpenAI Usage");
         about.Click += async (_, _) => await ShowAboutAsync();
         AddAction(about);
+        AddAction(detailsButton);
         var close = Button("\uE8BB", "Close", CloseText);
+        if (close.Content is FontIcon closeIcon) closeIcon.FontSize = 22;
         close.Click += (_, _) => Close();
         AddAction(close);
 
         void AddAction(Control control)
         {
             control.Width = control.Height = 28;
-            control.MinWidth = 0;
+            control.MinWidth = control.MinHeight = 0;
             control.Padding = new(0);
             control.HorizontalContentAlignment = HorizontalAlignment.Center;
             control.VerticalContentAlignment = VerticalAlignment.Center;
@@ -116,13 +120,23 @@ public sealed partial class MainWindow : Window
         SetDetailsOpen(detailsOpen);
         root.Children.Add(WarmAccent(.24, .72, .32, 28, 248, 112, 42));
         root.Children.Add(WarmAccent(.68, .25, .28, 23, 233, 65, 68));
+        root.RowDefinitions.Add(new() { Height = new(1, GridUnitType.Star) });
+        root.RowDefinitions.Add(new() { Height = new(0) });
         root.Children.Add(viewport);
-        root.KeyDown += (_, args) =>
+        root.KeyDown += async (_, args) =>
         {
-            if (args.Key != global::Windows.System.VirtualKey.Escape || !detailsOpen) return;
-            SetDetailsOpen(false);
-            detailsButton.Focus(FocusState.Programmatic);
-            args.Handled = true;
+            if (args.Key != global::Windows.System.VirtualKey.Escape) return;
+            if (settingsPane is not null)
+            {
+                args.Handled = true;
+                await HideSettingsAsync();
+            }
+            else if (detailsOpen)
+            {
+                args.Handled = true;
+                SetDetailsOpen(false);
+                detailsButton.Focus(FocusState.Programmatic);
+            }
         };
         Content=root;
         root.SizeChanged += (_, _) => QueueLayout();
@@ -136,7 +150,7 @@ public sealed partial class MainWindow : Window
             int workWidth = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest).WorkArea.Width;
             AppWindow.ResizeClient(new(Math.Min(workWidth - 16, (int)(1240 * dpi)), AppWindow.ClientSize.Height));
             ApplySize();
-            try { ApplyOpacity(settings.WindowOpacityPercent); }
+            try { ApplyWidgetOpacity(settings.WindowOpacityPercent); }
             catch (Win32Exception error) { Diagnostics.Record("window.opacity.failed", error.Message); }
             try { tray=new TrayIcon(Path.Combine(AppContext.BaseDirectory,"Branding","app-icon.ico"),ShowWindow,
                 ()=>{ShowWindow();_=ShowAboutAsync();},()=>{ShowWindow();_=ShowSettingsAsync();},
@@ -164,6 +178,7 @@ public sealed partial class MainWindow : Window
         long? seconds = state.ResetsAt is { } reset ? Math.Max(0, reset - now.ToUnixTimeSeconds()) : null;
         UpdateResetClock(seconds);
         UpdateDetails(now.ToUnixTimeSeconds());
+        UpdateVoucherExpiry(now.ToUnixTimeSeconds());
         MaybeFlicker();
         if (seconds == 0 && !busy && state.Connected && now - lastResetRefresh > TimeSpan.FromMinutes(1))
         {
@@ -301,6 +316,7 @@ public sealed partial class MainWindow : Window
         SecondaryText.Color=dark?ColorHelper.FromArgb(255,194,205,221):ColorHelper.FromArgb(255,69,87,111);
         WarningText.Color=dark?ColorHelper.FromArgb(255,255,203,107):ColorHelper.FromArgb(255,148,82,0);
         CloseText.Color = Rgb(dark ? 0xFF6C78u : 0xB62036u);
+        SettingsPanelFill.Color = Rgb(dark ? 0x182029u : 0xF5F9FCu);
         if(activeDialog is { ExtendsContentIntoTitleBar: true, Content: FrameworkElement dialogRoot })
         {
             dialogRoot.RequestedTheme=root.RequestedTheme;

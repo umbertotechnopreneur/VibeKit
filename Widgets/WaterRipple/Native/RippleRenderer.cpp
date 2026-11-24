@@ -323,6 +323,7 @@ namespace
             if (captureEnabled && hasValidCapture && (captureX != x || captureY != y || captureWidth != w || captureHeight != h))
                 InvalidateCapture(false);
 
+            const auto previousCapture = stats.CaptureCount;
             if (captureEnabled && captureDue)
             {
                 auto captureStart = Clock::now();
@@ -339,9 +340,24 @@ namespace
                 return Finish(start, S_OK);
             }
 
-            const float background[4]{ 0.035f, 0.065f, 0.10f, 1.0f };
-            context->ClearRenderTargetView(targetView.Get(), background);
-            if (hasValidCapture && captureView)
+            const bool hasWaves = count > 0;
+            const bool changed = stats.CaptureCount != previousCapture || hasWaves || hadWaves;
+            hadWaves = hasWaves;
+            const bool localFramePending = changed || presentPending || !(stats.Status & StatusPresentedCapture);
+            const bool shareCapture = screenMode && captureEnabled;
+            auto publication = shareCapture ? crtExport.Observe(device.Get(), adapter.Get(), monitor,
+                outputDescription.DesktopCoordinates, start, changed) : water_ripple::CrtFrameExport::Publication{};
+            if (screenMode && !hasWaves)
+            {
+                // The full-monitor capture already has the size and format needed by both effects.
+                // No ripple shader or intermediate swap-chain image is needed while CRT presents it.
+                if (shareCapture && crtExport.NeedsFrame(start) &&
+                    !crtExport.Publish(context.Get(), captureTexture.Get(), start, localFramePending && !publication.presentedByCrt))
+                    publication = {};
+                if (UseCrtPresentation(publication) || !localFramePending) return Finish(start, S_OK);
+                context->CopyResource(backBuffer.Get(), captureTexture.Get());
+            }
+            else if (hasValidCapture && captureView)
             {
                 ShaderConstants constants{};
                 constants.Surface[0] = widthDip;
@@ -383,21 +399,19 @@ namespace
                 // Unbind before the next frame writes to the capture texture.
                 ID3D11ShaderResourceView* nullViews[2]{};
                 context->PSSetShaderResources(0, ARRAYSIZE(nullViews), nullViews);
+                context->OMSetRenderTargets(0, nullptr, nullptr);
+                if (shareCapture && crtExport.NeedsFrame(start) &&
+                    !crtExport.Publish(context.Get(), backBuffer.Get(), start, !publication.presentedByCrt))
+                    publication = {};
+                if (UseCrtPresentation(publication)) return Finish(start, S_OK);
             }
-            if (screenMode && captureEnabled && hasValidCapture)
+            else
             {
-                const auto publication = crtExport.Publish(device.Get(), context.Get(), adapter.Get(),
-                    swapChain.Get(), monitor, outputDescription.DesktopCoordinates);
-                if (publication.composed) stats.Status |= StatusCrtComposition;
-                if (publication.presentedByCrt)
-                {
-                    // Reacquire local visibility only after a new local Present succeeds.
-                    stats.Status &= ~StatusPresentedCapture;
-                    stats.Status |= StatusCrtPresentation;
-                    return Finish(start, S_OK);
-                }
+                const float background[4]{ 0.035f, 0.065f, 0.10f, 1.0f };
+                context->ClearRenderTargetView(targetView.Get(), background);
             }
             result = swapChain->Present(0, DXGI_PRESENT_DO_NOT_WAIT);
+            presentPending = result == DXGI_ERROR_WAS_STILL_DRAWING || result == DXGI_STATUS_OCCLUDED;
             if (result == DXGI_ERROR_WAS_STILL_DRAWING)
             {
                 stats.Status |= StatusPresentBusy;
@@ -420,7 +434,11 @@ namespace
 
         HRESULT SetScreenMode(bool enabled)
         {
-            screenMode = enabled;
+            if (screenMode != enabled)
+            {
+                screenMode = enabled;
+                InvalidateCapture(true);
+            }
             return screenMode && adapter ? ValidateScreenAdapter() : S_OK;
         }
 
@@ -466,6 +484,7 @@ namespace
         ComPtr<ID3D11Device> device;
         ComPtr<ID3D11DeviceContext> context;
         ComPtr<IDXGISwapChain1> swapChain;
+        ComPtr<ID3D11Texture2D> backBuffer;
         ComPtr<ID3D11RenderTargetView> targetView;
         ComPtr<ID3D11VertexShader> vertexShader;
         ComPtr<ID3D11PixelShader> pixelShader;
@@ -485,13 +504,24 @@ namespace
         LUID adapterLuid{};
         int swapWidth{}, swapHeight{};
         float swapScaleX{}, swapScaleY{};
-        bool hasSwapScale{};
+        bool hasSwapScale{}, hadWaves{}, presentPending{};
         UINT desktopWidth{}, desktopHeight{};
         int captureWidth{}, captureHeight{};
         bool screenMode{};
         bool hasValidCapture{};
         int captureX{}, captureY{};
         water_ripple::CrtFrameExport crtExport;
+
+        bool UseCrtPresentation(const water_ripple::CrtFrameExport::Publication& publication)
+        {
+            if (publication.composed) stats.Status |= StatusCrtComposition;
+            if (!publication.presentedByCrt) return false;
+            // Reacquire local visibility only after a new local Present succeeds.
+            stats.Status &= ~StatusPresentedCapture;
+            stats.Status |= StatusCrtPresentation;
+            presentPending = false;
+            return true;
+        }
 
         void InvalidateCapture(bool discardDesktop)
         {
@@ -520,7 +550,7 @@ namespace
             if (panel) panel->SetSwapChain(nullptr);
             captureTarget.Reset(); captureView.Reset(); captureTexture.Reset(); desktopCache.Reset();
             coverage.Reset();
-            targetView.Reset(); swapChain.Reset();
+            targetView.Reset(); backBuffer.Reset(); swapChain.Reset();
             // Release deferred D3D objects before a replacement composition swap
             // chain is attached to the same panel on the next start cycle.
             if (context) context->Flush();
@@ -529,7 +559,7 @@ namespace
             monitor = nullptr;
             adapterLuid = {};
             swapWidth = swapHeight = captureWidth = captureHeight = 0;
-            hasSwapScale = false;
+            hasSwapScale = hadWaves = presentPending = false;
             desktopWidth = desktopHeight = 0;
             stats.CaptureWidth = stats.CaptureHeight = 0;
             stats.Status = 0;
@@ -602,7 +632,20 @@ namespace
             output = selectedOutput;
             outputDescription = selectedDescription;
             monitor = targetMonitor;
-            return screenMode ? ValidateScreenAdapter() : S_OK;
+            if (!screenMode) return S_OK;
+
+            result = ValidateScreenAdapter();
+            if (SUCCEEDED(result) && overlayWindow)
+            {
+                // On first attachment, honor the optional capture-excluded post effect.
+                // Existing CRT/Ripple handoff remains responsible for the order between them.
+                namespace ipc = vibeware::desktop_effect;
+                auto vignette = ipc::FindVignetteOverlay(monitor, outputDescription.DesktopCoordinates);
+                if (vignette && ipc::IsWindowAbove(overlayWindow, vignette))
+                    SetWindowPos(overlayWindow, vignette, 0, 0, 0, 0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+            }
+            return result;
         }
 
         HRESULT ValidateScreenAdapter()
@@ -683,16 +726,16 @@ namespace
                 stats.Status &= ~StatusPresentedCapture;
                 context->OMSetRenderTargets(0, nullptr, nullptr);
                 targetView.Reset();
+                backBuffer.Reset();
                 result = swapChain->ResizeBuffers(0, w, h, DXGI_FORMAT_UNKNOWN, 0);
                 if (FAILED(result)) return result;
                 swapWidth = w; swapHeight = h;
             }
             if (!targetView)
             {
-                ComPtr<ID3D11Texture2D> buffer;
-                result = swapChain->GetBuffer(0, IID_PPV_ARGS(&buffer));
+                result = swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer));
                 if (FAILED(result)) return result;
-                result = device->CreateRenderTargetView(buffer.Get(), nullptr, &targetView);
+                result = device->CreateRenderTargetView(backBuffer.Get(), nullptr, &targetView);
                 if (FAILED(result)) return result;
             }
             float scaleX = widthDip / w;
@@ -703,7 +746,12 @@ namespace
             if (FAILED(result)) return result;
             DXGI_MATRIX_3X2_F transform{ scaleX, 0.0f, 0.0f, scaleY, 0.0f, 0.0f };
             result = swapChain2->SetMatrixTransform(&transform);
-            if (SUCCEEDED(result)) { swapScaleX = scaleX; swapScaleY = scaleY; hasSwapScale = true; }
+            if (SUCCEEDED(result))
+            {
+                swapScaleX = scaleX;
+                swapScaleY = scaleY;
+                hasSwapScale = presentPending = true;
+            }
             return result;
         }
 
@@ -777,6 +825,16 @@ namespace
             }
         }
 
+        void MarkCapture(int x, int y)
+        {
+            hasValidCapture = true;
+            captureX = x;
+            captureY = y;
+            stats.Status |= StatusValidCapture;
+            stats.Status &= ~(StatusWaiting | StatusAccessLost);
+            ++stats.CaptureCount;
+        }
+
         HRESULT Capture(int x, int y, int w, int h)
         {
             stats.Status &= ~(StatusClipped | StatusWaiting | StatusAccessLost);
@@ -831,6 +889,17 @@ namespace
                     desktop->GetDesc(&description);
                     if (description.Format != DXGI_FORMAT_B8G8R8A8_UNORM || description.Width < static_cast<UINT>(size.Width) ||
                         description.Height < static_cast<UINT>(size.Height)) return DXGI_ERROR_UNSUPPORTED;
+                    D3D11_BOX content{ 0, 0, 0, static_cast<UINT>(size.Width), static_cast<UINT>(size.Height), 1 };
+                    if (screenMode)
+                    {
+                        // A monitor overlay never crops or moves within the capture. Keep one GPU copy
+                        // directly from WGC instead of maintaining a second full-monitor cache.
+                        result = EnsureCaptureTexture(w, h);
+                        if (FAILED(result)) return result;
+                        context->CopySubresourceRegion(captureTexture.Get(), 0, 0, 0, 0, desktop.Get(), 0, &content);
+                        MarkCapture(x, y);
+                        return S_OK;
+                    }
                     if (!desktopCache || desktopWidth != static_cast<UINT>(size.Width) || desktopHeight != static_cast<UINT>(size.Height))
                     {
                         desktopCache.Reset();
@@ -846,7 +915,6 @@ namespace
                         if (FAILED(result)) return result;
                         desktopWidth = description.Width; desktopHeight = description.Height;
                     }
-                    D3D11_BOX content{ 0, 0, 0, static_cast<UINT>(size.Width), static_cast<UINT>(size.Height), 1 };
                     context->CopySubresourceRegion(desktopCache.Get(), 0, 0, 0, 0, desktop.Get(), 0, &content);
                     desktopChanged = true;
                 }
@@ -858,9 +926,9 @@ namespace
                 stats.Status |= StatusAccessLost | StatusWaiting;
                 return error.code();
             }
-            if (!desktopCache)
+            if (screenMode || !desktopCache)
             {
-                stats.Status |= StatusWaiting;
+                if (!hasValidCapture) stats.Status |= StatusWaiting;
                 return S_OK;
             }
             if (!desktopChanged && hasValidCapture && captureX == x && captureY == y && captureWidth == w && captureHeight == h)
@@ -878,11 +946,6 @@ namespace
             if (clipped)
             {
                 stats.Status |= StatusClipped;
-                if (screenMode)
-                {
-                    InvalidateCapture(false);
-                    return HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
-                }
                 const float background[4]{ 0.035f, 0.065f, 0.10f, 1.0f };
                 context->ClearRenderTargetView(captureTarget.Get(), background);
             }
@@ -893,11 +956,7 @@ namespace
                 box.right = right - bounds.left; box.bottom = bottom - bounds.top;
                 box.back = 1;
                 context->CopySubresourceRegion(captureTexture.Get(), 0, left - x, top - y, 0, desktopCache.Get(), 0, &box);
-                hasValidCapture = true;
-                captureX = x; captureY = y;
-                stats.Status |= StatusValidCapture;
-                stats.Status &= ~(StatusWaiting | StatusAccessLost);
-                ++stats.CaptureCount;
+                MarkCapture(x, y);
             }
             else
             {

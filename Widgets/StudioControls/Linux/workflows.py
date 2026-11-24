@@ -61,7 +61,10 @@ def _entries(values):
 
 def _validate_steps(steps):
     for step in _entries(steps):
-        _fields(step, ("id", "scene", "seconds", "note"))
+        fields = ("id", "scene", "seconds", "note")
+        _fields(step, (*fields, "transition") if "transition" in step else fields)
+        if step.get("transition", "default") not in ("default", "cut", "fade"):
+            raise ValueError("Invalid workflow transition")
         if not isinstance(step["scene"], str) or step["scene"] not in _scenes():
             raise ValueError("Unknown workflow scene")
         _text(step["note"], 500, "step note", optional=True)
@@ -87,8 +90,10 @@ def _validate(data):
         raise ValueError("Active project is missing")
 
 
-def new_step(scene, seconds=15, note=""):
+def new_step(scene, seconds=15, note="", transition="default"):
     step = {"id": str(uuid4()), "scene": scene, "seconds": seconds, "note": note}
+    if transition != "default":
+        step["transition"] = transition
     _validate_steps([step])
     return step
 
@@ -180,16 +185,52 @@ class WorkflowLibrary:
         self.select_project(project["id"])
         return project
 
+    @staticmethod
+    def _find(entries, entry_id):
+        for entry in entries:
+            if entry["id"] == entry_id:
+                return entry
+        raise ValueError("The selected project or workflow no longer exists.")
+
+    def rename_project(self, project_id, name):
+        _text(name, 100, "project name")
+        self._find(self.data["projects"], project_id)["name"] = name
+        self.save()
+
+    def remove_project(self, project_id):
+        projects = self.data["projects"]
+        if len(projects) <= 1:
+            raise ValueError("Keep at least one project.")
+        projects.remove(self._find(projects, project_id))
+        if self.data["activeProjectId"] == project_id:
+            self.data["activeProjectId"] = projects[0]["id"]
+        self.save()
+
     def create_workflow(self, name, source=None):
         workflow = _workflow(name)
         if source is not None:
             workflow["targetSeconds"] = source["targetSeconds"]
             workflow["steps"] = [
-                new_step(step["scene"], step["seconds"], step["note"]) for step in source["steps"]
+                new_step(
+                    step["scene"], step["seconds"], step["note"], step.get("transition", "default")
+                )
+                for step in source["steps"]
             ]
         self.project["workflows"].append(workflow)
         self.save()
         return workflow
+
+    def rename_workflow(self, workflow_id, name):
+        _text(name, 100, "workflow name")
+        self._find(self.project["workflows"], workflow_id)["name"] = name
+        self.save()
+
+    def remove_workflow(self, workflow_id):
+        workflows = self.project["workflows"]
+        if len(workflows) <= 1:
+            raise ValueError("Keep at least one workflow in this project.")
+        workflows.remove(self._find(workflows, workflow_id))
+        self.save()
 
 
 class Playback:

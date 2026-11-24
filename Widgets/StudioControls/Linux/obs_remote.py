@@ -6,6 +6,7 @@ import hashlib
 import json
 import sys
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -51,6 +52,13 @@ class OBSConnectionError(OBSError):
         self.request_sent = request_sent
 
 
+class WorkflowTransitionRecoveryError(ValueError):
+    def __init__(self):
+        super().__init__(
+            "Check the destination scene's transition override in OBS. Restoration was not confirmed."
+        )
+
+
 class ProjectApplyError(OBSError):
     """Local project assets were saved but OBS may only be partly updated."""
 
@@ -90,6 +98,7 @@ class OBS:
             else Path.home() / ".config/umbertogiacobbi/lab-titles.json"
         )
         self._last_status = None
+        self._workflow_scene_ids = {}
 
     @property
     def assets_root(self):
@@ -113,13 +122,27 @@ class OBS:
             raise ValueError("Recording was paused or stopped.")
         return status["outputActive"]
 
-    def workflow_preflight(self, required):
+    def _workflow_transitions(self, required):
+        transitions = self.call("GetSceneTransitionList")["transitions"]
+        names = {item["transitionName"] for item in transitions}
+        by_kind = {item["transitionKind"]: item["transitionName"] for item in transitions}
+        resolved = {}
+        for transition in required:
+            if transition not in ("cut", "fade") or not by_kind.get(transition + "_transition"):
+                raise ValueError("The selected workflow transition is unavailable in OBS.")
+            resolved[transition] = by_kind[transition + "_transition"]
+        return resolved, names
+
+    def workflow_preflight(self, required, transitions=()):
         collection = self.call("GetSceneCollectionList")["currentSceneCollectionName"]
         listing = self.call("GetSceneList")
         available = {scene["sceneName"] for scene in listing["scenes"]}
         required = set(required)
         if not required <= available:
             raise ValueError("A workflow scene is missing from the OBS collection.")
+        custom = set(transitions) - {"default"}
+        if custom:
+            self._workflow_transitions(custom)
         if "Comparison A-B" in required:
             self._verify_comparison()
         current = listing["currentProgramSceneName"]
@@ -131,29 +154,90 @@ class OBS:
         ):
             raise ValueError("OBS status is unconfirmed.")
         recording = self._workflow_recording()
+        self._workflow_scene_ids = {
+            item["sceneName"]: item["sceneUuid"]
+            for item in listing["scenes"]
+            if item.get("sceneUuid")
+        }
         return self.ws, collection, current, recording
 
-    def workflow_switch(self, session, expected, scene, cancel, recording):
-        """Run on the serial OBS worker. Never reconnect or retry a live mutation."""
+    def _check_workflow_session(self, session):
         socket, collection = session
-        if cancel.is_set():
-            return None
         if self.ws is None or self.ws is not socket:
             raise ValueError("OBS connection changed.")
         if self.call("GetSceneCollectionList")["currentSceneCollectionName"] != collection:
             raise ValueError("The OBS scene collection changed.")
-        if scene == "Comparison A-B":
-            self._verify_comparison()
+
+    def _check_workflow_input(self, session, expected, recording):
+        self._check_workflow_session(session)
         active = self._workflow_recording()
         if recording and not active:
             raise ValueError("Recording was paused or stopped.")
         current = self.call("GetCurrentProgramScene")["currentProgramSceneName"]
         if current != expected:
             raise ValueError("The OBS program scene changed manually.")
+        return active
+
+    @contextmanager
+    def _workflow_transition(self, target, transition, session, cancel):
+        if transition == "default":
+            yield
+            return
+        names, available = self._workflow_transitions([transition])
+        chosen = names[transition]
+
+        def read_override():
+            return self.call("GetSceneSceneTransitionOverride", target)["transitionName"]
+
+        def write_override(name):
+            self.call("SetSceneSceneTransitionOverride", {**target, "transitionName": name})
+
+        self._check_workflow_session(session)
+        previous = read_override()
+        if previous == chosen or cancel.is_set():
+            yield
+            return
+        # A stale override name cannot be restored via OBS WebSocket.
+        if previous is not None and previous not in available:
+            raise ValueError("Check the destination scene's existing transition override in OBS.")
+        try:
+            write_override(chosen)
+        except OBSConnectionError as exc:
+            if exc.request_sent:
+                raise WorkflowTransitionRecoveryError() from exc
+            raise
+        try:
+            yield
+        finally:
+            try:
+                self._check_workflow_session(session)
+                if read_override() == chosen:
+                    # Leave duration and any operator-selected replacement untouched.
+                    write_override(previous)
+                    if read_override() != previous:
+                        raise ValueError("The transition override changed.")
+            except (OBSError, KeyError, ValueError) as exc:
+                raise WorkflowTransitionRecoveryError() from exc
+
+    def workflow_switch(self, session, expected, scene, cancel, recording, transition="default"):
+        """Run on the serial OBS worker. Never reconnect or retry a live mutation."""
         if cancel.is_set():
             return None
-        if current != scene:
-            self.call("SetCurrentProgramScene", {"sceneName": scene})
+        if scene == "Comparison A-B":
+            self._check_workflow_session(session)
+            self._verify_comparison()
+        active = self._check_workflow_input(session, expected, recording)
+        if cancel.is_set():
+            return None
+        if expected != scene:
+            scene_id = self._workflow_scene_ids.get(scene)
+            target = {"sceneUuid": scene_id} if scene_id else {"sceneName": scene}
+            with self._workflow_transition(target, transition, session, cancel):
+                if transition != "default":
+                    active = self._check_workflow_input(session, expected, active)
+                if cancel.is_set():
+                    return None
+                self.call("SetCurrentProgramScene", target)
         confirmed = self.call("GetCurrentProgramScene")["currentProgramSceneName"]
         if confirmed != scene:
             raise ValueError("OBS did not confirm the workflow scene.")

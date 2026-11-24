@@ -115,11 +115,13 @@ def run_child() -> int:
                 "audioMutes": {"Mic/Aux": True, "Desktop Audio": True},
             }
 
-        def workflow_preflight(self, required):
+        def workflow_preflight(self, required, transitions=()):
+            assert list(transitions) == ["fade", "default"]
             assert set(required) == {"Intro", "Detail"}
             return self, "Synthetic collection", self.scene_name, False
 
-        def workflow_switch(self, session, expected, scene, cancel, recording):
+        def workflow_switch(self, session, expected, scene, cancel, recording, transition="default"):
+            assert transition == ("fade" if scene == "Intro" else "default")
             assert session[0] is self and expected == self.scene_name
             if cancel.is_set():
                 return None
@@ -217,30 +219,66 @@ def run_child() -> int:
         detail, intro = flow.flow["steps"]
         assert drop(flow.step_widgets[detail["id"]], "step:" + intro["id"], -1)
         assert [s["scene"] for s in flow.flow["steps"]] == ["Intro", "Detail"]
-        flow.note.set_text("Synthetic cue")
-        flow.seconds.set_value(1)
-        flow.save_step()
+        from workflow_dialogs import workflow_details
+        from workflow_widgets import TRANSITIONS
+
+        editor = flow.edit_step(intro["id"])
+        assert editor.get_modal()
+        editor.note.set_text("Synthetic cue")
+        editor.seconds.set_value(1)
+        editor.transition.set_selected(list(TRANSITIONS).index("fade"))
+        editor.response(panel.Gtk.ResponseType.OK)
         assert flow.flow["steps"][0]["seconds"] == 1
         assert flow.flow["steps"][0]["note"] == "Synthetic cue"
+        assert flow.flow["steps"][0]["transition"] == "fade"
+        editor = flow.edit_step(intro["id"])
+        editor.note.set_text("Discard me")
+        editor.response(panel.Gtk.ResponseType.CANCEL)
+        assert flow.flow["steps"][0]["note"] == "Synthetic cue"
 
-        # Exercise selection through real Gtk.DropDown notifications.
-        old = app.library.project
+        def name_entry(widget):
+            if isinstance(widget, panel.Gtk.Entry):
+                return widget
+            child = widget.get_first_child()
+            while child is not None:
+                found = name_entry(child)
+                if found is not None:
+                    return found
+                child = child.get_next_sibling()
+            return None
+
+        library = flow.open_library()
+        assert library.get_modal()
+        old_id = app.library.project["id"]
         app.title_entries["subtitle"].set_text("Unsaved synthetic draft")
-        app.library.create_project("Another project")
-        app.switch_card_project()
-        flow.refresh()
+        editor = library.project_details(True)
+        name_entry(editor.get_content_area()).set_text("Another project")
+        editor.response(panel.Gtk.ResponseType.OK)
         assert app.title_entries["name"].get_text() == "Another project"
         assert not flow.flow["steps"]
-        flow.projects.set_selected(0)
-        assert app.library.project == old
+        editor = library.project_details(False)
+        name_entry(editor.get_content_area()).set_text("Renamed project")
+        editor.response(panel.Gtk.ResponseType.OK)
+        assert app.library.project["name"] == "Renamed project"
+        library.projects.select_row(library.projects.get_row_at_index(0))
+        assert app.library.project["id"] == old_id
         assert app.title_entries["subtitle"].get_text() == "Unsaved synthetic draft"
         assert len(flow.flow["steps"]) == 2
-        app.library.create_workflow("Copy", flow.flow)
-        flow.refresh()
-        flow.flows.set_selected(1)
-        flow.remove()
-        flow.flows.set_selected(0)
+        editor = workflow_details(flow, library, flow.flow["id"], duplicate=True)
+        name_entry(editor.get_content_area()).set_text("Copy")
+        editor.response(panel.Gtk.ResponseType.OK)
+        assert flow.flow["name"] == "Copy"
+        assert flow.flow["steps"][0]["transition"] == "fade"
+        library.confirm_remove(False).response(panel.Gtk.ResponseType.CANCEL)
+        assert len(app.library.project["workflows"]) == 2
+        library.confirm_remove(False).response(panel.Gtk.ResponseType.OK)
+        assert len(app.library.project["workflows"]) == 1
+        library.projects.select_row(library.projects.get_row_at_index(1))
+        library.confirm_remove(True).response(panel.Gtk.ResponseType.OK)
+        assert app.library.project["id"] == old_id
+        assert not library.project_actions[-1].get_sensitive()
         assert len(flow.flow["steps"]) == 2
+        library.close()
         flow.start(False)
         assert flow.player.state == "running" and flow.timer_window.get_visible()
         flow.toggle_pause()

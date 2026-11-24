@@ -50,7 +50,9 @@ RUNTIME_FILES = (
     "panel_theme.py",
     "screen_framing.py",
     "studio_paths.py",
+    "workflow_dialogs.py",
     "workflow_panel.py",
+    "workflow_widgets.py",
     "workflows.py",
     "window_placement.py",
 )

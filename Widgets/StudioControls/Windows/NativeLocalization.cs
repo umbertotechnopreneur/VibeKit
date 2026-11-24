@@ -8,6 +8,8 @@ namespace VibeKit.StudioControls.Windows;
 /// <summary>Translate native display properties without touching editable values or control models.</summary>
 internal sealed class NativeLocalization : IDisposable
 {
+    internal static readonly object UserText = new();
+
     private sealed class Binding(DependencyObject target, DependencyProperty property, string? source)
     {
         public DependencyObject Target { get; } = target;
@@ -71,7 +73,7 @@ internal sealed class NativeLocalization : IDisposable
         Bind(target, ToolTipService.ToolTipProperty);
         switch (target)
         {
-            case TextBlock _: Bind(target, TextBlock.TextProperty); break;
+            case TextBlock block when !ReferenceEquals(block.Tag, UserText): Bind(target, TextBlock.TextProperty); break;
             case TextBox _:
                 Bind(target, TextBox.HeaderProperty); Bind(target, TextBox.PlaceholderTextProperty); break;
             case PasswordBox _: Bind(target, PasswordBox.HeaderProperty); break;

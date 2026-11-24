@@ -1,40 +1,28 @@
 """Native linear workflow editor and detachable timer for the GTK control desk."""
 
-import math
 from copy import deepcopy
 from threading import Event
 
 import gi
 
+from obs_remote import WorkflowTransitionRecoveryError
 from panel_theme import SCENE_COLORS
+from workflow_dialogs import LibraryDialog, step_dialog, workflow_details
+from workflow_widgets import (
+    TRANSITIONS,
+    add,
+    box,
+    button,
+    icon,
+    icon_button,
+    text,
+    timecode,
+    tool_button,
+)
 from workflows import Playback, new_step
 
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
-
-
-def box(vertical=False, spacing=8):
-    return Gtk.Box(
-        orientation=Gtk.Orientation.VERTICAL if vertical else Gtk.Orientation.HORIZONTAL,
-        spacing=spacing,
-    )
-
-
-def button(label, action):
-    item = Gtk.Button(label=label)
-    item.connect("clicked", lambda _: action())
-    return item
-
-
-def add(row, *children):
-    for child in children:
-        row.append(child)
-    return row
-
-
-def timecode(value):
-    seconds = math.ceil(value) if value >= 0 else math.floor(-value)
-    return ("+" if value < 0 else "") + f"{seconds // 60}:{seconds % 60:02d}"
 
 
 class WorkflowPanel:
@@ -45,7 +33,7 @@ class WorkflowPanel:
         self.player = Playback()
         self.current = 0
         self.selected = None
-        self.busy = False
+        self.manager = None
         self.checking = False
         self.ticker = None
         self.cancel = Event()
@@ -65,319 +53,297 @@ class WorkflowPanel:
     def build(self):
         self.page = box(True, 14)
         self.panel.add_tab(self.panel.tabs, self.page, "Workflow")
-        self.editor = box(True, 12)
-        self.page.append(self.editor)
-        self.projects = Gtk.DropDown()
-        self.flows = Gtk.DropDown()
-        # Selector names are user data, including names that match a UI string.
-        self.projects.skip_localization = True
-        self.flows.skip_localization = True
-        self.projects.connect("notify::selected", self.select_project)
-        self.flows.connect("notify::selected", self.select_flow)
-        add(
-            self.editor,
-            add(
-                box(),
-                Gtk.Label(label="Project"),
-                self.projects,
-                button("New project", lambda: self.name_dialog("New project")),
-            ),
-        )
-        add(
-            self.editor,
-            add(
-                box(),
-                Gtk.Label(label="Workflow"),
-                self.flows,
-                button("New workflow", lambda: self.name_dialog("New workflow")),
-                button("Duplicate", lambda: self.name_dialog("Duplicate")),
-                button("Rename workflow", lambda: self.name_dialog("Rename workflow")),
-            ),
-        )
-        self.total = Gtk.Label(xalign=0)
-        self.total.add_css_class("heading")
-        self.target = Gtk.SpinButton.new_with_range(0, 86400, 1)
-        self.target.set_tooltip_text("Use zero for no target.")
-        self.target.connect("value-changed", self.change_target)
-        add(self.editor, add(box(), self.total, Gtk.Label(label="Target (seconds)"), self.target))
+        self.editor = box(True, 0)
+        self.workflow_name = text(style="workflow-title", truncate=True)
+        self.project_name = text(style="dim-label", truncate=True)
+        for label in (self.project_name, self.workflow_name):
+            label.skip_localization = True
+        names = add(box(True, 2), self.project_name, self.workflow_name)
+        names.set_hexpand(True)
+        self.library_button = tool_button("folder-open-symbolic", "Library", self.open_library)
+        self.library_button.set_valign(Gtk.Align.CENTER)
+        self.page.append(add(self.editor, add(box(), names, self.library_button)))
 
-        strip = Gtk.ScrolledWindow()
-        strip.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
-        strip.set_min_content_height(72)
-        self.timeline = box()
+        board = box(True, 0)
+        board.add_css_class("workflow-board")
+        heading = text("Sequence", "heading")
+        heading.set_hexpand(True)
+        self.total = text(style="workflow-metric")
+        self.target_display = text(style="dim-label")
+        self.target_button = icon_button(
+            "document-edit-symbolic", self.tr("Edit workflow"), self.edit_workflow
+        )
+        self.target_button.add_css_class("workflow-small")
+        head = add(box(spacing=10), heading, self.total, self.target_display, self.target_button)
+        head.add_css_class("workflow-board-header")
+        self.strip = Gtk.ScrolledWindow(hexpand=True)
+        self.strip.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+        self.strip.set_overlay_scrolling(False)
+        self.strip.set_size_request(-1, 174)
+        self.timeline = box(spacing=3)
+        self.timeline.set_hexpand(True)
+        self.timeline.set_margin_start(12)
+        self.timeline.set_margin_end(12)
         self.timeline.skip_localization = True
-        strip.set_child(self.timeline)
-        self.editor.append(strip)
+        self.strip.set_child(self.timeline)
         self.drop_on(self.timeline, None)
-        self.rehearse = button("Rehearse", lambda: self.start(False))
-        self.live = button("Play in OBS", lambda: self.start(True))
-        add(self.page, add(box(), self.rehearse, self.live, button("Open timer", self.open_timer)))
-        self.status = Gtk.Label(xalign=0, wrap=True)
-        add(self.page, self.status, self.controls())
-        self.notice = Gtk.Label(xalign=0, wrap=True)
-        self.page.append(self.notice)
-        self.options = box(True, 10)
-        self.page.append(self.options)
-        self.inspector = Gtk.Expander(label="Selected step", expanded=True)
-        step_options = box(True)
-        self.seconds = Gtk.SpinButton.new_with_range(1, 86400, 1)
-        self.note = Gtk.Entry(max_length=500, hexpand=True)
-        for widget, label in (
-            (self.seconds, "Duration (seconds)"),
-            (self.note, "Note"),
-            (self.target, "Target (seconds)"),
-            (self.projects, "Project"),
-            (self.flows, "Workflow"),
-        ):
-            self.panel.localizer.accessible(widget, label)
-        add(
-            step_options,
-            add(
-                box(),
-                Gtk.Label(label="Duration (seconds)"),
-                self.seconds,
-                Gtk.Label(label="Note"),
-                self.note,
-                button("Save step", self.save_step),
-            ),
-        )
-        self.left = button("Move left", lambda: self.move(-1))
-        self.right = button("Move right", lambda: self.move(1))
-        add(step_options, add(box(), self.left, self.right, button("Remove", self.remove)))
-        self.inspector.set_child(step_options)
-        self.options.append(self.inspector)
 
-        palette = Gtk.Expander(label="Scene palette", expanded=True)
-        grid = Gtk.Grid(row_spacing=6, column_spacing=8, column_homogeneous=True)
-        for index, (name, (icon, title)) in enumerate(self.scenes.items()):
+        self.rehearse = tool_button(
+            "media-playback-start-symbolic", "Rehearse", lambda: self.start(False)
+        )
+        self.live = button("Play in OBS", lambda: self.start(True))
+        self.live.add_css_class("suggested-action")
+        self.launch_actions = add(box(), self.rehearse, self.live)
+        self.transport = self.controls()
+        spacer = box()
+        spacer.set_hexpand(True)
+        self.timer_button = tool_button(
+            "preferences-system-time-symbolic", "Open timer", self.open_timer
+        )
+        footer = add(box(), self.launch_actions, self.transport, spacer, self.timer_button)
+        footer.add_css_class("workflow-board-footer")
+        add(board, head, self.strip, footer)
+        self.page.append(board)
+
+        self.status = Gtk.Label(xalign=0, wrap=True)
+        self.status.add_css_class("dim-label")
+        self.notice = Gtk.Label(xalign=0, wrap=True, visible=False)
+        self.notice.connect(
+            "notify::label", lambda note, _: note.set_visible(bool(note.get_label()))
+        )
+        add(self.page, self.status, self.notice)
+        self.options = Gtk.Expander(label="Scene palette", expanded=True)
+        self.options.add_css_class("workflow-palette")
+        grid = Gtk.Grid(row_spacing=6, column_spacing=8, column_homogeneous=True, margin_top=10)
+        for index, (name, (_, title)) in enumerate(self.scenes.items()):
             item = Gtk.Button()
-            image = Gtk.Image.new_from_icon_name(icon)
-            image.add_css_class("scene-" + SCENE_COLORS[name][0])
-            item.set_child(add(box(), image, Gtk.Label(label=title)))
+            item.add_css_class("workflow-source")
+            image = self.scene_icon(name, 17)
+            item.set_child(add(box(spacing=9), image, text(title, truncate=True)))
             item.connect("clicked", lambda _, scene=name: self.insert_scene(scene))
             self.drag_from(item, "scene:" + name, Gdk.DragAction.COPY)
             grid.attach(item, index % 3, index // 3, 1, 1)
-        palette.set_child(grid)
-        self.options.append(palette)
+        self.options.set_child(grid)
+        self.page.append(self.options)
 
-    def name_dialog(self, action):
-        dialog = Gtk.Dialog(
-            title=self.panel.localizer.text(action),
-            transient_for=self.panel.window,
-            modal=True,
-            destroy_with_parent=True,
-        )
-        entry = Gtk.Entry(max_length=100, activates_default=True)
-        if action in ("Rename workflow", "Duplicate"):
-            entry.set_text(self.flow["name"] + (" (2)" if action == "Duplicate" else ""))
-            entry.select_region(0, -1)
-        dialog.get_content_area().append(entry)
-        dialog.add_button(self.panel.localizer.text("Cancel"), Gtk.ResponseType.CANCEL)
-        accept = dialog.add_button(self.panel.localizer.text("Save"), Gtk.ResponseType.OK)
-        accept.set_sensitive(bool(entry.get_text().strip()))
-        entry.connect("changed", lambda field: accept.set_sensitive(bool(field.get_text().strip())))
-        dialog.set_default_response(Gtk.ResponseType.OK)
+    @property
+    def tr(self):
+        return self.panel.localizer.text
 
-        def finish(_, response):
-            name = entry.get_text().strip()
-            dialog.destroy()
-            if response != Gtk.ResponseType.OK or not name:
-                return
-            if action == "New project" and self.panel.applying_titles:
-                self.notice.set_label("Wait for project cards to finish.")
-                return
-            try:
-                if action == "New project":
-                    self.library.create_project(name)
-                    self.current = 0
-                    self.panel.switch_card_project()
-                elif action == "Rename workflow":
-                    self.flow["name"] = name
-                    self.library.save()
-                else:
-                    created = self.library.create_workflow(
-                        name, self.flow if action == "Duplicate" else None
-                    )
-                    self.current = self.library.project["workflows"].index(created)
-                self.selected = None
-                self.notice.set_label(
-                    "Apply the project to update the cards in OBS."
-                    if action == "New project"
-                    else ""
-                )
-            except (OSError, ValueError) as error:
-                self.notice.set_label(str(error))
-            self.refresh()
+    def open_library(self):
+        if self.active:
+            return None
+        if self.manager is None:
+            self.manager = LibraryDialog(self)
+        self.manager.present()
+        return self.manager
 
-        dialog.connect("response", finish)
-        dialog.present()
+    def edit_workflow(self):
+        if self.active:
+            return None
+        return workflow_details(self, self.panel.window, self.flow["id"])
 
-    def select_project(self, dropdown, _):
-        index = dropdown.get_selected()
-        if self.busy or index >= len(self.library.data["projects"]):
+    def edit_step(self, identifier):
+        if self.active or self.index_of(identifier) is None:
+            return None
+        self.choose_step(identifier)
+        return step_dialog(self, identifier)
+
+    def select_library_item(self, project_id, flow_id=None):
+        if self.active:
             return
-        if self.library.project["id"] == self.library.data["projects"][index]["id"]:
-            return
-        if self.panel.applying_titles:
-            self.notice.set_label("Wait for project cards to finish.")
-        else:
-            try:
-                self.library.select_project(self.library.data["projects"][index]["id"])
-                self.current = 0
-                self.selected = None
-                self.panel.switch_card_project()
-                self.notice.set_label("Apply the project to update the cards in OBS.")
-            except (OSError, ValueError) as error:
-                self.notice.set_label(str(error))
-        self.refresh()
-
-    def select_flow(self, dropdown, _):
-        index = dropdown.get_selected()
-        if self.busy or index >= len(self.library.project["workflows"]):
-            return
-        if index == self.current:
-            return
-        self.current = index
+        if self.library.project["id"] != project_id:
+            if self.panel.applying_titles:
+                raise ValueError("Wait for project cards to finish.")
+            self.library.select_project(project_id)
+            self.current = 0
+            self.panel.switch_card_project()
+            self.notice.set_label("Apply the project to update the cards in OBS.")
+        if flow_id is not None:
+            self.current = next(
+                n
+                for n, item in enumerate(self.library.project["workflows"])
+                if item["id"] == flow_id
+            )
         self.selected = None
         self.refresh()
 
-    @staticmethod
-    def set_names(dropdown, records):
-        names = [r["name"] for r in records]
-        model = dropdown.get_model()
-        if model is None or [s.get_string() for s in model] != names:
-            dropdown.set_model(Gtk.StringList.new(names))
-
     def refresh(self):
-        self.busy = True
-        try:
-            projects = self.library.data["projects"]
-            flows = self.library.project["workflows"]
-            self.set_names(self.projects, projects)
-            self.projects.set_selected(projects.index(self.library.project))
-            self.set_names(self.flows, flows)
-            self.flows.set_selected(self.current)
-            self.target.set_value(self.flow["targetSeconds"] or 0)
-            self.render_steps()
-        finally:
-            self.busy = False
+        self.current = min(self.current, len(self.library.project["workflows"]) - 1)
+        self.workflow_name.set_label(self.flow["name"])
+        self.project_name.set_label(self.library.project["name"])
+        self.project_name.set_tooltip_text(self.library.project["name"])
+        self.workflow_name.set_tooltip_text(self.flow["name"])
+        self.render_steps()
         self.display()
+
+    def scene_icon(self, name, size):
+        image = icon(self.scenes[name][0], size)
+        image.add_css_class("workflow-scene-icon")
+        image.add_css_class("scene-" + SCENE_COLORS[name][0])
+        return image
 
     def render_steps(self):
         while child := self.timeline.get_first_child():
             self.timeline.remove(child)
         self.step_widgets = {}
+        self.highlighted = None
+        self.track_locked = None
         steps = self.flow["steps"]
+        self.timeline.set_spacing(3 if steps else 0)
         if not steps:
-            self.timeline.append(
-                Gtk.Label(
-                    label=self.panel.localizer.text("Drag scenes here or choose a scene below.")
-                )
-            )
+            empty = box(True, 7)
+            empty.set_halign(Gtk.Align.CENTER)
+            empty.set_valign(Gtk.Align.CENTER)
+            empty.set_hexpand(True)
+            empty_icon = icon("list-add-symbolic", 24)
+            empty_icon.add_css_class("dim-label")
+            hint = Gtk.Label(label=self.tr("Drag scenes here or choose a scene below."), wrap=True)
+            add(empty, empty_icon, hint)
+            self.timeline.append(empty)
+        elapsed = 0
         for index, step in enumerate(steps):
-            identifier = step["id"]
-            title = self.scene_title(step["scene"])
-            item = button(
-                f"{index + 1}. {title}\n{timecode(step['seconds'])}",
-                lambda key=identifier: self.choose_step(key),
-            )
-            self.drag_from(item, "step:" + identifier, Gdk.DragAction.MOVE)
-            self.drop_on(item, identifier)
-            self.timeline.append(item)
-            self.step_widgets[identifier] = item
+            if index:
+                arrow = icon("go-next-symbolic", 15)
+                arrow.add_css_class("dim-label")
+                self.timeline.append(arrow)
+            card = self.step_card(index, step, elapsed)
+            self.timeline.append(card)
+            self.step_widgets[step["id"]] = card
+            elapsed += step["seconds"]
         self.choose_step(self.selected)
-        self.summary()
+        self.total.set_label(f"{self.tr('Total')}  {timecode(elapsed)}")
+        target = self.flow["targetSeconds"]
+        self.target_display.set_visible(target is not None)
+        if target is not None:
+            self.target_display.set_label(f"{self.tr('Target')}  {timecode(target)}")
+            self.target_display.set_tooltip_text(
+                f"{timecode(abs(elapsed - target))} "
+                + self.tr("over target" if elapsed > target else "under target")
+                if elapsed != target
+                else None
+            )
+            if elapsed > target:
+                self.target_display.add_css_class("workflow-over")
+            else:
+                self.target_display.remove_css_class("workflow-over")
+
+    def step_card(self, index, step, elapsed):
+        name = step["scene"]
+        title = self.scene_title(name)
+        identifier = step["id"]
+        card = Gtk.Button(valign=Gtk.Align.CENTER)
+        card.set_hexpand(False)
+        card.add_css_class("workflow-step")
+        card.set_size_request(154, -1)
+        color_name = SCENE_COLORS[name][0]
+        card.add_css_class("step-" + color_name)
+        number = text(f"{index + 1:02d}", "workflow-position")
+        number.set_hexpand(True)
+        edit = icon("document-edit-symbolic", 13)
+        edit.add_css_class("workflow-step-edit")
+        top = add(box(), number, edit, self.scene_icon(name, 23))
+        name_label = text(title, "workflow-step-name", truncate=True)
+        name_label.set_max_width_chars(16)
+        duration = text(timecode(step["seconds"]), "workflow-step-time")
+        meta = text(f"{self.tr('Starts at')} {timecode(elapsed)}", "workflow-secondary")
+        content = add(box(True, 4), top, name_label, duration, meta)
+        transition = step.get("transition", "default")
+        if transition != "default":
+            meta.set_label(f"{timecode(elapsed)}   ·   {self.tr(TRANSITIONS[transition])}")
+        card.set_child(content)
+        card.set_tooltip_text(f"{self.tr('Edit step')} · {title}")
+        card.update_property(
+            [Gtk.AccessibleProperty.LABEL],
+            [
+                f"{index + 1}. {title}, {self.tr('Starts at')} {timecode(elapsed)}, {timecode(step['seconds'])}"
+            ],
+        )
+        card.connect("clicked", lambda _: self.edit_step(identifier))
+        self.drag_from(card, "step:" + identifier, Gdk.DragAction.MOVE)
+        self.drop_on(card, identifier)
+        return card
 
     def scene_title(self, name):
-        return self.panel.localizer.text(self.scenes.get(name, (None, name))[1])
+        return self.tr(self.scenes.get(name, (None, name))[1])
 
     def index_of(self, key):
         return next((i for i, s in enumerate(self.flow["steps"]) if s["id"] == key), None)
 
     def choose_step(self, key):
-        steps = self.flow["steps"]
-        index = self.index_of(key)
-        if index is None and steps:
-            index = 0
-        self.selected = steps[index]["id"] if index is not None else None
-        self.inspector.set_sensitive(bool(steps))
+        self.selected = key if key in self.step_widgets else None
         for identifier, widget in self.step_widgets.items():
             if identifier == self.selected:
-                widget.add_css_class("suggested-action")
+                widget.add_css_class("workflow-selected")
             else:
-                widget.remove_css_class("suggested-action")
-        if index is not None:
-            step = steps[index]
-            self.seconds.set_value(step["seconds"])
-            self.note.set_text(step["note"])
-            self.left.set_sensitive(index > 0)
-            self.right.set_sensitive(index + 1 < len(steps))
+                widget.remove_css_class("workflow-selected")
 
-    def summary(self):
-        total = sum(s["seconds"] for s in self.flow["steps"])
-        target = self.flow["targetSeconds"]
-        tr = self.panel.localizer.text
-        message = f"{tr('Total')} {timecode(total)}"
-        if target is not None and total != target:
-            message += (
-                " · "
-                + timecode(abs(total - target))
-                + " "
-                + tr("over target" if total > target else "under target")
-            )
-        self.total.set_label(message)
+    def focus_step(self, identifier):
+        if identifier in self.step_widgets:
+            self.step_widgets[identifier].grab_focus()
+
+    def reveal_step(self, identifier):
+        card = self.step_widgets.get(identifier)
+        if card is None:
+            return
+
+        def after_layout(widget, _clock):
+            if (
+                self.step_widgets.get(identifier) is not widget
+                or (self.highlighted or self.selected) != identifier
+            ):
+                return GLib.SOURCE_REMOVE
+            if widget.get_width() == 0:
+                return GLib.SOURCE_CONTINUE
+            ok, bounds = widget.compute_bounds(self.timeline)
+            if ok:
+                margin = self.timeline.get_margin_start()
+                left = bounds.get_x() + margin
+                # Include the two-pixel focus ring and the track's side inset.
+                padding = margin + 2
+                self.strip.get_hadjustment().clamp_page(
+                    left - padding, left + bounds.get_width() + padding
+                )
+            return GLib.SOURCE_REMOVE
+
+        card.add_tick_callback(after_layout)
 
     def persist(self):
         try:
             self.library.save()
             self.notice.set_label("")
+            saved = True
         except (ValueError, OSError) as error:
             self.notice.set_label(str(error))
+            saved = False
         self.refresh()
-
-    def change_target(self, control):
-        if not self.busy:
-            self.flow["targetSeconds"] = control.get_value_as_int() or None
-            self.persist()
-
-    def save_step(self):
-        index = self.index_of(self.selected)
-        if index is not None:
-            self.flow["steps"][index].update(
-                seconds=self.seconds.get_value_as_int(), note=self.note.get_text()
-            )
-            self.persist()
+        if saved:
+            self.reveal_step(self.selected)
+        return saved
 
     def insert_scene(self, name, index=None):
+        if self.active:
+            return
         steps = self.flow["steps"]
         step = new_step(name)
         steps.insert(len(steps) if index is None else index, step)
         self.selected = step["id"]
         self.persist()
 
-    def remove(self):
-        index = self.index_of(self.selected)
-        if index is not None:
-            self.flow["steps"].pop(index)
-            self.persist()
-
-    def move(self, delta):
-        steps = self.flow["steps"]
-        index = self.index_of(self.selected)
-        if index is not None and 0 <= index + delta < len(steps):
-            steps.insert(index + delta, steps.pop(index))
-            self.persist()
-
-    @staticmethod
-    def drag_from(widget, payload, action):
+    def drag_from(self, widget, payload, action):
         source = Gtk.DragSource(actions=action)
-        source.connect("prepare", lambda *_: Gdk.ContentProvider.new_for_value(payload))
+        source.connect(
+            "prepare",
+            lambda *_: None if self.active else Gdk.ContentProvider.new_for_value(payload),
+        )
         widget.add_controller(source)
 
     def drop_on(self, widget, target_key):
         target = Gtk.DropTarget.new(str, Gdk.DragAction.COPY | Gdk.DragAction.MOVE)
 
         def drop(_, payload, x, _y):
+            if self.active:
+                return False
             steps = self.flow["steps"]
             index = len(steps) if target_key is None else self.index_of(target_key)
             if index is None:
@@ -492,7 +458,7 @@ class WorkflowPanel:
 
             self.panel.submit_task(
                 self.panel.obs.workflow_preflight,
-                ([s["scene"] for s in steps],),
+                ([s["scene"] for s in steps], [s.get("transition", "default") for s in steps]),
                 ready,
                 operation="workflow_preflight",
             )
@@ -518,6 +484,8 @@ class WorkflowPanel:
 
         def complete(result, error, _):
             if cancel.is_set() or not self.player.is_pending(token):
+                if isinstance(error, WorkflowTransitionRecoveryError):
+                    self.notice.set_label(str(error))
                 return
             if error or result is None:
                 self.stop(str(error) if error else "Workflow stopped.")
@@ -529,7 +497,14 @@ class WorkflowPanel:
 
         self.panel.submit_task(
             self.panel.obs.workflow_switch,
-            (self.session, self.confirmed_scene, scene, cancel, self.recording_seen),
+            (
+                self.session,
+                self.confirmed_scene,
+                scene,
+                cancel,
+                self.recording_seen,
+                self.player.steps[self.player.index].get("transition", "default"),
+            ),
             complete,
             operation="workflow_switch",
         )
@@ -586,11 +561,37 @@ class WorkflowPanel:
             return GLib.SOURCE_REMOVE
         return GLib.SOURCE_CONTINUE
 
+    def display_track(self, active):
+        if self.track_locked != active:
+            self.track_locked = active
+            if active:
+                self.timeline.add_css_class("workflow-playing")
+            else:
+                self.timeline.remove_css_class("workflow-playing")
+            for card in self.step_widgets.values():
+                card.set_focusable(not active)
+        identifier = None
+        if active and not self.checking and self.player.steps:
+            identifier = self.player.steps[self.player.index]["id"]
+        if identifier == self.highlighted:
+            return
+        if previous := self.step_widgets.get(self.highlighted):
+            previous.remove_css_class("workflow-now")
+        self.highlighted = identifier
+        if card := self.step_widgets.get(identifier):
+            card.add_css_class("workflow-now")
+            self.reveal_step(identifier)
+
     def display(self):
         player = self.player
         active = self.active
         tr = self.panel.localizer.text
         self.editor.set_sensitive(not active)
+        self.target_button.set_sensitive(not active)
+        self.display_track(active)
+        self.transport.set_visible(active)
+        self.launch_actions.set_visible(not active)
+        self.status.set_visible(active or bool(player.reason) or player.state == "finished")
         self.options.set_sensitive(not active)
         self.rehearse.set_sensitive(not active and bool(self.flow["steps"]))
         self.live.set_sensitive(

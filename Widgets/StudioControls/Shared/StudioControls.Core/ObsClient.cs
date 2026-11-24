@@ -201,6 +201,8 @@ public sealed class ObsClient : IObsClient, IAsyncDisposable
 
     private async Task DiscardTransportAsync()
     {
+        // Invalidate pinned workflow sessions before any cleanup can issue another request.
+        if (identified) Interlocked.Increment(ref connectionGeneration);
         identified = false;
         IObsTransport? previous = transport;
         transport = null;

@@ -4,7 +4,8 @@ using System.Text.Json.Serialization;
 
 namespace VibeKit.StudioControls.Core;
 
-public sealed record WorkflowStep(string Id, string Scene, int Seconds, [property: JsonRequired] string Note = "");
+public sealed record WorkflowStep(string Id, string Scene, int Seconds, [property: JsonRequired] string Note = "",
+    string Transition = "default");
 
 public sealed record Workflow(string Id, string Name, int? TargetSeconds, WorkflowStep[] Steps)
 {
@@ -23,6 +24,7 @@ public sealed record Workflow(string Id, string Name, int? TargetSeconds, Workfl
                 throw new ArgumentException("Invalid workflow step.");
             WorkflowLibrary.CheckSeconds(step.Seconds);
             if (step.Note is null || step.Note.Length > 500) throw new ArgumentException("Invalid step note.");
+            if (step.Transition is not ("default" or "cut" or "fade")) throw new ArgumentException("Invalid workflow transition.");
         }
     }
 }

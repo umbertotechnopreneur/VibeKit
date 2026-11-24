@@ -12,7 +12,7 @@ internal static class WorkflowTests
     }
 
     private static Workflow Flow => new(WorkflowLibrary.NewId(), "Demo", 180,
-        [new(WorkflowLibrary.NewId(), "Intro", 15), new(WorkflowLibrary.NewId(), "Detail", 20)]);
+        [new(WorkflowLibrary.NewId(), "Intro", 15), new(WorkflowLibrary.NewId(), "Detail", 20, Transition: "fade")]);
     private static void Assert(bool condition)
     {
         if (!condition) throw new InvalidOperationException("Workflow assertion failed.");
@@ -74,6 +74,7 @@ internal static class WorkflowTests
             var stale = WorkflowLibrary.Load(path, "");
             var restored = WorkflowLibrary.Load(path, "");
             Assert(restored.ActiveProjectId == second.Id && restored.Projects[1].Workflows.Length == 2);
+            Assert(restored.Projects[1].Workflows[0].Steps[1].Transition == "fade");
             await (restored with { ActiveProjectId = restored.Projects[0].Id }).SaveAsync(path);
             try { await stale.SaveAsync(path); throw new Exception("Stale writer accepted."); }
             catch (IOException) { }
@@ -83,6 +84,15 @@ internal static class WorkflowTests
             catch (ArgumentException) { }
             byte[] after = await File.ReadAllBytesAsync(path);
             Assert(before.SequenceEqual(after));
+            var legacy = System.Text.Json.Nodes.JsonNode.Parse(before)!;
+            var step = legacy["projects"]![1]!["workflows"]![0]!["steps"]![0]!.AsObject();
+            step.Remove("transition");
+            await File.WriteAllTextAsync(path, legacy.ToJsonString());
+            Assert(WorkflowLibrary.Load(path, "").Projects[1].Workflows[0].Steps[0].Transition == "default");
+            step["transition"] = "Unknown";
+            await File.WriteAllTextAsync(path, legacy.ToJsonString());
+            try { _ = WorkflowLibrary.Load(path, ""); throw new Exception("Unknown transition accepted."); }
+            catch (InvalidDataException) { }
             await File.WriteAllTextAsync(path, "{}");
             try { _ = WorkflowLibrary.Load(path, "Legacy"); throw new Exception("Corrupt workflow accepted."); }
             catch (InvalidDataException) { }
@@ -150,5 +160,61 @@ internal static class WorkflowTests
         fake.Recording = false;
         await ExpectStop("Privacy");
         Assert(fake.Requests.All(request => !request.Type.StartsWith("Start") && !request.Type.StartsWith("Resume")));
+    }
+
+    public static async Task Transitions()
+    {
+        foreach (string scenario in new[] { "restore", "existing", "cancel", "reject", "manual", "disconnect", "unavailable" })
+        {
+            var fake = new FakeObs { Scene = "Intro" };
+            string? overridden = scenario == "existing" ? "Dissolvenza" : null;
+            using var stop = new CancellationTokenSource();
+            fake.Handle = (type, data) =>
+            {
+                switch (type)
+                {
+                    case "GetSceneCollectionList": return JsonSerializer.SerializeToElement(new { currentSceneCollectionName = "Synthetic" });
+                    case "GetSceneList":
+                        return JsonSerializer.SerializeToElement(new { currentProgramSceneName = fake.Scene,
+                            scenes = new[] { new { sceneName = "Intro", sceneUuid = "first" }, new { sceneName = "Detail", sceneUuid = "second" } } });
+                    case "GetSceneTransitionList":
+                        return JsonSerializer.SerializeToElement(new { transitions = new[] { new { transitionName = "Dissolvenza", transitionKind = "fade_transition" } } });
+                    case "GetSceneSceneTransitionOverride":
+                        Assert(data.GetProperty("sceneUuid").GetString() == "second");
+                        return JsonSerializer.SerializeToElement(new { transitionName = overridden, transitionDuration = 750 });
+                    case "SetSceneSceneTransitionOverride":
+                        Assert(data.GetProperty("sceneUuid").GetString() == "second" && !data.TryGetProperty("transitionDuration", out _));
+                        overridden = data.GetProperty("transitionName").GetString();
+                        if (scenario == "cancel") stop.Cancel();
+                        break;
+                    case "SetCurrentProgramScene":
+                        Assert(data.GetProperty("sceneUuid").GetString() == "second" && overridden == "Dissolvenza");
+                        if (scenario == "reject") throw new ObsRequestException(type, 600);
+                        fake.Scene = "Detail";
+                        if (scenario == "manual") overridden = "Operator choice";
+                        if (scenario == "disconnect")
+                        {
+                            fake.ConnectionGeneration++;
+                            throw new ObsConnectionException("Synthetic lost reply", requestSent: true);
+                        }
+                        break;
+                }
+                return null;
+            };
+            var service = new StudioService(fake);
+            try
+            {
+                await service.GetWorkflowScenesAsync(default, ["Intro", "Detail"], [scenario == "unavailable" ? "cut" : "fade"]);
+                await service.SetWorkflowSceneAsync("Detail", "Intro", stop.Token, "fade");
+                Assert(scenario is "restore" or "existing" or "manual");
+            }
+            catch (WorkflowTransitionRecoveryException) when (scenario == "disconnect") { }
+            catch (ObsRequestException) when (scenario == "reject") { }
+            catch (OperationCanceledException) when (scenario == "cancel") { }
+            catch (InvalidOperationException error) when (scenario == "unavailable" && error.Message.Contains("unavailable")) { }
+            Assert(fake.Requests.Count(x => x.Type == "SetCurrentProgramScene") == (scenario is "cancel" or "unavailable" ? 0 : 1));
+            Assert(overridden == (scenario switch { "existing" or "disconnect" => "Dissolvenza", "manual" => "Operator choice", _ => null }));
+            if (scenario is "unavailable" or "existing") Assert(fake.Requests.All(x => x.Type != "SetSceneSceneTransitionOverride"));
+        }
     }
 }

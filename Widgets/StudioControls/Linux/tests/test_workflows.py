@@ -8,7 +8,13 @@ from pathlib import Path
 from threading import Event
 from unittest.mock import patch
 
-from obs_remote import OBS, OBSConnectionError, SCREEN_SOURCE
+from obs_remote import (
+    OBS,
+    OBSConnectionError,
+    OBSRequestError,
+    SCREEN_SOURCE,
+    WorkflowTransitionRecoveryError,
+)
 from workflows import LEGACY_PROJECT_ID, MAX_FILE_BYTES, Playback, WorkflowLibrary, new_step
 
 
@@ -24,10 +30,12 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(legacy["id"], LEGACY_PROJECT_ID)
         first = legacy["workflows"][0]
         first["targetSeconds"] = 180
-        first["steps"] = [new_step("Detail", 20, "Show the knob"), new_step("Detail", 60)]
+        first["steps"] = [new_step("Detail", 20, "Show the knob", "fade"), new_step("Detail", 60)]
         duplicate = self.library.create_workflow("Alternate edit", source=first)
         self.assertEqual(duplicate["targetSeconds"], 180)
         self.assertNotEqual(first["steps"][0]["id"], duplicate["steps"][0]["id"])
+        self.assertEqual(duplicate["steps"][0]["transition"], "fade")
+        self.assertNotIn("transition", duplicate["steps"][1])
         duplicate["steps"][0]["seconds"] = 7
         project = self.library.create_project("Second project")
         self.assertEqual(len(project["workflows"]), 1)
@@ -95,6 +103,34 @@ class LibraryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Duplicate"):
             self.library.save()
         self.assertEqual(self.library.project["workflows"][0]["steps"], [])
+
+    def test_rename_remove_and_active_project_fallback(self):
+        with self.assertRaises(ValueError):
+            self.library.remove_project(LEGACY_PROJECT_ID)
+        project = self.library.create_project("Alternate")
+        workflow = self.library.create_workflow("V2")
+        self.library.rename_project(project["id"], "Revised")
+        self.library.rename_workflow(workflow["id"], "Revision 2")
+        self.assertEqual(WorkflowLibrary(self.path).project["name"], "Revised")
+        self.assertEqual(WorkflowLibrary(self.path).project["workflows"][1]["name"], "Revision 2")
+        self.library.remove_workflow(workflow["id"])
+        with self.assertRaises(ValueError):
+            self.library.remove_workflow(project["workflows"][0]["id"])
+        self.library.remove_project(project["id"])
+        self.assertEqual(WorkflowLibrary(self.path).project["id"], LEGACY_PROJECT_ID)
+
+    def test_legacy_step_defaults_and_unknown_transitions_are_rejected(self):
+        flow = self.library.project["workflows"][0]
+        flow["steps"] = [new_step("Detail")]
+        self.library.save()
+        self.assertNotIn(
+            "transition",
+            json.loads(self.path.read_bytes())["projects"][0]["workflows"][0]["steps"][0],
+        )
+        Playback().start(WorkflowLibrary(self.path).project["workflows"][0]["steps"])
+        for value in (None, 5, "Fade", "unknown"):
+            with self.assertRaises(ValueError):
+                new_step("Intro", transition=value)
 
 
 class PlaybackTests(unittest.TestCase):
@@ -225,6 +261,9 @@ class LiveAdapterTests(unittest.TestCase):
         self.paused = False
         self.cancel = Event()
         self.requests = []
+        self.override = None
+        self.at_switch = []
+        self.transitions = {"cut_transition": "Taglio", "fade_transition": "Dissolvenza"}
         # OBS is free to return scene items in stack order rather than screen order.
         self.items = [
             {
@@ -272,7 +311,23 @@ class LiveAdapterTests(unittest.TestCase):
             return {"currentProgramSceneName": self.scene}
         if kind == "GetRecordStatus":
             return {"outputActive": self.recording, "outputPaused": self.paused}
+        if kind == "GetSceneTransitionList":
+            return {
+                "transitions": [
+                    {"transitionKind": key, "transitionName": name}
+                    for key, name in self.transitions.items()
+                ]
+            }
+        if kind == "GetSceneSceneTransitionOverride":
+            self.assertEqual(data, {"sceneName": "Detail"})
+            return {"transitionName": self.override, "transitionDuration": 750}
+        if kind == "SetSceneSceneTransitionOverride":
+            self.assertEqual(set(data), {"sceneName", "transitionName"})
+            self.assertEqual(data["sceneName"], "Detail")
+            self.override = data["transitionName"]
+            return {}
         if kind == "SetCurrentProgramScene":
+            self.at_switch.append(self.override)
             self.scene = data["sceneName"]
             return {}
         self.fail(f"Unexpected OBS request {kind}")
@@ -377,6 +432,70 @@ class LiveAdapterTests(unittest.TestCase):
             self.obs.workflow_switch(session, "Intro", "Detail", self.cancel, True)
         self.assertEqual(self.scene, "Detail")
         self.assertEqual(self.requests.count("SetCurrentProgramScene"), 1)
+
+    def test_custom_transition_restores_original_or_unset_override(self):
+        for previous in (None, "Taglio", "Dissolvenza"):
+            with self.subTest(previous=previous):
+                self.setUp()
+                self.override = previous
+                session = self.prepare()
+                self.obs.workflow_switch(session, "Intro", "Detail", self.cancel, True, "fade")
+                self.assertEqual(self.at_switch, ["Dissolvenza"])
+                self.assertEqual(self.override, previous)
+                writes = 0 if previous == "Dissolvenza" else 2
+                self.assertEqual(self.requests.count("SetSceneSceneTransitionOverride"), writes)
+
+    def test_missing_transition_and_stale_override_block_mutations(self):
+        session = self.prepare()
+        del self.transitions["cut_transition"]
+        with self.assertRaisesRegex(ValueError, "unavailable"):
+            self.obs.workflow_preflight(["Intro", "Detail"], ["default", "cut"])
+        self.override = "Missing transition"
+        with self.assertRaisesRegex(ValueError, "existing transition"):
+            self.obs.workflow_switch(session, "Intro", "Detail", self.cancel, True, "fade")
+        self.assertFalse(any(kind.startswith("Set") for kind in self.requests))
+
+    def test_cancel_rejection_manual_edit_and_disconnect_during_transition(self):
+        for event in ("stop", "reject", "manual", "disconnect"):
+            with self.subTest(event=event):
+                self.setUp()
+                session = self.prepare()
+
+                def intercept(kind, data=None, event=event):
+                    if kind == "SetCurrentProgramScene" and event == "reject":
+                        self.requests.append(kind)
+                        raise OBSRequestError(kind)
+                    reply = self.request(kind, data)
+                    if kind == "SetSceneSceneTransitionOverride" and event == "stop":
+                        self.cancel.set()
+                    if kind == "SetCurrentProgramScene":
+                        if event == "manual":
+                            self.override = "Taglio"
+                        if event == "disconnect":
+                            self.obs.ws = None
+                            raise OBSConnectionError("Lost reply", request_sent=True)
+                    return reply
+
+                self.obs.call = intercept
+
+                def switch(session=session):
+                    return self.obs.workflow_switch(
+                        session, "Intro", "Detail", self.cancel, True, "fade"
+                    )
+
+                if event == "reject":
+                    with self.assertRaises(OBSRequestError):
+                        switch()
+                elif event == "disconnect":
+                    with self.assertRaises(WorkflowTransitionRecoveryError):
+                        switch()
+                else:
+                    switch()
+                expected = {"manual": "Taglio", "disconnect": "Dissolvenza"}
+                self.assertEqual(self.override, expected.get(event))
+                self.assertEqual(
+                    self.requests.count("SetCurrentProgramScene"), int(event != "stop")
+                )
 
 
 if __name__ == "__main__":

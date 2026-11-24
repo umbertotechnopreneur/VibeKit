@@ -7,6 +7,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("workflow clock, pauses, late acknowledgements and overtime", WorkflowTests.Playback),
     ("isolated workflows, atomic saves and stale writers", WorkflowTests.Persistence),
     ("workflow checks OBS collection, recording and manual overrides", WorkflowTests.ObsGuards),
+    ("per-step transitions restore OBS overrides and respect cancellation and manual edits", WorkflowTests.Transitions),
     ("comparison preflight and entry checks are read-only", WorkflowTests.ComparisonPreflight),
     ("shared scene catalog", Tests.Catalog),
     ("eight UI languages preserve source identifiers and filenames", Tests.Localization),

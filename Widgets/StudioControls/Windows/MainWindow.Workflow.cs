@@ -9,21 +9,19 @@ namespace VibeKit.StudioControls.Windows;
 
 public sealed partial class MainWindow
 {
-    private readonly ComboBox workflowProjects = new() { Header = "Project", MinWidth = 180 };
-    private readonly ComboBox workflowSelector = new() { Header = "Workflow", MinWidth = 180 };
-    private readonly ContentControl editorSurface = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
-    private readonly StackPanel workflowEditor = Column();
-    private readonly StackPanel timeline = Row();
-    private readonly TextBlock workflowSummary = Heading("");
+    private readonly Button libraryButton = new() { Content = "Library" };
+    private readonly Button targetButton = new() { Content = "Time target" };
+    private int highlightedIndex = -1;
+    private readonly StackPanel timeline = new() { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBlock workflowName = new() { FontSize = 24, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+        TextTrimming = TextTrimming.CharacterEllipsis, Tag = NativeLocalization.UserText };
+    private readonly TextBlock projectName = new() { Opacity = .72, TextTrimming = TextTrimming.CharacterEllipsis, Tag = NativeLocalization.UserText };
+    private readonly TextBlock workflowSummary = Text("");
     private readonly TextBlock workflowMessage = Text("");
-    private readonly NumberBox targetSeconds = SecondsBox("Target (seconds)", 180, 0);
-    private readonly NumberBox stepSeconds = SecondsBox("Duration (seconds)", 15);
-    private readonly TextBox stepNote = new() { Header = "Note", MaxLength = 500 };
-    private readonly StackPanel stepEditor = Column();
-    private Expander? stepSection;
+    private readonly ContentControl paletteSurface = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private WorkflowLibrary? workflowLibrary;
-    private string? workflowId, stepId, savedProjectForm;
-    private bool editingLibrary, refreshingLibrary;
+    private string? workflowId, savedProjectForm;
+    private bool editingLibrary, workflowDialogOpen;
     private (string Kind, string Value)? internalDrag;
 
     private static string LibraryPath => Path.Combine(LocalSettings.DirectoryPath, "workflows.json");
@@ -64,102 +62,134 @@ public sealed partial class MainWindow
 
     private UIElement BuildWorkflow()
     {
-        var content = Column();
-        var select = Row();
-        select.Children.Add(workflowProjects);
-        select.Children.Add(ActionButton("New project", AddWorkflowProjectAsync));
-        workflowEditor.Children.Add(select);
-        var flowActions = Row();
-        flowActions.Children.Add(workflowSelector);
-        flowActions.Children.Add(ActionButton("New workflow", () => NameWorkflowAsync("New workflow")));
-        flowActions.Children.Add(ActionButton("Duplicate", () => NameWorkflowAsync("Duplicate")));
-        flowActions.Children.Add(ActionButton("Rename workflow", () => NameWorkflowAsync("Rename workflow")));
-        workflowEditor.Children.Add(flowActions);
-        workflowEditor.Children.Add(workflowSummary);
+        var content = Column(14);
+        var editor = Column(12);
+        var heading = Column(2);
+        heading.Children.Add(projectName);
+        heading.Children.Add(workflowName);
+        libraryButton.Click += async (_, _) => await OpenWorkflowDialogAsync(ManageLibraryAsync);
+        editor.Children.Add(WithTrailing(heading, libraryButton));
 
-        var track = new Border { Padding = new(10), MinHeight = 72, MinWidth = 450, CornerRadius = new(8),
+        var board = Column(12);
+        var caption = Column(2);
+        caption.Children.Add(Heading("Sequence"));
+        caption.Children.Add(workflowSummary);
+        targetButton.Click += async (_, _) => await OpenWorkflowDialogAsync(EditTargetAsync);
+        board.Children.Add(WithTrailing(caption, targetButton));
+        var strip = new ScrollViewer { Content = timeline, MinHeight = 178,
+            HorizontalScrollMode = ScrollMode.Enabled, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollMode = ScrollMode.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        board.Children.Add(strip);
+        var frame = new Border { Child = board, Padding = new(16), CornerRadius = new(12),
             BorderThickness = new(1), BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"],
-            Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"], AllowDrop = true };
-        track.Child = new ScrollViewer { Content = timeline, MaxWidth = 920, HorizontalScrollMode = ScrollMode.Enabled,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollMode = ScrollMode.Disabled };
-        ConfigureDrop(track, null);
-        workflowEditor.Children.Add(track);
-
-        var palette = Columns(3);
-        for (int i = 0; i < (SceneStyles.Length + 2) / 3; i++) palette.RowDefinitions.Add(new() { Height = GridLength.Auto });
-        palette.RowSpacing = 6;
-        for (int i = 0; i < SceneStyles.Length; i++)
+            Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] };
+        ConfigureDrop(strip, null);
+        editor.Children.Add(frame);
+        content.Children.Add(editor);
+        content.Children.Add(BuildPlaybackPanel());
+        var palette = new Grid { RowSpacing = 6, ColumnSpacing = 8 };
+        var tiles = SceneStyles.Select(style =>
         {
-            var style = SceneStyles[i];
             string title = StudioCatalog.Default.Scenes.First(scene => scene.Name == style.Name).Title;
             var face = Row();
-            face.Children.Add(new FontIcon { Glyph = style.Glyph, FontSize = 20 });
+            face.Children.Add(SceneIcon(style, 18));
             face.Children.Add(Text(title));
-            var card = new Button { Content = face, HorizontalAlignment = HorizontalAlignment.Stretch };
-            AutomationProperties.SetName(card, title);
-            ToolTipService.SetToolTip(card, style.Subtitle);
-            card.Click += async (_, _) => await InsertStepAsync(style.Name, CurrentWorkflow?.Steps.Length ?? 0);
-            ConfigureDrag(card, "scene", style.Name);
-            Grid.SetRow(card, i / 3); Grid.SetColumn(card, i % 3); palette.Children.Add(card);
+            var tile = new Button { Content = face, HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Left, Padding = new(10, 7, 10, 7) };
+            AutomationProperties.SetName(tile, title);
+            ToolTipService.SetToolTip(tile, style.Subtitle);
+            tile.Click += async (_, _) => await InsertStepAsync(style.Name, CurrentWorkflow?.Steps.Length ?? 0);
+            ConfigureDrag(tile, "scene", style.Name);
+            palette.Children.Add(tile);
+            return tile;
+        }).ToArray();
+        void Arrange(int columns)
+        {
+            if (columns == palette.ColumnDefinitions.Count) return;
+            palette.ColumnDefinitions.Clear();
+            palette.RowDefinitions.Clear();
+            for (int i = 0; i < columns; i++) palette.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
+            for (int i = 0; i < tiles.Length; i++)
+            {
+                if (i % columns == 0) palette.RowDefinitions.Add(new() { Height = GridLength.Auto });
+                Grid.SetColumn(tiles[i], i % columns);
+                Grid.SetRow(tiles[i], i / columns);
+            }
         }
-        workflowEditor.Children.Add(Section("Scene palette", palette, true));
-
-        var detail = Row();
-        detail.Children.Add(stepSeconds); stepNote.Width = 320; detail.Children.Add(stepNote);
-        detail.Children.Add(ActionButton("Save changes", () => EditStepAsync("save")));
-        stepEditor.Children.Add(detail);
-        var arrange = Row();
-        arrange.Children.Add(ActionButton("Move left", () => EditStepAsync("left")));
-        arrange.Children.Add(ActionButton("Move right", () => EditStepAsync("right")));
-        arrange.Children.Add(ActionButton("Remove", () => EditStepAsync("remove")));
-        stepEditor.Children.Add(arrange);
-        stepSection = Section("Selected step", stepEditor, true);
-        workflowEditor.Children.Add(stepSection);
-
-        var targetRow = Row();
-        targetRow.Children.Add(targetSeconds);
-        targetRow.Children.Add(ActionButton("Save target", async () =>
-        {
-            int value = ReadSeconds(targetSeconds, 0);
-            if (CurrentWorkflow is { } flow) await SaveWorkflowAsync(flow with { TargetSeconds = value == 0 ? null : value });
-        }));
-        targetRow.Children.Add(Text("Use 0 for no target."));
-        workflowEditor.Children.Add(Section("Time target", targetRow, false));
-        workflowProjects.SelectionChanged += async (_, _) =>
-        {
-            if (refreshingLibrary || workflowLibrary is null || workflowProjects.SelectedIndex < 0) return;
-            string id = workflowLibrary.Projects[workflowProjects.SelectedIndex].Id;
-            if (id != workflowLibrary.ActiveProjectId) await SwitchWorkflowProjectAsync(id);
-        };
-        workflowSelector.SelectionChanged += (_, _) =>
-        {
-            if (refreshingLibrary || PlaybackActive || editingLibrary || CurrentProject is not { } project || workflowSelector.SelectedIndex < 0) return;
-            workflowId = project.Workflows[workflowSelector.SelectedIndex].Id;
-            stepId = null;
-            RefreshWorkflowEditor();
-        };
-        editorSurface.Content = workflowEditor;
-        content.Children.Add(editorSurface);
-        content.Children.Add(BuildPlaybackPanel());
+        Arrange(3);
+        palette.SizeChanged += (_, e) => Arrange(e.NewSize.Width >= 800 ? 4 : e.NewSize.Width >= 570 ? 3 : e.NewSize.Width >= 350 ? 2 : 1);
+        paletteSurface.Content = Section("Scene palette", palette, true);
+        content.Children.Add(paletteSurface);
         content.Children.Add(workflowMessage);
         return content;
     }
 
+    private static Grid WithTrailing(FrameworkElement leading, FrameworkElement trailing)
+    {
+        var grid = new Grid { ColumnSpacing = 8 };
+        grid.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+        Grid.SetColumn(trailing, 1);
+        trailing.VerticalAlignment = VerticalAlignment.Center;
+        grid.Children.Add(leading);
+        grid.Children.Add(trailing);
+        return grid;
+    }
+
+    private static FontIcon SceneIcon(SceneStyle style, double size)
+    {
+        var icon = new FontIcon { Glyph = style.Glyph, FontSize = size };
+        void Paint() => icon.Foreground = Brush(icon.ActualTheme == ElementTheme.Dark ? style.Dark : style.Light);
+        icon.ActualThemeChanged += (_, _) => Paint();
+        Paint();
+        return icon;
+    }
+
+    private ContentDialog Dialog(string title, FrameworkElement body, string primary = "Save", string close = "Cancel") =>
+        new() { XamlRoot = root.XamlRoot, RequestedTheme = root.RequestedTheme, Title = localization.Text(title),
+            Content = body, PrimaryButtonText = localization.Text(primary), CloseButtonText = localization.Text(close),
+            DefaultButton = ContentDialogButton.Primary };
+
+    private async Task OpenWorkflowDialogAsync(Func<Task> show)
+    {
+        if (workflowDialogOpen || PlaybackActive || sendingScene || editingLibrary || rendering || closed) return;
+        workflowDialogOpen = true;
+        UpdateWorkflowControls();
+        try { await show(); }
+        catch (OperationCanceledException) when (closed) { }
+        catch (Exception error) { Fail("workflow.dialog", error); }
+        finally
+        {
+            workflowDialogOpen = false;
+            if (!closed) UpdateWorkflowControls();
+        }
+    }
+
+    private async Task EditTargetAsync()
+    {
+        if (CurrentWorkflow is not { } flow) return;
+        var target = SecondsBox(localization.Text("Target (seconds)"), flow.TargetSeconds ?? 0, 0);
+        var body = Column(8);
+        body.Children.Add(target);
+        body.Children.Add(Text(localization.Text("Use 0 for no target.")));
+        var dialog = Dialog("Time target", body);
+        void Validate() => dialog.IsPrimaryButtonEnabled = ValidSeconds(target, 0);
+        target.ValueChanged += (_, _) => Validate();
+        var error = Text("");
+        body.Children.Add(error);
+        while (!closed && await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            if (await SaveWorkflowAsync(flow with { TargetSeconds = target.Value > 0 ? ReadSeconds(target, 0) : null })) break;
+            error.Text = workflowMessage.Text;
+        }
+    }
+
+    private static bool ValidSeconds(NumberBox field, int minimum) =>
+        double.IsFinite(field.Value) && field.Value >= minimum && field.Value <= 86400 && field.Value == Math.Truncate(field.Value);
+
     private static Expander Section(string title, FrameworkElement content, bool open) => new()
     { Header = title, Content = content, IsExpanded = open, HorizontalAlignment = HorizontalAlignment.Stretch,
       HorizontalContentAlignment = HorizontalAlignment.Stretch };
-
-    private async Task<string?> PromptNameAsync(string title, string initial)
-    {
-        var field = new TextBox { MaxLength = 100, Text = initial };
-        var dialog = new ContentDialog { XamlRoot = root.XamlRoot, Title = localization.Text(title), Content = field,
-            PrimaryButtonText = localization.Text("Save"), CloseButtonText = localization.Text("Cancel"),
-            DefaultButton = ContentDialogButton.Primary, RequestedTheme = root.RequestedTheme };
-        dialog.IsPrimaryButtonEnabled = !string.IsNullOrWhiteSpace(initial);
-        field.TextChanged += (_, _) => dialog.IsPrimaryButtonEnabled = !string.IsNullOrWhiteSpace(field.Text);
-        field.SelectAll();
-        return await dialog.ShowAsync() == ContentDialogResult.Primary ? field.Text.Trim() : null;
-    }
 
     private async Task<bool> CanLeaveProjectAsync()
     {
@@ -170,70 +200,42 @@ public sealed partial class MainWindow
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
-    private async Task AddWorkflowProjectAsync()
-    {
-        if (workflowLibrary is not { } library || !await CanLeaveProjectAsync()) return;
-        if (await PromptNameAsync("New project", "") is not { } name) return;
-        var flow = new Workflow(WorkflowLibrary.NewId(), "Workflow 1", 180, []);
-        var project = new WorkflowProject(WorkflowLibrary.NewId(), name, [flow]);
-        await CommitLibraryAsync(library with { Projects = [..library.Projects, project], ActiveProjectId = project.Id }, flow.Id);
-    }
-
-    private async Task SwitchWorkflowProjectAsync(string id)
-    {
-        if (workflowLibrary is not { } library || rendering || editingLibrary || PlaybackActive || !await CanLeaveProjectAsync())
-        { RefreshWorkflowEditor(); return; }
-        await CommitLibraryAsync(library with { ActiveProjectId = id });
-    }
-
-    private async Task NameWorkflowAsync(string action)
-    {
-        if (CurrentProject is not { } project || workflowLibrary is not { } library) return;
-        var original = CurrentWorkflow;
-        string initial = action == "Duplicate" ? original?.Name + " (2)" : action == "Rename workflow" ? original?.Name ?? "" : "";
-        if (await PromptNameAsync(action, initial) is not { } name) return;
-        if (action == "Rename workflow" && original is not null)
-        { await SaveWorkflowAsync(original with { Name = name }); return; }
-        var flow = new Workflow(WorkflowLibrary.NewId(), name, action == "Duplicate" ? original?.TargetSeconds : 180,
-            action == "Duplicate" && original is not null ? original.Steps.Select(step => step with { Id = WorkflowLibrary.NewId() }).ToArray() : []);
-        await CommitLibraryAsync(ReplaceProject(library, project with { Workflows = [..project.Workflows, flow] }), flow.Id);
-    }
-
     private static WorkflowLibrary ReplaceProject(WorkflowLibrary library, WorkflowProject updated) =>
         library with { Projects = library.Projects.Select(project => project.Id == updated.Id ? updated : project).ToArray() };
 
-    private Task SaveWorkflowAsync(Workflow updated, string? selected = null)
+    private Task<bool> SaveWorkflowAsync(Workflow updated)
     {
-        if (CurrentProject is not { } project || workflowLibrary is not { } library) return Task.CompletedTask;
+        if (CurrentProject is not { } project || workflowLibrary is not { } library) return Task.FromResult(false);
         return CommitLibraryAsync(ReplaceProject(library, project with
-        { Workflows = project.Workflows.Select(flow => flow.Id == updated.Id ? updated : flow).ToArray() }), updated.Id, selected);
+        { Workflows = project.Workflows.Select(flow => flow.Id == updated.Id ? updated : flow).ToArray() }), updated.Id);
     }
 
-    private async Task CommitLibraryAsync(WorkflowLibrary proposed, string? selectedFlow = null, string? selectedStep = null)
+    private async Task<bool> CommitLibraryAsync(WorkflowLibrary proposed, string? selectedFlow = null)
     {
-        if (editingLibrary || rendering || PlaybackActive || closed) return;
+        if (editingLibrary || rendering || PlaybackActive || closed) return false;
         editingLibrary = true;
         UpdateWorkflowControls();
         try
         {
             await proposed.SaveAsync(LibraryPath, lifetime.Token);
-            if (closed) return;
+            if (closed) return false;
             bool changed = workflowLibrary?.ActiveProjectId != proposed.ActiveProjectId;
             workflowLibrary = proposed;
             workflowId = selectedFlow ?? (changed ? null : workflowId);
-            stepId = selectedStep ?? (changed ? null : stepId);
             workflowMessage.Text = "";
             if (changed)
             {
                 projectNotice.Text = workflowMessage.Text = "Apply the project to update the cards in OBS.";
                 LoadProject();
             }
+            return true;
         }
-        catch (OperationCanceledException) when (closed) { }
+        catch (OperationCanceledException) when (closed) { return false; }
         catch (Exception error)
         {
             Diagnostics.Record("workflow.save", error);
             workflowMessage.Text = localization.Text("Workflow could not be saved.") + " " + error.Message;
+            return false;
         }
         finally
         {
@@ -248,24 +250,59 @@ public sealed partial class MainWindow
         var steps = flow.Steps.ToList();
         var step = new WorkflowStep(WorkflowLibrary.NewId(), scene, 15);
         steps.Insert(Math.Clamp(insertion, 0, steps.Count), step);
-        await SaveWorkflowAsync(flow with { Steps = steps.ToArray() }, step.Id);
+        await SaveWorkflowAsync(flow with { Steps = steps.ToArray() });
     }
 
-    private async Task EditStepAsync(string action)
+    private static string TransitionLabel(string transition) => transition switch { "cut" => "Cut", "fade" => "Fade", _ => "OBS default" };
+
+    private async Task EditStepAsync(Workflow flow, int index)
     {
-        if (CurrentWorkflow is not { } flow) return;
-        var steps = flow.Steps.ToList();
-        int index = steps.FindIndex(step => step.Id == stepId);
-        if (index < 0) return;
-        if (action == "save") steps[index] = steps[index] with { Seconds = ReadSeconds(stepSeconds), Note = stepNote.Text.Trim() };
-        else if (action == "remove") steps.RemoveAt(index);
-        else
+        if (CurrentWorkflow != flow || PlaybackActive || editingLibrary) return;
+        var step = flow.Steps[index];
+        var body = Column(12);
+        body.Children.Add(Heading(SceneTitle(step.Scene)));
+        var seconds = SecondsBox(localization.Text("Duration (seconds)"), step.Seconds);
+        string[] transitions = ["default", "cut", "fade"];
+        var transition = new ComboBox { Header = localization.Text("Transition"),
+            ItemsSource = transitions.Select(key => localization.Text(TransitionLabel(key))).ToArray(),
+            SelectedIndex = Array.IndexOf(transitions, step.Transition), HorizontalAlignment = HorizontalAlignment.Stretch };
+        body.Children.Add(seconds); body.Children.Add(transition);
+        var note = new TextBox { Header = localization.Text("Note"), Text = step.Note, MaxLength = 500,
+            TextWrapping = TextWrapping.Wrap, AcceptsReturn = true, MinHeight = 70 };
+        body.Children.Add(note);
+        int position = index;
+        var order = Row();
+        var left = new Button { Content = localization.Text("Move left") };
+        var counter = Text("");
+        counter.VerticalAlignment = VerticalAlignment.Center;
+        var right = new Button { Content = localization.Text("Move right") };
+        void UpdatePosition()
         {
-            int next = Math.Clamp(index + (action == "left" ? -1 : 1), 0, steps.Count - 1);
-            if (index == next) return;
-            (steps[index], steps[next]) = (steps[next], steps[index]);
+            left.IsEnabled = position > 0;
+            right.IsEnabled = position + 1 < flow.Steps.Length;
+            counter.Text = $"{position + 1} / {flow.Steps.Length}";
         }
-        await SaveWorkflowAsync(flow with { Steps = steps.ToArray() });
+        left.Click += (_, _) => { position--; UpdatePosition(); };
+        right.Click += (_, _) => { position++; UpdatePosition(); };
+        UpdatePosition();
+        order.Children.Add(left); order.Children.Add(counter); order.Children.Add(right);
+        body.Children.Add(order);
+        var dialog = Dialog("Edit step", body);
+        dialog.SecondaryButtonText = localization.Text("Remove");
+        seconds.ValueChanged += (_, _) => dialog.IsPrimaryButtonEnabled = ValidSeconds(seconds, 1);
+        var error = Text("");
+        body.Children.Add(error);
+        while (!closed)
+        {
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.None || CurrentWorkflow != flow) return;
+            var steps = flow.Steps.ToList();
+            steps.RemoveAt(index);
+            if (result == ContentDialogResult.Primary)
+                steps.Insert(position, step with { Seconds = ReadSeconds(seconds), Note = note.Text, Transition = transitions[transition.SelectedIndex] });
+            if (await SaveWorkflowAsync(flow with { Steps = steps.ToArray() })) break;
+            error.Text = workflowMessage.Text;
+        }
     }
 
     private void ConfigureDrag(Button button, string kind, string value)
@@ -273,6 +310,7 @@ public sealed partial class MainWindow
         button.CanDrag = true;
         button.DragStarting += (_, args) =>
         {
+            if (!libraryButton.IsEnabled) { args.Cancel = true; return; }
             internalDrag = (kind, value);
             args.Data.RequestedOperation = kind == "scene" ? DataPackageOperation.Copy : DataPackageOperation.Move;
             args.Data.SetData("VibeKit.StudioControls.Workflow", value);
@@ -285,13 +323,13 @@ public sealed partial class MainWindow
         target.AllowDrop = true;
         target.DragOver += (_, args) =>
         {
-            if (internalDrag is not { } drag || !args.DataView.Contains("VibeKit.StudioControls.Workflow")) return;
+            if (!libraryButton.IsEnabled || internalDrag is not { } drag || !args.DataView.Contains("VibeKit.StudioControls.Workflow")) return;
             args.AcceptedOperation = drag.Kind == "scene" ? DataPackageOperation.Copy : DataPackageOperation.Move;
             args.Handled = true;
         };
         target.Drop += async (_, args) =>
         {
-            if (internalDrag is not { } drag || CurrentWorkflow is not { } flow || !args.DataView.Contains("VibeKit.StudioControls.Workflow")) return;
+            if (!libraryButton.IsEnabled || internalDrag is not { } drag || CurrentWorkflow is not { } flow || !args.DataView.Contains("VibeKit.StudioControls.Workflow")) return;
             args.Handled = true;
             int to = targetId is null ? flow.Steps.Length : Array.FindIndex(flow.Steps, step => step.Id == targetId);
             if (to < 0) return;
@@ -303,52 +341,97 @@ public sealed partial class MainWindow
             if (from < to) to--;
             if (from == to) return;
             var moved = steps[from]; steps.RemoveAt(from); steps.Insert(to, moved);
-            await SaveWorkflowAsync(flow with { Steps = steps.ToArray() }, moved.Id);
+            await SaveWorkflowAsync(flow with { Steps = steps.ToArray() });
         };
     }
 
     private void RefreshWorkflowEditor()
     {
-        refreshingLibrary = true;
-        try
+        var project = CurrentProject;
+        var flow = CurrentWorkflow ?? project?.Workflows.FirstOrDefault();
+        workflowId = flow?.Id;
+        projectName.Text = project?.Name ?? "";
+        workflowName.Text = flow?.Name ?? "";
+        timeline.Children.Clear();
+        highlightedIndex = -1;
+        if (flow is null) { UpdateWorkflowControls(); return; }
+        int start = 0;
+        for (int index = 0; index < flow.Steps.Length; index++)
         {
-            var project = CurrentProject;
-            workflowProjects.ItemsSource = workflowLibrary?.Projects.Select(x => x.Name).ToArray();
-            workflowProjects.SelectedIndex = project is null ? -1 : Array.IndexOf(workflowLibrary!.Projects, project);
-            workflowSelector.ItemsSource = project?.Workflows.Select(x => x.Name).ToArray();
-            var flow = CurrentWorkflow ?? project?.Workflows.FirstOrDefault();
-            workflowId = flow?.Id;
-            workflowSelector.SelectedIndex = flow is null ? -1 : Array.IndexOf(project!.Workflows, flow);
-            timeline.Children.Clear();
-            if (flow is null) return;
-            var selected = flow.Steps.FirstOrDefault(step => step.Id == stepId) ?? flow.Steps.FirstOrDefault();
-            stepId = selected?.Id;
-            foreach (var step in flow.Steps)
+            var step = flow.Steps[index];
+            if (index > 0)
             {
-                string title = SceneTitle(step.Scene);
-                var button = new Button { Content = title + "  ·  " + ClockText(step.Seconds),
-                    BorderThickness = new(step == selected ? 2 : 1), Padding = new(12, 10, 12, 10) };
-                button.Click += (_, _) => { stepId = step.Id; RefreshStepSelection(flow, step); };
-                ConfigureDrag(button, "step", step.Id); ConfigureDrop(button, step.Id);
-                timeline.Children.Add(button);
+                timeline.Children.Add(new FontIcon { Glyph = "\uE72A", FontSize = 14, Opacity = .62,
+                    Width = 22, VerticalAlignment = VerticalAlignment.Center });
             }
-            if (flow.Steps.Length == 0) timeline.Children.Add(Text(localization.Text("Drag a scene here or choose one below.")));
-            if (selected is not null) RefreshStepSelection(flow, selected);
-            if (stepSection is not null) stepSection.IsEnabled = selected is not null;
-            targetSeconds.Value = flow.TargetSeconds ?? 0;
-            int total = flow.Steps.Sum(step => step.Seconds);
-            workflowSummary.Text = localization.Text("Total") + " " + ClockText(total)
-                + (flow.TargetSeconds is int target ? "  ·  " + localization.Text("Target") + " " + ClockText(target)
-                    + (total > target ? "  (+" + ClockText(total - target) + ")" : "") : "");
+            timeline.Children.Add(SceneCard(flow, index, start));
+            start += step.Seconds;
         }
-        finally { refreshingLibrary = false; UpdateWorkflowControls(); }
+        if (flow.Steps.Length == 0)
+        {
+            var empty = Column(10);
+            empty.HorizontalAlignment = HorizontalAlignment.Center;
+            empty.VerticalAlignment = VerticalAlignment.Center;
+            empty.Children.Add(new FontIcon { Glyph = "\uE8B9", FontSize = 28, Opacity = .72 });
+            empty.Children.Add(Text(localization.Text("Drag a scene here or choose one below.")));
+            timeline.HorizontalAlignment = HorizontalAlignment.Center;
+            timeline.Children.Add(empty);
+        }
+        else timeline.HorizontalAlignment = HorizontalAlignment.Left;
+        workflowSummary.Text = localization.Text("Total") + " " + ClockText(start)
+            + (flow.TargetSeconds is int target ? "  ·  " + localization.Text("Target") + " " + ClockText(target)
+                + (start > target ? "  (+" + ClockText(start - target) + ")" : "") : "");
+        UpdateWorkflowControls();
+        HighlightWorkflowStep();
     }
 
-    private void RefreshStepSelection(Workflow flow, WorkflowStep selected)
+    private void HighlightWorkflowStep()
     {
-        for (int i = 0; i < timeline.Children.Count && i < flow.Steps.Length; i++)
-            if (timeline.Children[i] is Button tile) tile.BorderThickness = new(flow.Steps[i].Id == selected.Id ? 2 : 1);
-        stepSeconds.Value = selected.Seconds; stepNote.Text = selected.Note;
+        int index = PlaybackActive && player.Current is not null ? player.Index : -1;
+        if (index == highlightedIndex) return;
+        if (highlightedIndex >= 0 && timeline.Children[highlightedIndex * 2] is Button previous)
+        {
+            previous.ClearValue(Control.BorderBrushProperty);
+            previous.ClearValue(Control.BorderThicknessProperty);
+            AutomationProperties.SetItemStatus(previous, "");
+        }
+        highlightedIndex = index;
+        if (index < 0 || index * 2 >= timeline.Children.Count || timeline.Children[index * 2] is not Button active) return;
+        active.BorderBrush = (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"];
+        active.BorderThickness = new(3);
+        AutomationProperties.SetItemStatus(active, localization.Text("Running"));
+        active.StartBringIntoView();
+    }
+
+    private Button SceneCard(Workflow flow, int index, int start)
+    {
+        var step = flow.Steps[index];
+        var style = SceneStyles.First(scene => scene.Name == step.Scene);
+        string title = SceneTitle(step.Scene);
+        string startLabel = localization.Text("Starts at") + " " + ClockText(start);
+        var content = Column(5);
+        var number = Text((index + 1).ToString("00"));
+        number.Opacity = .7; number.FontSize = 12;
+        var icon = SceneIcon(style, 21);
+        icon.HorizontalAlignment = HorizontalAlignment.Left;
+        content.Children.Add(WithTrailing(icon, number));
+        var sceneName = Heading(title);
+        sceneName.MaxLines = 2; sceneName.TextWrapping = TextWrapping.Wrap; sceneName.TextTrimming = TextTrimming.CharacterEllipsis;
+        content.Children.Add(sceneName);
+        var time = Heading(ClockText(step.Seconds));
+        time.FontSize = 22;
+        content.Children.Add(time);
+        var details = Text(startLabel + (step.Transition == "default" ? "" : "  ·  " + localization.Text(TransitionLabel(step.Transition))));
+        details.FontSize = 12; details.Opacity = .78;
+        content.Children.Add(details);
+        var card = new Button { Width = 154, MinHeight = 144, Content = content, Padding = new(12),
+            HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
+        AutomationProperties.SetName(card, $"{index + 1}. {title}, {ClockText(step.Seconds)}, {startLabel}");
+        ToolTipService.SetToolTip(card, localization.Text("Edit step"));
+        card.Click += async (_, _) => await OpenWorkflowDialogAsync(() => EditStepAsync(flow, index));
+        ConfigureDrag(card, "step", step.Id);
+        ConfigureDrop(card, step.Id);
+        return card;
     }
 
     private string SceneTitle(string scene) => localization.Text(StudioCatalog.Default.Scenes.FirstOrDefault(item => item.Name == scene)?.Title ?? scene);

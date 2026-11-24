@@ -3249,6 +3249,286 @@
       "재생 전에 비교 A/B를 수동으로 선택해 보정하세요.",
       "请先手动选择 A/B 对比进行校准，然后播放。",
       "再生前に比較 A/B を手動で選択して調整してください。"
+    ],
+    "Library": [
+      "Libreria",
+      "Library",
+      "Thư viện",
+      "Bibliothèque",
+      "Bibliothek",
+      "라이브러리",
+      "资料库",
+      "ライブラリ"
+    ],
+    "Projects": [
+      "Progetti",
+      "Projects",
+      "Dự án",
+      "Projets",
+      "Projekte",
+      "프로젝트",
+      "项目",
+      "プロジェクト"
+    ],
+    "Sequence": [
+      "Sequenza",
+      "Sequence",
+      "Trình tự cảnh",
+      "Séquence",
+      "Szenenfolge",
+      "장면 순서",
+      "场景序列",
+      "シーンの順序"
+    ],
+    "Edit step": [
+      "Modifica passaggio",
+      "Edit step",
+      "Sửa bước",
+      "Modifier l’étape",
+      "Schritt bearbeiten",
+      "단계 편집",
+      "编辑步骤",
+      "ステップを編集"
+    ],
+    "Starts at": [
+      "Inizio",
+      "Starts at",
+      "Bắt đầu lúc",
+      "Début à",
+      "Beginn bei",
+      "시작 시간",
+      "开始于",
+      "開始時刻"
+    ],
+    "OBS default": [
+      "Predefinita di OBS",
+      "OBS default",
+      "Mặc định của OBS",
+      "Par défaut dans OBS",
+      "OBS-Standard",
+      "OBS 기본값",
+      "OBS 默认",
+      "OBS の既定値"
+    ],
+    "Cut": [
+      "Taglio",
+      "Cut",
+      "Cắt",
+      "Coupe",
+      "Schnitt",
+      "컷",
+      "切换",
+      "カット"
+    ],
+    "Fade": [
+      "Dissolvenza",
+      "Fade",
+      "Mờ dần",
+      "Fondu",
+      "Überblendung",
+      "페이드",
+      "淡化",
+      "フェード"
+    ],
+    "Edit workflow": [
+      "Modifica scaletta",
+      "Edit workflow",
+      "Sửa kịch bản",
+      "Modifier le conducteur",
+      "Ablaufplan bearbeiten",
+      "진행표 편집",
+      "编辑流程表",
+      "進行表を編集"
+    ],
+    "Scenes": [
+      "Scene",
+      "Scenes",
+      "Cảnh",
+      "Scènes",
+      "Szenen",
+      "장면",
+      "场景",
+      "シーン"
+    ],
+    "Workflows": [
+      "Scalette",
+      "Workflows",
+      "Kịch bản",
+      "Conducteurs",
+      "Ablaufpläne",
+      "진행표",
+      "流程表",
+      "進行表"
+    ],
+    "Transition": [
+      "Transizione",
+      "Transition",
+      "Chuyển cảnh",
+      "Transition",
+      "Übergang",
+      "전환",
+      "转场",
+      "トランジション"
+    ],
+    "Edit project": [
+      "Modifica progetto",
+      "Edit project",
+      "Sửa dự án",
+      "Modifier le projet",
+      "Projekt bearbeiten",
+      "프로젝트 편집",
+      "编辑项目",
+      "プロジェクトを編集"
+    ],
+    "Remove project": [
+      "Rimuovi progetto",
+      "Remove project",
+      "Xóa dự án",
+      "Retirer le projet",
+      "Projekt entfernen",
+      "프로젝트 제거",
+      "移除项目",
+      "プロジェクトを削除"
+    ],
+    "Remove workflow": [
+      "Rimuovi scaletta",
+      "Remove workflow",
+      "Xóa kịch bản",
+      "Retirer le conducteur",
+      "Ablaufplan entfernen",
+      "진행표 제거",
+      "移除流程表",
+      "進行表を削除"
+    ],
+    "Open": [
+      "Apri",
+      "Open",
+      "Mở",
+      "Ouvrir",
+      "Öffnen",
+      "열기",
+      "打开",
+      "開く"
+    ],
+    "Close": [
+      "Chiudi",
+      "Close",
+      "Đóng",
+      "Fermer",
+      "Schließen",
+      "닫기",
+      "关闭",
+      "閉じる"
+    ],
+    "Remove this project and its workflows?": [
+      "Rimuovere il progetto e le sue scalette?",
+      "Remove this project and its workflows?",
+      "Xóa dự án này và các kịch bản của nó?",
+      "Retirer ce projet et ses conducteurs ?",
+      "Dieses Projekt samt Ablaufplänen entfernen?",
+      "이 프로젝트와 포함된 진행표를 제거할까요?",
+      "移除此项目及其流程表？",
+      "このプロジェクトとその進行表を削除しますか？"
+    ],
+    "Remove this workflow?": [
+      "Rimuovere questa scaletta?",
+      "Remove this workflow?",
+      "Xóa kịch bản này?",
+      "Retirer ce conducteur ?",
+      "Diesen Ablaufplan entfernen?",
+      "이 진행표를 제거할까요?",
+      "移除此流程表？",
+      "この進行表を削除しますか？"
+    ],
+    "Remove this project and its workflows from the library?": [
+      "Rimuovere il progetto e le sue scalette dalla libreria?",
+      "Remove this project and its workflows from the library?",
+      "Xóa dự án này và các kịch bản khỏi thư viện?",
+      "Retirer ce projet et ses conducteurs de la bibliothèque ?",
+      "Dieses Projekt und seine Ablaufpläne aus der Bibliothek entfernen?",
+      "라이브러리에서 이 프로젝트와 진행표를 제거할까요?",
+      "从资料库移除此项目及其流程表？",
+      "このプロジェクトとその進行表をライブラリから削除しますか？"
+    ],
+    "Remove this workflow from the project?": [
+      "Rimuovere questa scaletta dal progetto?",
+      "Remove this workflow from the project?",
+      "Xóa kịch bản này khỏi dự án?",
+      "Retirer ce conducteur du projet ?",
+      "Diesen Ablaufplan aus dem Projekt entfernen?",
+      "프로젝트에서 이 진행표를 제거할까요?",
+      "从项目移除此流程表？",
+      "プロジェクトからこの進行表を削除しますか？"
+    ],
+    "The selected workflow transition is unavailable in OBS.": [
+      "La transizione scelta per la scaletta non è disponibile in OBS.",
+      "The selected workflow transition is unavailable in OBS.",
+      "OBS không có hiệu ứng chuyển cảnh đã chọn.",
+      "La transition choisie pour le conducteur est indisponible dans OBS.",
+      "Der gewählte Übergang ist in OBS nicht verfügbar.",
+      "선택한 전환을 OBS에서 사용할 수 없습니다.",
+      "OBS 中没有所选转场。",
+      "選択したトランジションは OBS で使用できません。"
+    ],
+    "Keep at least one project.": [
+      "Conserva almeno un progetto.",
+      "Keep at least one project.",
+      "Giữ lại ít nhất một dự án.",
+      "Conservez au moins un projet.",
+      "Mindestens ein Projekt muss erhalten bleiben.",
+      "프로젝트를 하나 이상 유지하세요.",
+      "请保留至少一个项目。",
+      "少なくとも 1 件のプロジェクトを残してください。"
+    ],
+    "Keep at least one workflow in this project.": [
+      "Conserva almeno una scaletta nel progetto.",
+      "Keep at least one workflow in this project.",
+      "Giữ lại ít nhất một kịch bản trong dự án này.",
+      "Conservez au moins un conducteur dans ce projet.",
+      "Mindestens ein Ablaufplan muss im Projekt bleiben.",
+      "이 프로젝트에 진행표를 하나 이상 유지하세요.",
+      "请在项目中保留至少一个流程表。",
+      "プロジェクトに少なくとも 1 件の進行表を残してください。"
+    ],
+    "The selected project or workflow no longer exists.": [
+      "Il progetto o la scaletta selezionati non sono più disponibili.",
+      "The selected project or workflow no longer exists.",
+      "Dự án hoặc kịch bản đã chọn không còn tồn tại.",
+      "Le projet ou le conducteur sélectionné n’existe plus.",
+      "Das gewählte Projekt oder der Ablaufplan existiert nicht mehr.",
+      "선택한 프로젝트 또는 진행표가 더 이상 존재하지 않습니다.",
+      "所选项目或流程表已不存在。",
+      "選択したプロジェクトまたは進行表は既に削除されています。"
+    ],
+    "Enter a whole number of seconds.": [
+      "Inserisci un numero intero di secondi.",
+      "Enter a whole number of seconds.",
+      "Nhập số giây nguyên.",
+      "Saisissez un nombre entier de secondes.",
+      "Geben Sie eine ganze Anzahl Sekunden ein.",
+      "초 단위의 정수를 입력하세요.",
+      "请输入整数秒。",
+      "秒数を整数で入力してください。"
+    ],
+    "Check the destination scene's existing transition override in OBS.": [
+      "Controlla la transizione personalizzata della scena di destinazione in OBS.",
+      "Check the destination scene's existing transition override in OBS.",
+      "Kiểm tra hiệu ứng chuyển cảnh riêng của cảnh đích trong OBS.",
+      "Vérifiez la transition spécifique à la scène de destination dans OBS.",
+      "Prüfen Sie den szenenspezifischen Übergang der Zielszene in OBS.",
+      "OBS에서 대상 장면의 전환 재정의를 확인하세요.",
+      "请检查 OBS 中目标场景的转场覆盖设置。",
+      "OBS で切り替え先シーンのトランジション上書きを確認してください。"
+    ],
+    "Check the destination scene's transition override in OBS. Restoration was not confirmed.": [
+      "Controlla la transizione personalizzata della scena di destinazione in OBS. Il ripristino non è stato confermato.",
+      "Check the destination scene's transition override in OBS. Restoration was not confirmed.",
+      "Kiểm tra hiệu ứng chuyển cảnh riêng của cảnh đích trong OBS. Chưa xác nhận được việc khôi phục.",
+      "Vérifiez la transition spécifique de la scène de destination dans OBS. Son rétablissement n’a pas été confirmé.",
+      "Prüfen Sie den Übergang der Zielszene in OBS. Die Wiederherstellung wurde nicht bestätigt.",
+      "OBS에서 대상 장면의 전환 재정의를 확인하세요. 복원이 확인되지 않았습니다.",
+      "请检查 OBS 中目标场景的转场覆盖设置。尚未确认设置已恢复。",
+      "OBS で切り替え先シーンのトランジション上書きを確認してください。復元を確認できませんでした。"
     ]
   }
 }

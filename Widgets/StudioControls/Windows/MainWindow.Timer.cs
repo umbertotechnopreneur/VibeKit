@@ -84,7 +84,7 @@ public sealed partial class MainWindow
         {
             try
             {
-                if (PlaybackActive || sendingScene) return;
+                if (PlaybackActive || sendingScene || workflowDialogOpen || editingLibrary || rendering) return;
                 player.StartFree(ReadSeconds(duration));
                 RefreshPlayback();
             }
@@ -114,7 +114,7 @@ public sealed partial class MainWindow
 
     private async Task StartWorkflowAsync(bool useObs)
     {
-        if (CurrentWorkflow is not { Steps.Length: > 0 } flow || PlaybackActive || sendingScene || editingLibrary || rendering) return;
+        if (CurrentWorkflow is not { Steps.Length: > 0 } flow || PlaybackActive || sendingScene || editingLibrary || workflowDialogOpen || rendering) return;
         CancellationToken token = lifetime.Token;
         try
         {
@@ -131,7 +131,7 @@ public sealed partial class MainWindow
                 try
                 {
                     token.ThrowIfCancellationRequested();
-                    var available = await connected.GetWorkflowScenesAsync(token, flow.Steps.Select(step => step.Scene));
+                    var available = await connected.GetWorkflowScenesAsync(token, flow.Steps.Select(step => step.Scene), flow.Steps.Select(step => step.Transition));
                     token.ThrowIfCancellationRequested();
                     var missing = flow.Steps.Select(step => step.Scene).Distinct().Except(available).ToArray();
                     if (missing.Length != 0) throw new InvalidOperationException(localization.Text("Missing scenes") + " · " + string.Join(", ", missing));
@@ -147,7 +147,7 @@ public sealed partial class MainWindow
         catch (Exception error)
         {
             Diagnostics.Record("workflow.start", error);
-            StopWorkflow(error.Message);
+            StopWorkflow(localization.Text(error.Message));
             if (error is ObsConnectionException) Offline(error);
         }
         finally
@@ -175,7 +175,7 @@ public sealed partial class MainWindow
                 token.ThrowIfCancellationRequested();
                 if (service is null || state?.ConnectionAvailable != true || stopPending)
                     throw new InvalidOperationException(localization.Text("OBS unavailable."));
-                await service.SetWorkflowSceneAsync(step.Scene, lastConfirmedScene, token);
+                await service.SetWorkflowSceneAsync(step.Scene, lastConfirmedScene, token, step.Transition);
                 token.ThrowIfCancellationRequested();
                 if (player.Ticket == ticket)
                 {
@@ -185,11 +185,16 @@ public sealed partial class MainWindow
             }
             finally { obsGate.Release(); }
         }
+        catch (WorkflowTransitionRecoveryException error)
+        {
+            Diagnostics.Record("workflow.transition", error);
+            StopWorkflow(localization.Text(error.Message));
+        }
         catch (Exception) when (token.IsCancellationRequested) { }
         catch (Exception error)
         {
             Diagnostics.Record("workflow.scene", error);
-            player.Fail(ticket, localization.Text("Scene change stopped") + " · " + SceneTitle(step.Scene) + " · " + error.Message);
+            player.Fail(ticket, localization.Text("Scene change stopped") + " · " + SceneTitle(step.Scene) + " · " + localization.Text(error.Message));
             if (error is ObsConnectionException) Offline(error);
         }
         finally
@@ -224,12 +229,17 @@ public sealed partial class MainWindow
 
     private void UpdateWorkflowControls()
     {
-        bool editable = workflowLibrary is not null && !PlaybackActive && !sendingScene && !editingLibrary && !rendering;
-        editorSurface.IsEnabled = editable;
+        bool editable = workflowLibrary is not null && !PlaybackActive && !sendingScene && !editingLibrary && !rendering && !workflowDialogOpen;
+        libraryButton.IsEnabled = targetButton.IsEnabled = paletteSurface.IsEnabled = editable;
         rehearse.IsEnabled = editable && CurrentWorkflow?.Steps.Length > 0;
         live.IsEnabled = rehearse.IsEnabled && service is not null && state?.ConnectionAvailable == true && !stopPending && !connecting && !manualTakeoverPending && !commandBusy;
-        apply.IsEnabled = workflowLibrary is not null && !rendering && !editingLibrary && !PlaybackActive && !sendingScene;
-        if (freeStart is not null) freeStart.IsEnabled = !PlaybackActive && !sendingScene && !editingLibrary && !rendering;
+        apply.IsEnabled = editable;
+        if (freeStart is not null) freeStart.IsEnabled = !PlaybackActive && !sendingScene && !editingLibrary && !rendering && !workflowDialogOpen;
+        bool active = PlaybackActive;
+        foreach (var button in new[] { pauseWorkflow, nextWorkflow, stopWorkflow })
+            button.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+        rehearse.Visibility = live.Visibility = active ? Visibility.Collapsed : Visibility.Visible;
+        inlineTimer.Visibility = player.State == WorkflowState.Idle ? Visibility.Collapsed : Visibility.Visible;
         bool running = player.State == WorkflowState.Running;
         bool paused = player.State == WorkflowState.Paused;
         foreach (var button in new[] { pauseWorkflow, detachedPause })
@@ -250,6 +260,7 @@ public sealed partial class MainWindow
             UpdateWorkflowControls();
             lastControlState = controls;
         }
+        HighlightWorkflowStep();
         string title = player.Current is { } current ? SceneTitle(current.Scene) : localization.Text("Timer");
         string digits = ClockText(player.RemainingSeconds);
         string summary = localization.Text(checkingScenes ? "Checking scenes…" : player.State switch
@@ -279,18 +290,29 @@ public sealed partial class MainWindow
     private async Task VerifyWorkflowUiAsync()
     {
         if (!UiSmoke.Enabled) throw new InvalidOperationException("Isolated verification required.");
+        var tabs = root.Children.OfType<TabView>().Single();
+        tabs.SelectedIndex = tabs.TabItems.Count - 1;
+        root.UpdateLayout();
         await InsertStepAsync("Intro", 0);
         await InsertStepAsync("Thank you", 1);
+        var flow = CurrentWorkflow!;
+        await SaveWorkflowAsync(flow with { Steps = [flow.Steps[0], flow.Steps[1] with { Transition = "fade" }] });
         var saved = WorkflowLibrary.Load(LibraryPath, "");
-        if (!saved.Projects.Single().Workflows.Single().Steps.Select(step => step.Scene)
+        if (timeline.Children.Count != 3 || timeline.Children[1] is not FontIcon ||
+            timeline.Children[2] is not Button last ||
+            !Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(last).Contains(ClockText(15)) ||
+            saved.Projects.Single().Workflows.Single().Steps[1].Transition != "fade" ||
+            !saved.Projects.Single().Workflows.Single().Steps.Select(step => step.Scene)
             .SequenceEqual(new[] { "Intro", "Thank you" }))
             throw new InvalidOperationException("The workflow editor did not preserve the sequence.");
+        var libraryDialog = new LibraryDialog(this, saved, saved.Projects.Single(), saved.Projects.Single().Workflows.Single());
+        await UiSmoke.CheckLibraryDialogAsync(libraryDialog.Dialog, localization, () => libraryDialog.Draft);
         await StartWorkflowAsync(false);
-        if (timerWindow is null || player.State != WorkflowState.Running || player.Index != 0)
+        if (timerWindow is null || player.State != WorkflowState.Running || player.Index != 0 || highlightedIndex != 0)
             throw new InvalidOperationException("The detached rehearsal timer did not start.");
         player.Next();
         await AdvanceWorkflowAsync();
-        if (player.Current?.Scene != "Thank you" || camera.IsValueCreated || service is not null || client is not null)
+        if (player.Current?.Scene != "Thank you" || highlightedIndex != 1 || camera.IsValueCreated || service is not null || client is not null)
             throw new InvalidOperationException("Rehearsal did not stay offline.");
         StopWorkflow("Workflow stopped.");
         timerWindow.Close();

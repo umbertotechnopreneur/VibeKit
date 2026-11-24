@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace VibeKit.StudioControls.Core;
 
 /// <summary>Serializes complete user actions; optional capabilities cannot hide recording status.</summary>
-public sealed class StudioService(IObsClient client, StudioCatalog? catalog = null)
+public sealed partial class StudioService(IObsClient client, StudioCatalog? catalog = null)
 {
     private readonly StudioCatalog catalog = catalog ?? StudioCatalog.Default;
     private readonly SemaphoreSlim operations = new(1, 1);
@@ -22,60 +22,6 @@ public sealed class StudioService(IObsClient client, StudioCatalog? catalog = nu
             await CallAsync("SetCurrentProgramScene", new { sceneName = name }, token).ConfigureAwait(false);
             return await AfterActionAsync("Change scene", state => state with { SceneName = name, Screen = null }, token).ConfigureAwait(false);
         }, cancellationToken);
-    }
-
-    // Access only under operations. Explicit preflight binds one run to the current OBS collection.
-    private sealed record WorkflowSession(string Collection, string InitialScene, long Generation, bool WasRecording);
-    private WorkflowSession? workflowSession;
-
-    public Task<IReadOnlySet<string>> GetWorkflowScenesAsync(CancellationToken token = default, IEnumerable<string>? requiredScenes = null) =>
-        RunAsync<IReadOnlySet<string>>(async deadline =>
-        {
-            workflowSession = null;
-            string collection = await CurrentCollectionAsync(deadline).ConfigureAwait(false);
-            JsonElement response = await CallAsync("GetSceneList", null, deadline).ConfigureAwait(false);
-            var names = response.GetProperty("scenes").EnumerateArray()
-                .Select(scene => scene.GetProperty("sceneName").GetString() ?? throw new InvalidDataException("Invalid scene list."))
-                .ToHashSet(StringComparer.Ordinal);
-            JsonElement status = await CallAsync("GetRecordStatus", null, deadline).ConfigureAwait(false);
-            if (requiredScenes?.Contains("Comparison A-B") == true && names.Contains("Comparison A-B"))
-                await CheckComparisonAsync(deadline).ConfigureAwait(false);
-            if (status.GetProperty("outputPaused").GetBoolean())
-                throw new InvalidOperationException("Recording is paused.");
-            workflowSession = new(collection, response.GetProperty("currentProgramSceneName").GetString()
-                ?? throw new InvalidDataException("Invalid active scene."), client.ConnectionGeneration, status.GetProperty("outputActive").GetBoolean());
-            return names;
-        }, token);
-
-    private async Task<string> CurrentCollectionAsync(CancellationToken token) =>
-        (await CallAsync("GetSceneCollectionList", null, token).ConfigureAwait(false))
-            .GetProperty("currentSceneCollectionName").GetString() ?? throw new InvalidDataException("Invalid scene collection.");
-
-    public Task SetWorkflowSceneAsync(string scene, string? expectedCurrent, CancellationToken token = default)
-    {
-        if (!catalog.Scenes.Any(item => item.Name == scene)) throw new ArgumentException("Unknown workflow scene.");
-        return RunAsync(async deadline =>
-        {
-            var session = workflowSession ?? throw new InvalidOperationException("Check the workflow scenes before playback.");
-            workflowSession = null; // A failure or uncertain outcome requires a new explicit preflight.
-            if (await CurrentCollectionAsync(deadline).ConfigureAwait(false) != session.Collection)
-                throw new InvalidOperationException("The OBS scene collection changed.");
-            JsonElement status = await CallAsync("GetRecordStatus", null, deadline).ConfigureAwait(false);
-            bool recording = status.GetProperty("outputActive").GetBoolean();
-            if (status.GetProperty("outputPaused").GetBoolean() || (session.WasRecording && !recording))
-                throw new InvalidOperationException("Recording was paused or stopped.");
-            if (scene == "Comparison A-B") await CheckComparisonAsync(deadline).ConfigureAwait(false);
-            string expected = expectedCurrent ?? session.InitialScene;
-            if (!await IsCurrentSceneAsync(expected, deadline).ConfigureAwait(false))
-                throw new InvalidOperationException("The active OBS scene changed. Playback stopped.");
-            if (session.Generation != client.ConnectionGeneration) throw new InvalidOperationException("OBS connection changed.");
-            if (scene != expected)
-                await CallAsync("SetCurrentProgramScene", new { sceneName = scene }, deadline).ConfigureAwait(false);
-            if (!await IsCurrentSceneAsync(scene, deadline).ConfigureAwait(false))
-                throw new InvalidOperationException("OBS did not confirm the requested scene.");
-            workflowSession = session with { WasRecording = recording };
-            return true;
-        }, token);
     }
 
     public Task<StudioStatus> SetRecordingAsync(bool start, CancellationToken cancellationToken = default) => RunAsync(async token =>

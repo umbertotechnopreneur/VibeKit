@@ -181,7 +181,7 @@ public sealed partial class MainWindow : Window
         tabs.TabItems.Add(Tab("Camera & recording", BuildCameraAndScenes()));
         tabs.TabItems.Add(Tab("Screen & vignettes", BuildEffects()));
         tabs.TabItems.Add(Tab("Project & cards", BuildProject()));
-        tabs.TabItems.Add(Tab("Workflow", BuildWorkflow()));
+        tabs.TabItems.Add(Tab("Workflow", BuildWorkflow(), horizontalScroll: false));
         tabs.SelectedIndex = 0;
         Grid.SetRow(tabs, 1); root.Children.Add(tabs);
     }
@@ -212,14 +212,14 @@ public sealed partial class MainWindow : Window
         Grid.SetRow(transport, 2); root.Children.Add(transport);
     }
 
-    private static TabViewItem Tab(string title, UIElement content) => new()
+    private static TabViewItem Tab(string title, UIElement content, bool horizontalScroll = true) => new()
     {
         Header = title, IsClosable = false,
         Content = new ScrollViewer
         {
             Content = new Border { Padding = new(18), Child = content },
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-            HorizontalScrollMode = ScrollMode.Auto,
+            HorizontalScrollBarVisibility = horizontalScroll ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled,
+            HorizontalScrollMode = horizontalScroll ? ScrollMode.Auto : ScrollMode.Disabled,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto
         }
     };

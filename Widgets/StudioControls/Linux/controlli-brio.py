@@ -979,13 +979,6 @@ class BrioPanel(Gtk.Application):
             self.title_note.set_label("Project was not saved: " + str(error))
             self.title_apply_button.set_sensitive(not self.action_busy)
             return
-        if self.library is not None and self.library.project["name"] != result["name"]:
-            self.library.project["name"] = result["name"]
-            try:
-                self.library.save()
-            except (ValueError, OSError) as error:
-                self.workflow.notice.set_label(str(error))
-            self.workflow.refresh()
         self.prepared_titles = result
         self.title_note.set_label("Project saved locally. Applying to OBS…")
         self.apply_prepared_titles()

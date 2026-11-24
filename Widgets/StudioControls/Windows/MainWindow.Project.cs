@@ -98,14 +98,6 @@ public sealed partial class MainWindow
             if (closed) return;
             logo.Text = values.Logo;
             savedProjectForm = JsonSerializer.Serialize(values);
-            if (CurrentProject is { } project && project.Name != values.Name)
-            {
-                var updated = ReplaceProject(workflowLibrary, project with { Name = values.Name });
-                await updated.SaveAsync(LibraryPath, lifetime.Token);
-                if (closed) return;
-                workflowLibrary = updated;
-                RefreshWorkflowEditor();
-            }
             if (service is null || state?.ConnectionAvailable != true)
             {
                 projectNotice.Text = "Project saved locally. Connect to OBS, then Apply again to update its sources.";

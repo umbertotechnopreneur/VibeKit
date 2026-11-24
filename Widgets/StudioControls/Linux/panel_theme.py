@@ -92,10 +92,13 @@ def theme_css(theme):
     for name, light, dark in SCENE_COLORS.values():
         color = light if theme == "light" else dark
         icon_rules.append(
+            f"window.umberto-lab .workflow-scene-icon.scene-{name}, "
             f"window.umberto-lab button.scene-button image.scene-{name} "
             f"{{ color: {color}; }}\n"
             f"window.umberto-lab button.scene-button.suggested-action:not(:disabled) "
-            f"image.scene-{name} {{ color: {light}; }}"
+            f"image.scene-{name} {{ color: {light}; }}\n"
+            f"window.umberto-lab button.workflow-step.step-{name} "
+            f"{{ border-top-color: {color}; }}"
         )
     return (
         definitions
@@ -239,6 +242,51 @@ window.umberto-lab dropdown row:selected {
 }
 window.umberto-lab scrollbar slider { background-color: @lab_muted; }
 window.umberto-lab :focus-visible { outline-color: @lab_focus; }
+window.umberto-lab .workflow-title { font-size: 22px; font-weight: 700; }
+window.umberto-lab .workflow-board {
+  background-color: @lab_header;
+  border: 1px solid alpha(@lab_border, 0.85);
+  border-radius: 12px;
+}
+window.umberto-lab .workflow-board-header { padding: 10px 14px; border-bottom: 1px solid alpha(@lab_border, 0.55); }
+window.umberto-lab .workflow-board-footer { padding: 10px 14px; border-top: 1px solid alpha(@lab_border, 0.55); }
+window.umberto-lab .workflow-metric { font-weight: 700; font-variant-numeric: tabular-nums; }
+window.umberto-lab .workflow-over { color: @lab_focus; font-weight: 700; }
+window.umberto-lab button.workflow-small { padding: 3px; min-width: 24px; min-height: 24px; }
+window.umberto-lab button.workflow-step {
+  padding: 10px 12px;
+  margin: 10px 2px;
+  border-radius: 10px;
+  border: 1px solid @lab_border;
+  border-top-width: 3px;
+  background-color: @lab_surface;
+}
+window.umberto-lab button.workflow-step:hover { background-color: mix(@lab_surface, @lab_hover, 0.45); }
+window.umberto-lab .workflow-step-edit { opacity: 0; }
+window.umberto-lab button.workflow-step:hover .workflow-step-edit,
+window.umberto-lab button.workflow-step:focus-visible .workflow-step-edit { opacity: 0.8; }
+window.umberto-lab button.workflow-step.workflow-selected { outline: 2px solid @lab_focus; outline-offset: 0; }
+window.umberto-lab .workflow-playing button.workflow-step.workflow-selected { outline-width: 0; }
+window.umberto-lab .workflow-playing button.workflow-step.workflow-now {
+  outline: 2px solid @lab_focus;
+  outline-offset: 0;
+  background-color: mix(@lab_surface, @lab_accent, 0.14);
+}
+window.umberto-lab .workflow-playing button.workflow-step .workflow-step-edit { opacity: 0; }
+window.umberto-lab .workflow-position { font-variant-numeric: tabular-nums; font-weight: 700; color: @lab_muted; font-size: 11px; }
+window.umberto-lab .workflow-step-name { font-size: 15px; font-weight: 700; }
+window.umberto-lab .workflow-step-time { font-variant-numeric: tabular-nums; font-size: 19px; font-weight: 600; }
+window.umberto-lab .workflow-secondary { color: @lab_muted; font-size: 12px; }
+window.umberto-lab .workflow-palette { padding: 8px 2px; }
+window.umberto-lab button.workflow-source { padding: 7px 10px; }
+window.umberto-lab .workflow-library-section {
+  background-color: @lab_surface;
+  padding: 12px;
+  border: 1px solid alpha(@lab_border, 0.65);
+  border-radius: 10px;
+}
+window.umberto-lab .workflow-library-list { background-color: @lab_surface; }
+window.umberto-lab .workflow-library-list row:selected { background-color: @lab_hover; color: @lab_foreground; }
 window.umberto-lab .title-1 { font-size: 28px; }
 """
         + "\n".join(icon_rules)

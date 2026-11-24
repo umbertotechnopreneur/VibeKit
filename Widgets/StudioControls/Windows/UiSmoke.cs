@@ -1,4 +1,9 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
+using Microsoft.UI.Xaml.Automation.Provider;
+using Microsoft.UI.Xaml.Controls;
+using VibeKit.StudioControls.Core;
 
 namespace VibeKit.StudioControls.Windows;
 
@@ -21,8 +26,60 @@ internal static class UiSmoke
 
     public static void Complete()
     {
-        WriteReport("PASS: native WinUI window, themes, localization, persisted workflow sequence and detached rehearsal timer verified. No OBS connection, camera controller, enumeration or capture was created.");
+        WriteReport("PASS: native WinUI window, themes, localization, connected storyboard, transition persistence, modal library edits, active step and detached rehearsal timer verified. No OBS connection, camera controller, enumeration or capture was created.");
         Passed = true;
+    }
+
+    public static async Task CheckLibraryDialogAsync(ContentDialog dialog, NativeLocalization strings, Func<WorkflowLibrary> draft)
+    {
+        var opening = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        dialog.Opened += (_, _) => opening.TrySetResult();
+        var closing = dialog.ShowAsync();
+        try
+        {
+            await opening.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var body = (StackPanel)((ScrollViewer)dialog.Content).Content;
+            var sections = body.Children.OfType<Expander>().ToArray();
+            var commands = (StackPanel)((StackPanel)sections[1].Content).Children.OfType<StackPanel>().Single();
+            Button Action(string key) => commands.Children.OfType<Button>().Single(button =>
+                AutomationProperties.GetName(button) == strings.Text(key));
+            var form = body.Children.OfType<StackPanel>().Single();
+            if (sections.Length != 2 || sections.Any(section => !section.IsExpanded) || Action("Remove workflow").IsEnabled)
+                throw new InvalidOperationException("Library sections or last-workflow protection failed.");
+
+            Invoke(Action("Duplicate"));
+            await WaitForAsync(() => form.Children.OfType<TextBox>().Any());
+            form.Children.OfType<TextBox>().Single().Text = "Duplicate check";
+            Invoke(form.Children.OfType<StackPanel>().Single().Children.OfType<Button>().First());
+            await WaitForAsync(() => draft().Projects.Single().Workflows.Length == 2);
+            var copies = draft().Projects.Single().Workflows;
+            if (copies[1].Name != "Duplicate check" || copies[0].Steps[1].Id == copies[1].Steps[1].Id ||
+                copies[1].Steps[1].Transition != "fade")
+                throw new InvalidOperationException("The duplicate lost step settings or reused step identities.");
+            Invoke(Action("Remove workflow"));
+            await WaitForAsync(() => form.Children.OfType<StackPanel>().Any());
+            if (draft().Projects.Single().Workflows.Length != 2)
+                throw new InvalidOperationException("The library removed a workflow before confirmation.");
+            Invoke(form.Children.OfType<StackPanel>().Single().Children.OfType<Button>().First());
+            await WaitForAsync(() => draft().Projects.Single().Workflows.Length == 1);
+        }
+        finally
+        {
+            dialog.Hide();
+            await closing;
+        }
+    }
+
+    private static void Invoke(Button button)
+    {
+        var peer = new ButtonAutomationPeer(button);
+        ((IInvokeProvider)peer.GetPattern(PatternInterface.Invoke)).Invoke();
+    }
+
+    private static async Task WaitForAsync(Func<bool> ready)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (!ready()) await Task.Delay(30, timeout.Token);
     }
 
     public static void Fail(Exception error)

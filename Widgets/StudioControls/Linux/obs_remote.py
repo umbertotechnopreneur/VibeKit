@@ -98,6 +98,67 @@ class OBS:
             self._assets_root = working_assets()
         return self._assets_root
 
+    def select_card_project(self, root, settings):
+        self._assets_root = root
+        self.title_config = settings
+
+    def _workflow_recording(self):
+        status = self.call("GetRecordStatus")
+        if (
+            type(status.get("outputActive")) is not bool
+            or type(status.get("outputPaused")) is not bool
+        ):
+            raise ValueError("OBS recording status is unconfirmed.")
+        if status["outputPaused"]:
+            raise ValueError("Recording was paused or stopped.")
+        return status["outputActive"]
+
+    def workflow_preflight(self, required):
+        collection = self.call("GetSceneCollectionList")["currentSceneCollectionName"]
+        listing = self.call("GetSceneList")
+        available = {scene["sceneName"] for scene in listing["scenes"]}
+        required = set(required)
+        if not required <= available:
+            raise ValueError("A workflow scene is missing from the OBS collection.")
+        if "Comparison A-B" in required:
+            self._verify_comparison()
+        current = listing["currentProgramSceneName"]
+        if (
+            not isinstance(collection, str)
+            or not collection
+            or not isinstance(current, str)
+            or not current
+        ):
+            raise ValueError("OBS status is unconfirmed.")
+        recording = self._workflow_recording()
+        return self.ws, collection, current, recording
+
+    def workflow_switch(self, session, expected, scene, cancel, recording):
+        """Run on the serial OBS worker. Never reconnect or retry a live mutation."""
+        socket, collection = session
+        if cancel.is_set():
+            return None
+        if self.ws is None or self.ws is not socket:
+            raise ValueError("OBS connection changed.")
+        if self.call("GetSceneCollectionList")["currentSceneCollectionName"] != collection:
+            raise ValueError("The OBS scene collection changed.")
+        if scene == "Comparison A-B":
+            self._verify_comparison()
+        active = self._workflow_recording()
+        if recording and not active:
+            raise ValueError("Recording was paused or stopped.")
+        current = self.call("GetCurrentProgramScene")["currentProgramSceneName"]
+        if current != expected:
+            raise ValueError("The OBS program scene changed manually.")
+        if cancel.is_set():
+            return None
+        if current != scene:
+            self.call("SetCurrentProgramScene", {"sceneName": scene})
+        confirmed = self.call("GetCurrentProgramScene")["currentProgramSceneName"]
+        if confirmed != scene:
+            raise ValueError("OBS did not confirm the workflow scene.")
+        return confirmed, active
+
     @staticmethod
     def _remaining(deadline):
         remaining = deadline - time.monotonic()
@@ -390,29 +451,41 @@ class OBS:
             ) from exc
         return self._after_action("Apply project")
 
+    def _comparison_halves(self):
+        items = self.call("GetSceneItemList", {"sceneName": "Comparison A-B"})["sceneItems"]
+        screens = sorted(
+            (item for item in items if item.get("sourceName") == SCREEN_SOURCE),
+            key=lambda item: item["sceneItemTransform"]["positionX"],
+        )
+        if len(screens) != 2:
+            raise OBSRequestError("Comparison", comment="The scene needs exactly two screen items")
+        halves = []
+        for index, item in enumerate(screens):
+            width = round(item["sceneItemTransform"].get("sourceWidth", 0))
+            if width <= 1:
+                raise OBSRequestError("Comparison", comment="The screen capture is not ready")
+            split = width // 2
+            crop = {
+                "cropLeft": 0 if index == 0 else split,
+                "cropRight": width - split if index == 0 else 0,
+                "cropTop": 0,
+                "cropBottom": 0,
+            }
+            halves.append((item, crop))
+        return halves
+
+    def _verify_comparison(self):
+        for item, crop in self._comparison_halves():
+            transform = item["sceneItemTransform"]
+            if any(transform.get(key) != value for key, value in crop.items()):
+                raise ValueError(
+                    "Select Comparison A/B in Camera & recording to calibrate the split."
+                )
+
     def scene(self, name):
         if name == "Comparison A-B":
-            items = self.call("GetSceneItemList", {"sceneName": name})["sceneItems"]
-            screens = sorted(
-                (item for item in items if item.get("sourceName") == SCREEN_SOURCE),
-                key=lambda item: item["sceneItemTransform"]["positionX"],
-            )
-            if len(screens) != 2:
-                raise OBSRequestError(
-                    "Comparison", comment="The scene needs exactly two screen items"
-                )
-            widths = [round(item["sceneItemTransform"].get("sourceWidth", 0)) for item in screens]
-            if any(width <= 1 for width in widths):
-                raise OBSRequestError("Comparison", comment="The screen capture is not ready")
             # Validate both halves before sending any mutation to OBS.
-            for index, (item, width) in enumerate(zip(screens, widths, strict=True)):
-                split = width // 2
-                crop = {
-                    "cropLeft": 0 if index == 0 else split,
-                    "cropRight": width - split if index == 0 else 0,
-                    "cropTop": 0,
-                    "cropBottom": 0,
-                }
+            for item, crop in self._comparison_halves():
                 self.call(
                     "SetSceneItemTransform",
                     {

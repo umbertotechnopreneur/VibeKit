@@ -281,6 +281,11 @@ def make_cards(values, root=ROOT, project_logo=None):
     return [_render_card(values, Path(root), outro, project_logo) for outro in (False, True)]
 
 
+def brand_asset(root, name):
+    candidate = root / name
+    return candidate if candidate.is_file() else ROOT / name
+
+
 def _render_card(values, root, outro=False, project_logo=None):
     """Render a layout from validated content; derived fields have their own fit checks."""
     art = Image.new("RGBA", CANVAS, BACK)
@@ -318,10 +323,10 @@ def _render_card(values, root, outro=False, project_logo=None):
                 (2198, 60, 250, 135),
             )
         if values["vibeware"]:
-            paste_logo(art, root / "VibeWare-logo.png", (112, 1200, 125, 112))
+            paste_logo(art, brand_asset(root, "VibeWare-logo.png"), (112, 1200, 125, 112))
             d.text((270, 1220), "This is VibeWare", font=font(28, bold=True), fill=INK, anchor="lt")
             d.text((270, 1270), VIBE_URL, font=font(26), fill=ACCENT, anchor="lt")
-        paste_logo(art, root / "OBS-logo.png", (1920, 1310, 68, 68))
+        paste_logo(art, brand_asset(root, "OBS-logo.png"), (1920, 1310, 68, 68))
         d.text((2010, 1330), "Made with OBS Studio", font=font(29), fill=MUTED, anchor="lt")
         d.text((820, 1340), "© 2026 Umberto Giacobbi", font=font(27), fill=MUTED, anchor="lt")
     else:
@@ -345,7 +350,7 @@ def _render_card(values, root, outro=False, project_logo=None):
                 (2120, 235, 330, 300),
             )
         if values["vibeware"]:
-            paste_logo(art, root / "VibeWare-logo.png", (2220, 575, 220, 210))
+            paste_logo(art, brand_asset(root, "VibeWare-logo.png"), (2220, 575, 220, 210))
             text_block(d, "This is VibeWare", (2080, 825, 370, 70), 30, 24, ACCENT)
     d.line((112, 1305, 2448, 1305), fill=LINE, width=2)
     d.text((112, 1340), "umbertogiacobbi.biz", font=font(32), fill=INK, anchor="lt")

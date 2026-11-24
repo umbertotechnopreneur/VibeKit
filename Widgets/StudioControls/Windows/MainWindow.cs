@@ -76,6 +76,7 @@ public sealed partial class MainWindow : Window
         root.RowDefinitions.Add(new() { Height = new(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new() { Height = GridLength.Auto });
         BuildHeader();
+        LoadWorkflowLibrary();
         BuildTabs();
         BuildTransport();
         host.Text = settings.Host;
@@ -101,11 +102,20 @@ public sealed partial class MainWindow : Window
             settings.Language = selected.Code;
             root.Language = selected.Code;
             localization.Language = selected.Code;
+            timerLocalization.Language = selected.Code;
+            if (timerWindow is { Content: ScrollViewer viewer } timer)
+            {
+                timer.Title = localization.Text("Timer");
+                if (viewer.Content is FrameworkElement body) body.Language = selected.Code;
+            }
+            RefreshPlayback();
+            RefreshWorkflowEditor();
             SavePreferences();
         };
         systemSettings.ColorValuesChanged += SystemThemeChanged;
         if (settingsWarning is not null) notice.Text = settingsWarning;
         LoadProject();
+        RefreshWorkflowEditor();
         polling.Tick += async (_, _) => await PollAsync();
         effectsTimer.Tick += async (_, _) => await FlushEffectsAsync();
         cameraTimer.Tick += async (_, _) => await FlushCameraAsync();
@@ -171,6 +181,7 @@ public sealed partial class MainWindow : Window
         tabs.TabItems.Add(Tab("Camera & recording", BuildCameraAndScenes()));
         tabs.TabItems.Add(Tab("Screen & vignettes", BuildEffects()));
         tabs.TabItems.Add(Tab("Project & cards", BuildProject()));
+        tabs.TabItems.Add(Tab("Workflow", BuildWorkflow()));
         tabs.SelectedIndex = 0;
         Grid.SetRow(tabs, 1); root.Children.Add(tabs);
     }
@@ -183,7 +194,13 @@ public sealed partial class MainWindow : Window
         var buttons = Row();
         record.Click += async (_, _) => await CommandAsync("record.start", token => service!.SetRecordingAsync(true, token));
         stop.Click += async (_, _) => await StopRecordingAsync();
-        pause.Click += async (_, _) => await CommandAsync("record.pause", token => service!.SetPausedAsync(!(state?.IsPaused ?? false), token));
+        pause.Click += async (_, _) =>
+        {
+            bool hold = !(state?.IsPaused ?? false);
+            bool takeover = hold && LiveCheckActive;
+            if (hold) InterruptLivePlayback("Recording interrupted.");
+            await CommandAsync("record.pause", token => service!.SetPausedAsync(hold, token), takeover);
+        };
         buttons.Children.Add(record); buttons.Children.Add(stop); buttons.Children.Add(pause);
         foreach (string input in new[] { "Mic/Aux", "Desktop Audio" })
         {
@@ -256,6 +273,7 @@ public sealed partial class MainWindow : Window
     private void ApplyTheme()
     {
         root.RequestedTheme = settings.Theme switch { "Dark" => ElementTheme.Dark, "Light" => ElementTheme.Light, _ => ElementTheme.Default };
+        if (timerWindow?.Content is ScrollViewer { Content: FrameworkElement timerContent }) timerContent.RequestedTheme = root.RequestedTheme;
         Color background = systemSettings.GetColorValue(UIColorType.Background);
         bool dark = settings.Theme == "Dark" || (settings.Theme == "System" && background.R + background.G + background.B < 384);
         root.Background = Brush(dark ? 0x171A1Eu : 0xF5F2EEu);
@@ -291,7 +309,7 @@ public sealed partial class MainWindow : Window
         }
         int stage = 0;
         smokeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
-        smokeTimer.Tick += (_, _) =>
+        smokeTimer.Tick += async (_, _) =>
         {
             try
             {
@@ -320,6 +338,8 @@ public sealed partial class MainWindow : Window
                     stage++;
                     return;
                 }
+                smokeTimer.Stop();
+                await VerifyWorkflowUiAsync();
                 UiSmoke.Complete();
             }
             catch (Exception error) { UiSmoke.Fail(error); }

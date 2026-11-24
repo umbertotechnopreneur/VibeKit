@@ -53,9 +53,10 @@ public sealed partial class MainWindow
         ProjectSettings values = new();
         try
         {
-            values = SettingsStore.Load<ProjectSettings>(LocalSettings.ProjectPath);
+            string path = Path.Combine(CurrentAssetsDirectory, "project.json");
+            values = File.Exists(path) ? SettingsStore.Load<ProjectSettings>(path) : new ProjectSettings { Name = CurrentProject?.Name ?? values.Name };
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentException or InvalidDataException)
         {
             Diagnostics.Record("project.load", error);
             values = new();
@@ -67,6 +68,7 @@ public sealed partial class MainWindow
         projectFields["CompareA"].Text = values.CompareA; projectFields["CompareB"].Text = values.CompareB;
         for (int index = 0; index < 3; index++) projectFields["Link" + index].Text = values.Links.ElementAtOrDefault(index) ?? "";
         logo.Text = values.Logo; vibe.IsOn = values.VibeWare; sound.IsOn = values.SoundEnabled; soundVolume.Value = values.SoundVolume;
+        savedProjectForm = JsonSerializer.Serialize(ReadProject());
     }
 
     private ProjectSettings ReadProject() => new()
@@ -81,18 +83,29 @@ public sealed partial class MainWindow
 
     private async Task ApplyProjectAsync()
     {
-        if (rendering || closed) return;
+        if (workflowLibrary is null || rendering || closed || editingLibrary || PlaybackActive || sendingScene) return;
         rendering = true; apply.IsEnabled = false;
+        UpdateWorkflowControls();
+        string assetsDirectory = CurrentAssetsDirectory;
         bool saved = false;
         try
         {
             ProjectSettings values = ReadProject();
             values.Validate();
             projectNotice.Text = "Preparing project cards… recording controls remain available.";
-            values = await Task.Run(() => CardRenderer.Prepare(values, lifetime.Token), lifetime.Token);
+            values = await Task.Run(() => CardRenderer.Prepare(values, lifetime.Token, assetsDirectory), lifetime.Token);
             saved = true;
             if (closed) return;
             logo.Text = values.Logo;
+            savedProjectForm = JsonSerializer.Serialize(values);
+            if (CurrentProject is { } project && project.Name != values.Name)
+            {
+                var updated = ReplaceProject(workflowLibrary, project with { Name = values.Name });
+                await updated.SaveAsync(LibraryPath, lifetime.Token);
+                if (closed) return;
+                workflowLibrary = updated;
+                RefreshWorkflowEditor();
+            }
             if (service is null || state?.ConnectionAvailable != true)
             {
                 projectNotice.Text = "Project saved locally. Connect to OBS, then Apply again to update its sources.";
@@ -105,7 +118,7 @@ public sealed partial class MainWindow
             {
                 lifetime.Token.ThrowIfCancellationRequested();
                 if (service is null) throw new InvalidOperationException("OBS disconnected before the project could be applied.");
-                SetState(await service.ApplyProjectSettingsAsync(values, LocalSettings.AssetsPath, lifetime.Token));
+                SetState(await service.ApplyProjectSettingsAsync(values, assetsDirectory, lifetime.Token));
                 projectNotice.Text = state?.Warnings.Count > 0 ? "Project applied. Check the OBS capability warnings." : "Project saved and applied to OBS.";
             }
             finally { commandBusy = false; obsGate.Release(); }
@@ -154,12 +167,13 @@ public sealed partial class MainWindow
     private async Task PrepareCollectionAsync()
     {
         string output = Path.Combine(LocalSettings.DirectoryPath, "Studio-Controls-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".json");
+        string assetsDirectory = CurrentAssetsDirectory;
         await Task.Run(() =>
         {
-            CardRenderer.EnsureAssets(lifetime.Token);
+            CardRenderer.EnsureAssets(lifetime.Token, assetsDirectory);
             string template = Path.Combine(AppContext.BaseDirectory, "Scenes", "studio-windows.json");
             lifetime.Token.ThrowIfCancellationRequested();
-            ScenePackage.Prepare(template, LocalSettings.AssetsPath, output);
+            ScenePackage.Prepare(template, assetsDirectory, output);
         }, lifetime.Token);
         if (closed) return;
         notice.Text = "Scene collection prepared: " + output + ". In OBS use Scene Collection → Import, then choose your screen and cameras in source Properties. Existing collections are unchanged.";

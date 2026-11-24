@@ -56,6 +56,8 @@ class PanelLocalization:
         pending = [root]
         while pending:
             widget = pending.pop()
+            if getattr(widget, "skip_localization", False):
+                continue
             if isinstance(widget, Gtk.Label):
                 self.bind(widget, "label")
             if isinstance(widget, Gtk.Window):

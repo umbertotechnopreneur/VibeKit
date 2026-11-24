@@ -2399,6 +2399,856 @@
       "하드웨어 · 비네트 강도",
       "硬件 · 暗角强度",
       "ハードウェア · ビネットの強さ"
+    ],
+    "Workflow": [
+      "Scaletta",
+      "Workflow",
+      "Kịch bản",
+      "Conducteur",
+      "Ablaufplan",
+      "진행표",
+      "流程表",
+      "進行表"
+    ],
+    "Project": [
+      "Progetto",
+      "Project",
+      "Dự án",
+      "Projet",
+      "Projekt",
+      "프로젝트",
+      "项目",
+      "プロジェクト"
+    ],
+    "New project": [
+      "Nuovo progetto",
+      "New project",
+      "Dự án mới",
+      "Nouveau projet",
+      "Neues Projekt",
+      "새 프로젝트",
+      "新项目",
+      "新規プロジェクト"
+    ],
+    "New workflow": [
+      "Nuova scaletta",
+      "New workflow",
+      "Kịch bản mới",
+      "Nouveau conducteur",
+      "Neuer Ablaufplan",
+      "새 진행표",
+      "新建流程表",
+      "新規進行表"
+    ],
+    "Rename workflow": [
+      "Rinomina scaletta",
+      "Rename workflow",
+      "Đổi tên kịch bản",
+      "Renommer le conducteur",
+      "Ablaufplan umbenennen",
+      "진행표 이름 변경",
+      "重命名流程表",
+      "進行表の名前を変更"
+    ],
+    "Duplicate": [
+      "Duplica",
+      "Duplicate",
+      "Nhân bản",
+      "Dupliquer",
+      "Duplizieren",
+      "복제",
+      "复制",
+      "複製"
+    ],
+    "Scene palette": [
+      "Scene disponibili",
+      "Scene palette",
+      "Bảng cảnh",
+      "Palette de scènes",
+      "Szenenpalette",
+      "장면 목록",
+      "场景面板",
+      "シーン一覧"
+    ],
+    "Selected step": [
+      "Passaggio selezionato",
+      "Selected step",
+      "Bước đã chọn",
+      "Étape sélectionnée",
+      "Ausgewählter Schritt",
+      "선택한 단계",
+      "所选步骤",
+      "選択中のステップ"
+    ],
+    "Timer": [
+      "Timer",
+      "Timer",
+      "Bộ đếm giờ",
+      "Minuteur",
+      "Timer",
+      "타이머",
+      "计时器",
+      "タイマー"
+    ],
+    "Rehearse": [
+      "Prova",
+      "Rehearse",
+      "Diễn tập",
+      "Répéter",
+      "Proben",
+      "예행 연습",
+      "排练",
+      "リハーサル"
+    ],
+    "Play in OBS": [
+      "Avvia scaletta in OBS",
+      "Play in OBS",
+      "Phát trong OBS",
+      "Lancer dans OBS",
+      "In OBS abspielen",
+      "OBS에서 재생",
+      "在 OBS 中播放",
+      "OBS で再生"
+    ],
+    "Free timer": [
+      "Timer libero",
+      "Free timer",
+      "Bộ đếm độc lập",
+      "Minuteur libre",
+      "Freier Timer",
+      "독립 타이머",
+      "独立计时器",
+      "単独タイマー"
+    ],
+    "Duration (seconds)": [
+      "Durata (secondi)",
+      "Duration (seconds)",
+      "Thời lượng (giây)",
+      "Durée (secondes)",
+      "Dauer (Sekunden)",
+      "길이(초)",
+      "时长（秒）",
+      "長さ（秒）"
+    ],
+    "Target (seconds)": [
+      "Obiettivo (secondi)",
+      "Target (seconds)",
+      "Mục tiêu (giây)",
+      "Objectif (secondes)",
+      "Ziel (Sekunden)",
+      "목표(초)",
+      "目标（秒）",
+      "目標（秒）"
+    ],
+    "Note": [
+      "Promemoria",
+      "Note",
+      "Ghi chú",
+      "Note",
+      "Notiz",
+      "메모",
+      "备注",
+      "メモ"
+    ],
+    "Move left": [
+      "Sposta a sinistra",
+      "Move left",
+      "Di chuyển sang trái",
+      "Déplacer à gauche",
+      "Nach links",
+      "왼쪽으로 이동",
+      "向左移动",
+      "左に移動"
+    ],
+    "Move right": [
+      "Sposta a destra",
+      "Move right",
+      "Di chuyển sang phải",
+      "Déplacer à droite",
+      "Nach rechts",
+      "오른쪽으로 이동",
+      "向右移动",
+      "右に移動"
+    ],
+    "Remove": [
+      "Rimuovi",
+      "Remove",
+      "Xóa",
+      "Retirer",
+      "Entfernen",
+      "제거",
+      "移除",
+      "削除"
+    ],
+    "Save step": [
+      "Salva passaggio",
+      "Save step",
+      "Lưu bước",
+      "Enregistrer l’étape",
+      "Schritt speichern",
+      "단계 저장",
+      "保存步骤",
+      "ステップを保存"
+    ],
+    "Save changes": [
+      "Salva modifiche",
+      "Save changes",
+      "Lưu thay đổi",
+      "Enregistrer les modifications",
+      "Änderungen speichern",
+      "변경 사항 저장",
+      "保存更改",
+      "変更を保存"
+    ],
+    "Next": [
+      "Avanti",
+      "Next",
+      "Tiếp",
+      "Suivant",
+      "Weiter",
+      "다음",
+      "下一步",
+      "次へ"
+    ],
+    "Stop": [
+      "Ferma",
+      "Stop",
+      "Dừng",
+      "Arrêter",
+      "Stopp",
+      "중지",
+      "停止",
+      "停止"
+    ],
+    "Open timer": [
+      "Apri timer",
+      "Open timer",
+      "Mở bộ đếm giờ",
+      "Ouvrir le minuteur",
+      "Timer öffnen",
+      "타이머 열기",
+      "打开计时器",
+      "タイマーを開く"
+    ],
+    "Start timer": [
+      "Avvia timer",
+      "Start timer",
+      "Bắt đầu đếm giờ",
+      "Démarrer le minuteur",
+      "Timer starten",
+      "타이머 시작",
+      "启动计时器",
+      "タイマー開始"
+    ],
+    "Free timer (seconds)": [
+      "Timer libero (secondi)",
+      "Free timer (seconds)",
+      "Bộ đếm độc lập (giây)",
+      "Minuteur libre (secondes)",
+      "Freier Timer (Sekunden)",
+      "독립 타이머(초)",
+      "独立计时器（秒）",
+      "単独タイマー（秒）"
+    ],
+    "Total": [
+      "Totale",
+      "Total",
+      "Tổng cộng",
+      "Total",
+      "Gesamt",
+      "합계",
+      "总计",
+      "合計"
+    ],
+    "Target": [
+      "Obiettivo",
+      "Target",
+      "Mục tiêu",
+      "Objectif",
+      "Ziel",
+      "목표",
+      "目标",
+      "目標"
+    ],
+    "over target": [
+      "oltre l’obiettivo",
+      "over target",
+      "vượt mục tiêu",
+      "au-delà de l’objectif",
+      "über dem Ziel",
+      "목표 초과",
+      "超出目标",
+      "目標超過"
+    ],
+    "under target": [
+      "sotto l’obiettivo",
+      "under target",
+      "dưới mục tiêu",
+      "sous l’objectif",
+      "unter dem Ziel",
+      "목표 미만",
+      "低于目标",
+      "目標未満"
+    ],
+    "Time target": [
+      "Durata obiettivo",
+      "Time target",
+      "Mục tiêu thời gian",
+      "Durée cible",
+      "Zeitvorgabe",
+      "목표 시간",
+      "目标时长",
+      "目標時間"
+    ],
+    "Save target": [
+      "Salva obiettivo",
+      "Save target",
+      "Lưu mục tiêu",
+      "Enregistrer l’objectif",
+      "Ziel speichern",
+      "목표 저장",
+      "保存目标",
+      "目標を保存"
+    ],
+    "Use 0 for no target.": [
+      "Inserisci 0 per omettere l’obiettivo.",
+      "Use 0 for no target.",
+      "Nhập 0 để bỏ mục tiêu.",
+      "Saisissez 0 pour désactiver l’objectif.",
+      "0 deaktiviert die Zeitvorgabe.",
+      "목표를 끄려면 0을 입력하세요.",
+      "输入 0 可关闭目标。",
+      "目標を設定しない場合は 0 を入力します。"
+    ],
+    "Drag scenes here or choose a scene below.": [
+      "Trascina qui le scene o scegline una sotto.",
+      "Drag scenes here or choose a scene below.",
+      "Kéo cảnh vào đây hoặc chọn một cảnh bên dưới.",
+      "Glissez les scènes ici ou choisissez-en une ci-dessous.",
+      "Szenen hierher ziehen oder unten auswählen.",
+      "장면을 여기로 끌거나 아래에서 선택하세요.",
+      "将场景拖到这里，或在下方选择。",
+      "シーンをここにドラッグするか、下から選択してください。"
+    ],
+    "Save": [
+      "Salva",
+      "Save",
+      "Lưu",
+      "Enregistrer",
+      "Speichern",
+      "저장",
+      "保存",
+      "保存"
+    ],
+    "Discard": [
+      "Scarta",
+      "Discard",
+      "Bỏ qua",
+      "Abandonner",
+      "Verwerfen",
+      "버리기",
+      "放弃",
+      "破棄"
+    ],
+    "Discard unsaved card changes?": [
+      "Scartare le modifiche ai cartelli?",
+      "Discard unsaved card changes?",
+      "Bỏ thay đổi thẻ chưa lưu?",
+      "Abandonner les modifications des cartons ?",
+      "Ungespeicherte Kartenänderungen verwerfen?",
+      "저장하지 않은 카드 변경 사항을 버릴까요?",
+      "放弃未保存的卡片更改？",
+      "カードの未保存の変更を破棄しますか？"
+    ],
+    "Manual control.": [
+      "Controllo manuale.",
+      "Manual control.",
+      "Điều khiển thủ công.",
+      "Commande manuelle.",
+      "Manuelle Steuerung.",
+      "수동 제어.",
+      "手动控制。",
+      "手動操作。"
+    ],
+    "Workflow stopped.": [
+      "Scaletta interrotta.",
+      "Workflow stopped.",
+      "Kịch bản đã dừng.",
+      "Conducteur arrêté.",
+      "Ablaufplan gestoppt.",
+      "진행표 중지됨.",
+      "流程表已停止。",
+      "進行を停止しました。"
+    ],
+    "Workflow could not be saved.": [
+      "Salvataggio della scaletta non riuscito.",
+      "Workflow could not be saved.",
+      "Không lưu được kịch bản.",
+      "Échec de l’enregistrement du conducteur.",
+      "Ablaufplan konnte nicht gespeichert werden.",
+      "진행표를 저장하지 못했습니다.",
+      "无法保存流程表。",
+      "進行表を保存できませんでした。"
+    ],
+    "Wait for project cards to finish.": [
+      "Attendi il completamento dei cartelli.",
+      "Wait for project cards to finish.",
+      "Chờ thẻ dự án hoàn tất.",
+      "Attendez la fin des cartons du projet.",
+      "Auf die Projektkarten warten.",
+      "프로젝트 카드가 완료될 때까지 기다리세요.",
+      "请等待项目卡片处理完成。",
+      "カードの処理完了をお待ちください。"
+    ],
+    "Use zero for no target.": [
+      "Inserisci 0 per omettere l’obiettivo.",
+      "Use zero for no target.",
+      "Nhập 0 để bỏ mục tiêu.",
+      "Saisissez 0 pour désactiver l’objectif.",
+      "0 deaktiviert die Zeitvorgabe.",
+      "목표를 끄려면 0을 입력하세요.",
+      "输入 0 可关闭目标。",
+      "目標を設定しない場合は 0 を入力します。"
+    ],
+    "Drag a scene here or choose one below.": [
+      "Trascina qui le scene o scegline una sotto.",
+      "Drag a scene here or choose one below.",
+      "Kéo cảnh vào đây hoặc chọn một cảnh bên dưới.",
+      "Glissez les scènes ici ou choisissez-en une ci-dessous.",
+      "Szenen hierher ziehen oder unten auswählen.",
+      "장면을 여기로 끌거나 아래에서 선택하세요.",
+      "将场景拖到这里，或在下方选择。",
+      "シーンをここにドラッグするか、下から選択してください。"
+    ],
+    "Running": [
+      "In corso",
+      "Running",
+      "Đang chạy",
+      "En cours",
+      "Läuft",
+      "진행 중",
+      "进行中",
+      "実行中"
+    ],
+    "Finished": [
+      "Terminata",
+      "Finished",
+      "Đã kết thúc",
+      "Terminé",
+      "Beendet",
+      "완료",
+      "已完成",
+      "完了"
+    ],
+    "Stopped": [
+      "Interrotta",
+      "Stopped",
+      "Đã dừng",
+      "Arrêté",
+      "Gestoppt",
+      "중지됨",
+      "已停止",
+      "停止済み"
+    ],
+    "Paused": [
+      "In pausa",
+      "Paused",
+      "Đã tạm dừng",
+      "En pause",
+      "Pausiert",
+      "일시정지됨",
+      "已暂停",
+      "一時停止中"
+    ],
+    "Rehearsal": [
+      "Prova",
+      "Rehearsal",
+      "Diễn tập",
+      "Répétition",
+      "Probe",
+      "예행 연습",
+      "排练",
+      "リハーサル"
+    ],
+    "Remaining": [
+      "Tempo residuo",
+      "Remaining",
+      "Còn lại",
+      "Temps restant",
+      "Verbleibend",
+      "남은 시간",
+      "剩余时间",
+      "残り時間"
+    ],
+    "Stop workflow": [
+      "Ferma scaletta",
+      "Stop workflow",
+      "Dừng kịch bản",
+      "Arrêter le conducteur",
+      "Ablaufplan stoppen",
+      "진행표 중지",
+      "停止流程表",
+      "進行を停止"
+    ],
+    "Checking OBS…": [
+      "Verifica di OBS…",
+      "Checking OBS…",
+      "Đang kiểm tra OBS…",
+      "Vérification d’OBS…",
+      "OBS wird geprüft…",
+      "OBS 확인 중…",
+      "正在检查 OBS…",
+      "OBS を確認中…"
+    ],
+    "Changing scene…": [
+      "Cambio scena…",
+      "Changing scene…",
+      "Đang đổi cảnh…",
+      "Changement de scène…",
+      "Szenenwechsel…",
+      "장면 변경 중…",
+      "正在切换场景…",
+      "シーン切り替え中…"
+    ],
+    "Workflow finished.": [
+      "Scaletta terminata.",
+      "Workflow finished.",
+      "Kịch bản hoàn tất.",
+      "Conducteur terminé.",
+      "Ablaufplan beendet.",
+      "진행이 완료되었습니다.",
+      "流程表已完成。",
+      "進行が完了しました。"
+    ],
+    "Timer stopped.": [
+      "Timer fermato.",
+      "Timer stopped.",
+      "Đã dừng bộ đếm giờ.",
+      "Minuteur arrêté.",
+      "Timer gestoppt.",
+      "타이머 중지됨.",
+      "计时器已停止。",
+      "タイマーを停止しました。"
+    ],
+    "Missing scenes": [
+      "Scene mancanti",
+      "Missing scenes",
+      "Cảnh bị thiếu",
+      "Scènes manquantes",
+      "Fehlende Szenen",
+      "누락된 장면",
+      "缺少场景",
+      "不足しているシーン"
+    ],
+    "Scene change stopped": [
+      "Cambio scena interrotto",
+      "Scene change stopped",
+      "Đã dừng đổi cảnh",
+      "Changement de scène interrompu",
+      "Szenenwechsel gestoppt",
+      "장면 변경 중지",
+      "场景切换已停止",
+      "シーン切り替え停止"
+    ],
+    "Recording interrupted.": [
+      "Registrazione interrotta.",
+      "Recording interrupted.",
+      "Ghi hình bị gián đoạn.",
+      "Enregistrement interrompu.",
+      "Aufnahme unterbrochen.",
+      "녹화 중단됨.",
+      "录制已中断。",
+      "録画が中断されました。"
+    ],
+    "OBS scene changed manually.": [
+      "La scena OBS è stata cambiata manualmente.",
+      "OBS scene changed manually.",
+      "Cảnh OBS đã được đổi thủ công.",
+      "La scène OBS a été changée manuellement.",
+      "OBS-Szene manuell geändert.",
+      "OBS 장면이 수동으로 변경되었습니다.",
+      "OBS 场景已被手动更改。",
+      "OBS のシーンが手動で変更されました。"
+    ],
+    "OBS unavailable.": [
+      "OBS non disponibile.",
+      "OBS unavailable.",
+      "OBS không khả dụng.",
+      "OBS indisponible.",
+      "OBS nicht verfügbar.",
+      "OBS를 사용할 수 없습니다.",
+      "OBS 不可用。",
+      "OBS を利用できません。"
+    ],
+    "OBS disconnected.": [
+      "OBS disconnesso.",
+      "OBS disconnected.",
+      "Đã ngắt kết nối OBS.",
+      "OBS déconnecté.",
+      "OBS getrennt.",
+      "OBS 연결 끊김.",
+      "OBS 已断开。",
+      "OBS から切断されました。"
+    ],
+    "OBS status is unconfirmed.": [
+      "Stato di OBS da verificare.",
+      "OBS status is unconfirmed.",
+      "Chưa xác nhận trạng thái OBS.",
+      "État d’OBS à vérifier.",
+      "OBS-Status unbestätigt.",
+      "OBS 상태가 확인되지 않았습니다.",
+      "OBS 状态尚未确认。",
+      "OBS の状態を確認できません。"
+    ],
+    "Recording stop requested.": [
+      "Arresto della registrazione richiesto.",
+      "Recording stop requested.",
+      "Đã yêu cầu dừng ghi.",
+      "Arrêt de l’enregistrement demandé.",
+      "Aufnahmestopp angefordert.",
+      "녹화 중지 요청됨.",
+      "已请求停止录制。",
+      "録画停止が要求されました。"
+    ],
+    "Check recording in OBS.": [
+      "Controlla la registrazione in OBS.",
+      "Check recording in OBS.",
+      "Kiểm tra bản ghi trong OBS.",
+      "Vérifiez l’enregistrement dans OBS.",
+      "Aufnahme in OBS prüfen.",
+      "OBS에서 녹화를 확인하세요.",
+      "请在 OBS 中检查录制状态。",
+      "OBS で録画状態を確認してください。"
+    ],
+    "OBS is recording.": [
+      "OBS sta registrando.",
+      "OBS is recording.",
+      "OBS đang ghi hình.",
+      "OBS enregistre.",
+      "OBS nimmt auf.",
+      "OBS 녹화 중.",
+      "OBS 正在录制。",
+      "OBS は録画中です。"
+    ],
+    "OBS is not recording.": [
+      "OBS è fermo.",
+      "OBS is not recording.",
+      "OBS không ghi hình.",
+      "OBS n’enregistre pas.",
+      "OBS nimmt nicht auf.",
+      "OBS 녹화 중이 아닙니다.",
+      "OBS 未在录制。",
+      "OBS は録画していません。"
+    ],
+    "Connect to OBS before playing the workflow.": [
+      "Collegati a OBS prima di avviare la scaletta.",
+      "Connect to OBS before playing the workflow.",
+      "Kết nối OBS trước khi phát kịch bản.",
+      "Connectez OBS avant de lancer le conducteur.",
+      "Vor dem Start mit OBS verbinden.",
+      "진행하기 전에 OBS에 연결하세요.",
+      "播放前请先连接 OBS。",
+      "再生前に OBS に接続してください。"
+    ],
+    "The OBS scene collection changed.": [
+      "La raccolta scene di OBS è cambiata.",
+      "The OBS scene collection changed.",
+      "Bộ sưu tập cảnh OBS đã thay đổi.",
+      "La collection de scènes OBS a changé.",
+      "Die OBS-Szenensammlung wurde geändert.",
+      "OBS 장면 모음이 변경되었습니다.",
+      "OBS 场景集合已更改。",
+      "OBS のシーンコレクションが変更されました。"
+    ],
+    "Recording was paused or stopped.": [
+      "La registrazione è stata messa in pausa o fermata.",
+      "Recording was paused or stopped.",
+      "Ghi hình đã tạm dừng hoặc dừng.",
+      "L’enregistrement a été suspendu ou arrêté.",
+      "Die Aufnahme wurde pausiert oder gestoppt.",
+      "녹화가 일시정지 또는 중지되었습니다.",
+      "录制已暂停或停止。",
+      "録画が一時停止または停止されました。"
+    ],
+    "OBS did not confirm the requested scene.": [
+      "OBS non ha confermato la scena richiesta.",
+      "OBS did not confirm the requested scene.",
+      "OBS chưa xác nhận cảnh yêu cầu.",
+      "OBS n’a pas confirmé la scène demandée.",
+      "OBS hat die Szene nicht bestätigt.",
+      "OBS가 요청된 장면을 확인하지 않았습니다.",
+      "OBS 未确认请求的场景。",
+      "OBS で指定シーンを確認できませんでした。"
+    ],
+    "Workflow library could not be opened. The saved file was preserved.": [
+      "Impossibile aprire le scalette. Il file salvato è stato conservato.",
+      "Workflow library could not be opened. The saved file was preserved.",
+      "Không thể mở thư viện. Tệp đã lưu vẫn còn nguyên.",
+      "Impossible d’ouvrir les conducteurs. Le fichier enregistré est conservé.",
+      "Ablaufpläne konnten nicht geöffnet werden. Die Datei wurde beibehalten.",
+      "진행표를 열 수 없습니다. 저장 파일은 보존되었습니다.",
+      "无法打开流程表库。已保留保存的文件。",
+      "進行表を開けません。保存ファイルは保持されています。"
+    ],
+    "Select Comparison A/B manually once to calibrate it before playback.": [
+      "Prima della riproduzione, seleziona manualmente Confronto A/B per calibrare l’inquadratura.",
+      "Select Comparison A/B manually once to calibrate it before playback.",
+      "Chọn thủ công So sánh A/B để căn chỉnh trước khi phát.",
+      "Sélectionnez Comparaison A/B manuellement pour la calibrer avant la lecture.",
+      "Vergleich A/B vor der Wiedergabe einmal manuell zur Kalibrierung auswählen.",
+      "재생 전에 비교 A/B를 수동으로 선택해 보정하세요.",
+      "请先手动选择 A/B 对比进行校准，然后播放。",
+      "再生前に比較 A/B を手動で選択して調整してください。"
+    ],
+    "Switching scene…": [
+      "Cambio scena…",
+      "Switching scene…",
+      "Đang đổi cảnh…",
+      "Changement de scène…",
+      "Szenenwechsel…",
+      "장면 변경 중…",
+      "正在切换场景…",
+      "シーン切り替え中…"
+    ],
+    "Checking scenes…": [
+      "Verifica di OBS…",
+      "Checking scenes…",
+      "Đang kiểm tra OBS…",
+      "Vérification d’OBS…",
+      "OBS wird geprüft…",
+      "OBS 확인 중…",
+      "正在检查 OBS…",
+      "OBS を確認中…"
+    ],
+    "Manual scene selection.": [
+      "Controllo manuale.",
+      "Manual scene selection.",
+      "Điều khiển thủ công.",
+      "Commande manuelle.",
+      "Manuelle Steuerung.",
+      "수동 제어.",
+      "手动控制。",
+      "手動操作。"
+    ],
+    "OBS connection lost.": [
+      "OBS disconnesso.",
+      "OBS connection lost.",
+      "Đã ngắt kết nối OBS.",
+      "OBS déconnecté.",
+      "OBS getrennt.",
+      "OBS 연결 끊김.",
+      "OBS 已断开。",
+      "OBS から切断されました。"
+    ],
+    "OBS connection changed.": [
+      "OBS disconnesso.",
+      "OBS connection changed.",
+      "Đã ngắt kết nối OBS.",
+      "OBS déconnecté.",
+      "OBS getrennt.",
+      "OBS 연결 끊김.",
+      "OBS 已断开。",
+      "OBS から切断されました。"
+    ],
+    "The OBS program scene changed manually.": [
+      "La scena OBS è stata cambiata manualmente.",
+      "The OBS program scene changed manually.",
+      "Cảnh OBS đã được đổi thủ công.",
+      "La scène OBS a été changée manuellement.",
+      "OBS-Szene manuell geändert.",
+      "OBS 장면이 수동으로 변경되었습니다.",
+      "OBS 场景已被手动更改。",
+      "OBS のシーンが手動で変更されました。"
+    ],
+    "Program scene changed outside the workflow": [
+      "La scena OBS è stata cambiata manualmente.",
+      "Program scene changed outside the workflow",
+      "Cảnh OBS đã được đổi thủ công.",
+      "La scène OBS a été changée manuellement.",
+      "OBS-Szene manuell geändert.",
+      "OBS 장면이 수동으로 변경되었습니다.",
+      "OBS 场景已被手动更改。",
+      "OBS のシーンが手動で変更されました。"
+    ],
+    "The active OBS scene changed. Playback stopped.": [
+      "La scena OBS è stata cambiata manualmente.",
+      "The active OBS scene changed. Playback stopped.",
+      "Cảnh OBS đã được đổi thủ công.",
+      "La scène OBS a été changée manuellement.",
+      "OBS-Szene manuell geändert.",
+      "OBS 장면이 수동으로 변경되었습니다.",
+      "OBS 场景已被手动更改。",
+      "OBS のシーンが手動で変更されました。"
+    ],
+    "OBS did not confirm the workflow scene.": [
+      "OBS non ha confermato la scena richiesta.",
+      "OBS did not confirm the workflow scene.",
+      "OBS chưa xác nhận cảnh yêu cầu.",
+      "OBS n’a pas confirmé la scène demandée.",
+      "OBS hat die Szene nicht bestätigt.",
+      "OBS가 요청된 장면을 확인하지 않았습니다.",
+      "OBS 未确认请求的场景。",
+      "OBS で指定シーンを確認できませんでした。"
+    ],
+    "Scene change was not confirmed": [
+      "OBS non ha confermato la scena richiesta.",
+      "Scene change was not confirmed",
+      "OBS chưa xác nhận cảnh yêu cầu.",
+      "OBS n’a pas confirmé la scène demandée.",
+      "OBS hat die Szene nicht bestätigt.",
+      "OBS가 요청된 장면을 확인하지 않았습니다.",
+      "OBS 未确认请求的场景。",
+      "OBS で指定シーンを確認できませんでした。"
+    ],
+    "Apply the project to update the cards in OBS.": [
+      "Applica il progetto per aggiornare i cartelli in OBS.",
+      "Apply the project to update the cards in OBS.",
+      "Áp dụng dự án để cập nhật thẻ trong OBS.",
+      "Appliquez le projet pour actualiser les cartons dans OBS.",
+      "Projekt anwenden, um die Karten in OBS zu aktualisieren.",
+      "프로젝트를 적용해 OBS 카드를 업데이트하세요.",
+      "应用项目以更新 OBS 中的卡片。",
+      "プロジェクトを適用して OBS のカードを更新してください。"
+    ],
+    "A workflow scene is missing from the OBS collection.": [
+      "Nella raccolta OBS manca una scena della scaletta.",
+      "A workflow scene is missing from the OBS collection.",
+      "Bộ sưu tập OBS thiếu một cảnh trong kịch bản.",
+      "Une scène du conducteur manque dans la collection OBS.",
+      "Eine Szene des Ablaufplans fehlt in der OBS-Sammlung.",
+      "OBS 장면 모음에 필요한 장면이 없습니다.",
+      "OBS 场景集合中缺少流程表所需的场景。",
+      "OBS のコレクションに進行表のシーンがありません。"
+    ],
+    "Recording is paused.": [
+      "Registrazione in pausa.",
+      "Recording is paused.",
+      "Đang tạm dừng ghi hình.",
+      "Enregistrement en pause.",
+      "Aufnahme pausiert.",
+      "녹화 일시정지됨.",
+      "录制已暂停。",
+      "録画は一時停止中です。"
+    ],
+    "OBS recording status is unconfirmed.": [
+      "Stato di OBS da verificare.",
+      "OBS recording status is unconfirmed.",
+      "Chưa xác nhận trạng thái OBS.",
+      "État d’OBS à vérifier.",
+      "OBS-Status unbestätigt.",
+      "OBS 상태가 확인되지 않았습니다.",
+      "OBS 状态尚未确认。",
+      "OBS の状態を確認できません。"
+    ],
+    "Select Comparison A/B in Camera & recording to calibrate the split.": [
+      "Prima della riproduzione, seleziona manualmente Confronto A/B per calibrare l’inquadratura.",
+      "Select Comparison A/B in Camera & recording to calibrate the split.",
+      "Chọn thủ công So sánh A/B để căn chỉnh trước khi phát.",
+      "Sélectionnez Comparaison A/B manuellement pour la calibrer avant la lecture.",
+      "Vergleich A/B vor der Wiedergabe einmal manuell zur Kalibrierung auswählen.",
+      "재생 전에 비교 A/B를 수동으로 선택해 보정하세요.",
+      "请先手动选择 A/B 对比进行校准，然后播放。",
+      "再生前に比較 A/B を手動で選択して調整してください。"
     ]
   }
 }

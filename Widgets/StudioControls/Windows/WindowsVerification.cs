@@ -42,6 +42,15 @@ internal static class WindowsVerification
                 if (card.FileName == "Compare-frame.png") Require(bitmap.GetPixel(500, 500).A == 0 && bitmap.GetPixel(1800, 500).A == 0, "Comparison openings are opaque.");
                 hashes[path] = SHA256.HashData(File.ReadAllBytes(path));
             }
+            string secondDirectory = Path.Combine(temporary, "Projects", WorkflowLibrary.NewId(), "Cards");
+            var secondProject = project with { Name = "Second project", Logo = "" };
+            CardRenderer.Prepare(secondProject, CancellationToken.None, secondDirectory);
+            Require(SettingsStore.Load<ProjectSettings>(Path.Combine(secondDirectory, "project.json")).Name == secondProject.Name &&
+                SettingsStore.Load<ProjectSettings>(LocalSettings.ProjectPath).Name == project.Name,
+                "Rendering another project overwrote card metadata.");
+            Require(!hashes[Path.Combine(LocalSettings.AssetsPath, "Intro-card.png")].SequenceEqual(
+                SHA256.HashData(File.ReadAllBytes(Path.Combine(secondDirectory, "Intro-card.png")))),
+                "Project artwork was not rendered independently.");
             string brokenLogo = Path.Combine(temporary, "broken.png");
             File.WriteAllText(brokenLogo, "synthetic malformed image");
             bool rejected = false;

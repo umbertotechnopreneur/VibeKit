@@ -60,6 +60,7 @@ internal sealed class FakeTransport : IObsTransport
 
 internal sealed class FakeObs : IObsClient
 {
+    public long ConnectionGeneration { get; set; } = 1;
     public List<(string Type, JsonElement Data)> Requests { get; } = [];
     public Func<string, JsonElement, JsonElement?>? Handle { get; set; }
     public string Scene { get; set; } = "Software Demo";

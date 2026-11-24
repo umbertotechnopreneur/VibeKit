@@ -24,6 +24,60 @@ public sealed class StudioService(IObsClient client, StudioCatalog? catalog = nu
         }, cancellationToken);
     }
 
+    // Access only under operations. Explicit preflight binds one run to the current OBS collection.
+    private sealed record WorkflowSession(string Collection, string InitialScene, long Generation, bool WasRecording);
+    private WorkflowSession? workflowSession;
+
+    public Task<IReadOnlySet<string>> GetWorkflowScenesAsync(CancellationToken token = default, IEnumerable<string>? requiredScenes = null) =>
+        RunAsync<IReadOnlySet<string>>(async deadline =>
+        {
+            workflowSession = null;
+            string collection = await CurrentCollectionAsync(deadline).ConfigureAwait(false);
+            JsonElement response = await CallAsync("GetSceneList", null, deadline).ConfigureAwait(false);
+            var names = response.GetProperty("scenes").EnumerateArray()
+                .Select(scene => scene.GetProperty("sceneName").GetString() ?? throw new InvalidDataException("Invalid scene list."))
+                .ToHashSet(StringComparer.Ordinal);
+            JsonElement status = await CallAsync("GetRecordStatus", null, deadline).ConfigureAwait(false);
+            if (requiredScenes?.Contains("Comparison A-B") == true && names.Contains("Comparison A-B"))
+                await CheckComparisonAsync(deadline).ConfigureAwait(false);
+            if (status.GetProperty("outputPaused").GetBoolean())
+                throw new InvalidOperationException("Recording is paused.");
+            workflowSession = new(collection, response.GetProperty("currentProgramSceneName").GetString()
+                ?? throw new InvalidDataException("Invalid active scene."), client.ConnectionGeneration, status.GetProperty("outputActive").GetBoolean());
+            return names;
+        }, token);
+
+    private async Task<string> CurrentCollectionAsync(CancellationToken token) =>
+        (await CallAsync("GetSceneCollectionList", null, token).ConfigureAwait(false))
+            .GetProperty("currentSceneCollectionName").GetString() ?? throw new InvalidDataException("Invalid scene collection.");
+
+    public Task SetWorkflowSceneAsync(string scene, string? expectedCurrent, CancellationToken token = default)
+    {
+        if (!catalog.Scenes.Any(item => item.Name == scene)) throw new ArgumentException("Unknown workflow scene.");
+        return RunAsync(async deadline =>
+        {
+            var session = workflowSession ?? throw new InvalidOperationException("Check the workflow scenes before playback.");
+            workflowSession = null; // A failure or uncertain outcome requires a new explicit preflight.
+            if (await CurrentCollectionAsync(deadline).ConfigureAwait(false) != session.Collection)
+                throw new InvalidOperationException("The OBS scene collection changed.");
+            JsonElement status = await CallAsync("GetRecordStatus", null, deadline).ConfigureAwait(false);
+            bool recording = status.GetProperty("outputActive").GetBoolean();
+            if (status.GetProperty("outputPaused").GetBoolean() || (session.WasRecording && !recording))
+                throw new InvalidOperationException("Recording was paused or stopped.");
+            if (scene == "Comparison A-B") await CheckComparisonAsync(deadline).ConfigureAwait(false);
+            string expected = expectedCurrent ?? session.InitialScene;
+            if (!await IsCurrentSceneAsync(expected, deadline).ConfigureAwait(false))
+                throw new InvalidOperationException("The active OBS scene changed. Playback stopped.");
+            if (session.Generation != client.ConnectionGeneration) throw new InvalidOperationException("OBS connection changed.");
+            if (scene != expected)
+                await CallAsync("SetCurrentProgramScene", new { sceneName = scene }, deadline).ConfigureAwait(false);
+            if (!await IsCurrentSceneAsync(scene, deadline).ConfigureAwait(false))
+                throw new InvalidOperationException("OBS did not confirm the requested scene.");
+            workflowSession = session with { WasRecording = recording };
+            return true;
+        }, token);
+    }
+
     public Task<StudioStatus> SetRecordingAsync(bool start, CancellationToken cancellationToken = default) => RunAsync(async token =>
     {
         JsonElement response = await CallAsync(start ? "StartRecord" : "StopRecord", null, token).ConfigureAwait(false);
@@ -260,7 +314,9 @@ public sealed class StudioService(IObsClient client, StudioCatalog? catalog = nu
         return status with { ActionSucceeded = true, OutputPath = outputPath, Warnings = [.. status.Warnings, .. warnings ?? []] };
     }
 
-    private async Task PrepareComparisonAsync(string sceneName, CancellationToken token)
+    private sealed record ComparisonItem(JsonElement Item, int Left, int Right);
+
+    private async Task<ComparisonItem[]> ComparisonCropsAsync(string sceneName, CancellationToken token)
     {
         JsonElement response = await CallAsync("GetSceneItemList", new { sceneName }, token).ConfigureAwait(false);
         JsonElement[] screens = response.GetProperty("sceneItems").EnumerateArray()
@@ -269,14 +325,30 @@ public sealed class StudioService(IObsClient client, StudioCatalog? catalog = nu
         if (screens.Length != 2) throw new ObsRequestException("Comparison", null, "The comparison scene needs exactly two screen items");
         int[] widths = screens.Select(item => ScreenFraming.Dimension(item.GetProperty("sceneItemTransform"), "sourceWidth")).ToArray();
         if (widths.Any(width => width <= 1)) throw new ObsRequestException("Comparison", null, "The screen capture is not ready");
-        foreach ((JsonElement item, int index) in screens.Select((item, index) => (item, index)))
+        return screens.Select((item, index) => new ComparisonItem(item,
+            index == 0 ? 0 : widths[index] / 2,
+            index == 0 ? widths[index] - widths[index] / 2 : 0)).ToArray();
+    }
+
+    private async Task CheckComparisonAsync(CancellationToken token)
+    {
+        foreach (var crop in await ComparisonCropsAsync("Comparison A-B", token).ConfigureAwait(false))
         {
-            int width = widths[index];
-            int split = width / 2;
+            var transform = crop.Item.GetProperty("sceneItemTransform");
+            if (JsonRead.Number(transform, "cropLeft") != crop.Left || JsonRead.Number(transform, "cropRight") != crop.Right ||
+                JsonRead.Number(transform, "cropTop") != 0 || JsonRead.Number(transform, "cropBottom") != 0)
+                throw new InvalidOperationException("Select Comparison A/B manually once to calibrate it before playback.");
+        }
+    }
+
+    private async Task PrepareComparisonAsync(string sceneName, CancellationToken token)
+    {
+        foreach (var crop in await ComparisonCropsAsync(sceneName, token).ConfigureAwait(false))
+        {
             await CallAsync("SetSceneItemTransform", new
             {
-                sceneName, sceneItemId = item.GetProperty("sceneItemId").GetInt64(),
-                sceneItemTransform = new { cropLeft = index == 0 ? 0 : split, cropRight = index == 0 ? width - split : 0, cropTop = 0, cropBottom = 0 }
+                sceneName, sceneItemId = crop.Item.GetProperty("sceneItemId").GetInt64(),
+                sceneItemTransform = new { cropLeft = crop.Left, cropRight = crop.Right, cropTop = 0, cropBottom = 0 }
             }, token).ConfigureAwait(false);
         }
     }

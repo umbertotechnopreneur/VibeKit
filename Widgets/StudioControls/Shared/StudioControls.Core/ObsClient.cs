@@ -7,6 +7,7 @@ namespace VibeKit.StudioControls.Core;
 
 public interface IObsClient
 {
+    long ConnectionGeneration { get; }
     Task<JsonElement> CallAsync(string requestType, object? data = null, CancellationToken cancellationToken = default);
 }
 
@@ -78,6 +79,8 @@ public sealed class ObsClient : IObsClient, IAsyncDisposable
     private readonly TimeSpan requestTimeout;
     private readonly Action<string>? reportCleanupFailure;
     private IObsTransport? transport;
+    private long connectionGeneration;
+    public long ConnectionGeneration => Interlocked.Read(ref connectionGeneration);
     private bool identified;
     private volatile bool disposed;
 
@@ -187,6 +190,7 @@ public sealed class ObsClient : IObsClient, IAsyncDisposable
         using JsonDocument response = JsonDocument.Parse(await transport.ReceiveAsync(cancellationToken).ConfigureAwait(false));
         if (response.RootElement.GetProperty("op").GetInt32() != 2)
             throw new InvalidDataException("OBS did not accept authentication.");
+        Interlocked.Increment(ref connectionGeneration);
         identified = true;
     }
 

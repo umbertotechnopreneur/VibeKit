@@ -98,7 +98,12 @@ public sealed partial class MainWindow
             Grid.SetColumn(labels, 1); content.Children.Add(labels);
             button.Content = content;
             ToolTipService.SetToolTip(button, definition.Title + "\n" + definition.Description);
-            button.Click += async (_, _) => await CommandAsync("scene", token => service!.SetSceneAsync(style.Name, token));
+            button.Click += async (_, _) =>
+            {
+                bool takeover = LiveCheckActive;
+                InterruptLivePlayback("Manual scene selection.");
+                await CommandAsync("scene", token => service!.SetSceneAsync(style.Name, token), takeover);
+            };
             Grid.SetRow(button, index / 2); Grid.SetColumn(button, index % 2); scenes.Children.Add(button);
             sceneButtons[style.Name] = button; sceneIcons[style.Name] = icon;
         }

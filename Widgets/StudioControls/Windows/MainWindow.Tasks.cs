@@ -5,7 +5,7 @@ namespace VibeKit.StudioControls.Windows;
 
 public sealed partial class MainWindow
 {
-    private bool cameraSuspended;
+    private bool cameraSuspended, manualTakeoverPending;
 
     private async Task ConnectAsync()
     {
@@ -58,9 +58,10 @@ public sealed partial class MainWindow
 
     private async Task DisconnectAsync()
     {
-        polling.Stop(); effectsTimer.Stop(); pendingEffects.Clear();
+        InterruptLivePlayback("OBS disconnected.");
         if (service is not null && !await obsGate.WaitAsync(0, lifetime.Token))
             throw new InvalidOperationException("Wait for the current OBS action before disconnecting.");
+        polling.Stop(); effectsTimer.Stop(); pendingEffects.Clear();
         bool ownsGate = service is not null;
         try
         {
@@ -86,12 +87,26 @@ public sealed partial class MainWindow
         finally { pollBusy = false; obsGate.Release(); }
     }
 
-    private async Task CommandAsync(string operation, Func<CancellationToken, Task<StudioStatus>> action)
+    private async Task CommandAsync(string operation, Func<CancellationToken, Task<StudioStatus>> action, bool takeover = false)
     {
-        if (closed || service is null || stopPending) return;
-        if (!await obsGate.WaitAsync(0, lifetime.Token))
+        if (closed || service is null || stopPending || manualTakeoverPending) return;
+        // A deliberate scene or pause command can follow an already-sent automation
+        // request. The command is submitted only once, after rechecking Stop.
+        if (takeover) { manualTakeoverPending = true; UpdateEnabled(true); }
+        bool acquired;
+        try { acquired = await obsGate.WaitAsync(takeover ? 12000 : 0, lifetime.Token); }
+        catch (OperationCanceledException) when (closed) { return; }
+        finally { if (takeover) manualTakeoverPending = false; }
+        if (!acquired)
         {
             notice.Text = "An OBS request is finishing. Try again in a moment.";
+            UpdateEnabled(state?.ConnectionAvailable == true);
+            return;
+        }
+        if (closed || stopPending || service is null || state?.ConnectionAvailable != true)
+        {
+            obsGate.Release();
+            if (!closed) UpdateEnabled(state?.ConnectionAvailable == true);
             return;
         }
         commandBusy = true;
@@ -116,6 +131,7 @@ public sealed partial class MainWindow
     private async Task StopRecordingAsync()
     {
         if (closed || stopPending || service is null || state?.ConnectionAvailable != true) return;
+        InterruptLivePlayback("Recording stop requested.");
         stopPending = true;
         pendingEffects.Clear(); effectsTimer.Stop();
         stop.Content = "Stop requested…";
@@ -171,6 +187,7 @@ public sealed partial class MainWindow
     {
         if (closed) return;
         if (result.SceneName != state?.SceneName) pendingEffects.Remove("screen");
+        ObserveWorkflowStatus(result);
         state = result;
         if (!result.ConnectionAvailable)
         {
@@ -198,11 +215,12 @@ public sealed partial class MainWindow
                 + (result.AudioMutes.TryGetValue(name, out bool muted) ? muted ? "MUTED" : "ON" : "unavailable");
         ApplyTheme();
         UpdateEnabled(result.ConnectionAvailable);
+        if (player.Mode == WorkflowMode.Live && player.State == WorkflowState.Finished) RefreshPlayback();
     }
 
     private void UpdateEnabled(bool connected)
     {
-        bool ready = connected && !commandBusy && !connecting && !stopPending;
+        bool ready = connected && !commandBusy && !connecting && !stopPending && !manualTakeoverPending;
         foreach (var button in sceneButtons.Values) button.IsEnabled = ready;
         record.IsEnabled = ready && state?.IsRecording != true;
         stop.IsEnabled = connected && !connecting && !stopPending && state?.IsRecording == true;
@@ -214,13 +232,14 @@ public sealed partial class MainWindow
         screenX.IsEnabled = screenY.IsEnabled = screenZoom.IsEnabled && screenZoom.Value > 1;
         foreach (var (key, controls) in vignettes)
             controls.Toggle.IsEnabled = controls.Slider.IsEnabled = ready && state?.Vignettes.ContainsKey(key) == true;
-        apply.IsEnabled = !rendering;
+        UpdateWorkflowControls();
     }
 
     private void Offline(Exception error)
     {
         Diagnostics.Record("obs.connection", error);
         if (closed) return;
+        InterruptLivePlayback("OBS connection lost.");
         polling.Stop(); effectsTimer.Stop(); pendingEffects.Clear();
         if (state is not null) state = state with { ConnectionAvailable = false, IsFresh = false };
         status.Text = state is null ? "Waiting for OBS · open OBS with WebSocket enabled, then Connect."
@@ -324,6 +343,7 @@ public sealed partial class MainWindow
     {
         if (closed) return;
         closed = true; lifetime.Cancel();
+        CloseWorkflow();
         polling.Stop(); effectsTimer.Stop(); cameraTimer.Stop(); smokeTimer?.Stop();
         pendingEffects.Clear(); pendingCamera.Clear();
         systemSettings.ColorValuesChanged -= SystemThemeChanged;

@@ -21,7 +21,7 @@ internal static class UiSmoke
 
     public static void Complete()
     {
-        WriteReport("PASS: native WinUI window opened; Light/Dark/System preferences changed; window closed. No OBS connection, camera controller, enumeration or capture was created.");
+        WriteReport("PASS: native WinUI window, themes, localization, persisted workflow sequence and detached rehearsal timer verified. No OBS connection, camera controller, enumeration or capture was created.");
         Passed = true;
     }
 

@@ -20,7 +20,8 @@ from camera_controls import (
 )
 from panel_config import load_screen_presets
 from localization import LANGUAGES, load_language, save_language
-from studio_paths import working_assets
+from studio_paths import user_data_home, working_assets
+from workflows import WorkflowLibrary, LEGACY_PROJECT_ID
 from panel_theme import SCENE_COLORS, THEMES, load_theme, save_theme, resolve_theme, theme_css
 from diagnostics import configure_diagnostics, export_diagnostics, get_logger
 from memory_watchdog import start_watchdog
@@ -32,6 +33,7 @@ gi.require_version("GdkX11", "4.0")
 from gi.repository import Gio, GLib, Gtk, Gdk, Pango  # noqa: E402 — select GI versions before importing
 from window_placement import move_to_side_monitor  # noqa: E402 — imports selected GI types
 
+from workflow_panel import WorkflowPanel  # noqa: E402
 from gtk_localization import PanelLocalization  # noqa: E402 — GTK versions selected above
 
 logger = get_logger(__name__)
@@ -87,6 +89,9 @@ SCENE_SUBTITLES = {
 
 
 class BrioPanel(Gtk.Application):
+    workflow = None
+    library = None
+
     def __init__(self):
         super().__init__(application_id="biz.jacobi.BrioControls")
         self.localizer = PanelLocalization(load_language())
@@ -95,7 +100,8 @@ class BrioPanel(Gtk.Application):
         self.pending = {}
         self.syncing = False
         self.presets = load_presets()
-        self.obs = OBS(assets_root=working_assets())
+        self.legacy_assets = working_assets()
+        self.obs = OBS(assets_root=self.legacy_assets)
         self.worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="obs")
         self.polling = False
         self.action_busy = False
@@ -115,6 +121,17 @@ class BrioPanel(Gtk.Application):
         self.vignette_values = {}
         self.vignette_controls = {}
         self.title_values = load_config()
+        self.workflow_directory = user_data_home() / "VibeWare/StudioControls"
+        self.library_error = None
+        self.card_project_id = None
+        self.card_drafts = {}
+        try:
+            self.library = WorkflowLibrary(
+                self.workflow_directory / "workflows.json", self.title_values["name"]
+            )
+            self.switch_card_project()
+        except (ValueError, OSError) as error:
+            self.library_error = str(error)
         self.applying_titles = False
         self.paused = False
         self.audio_mutes = {}
@@ -192,6 +209,10 @@ class BrioPanel(Gtk.Application):
         self.build_vignettes(effect_column)
         self.build_recording_controls(scenes_box)
         self.build_screen_controls(screen_column)
+        if self.library is None:
+            self.add_tab(tabs, Gtk.Label(label=self.library_error, wrap=True), "Workflow")
+        else:
+            self.workflow = WorkflowPanel(self, self.library, SCENES)
         self.localizer.attach(self.window)
         self.refresh()
         self.poll_obs()
@@ -205,6 +226,8 @@ class BrioPanel(Gtk.Application):
             return
         code = LANGUAGES[dropdown.get_selected()][0]
         self.localizer.select(code)
+        if self.workflow:
+            self.workflow.refresh()
         try:
             save_language(code)
         except OSError:
@@ -433,7 +456,7 @@ class BrioPanel(Gtk.Application):
             row.append(labels)
             button.set_child(row)
             button.set_tooltip_text(label + "\n" + description)
-            button.connect("clicked", lambda _, n=name: self.perform(self.obs.scene, n))
+            button.connect("clicked", lambda _, n=name: self.manual_scene(n))
             button.set_sensitive(False)
             scene_grid.attach(button, index % 2, index // 2, 1, 1)
             self.scene_buttons[name] = button
@@ -445,13 +468,13 @@ class BrioPanel(Gtk.Application):
         self.record_button = Gtk.Button(label="●  Start recording")
         self.record_button.set_sensitive(False)
         self.record_button.connect(
-            "clicked", lambda _: self.perform(self.obs.record, not self.recording)
+            "clicked", lambda _: self.manual_record()
         )
         scenes_box.append(self.record_button)
         self.pause_button = Gtk.Button(label="Pause recording")
         self.pause_button.set_sensitive(False)
         self.pause_button.connect(
-            "clicked", lambda _: self.perform(self.obs.pause, not self.paused)
+            "clicked", lambda _: self.manual_pause()
         )
         scenes_box.append(self.pause_button)
         audio_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -558,6 +581,21 @@ class BrioPanel(Gtk.Application):
             self.submit_task(self.obs.status, (), self.obs_result, operation="poll")
         return GLib.SOURCE_CONTINUE
 
+    def manual_scene(self, name):
+        if self.workflow:
+            self.workflow.manual_override()
+        self.perform(self.obs.scene, name)
+
+    def manual_record(self):
+        if self.recording and self.workflow:
+            self.workflow.manual_override()
+        self.perform(self.obs.record, not self.recording)
+
+    def manual_pause(self):
+        if self.workflow:
+            self.workflow.manual_override()
+        self.perform(self.obs.pause, not self.paused)
+
     def perform(self, function, *args, operation=None):
         if self.action_busy or self.closing:
             return False
@@ -650,6 +688,8 @@ class BrioPanel(Gtk.Application):
                 self.applying_titles = False
                 self.title_note.set_label(str(error))
                 self.title_apply_button.set_sensitive(not self.action_busy)
+            if self.workflow:
+                self.workflow.observe({}, error)
             return GLib.SOURCE_REMOVE
 
         self.obs_connected = result.get("connectionAvailable", True)
@@ -666,6 +706,8 @@ class BrioPanel(Gtk.Application):
         self.blur_available = result.get("blurAvailable", False)
         self.blur_enabled = result.get("blurEnabled", False)
         self.update_recording_status(result)
+        if self.workflow:
+            self.workflow.observe(result)
         self.update_audio_status()
         for name, button in self.scene_buttons.items():
             if name == self.current_scene:
@@ -865,9 +907,36 @@ class BrioPanel(Gtk.Application):
         dialog.connect("response", selected)
         dialog.show()
 
-    def apply_titles(self, _):
-        if self.applying_titles or self.closing:
-            return
+    def switch_card_project(self):
+        if self.card_project_id and hasattr(self, "title_entries"):
+            self.card_drafts[self.card_project_id] = self.read_card_editor()
+        project = self.library.project
+        self.card_project_id = project["id"]
+        if self.card_project_id == LEGACY_PROJECT_ID:
+            root, config = self.legacy_assets, CONFIG
+        else:
+            root = self.workflow_directory / "projects" / self.card_project_id
+            config = root / "cards.json"
+        self.obs.select_card_project(root, config)
+        values = self.card_drafts.get(self.card_project_id)
+        if values is None:
+            values = load_config(config)
+            if not config.exists():
+                values["name"] = project["name"]
+        self.title_values = values
+        if hasattr(self, "title_entries"):
+            for key, entry in self.title_entries.items():
+                entry.set_text(values[key])
+            self.description.get_buffer().set_text(values["description"])
+            for entry, link in zip(self.link_entries, values["links"], strict=True):
+                entry.set_text(link)
+            self.logo_entry.set_text(values["logo"])
+            self.vibe_check.set_active(values["vibeware"])
+            self.sound_check.set_active(values["sound_enabled"])
+            self.sound_slider.set_value(values["sound_volume"])
+            self.title_note.set_label("Apply the project to update the cards in OBS.")
+
+    def read_card_editor(self):
         values = {key: entry.get_text() for key, entry in self.title_entries.items()}
         buffer = self.description.get_buffer()
         values["description"] = buffer.get_text(
@@ -880,6 +949,14 @@ class BrioPanel(Gtk.Application):
             sound_enabled=self.sound_check.get_active(),
             sound_volume=self.sound_slider.get_value(),
         )
+        return values
+
+    def apply_titles(self, _):
+        if self.applying_titles or self.closing:
+            return
+        values = self.read_card_editor()
+        if self.workflow:
+            self.workflow.manual_override()
         self.applying_titles = True
         self.title_apply_button.set_sensitive(False)
         self.title_note.set_label("Preparing project cards… Recording controls remain available.")
@@ -902,6 +979,13 @@ class BrioPanel(Gtk.Application):
             self.title_note.set_label("Project was not saved: " + str(error))
             self.title_apply_button.set_sensitive(not self.action_busy)
             return
+        if self.library is not None and self.library.project["name"] != result["name"]:
+            self.library.project["name"] = result["name"]
+            try:
+                self.library.save()
+            except (ValueError, OSError) as error:
+                self.workflow.notice.set_label(str(error))
+            self.workflow.refresh()
         self.prepared_titles = result
         self.title_note.set_label("Project saved locally. Applying to OBS…")
         self.apply_prepared_titles()
@@ -1027,6 +1111,8 @@ class BrioPanel(Gtk.Application):
     def visual_result(self, _result, error, _operation):
         self.visual_writing = False
         if error:
+            if self.workflow:
+                self.workflow.observe({}, error)
             self.visual_pending.clear()
             if isinstance(error, OBSConnectionError):
                 self.obs_connected = False
@@ -1183,6 +1269,8 @@ class BrioPanel(Gtk.Application):
     def do_shutdown(self):
         # Closing the panel never changes recording or resumes any device/action.
         self.closing = True
+        if self.workflow:
+            self.workflow.close()
         if self.system_settings and self.system_theme_handler is not None:
             self.system_settings.disconnect(self.system_theme_handler)
             self.system_theme_handler = None

@@ -4,6 +4,10 @@ using VibeKit.StudioControls.Core;
 
 var tests = new (string Name, Func<Task> Run)[]
 {
+    ("workflow clock, pauses, late acknowledgements and overtime", WorkflowTests.Playback),
+    ("isolated workflows, atomic saves and stale writers", WorkflowTests.Persistence),
+    ("workflow checks OBS collection, recording and manual overrides", WorkflowTests.ObsGuards),
+    ("comparison preflight and entry checks are read-only", WorkflowTests.ComparisonPreflight),
     ("shared scene catalog", Tests.Catalog),
     ("eight UI languages preserve source identifiers and filenames", Tests.Localization),
     ("loopback connection and password redaction", Tests.ConnectionSettings),

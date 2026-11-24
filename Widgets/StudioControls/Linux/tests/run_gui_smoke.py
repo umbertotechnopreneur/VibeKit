@@ -95,13 +95,15 @@ def run_child() -> int:
     class FakeOBS:
         def __init__(self, **_options):
             self.calls = []
+            self.scene_name = "Software Demo"
 
         def status(self):
             if "--offline" in sys.argv:
                 raise panel.OBSConnectionError("Test OBS: intentionally unavailable")
             return {
-                "currentProgramSceneName": "Software Demo",
+                "currentProgramSceneName": self.scene_name,
                 "outputActive": False,
+                "outputPaused": False,
                 "blurEnabled": True,
                 "blurAvailable": True,
                 "blurIntensity": 4,
@@ -112,6 +114,26 @@ def run_child() -> int:
                 },
                 "audioMutes": {"Mic/Aux": True, "Desktop Audio": True},
             }
+
+        def workflow_preflight(self, required):
+            assert set(required) == {"Intro", "Detail"}
+            return self, "Synthetic collection", self.scene_name, False
+
+        def workflow_switch(self, session, expected, scene, cancel, recording):
+            assert session[0] is self and expected == self.scene_name
+            if cancel.is_set():
+                return None
+            self.scene_name = scene
+            self.calls.append(("workflow", scene))
+            return scene, False
+
+        def scene(self, scene):
+            self.scene_name = scene
+            return self.status()
+
+        def select_card_project(self, root, settings):
+            self.assets_root = root
+            self.title_config = settings
 
         def frame_screen(self, *arguments):
             self.calls.append(("screen", arguments))
@@ -164,7 +186,7 @@ def run_child() -> int:
             assert any(
                 kind == "vignette" and args == ("screen", False, 43) for kind, args in app.obs.calls
             ), app.obs.calls
-        assert app.tabs.get_n_pages() == 3
+        assert app.tabs.get_n_pages() == 4
         app.theme_selector.set_selected(0)
         assert app.effective_theme == "light"
         assert panel.load_theme() == "light"
@@ -182,6 +204,73 @@ def run_child() -> int:
             assert app.title_values == original_project
             assert app.theme_preference == "light"
         app.language_selector.set_selected(CODES.index("en"))
+        flow = app.workflow
+
+        def drop(widget, payload, x):
+            target = next(
+                c for c in widget.observe_controllers() if isinstance(c, panel.Gtk.DropTarget)
+            )
+            return target.emit("drop", payload, x, 0)
+
+        assert drop(flow.timeline, "scene:Detail", 0)
+        assert drop(flow.timeline, "scene:Intro", 0)
+        detail, intro = flow.flow["steps"]
+        assert drop(flow.step_widgets[detail["id"]], "step:" + intro["id"], -1)
+        assert [s["scene"] for s in flow.flow["steps"]] == ["Intro", "Detail"]
+        flow.note.set_text("Synthetic cue")
+        flow.seconds.set_value(1)
+        flow.save_step()
+        assert flow.flow["steps"][0]["seconds"] == 1
+        assert flow.flow["steps"][0]["note"] == "Synthetic cue"
+
+        # Exercise selection through real Gtk.DropDown notifications.
+        old = app.library.project
+        app.title_entries["subtitle"].set_text("Unsaved synthetic draft")
+        app.library.create_project("Another project")
+        app.switch_card_project()
+        flow.refresh()
+        assert app.title_entries["name"].get_text() == "Another project"
+        assert not flow.flow["steps"]
+        flow.projects.set_selected(0)
+        assert app.library.project == old
+        assert app.title_entries["subtitle"].get_text() == "Unsaved synthetic draft"
+        assert len(flow.flow["steps"]) == 2
+        app.library.create_workflow("Copy", flow.flow)
+        flow.refresh()
+        flow.flows.set_selected(1)
+        flow.remove()
+        flow.flows.set_selected(0)
+        assert len(flow.flow["steps"]) == 2
+        flow.start(False)
+        assert flow.player.state == "running" and flow.timer_window.get_visible()
+        flow.toggle_pause()
+        assert flow.player.state == "paused"
+        flow.toggle_pause()
+        flow.next_step()
+        assert flow.player.index == 1
+        flow.stop()
+        flow.start_free()
+        assert flow.player.mode == "timer"
+        flow.stop()
+        if "--offline" not in sys.argv:
+            flow.start(True)
+            GLib.timeout_add(50, guarded(check_live))
+            return GLib.SOURCE_REMOVE
+        return success()
+
+    def check_live():
+        flow = app.workflow
+        if flow.player.state != "running":
+            return GLib.SOURCE_CONTINUE
+        if flow.player.index == 0:
+            # Advance on the confirmed scene deadline through the real GTK timer.
+            return GLib.SOURCE_CONTINUE
+        assert [scene for kind, scene in app.obs.calls if kind == "workflow"] == ["Intro", "Detail"]
+        app.manual_scene("Privacy")
+        assert flow.player.state == "stopped"
+        return success()
+
+    def success():
         result["completed"] = True
         app.quit()
         return GLib.SOURCE_REMOVE
@@ -293,7 +382,7 @@ def run_child() -> int:
         print("FAIL: isolated GTK smoke test", file=sys.stderr)
         return 1
     print(
-        "PASS: isolated GTK controls, Light/Dark/System appearance, preference persistence and native header"
+        "PASS: isolated GTK controls, appearance, workflows, project selection and detached timer"
     )
     return 0
 

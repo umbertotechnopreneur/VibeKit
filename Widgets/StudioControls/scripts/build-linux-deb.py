@@ -50,6 +50,8 @@ RUNTIME_FILES = (
     "panel_theme.py",
     "screen_framing.py",
     "studio_paths.py",
+    "workflow_panel.py",
+    "workflows.py",
     "window_placement.py",
 )
 DEPENDENCIES = (
@@ -211,7 +213,8 @@ def build(
     output = output_dir / f"{PACKAGE}_{version}_all.deb"
     if output.exists():
         raise FileExistsError("Package output already exists; choose a fresh output directory")
-    with tempfile.TemporaryDirectory(prefix=".studio-deb-", dir=output_dir) as temporary:
+    # Portable output volumes may ignore Unix modes. dpkg needs a POSIX staging tree.
+    with tempfile.TemporaryDirectory(prefix=".studio-deb-") as temporary:
         temporary = Path(temporary)
         stage_package(
             temporary / "package",

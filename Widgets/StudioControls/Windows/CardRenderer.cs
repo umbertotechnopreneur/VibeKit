@@ -16,15 +16,16 @@ public static class CardRenderer
     private static readonly Color Back = ColorTranslator.FromHtml("#171a1e");
     private static readonly StudioCatalog Catalog = StudioCatalog.Default;
 
-    public static void EnsureAssets(CancellationToken token)
+    public static void EnsureAssets(CancellationToken token, string? assetsDirectory = null)
     {
-        Directory.CreateDirectory(LocalSettings.AssetsPath);
+        assetsDirectory ??= LocalSettings.AssetsPath;
+        Directory.CreateDirectory(assetsDirectory);
         string bundled = Path.Combine(AppContext.BaseDirectory, "Assets");
         if (!Directory.Exists(bundled)) throw new DirectoryNotFoundException("The application Assets folder is missing. Extract the complete release archive.");
         foreach (string source in Directory.EnumerateFiles(bundled, "*", SearchOption.AllDirectories))
         {
             token.ThrowIfCancellationRequested();
-            string destination = Path.Combine(LocalSettings.AssetsPath, Path.GetRelativePath(bundled, source));
+            string destination = Path.Combine(assetsDirectory, Path.GetRelativePath(bundled, source));
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             if (File.Exists(destination)) continue;
             string temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
@@ -38,12 +39,13 @@ public static class CardRenderer
         }
     }
 
-    public static ProjectSettings Prepare(ProjectSettings project, CancellationToken token)
+    public static ProjectSettings Prepare(ProjectSettings project, CancellationToken token, string? assetsDirectory = null)
     {
         project.Validate();
-        EnsureAssets(token);
+        assetsDirectory ??= LocalSettings.AssetsPath;
+        EnsureAssets(token, assetsDirectory);
         var updates = new Dictionary<string, byte[]>();
-        using Bitmap? logo = LoadProjectLogo(project.Logo);
+        using Bitmap? logo = LoadProjectLogo(project.Logo, assetsDirectory);
         if (logo is not null)
         {
             updates["Project-logo.png"] = Png(logo);
@@ -52,18 +54,18 @@ public static class CardRenderer
         foreach (var card in Catalog.CardSources)
         {
             token.ThrowIfCancellationRequested();
-            using var bitmap = Render(card.FileName, project, logo);
+            using var bitmap = Render(card.FileName, project, logo, assetsDirectory);
             updates[card.FileName] = Png(bitmap);
         }
         updates["project.json"] = JsonSerializer.SerializeToUtf8Bytes(project, SettingsStore.JsonOptions);
-        Commit(updates, token);
+        Commit(updates, token, assetsDirectory);
         return project;
     }
 
-    private static Bitmap? LoadProjectLogo(string? path)
+    private static Bitmap? LoadProjectLogo(string? path, string assetsDirectory)
     {
         if (string.IsNullOrWhiteSpace(path)) return null;
-        path = Path.IsPathRooted(path) ? path : Path.Combine(LocalSettings.AssetsPath, path);
+        path = Path.IsPathRooted(path) ? path : Path.Combine(assetsDirectory, path);
         if (!new[] { ".png", ".jpg", ".jpeg", ".bmp" }.Contains(Path.GetExtension(path).ToLowerInvariant()))
             throw new ArgumentException("Choose a PNG, JPG or BMP logo.");
         if (new FileInfo(path).Length > 16 * 1024 * 1024) throw new ArgumentException("Use a logo smaller than 16 MB.");
@@ -77,7 +79,7 @@ public static class CardRenderer
         return output;
     }
 
-    private static Bitmap Render(string filename, ProjectSettings project, Bitmap? logo)
+    private static Bitmap Render(string filename, ProjectSettings project, Bitmap? logo, string assetsDirectory)
     {
         var bitmap = new Bitmap(Catalog.CanvasWidth, Catalog.CanvasHeight, PixelFormat.Format32bppArgb);
         try
@@ -89,15 +91,15 @@ public static class CardRenderer
             graphics.Clear(filename == "CRT-overlay.png" ? Color.Transparent : Back);
             switch (filename)
             {
-                case "Intro-card.png": Intro(graphics, project, logo); break;
-                case "Thank-you-card.png": Outro(graphics, project, logo); break;
+                case "Intro-card.png": Intro(graphics, project, logo, assetsDirectory); break;
+                case "Thank-you-card.png": Outro(graphics, project, logo, assetsDirectory); break;
                 case "Chapter-card.png":
                     Intro(graphics, project with { Name = string.IsNullOrWhiteSpace(project.Chapter) ? "Next chapter" : project.Chapter,
-                        Eyebrow = project.Name, Subtitle = project.ChapterDescription, Description = "", Links = [], Logo = "", VibeWare = false }, null);
+                        Eyebrow = project.Name, Subtitle = project.ChapterDescription, Description = "", Links = [], Logo = "", VibeWare = false }, null, assetsDirectory);
                     break;
                 case "Privacy-card.png":
                     Intro(graphics, project with { Name = "A short break.", Eyebrow = "STANDBY", Subtitle = "Setting up the next part.",
-                        Description = project.Name, Links = [], Logo = "", VibeWare = false }, null);
+                        Description = project.Name, Links = [], Logo = "", VibeWare = false }, null, assetsDirectory);
                     break;
                 case "Compare-frame.png": Comparison(graphics, project); break;
                 case "CRT-overlay.png": Crt(graphics, project); break;
@@ -108,7 +110,7 @@ public static class CardRenderer
         catch { bitmap.Dispose(); throw; }
     }
 
-    private static void Intro(Graphics graphics, ProjectSettings project, Bitmap? logo)
+    private static void Intro(Graphics graphics, ProjectSettings project, Bitmap? logo, string assetsDirectory)
     {
         Header(graphics, "Umberto’s Lab");
         Text(graphics, project.Eyebrow, new(112, 260, 1800, 80), 34, 26, Accent, true);
@@ -120,13 +122,13 @@ public static class CardRenderer
         if (logo is not null) Logo(graphics, logo, new(2120, 235, 330, 300));
         if (project.VibeWare)
         {
-            Logo(graphics, "VibeWare-logo.png", new(2220, 575, 220, 210));
+            Logo(graphics, assetsDirectory, "VibeWare-logo.png", new(2220, 575, 220, 210));
             Text(graphics, "This is VibeWare", new(2080, 825, 370, 70), 30, 24, Accent);
         }
         Footer(graphics);
     }
 
-    private static void Outro(Graphics graphics, ProjectSettings project, Bitmap? logo)
+    private static void Outro(Graphics graphics, ProjectSettings project, Bitmap? logo, string assetsDirectory)
     {
         Header(graphics, "Thank you!");
         Opening(graphics, Catalog.OutroCameraBounds);
@@ -139,13 +141,13 @@ public static class CardRenderer
         if (logo is not null) Logo(graphics, logo, new(2198, 60, 250, 135));
         if (project.VibeWare)
         {
-            Logo(graphics, "VibeWare-logo.png", new(112, 1200, 125, 112));
+            Logo(graphics, assetsDirectory, "VibeWare-logo.png", new(112, 1200, 125, 112));
             Text(graphics, "This is VibeWare", new(270, 1215, 1500, 52), 28, 24, Ink, true);
             Text(graphics, "umbertogiacobbi.biz/vibeware/manifesto", new(270, 1270, 1500, 48), 26, 22, Accent);
         }
         Footer(graphics);
         Text(graphics, "© 2026 Umberto Giacobbi", new(820, 1340, 900, 60), 27, 23, Muted);
-        Logo(graphics, "OBS-logo.png", new(1920, 1310, 68, 68));
+        Logo(graphics, assetsDirectory, "OBS-logo.png", new(1920, 1310, 68, 68));
         Text(graphics, "Made with OBS Studio", new(2010, 1330, 470, 65), 29, 22, Muted);
     }
 
@@ -199,9 +201,9 @@ public static class CardRenderer
         graphics.DrawRectangle(border, area.X - 3, area.Y - 3, area.Width + 5, area.Height + 5);
     }
 
-    private static void Logo(Graphics graphics, string name, RectangleF bounds)
+    private static void Logo(Graphics graphics, string assetsDirectory, string name, RectangleF bounds)
     {
-        using var image = Image.FromFile(Path.Combine(LocalSettings.AssetsPath, name));
+        using var image = Image.FromFile(Path.Combine(assetsDirectory, name));
         Logo(graphics, image, bounds);
     }
 
@@ -236,9 +238,9 @@ public static class CardRenderer
         return stream.ToArray();
     }
 
-    private static void Commit(Dictionary<string, byte[]> updates, CancellationToken token)
+    private static void Commit(Dictionary<string, byte[]> updates, CancellationToken token, string assetsDirectory)
     {
-        string transaction = Path.Combine(LocalSettings.AssetsPath, ".prepare-" + Guid.NewGuid().ToString("N"));
+        string transaction = Path.Combine(assetsDirectory, ".prepare-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(transaction);
         var promoted = new List<string>();
         bool rollbackFailed = false;
@@ -248,13 +250,13 @@ public static class CardRenderer
             {
                 token.ThrowIfCancellationRequested();
                 LocalSettings.WriteAtomic(Path.Combine(transaction, name), bytes);
-                string target = Path.Combine(LocalSettings.AssetsPath, name);
+                string target = Path.Combine(assetsDirectory, name);
                 if (File.Exists(target)) File.Copy(target, Path.Combine(transaction, name + ".previous"));
             }
             foreach (string name in updates.Keys)
             {
                 token.ThrowIfCancellationRequested();
-                File.Move(Path.Combine(transaction, name), Path.Combine(LocalSettings.AssetsPath, name), true);
+                File.Move(Path.Combine(transaction, name), Path.Combine(assetsDirectory, name), true);
                 promoted.Add(name);
             }
         }
@@ -265,7 +267,7 @@ public static class CardRenderer
                 try
                 {
                     string backup = Path.Combine(transaction, name + ".previous");
-                    string target = Path.Combine(LocalSettings.AssetsPath, name);
+                    string target = Path.Combine(assetsDirectory, name);
                     if (File.Exists(backup)) File.Move(backup, target, true); else File.Delete(target);
                 }
                 catch (Exception error) when (error is IOException or UnauthorizedAccessException)

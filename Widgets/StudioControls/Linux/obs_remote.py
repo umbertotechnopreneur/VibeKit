@@ -8,6 +8,7 @@ import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
+from threading import Lock
 from uuid import uuid4
 
 from diagnostics import get_logger
@@ -57,6 +58,39 @@ class WorkflowTransitionRecoveryError(ValueError):
         super().__init__(
             "Check the destination scene's transition override in OBS. Restoration was not confirmed."
         )
+
+
+class RecordCountdown:
+    """One user gesture, consumed once on the serial OBS worker or cancelled by the UI."""
+
+    def __init__(self, socket, scene, clock=None):
+        self.socket = socket
+        self.scene = scene
+        self.clock = clock or (lambda: time.clock_gettime(time.CLOCK_BOOTTIME))
+        self._created = self.clock()
+        self._started = None
+        self._pending = True
+        self._lock = Lock()
+
+    def begin(self):
+        # Three visible seconds plus a bounded allowance for scheduling and final OBS reads.
+        with self._lock:
+            now = self.clock()
+            if not self._pending or self._started is not None or now - self._created > 5:
+                return False
+            self._started = now
+            return True
+
+    def cancel(self):
+        with self._lock:
+            pending, self._pending = self._pending, False
+            return pending
+
+    def claim(self):
+        with self._lock:
+            if not self._pending or self._started is None or not 3 <= self.clock() - self._started <= 5:
+                raise ValueError("Recording countdown cancelled.")
+            self._pending = False
 
 
 class ProjectApplyError(OBSError):
@@ -602,6 +636,26 @@ class OBS:
             },
         )
         return self._after_action("Change blur intensity", {"blurIntensity": value})
+
+    def recording_target(self, cue):
+        if cue.socket is None or self.ws is not cue.socket:
+            raise ValueError("OBS connection changed.")
+        collection = self.call("GetSceneCollectionList")["currentSceneCollectionName"]
+        program = self.call("GetCurrentProgramScene")
+        if not collection or not cue.scene or program["currentProgramSceneName"] != cue.scene:
+            raise ValueError("The OBS program scene changed manually.")
+        if self._workflow_recording():
+            raise ValueError("OBS is already recording.")
+        return collection, program.get("currentProgramSceneUuid")
+
+    def record_after_countdown(self, cue, original_target):
+        try:
+            if self.recording_target(cue) != original_target:
+                raise ValueError("The recording target changed.")
+            cue.claim()
+            return self.record(True)
+        finally:
+            cue.cancel()
 
     def record(self, start):
         action = "Start recording" if start else "Stop recording"

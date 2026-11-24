@@ -116,7 +116,8 @@ class DebArchiveTests(unittest.TestCase):
                 self.assertNotIn("/home/umberto/", text)
                 self.assertNotIn("/run/media/umberto/", text)
         self.assertEqual(
-            sorted(path.name for path in (application / "Assets").iterdir()),
+            sorted(path.relative_to(application / "Assets").as_posix()
+                   for path in (application / "Assets").rglob("*") if path.is_file()),
             sorted(builder.ASSET_NAMES),
         )
         self.assertTrue(

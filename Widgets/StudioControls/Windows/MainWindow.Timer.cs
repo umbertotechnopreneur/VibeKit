@@ -14,8 +14,8 @@ public sealed partial class MainWindow
     private readonly Button pauseWorkflow = new(), nextWorkflow = new() { Content = "Next" }, stopWorkflow = new() { Content = "Stop workflow" };
     private readonly NativeLocalization timerLocalization = new();
     private Window? timerWindow;
-    private TextBlock? timerScene, timerDigits, timerDetails, timerNote;
-    private Button? detachedPause, detachedNext, detachedStop, freeStart;
+    private PresenterFace? timerFace;
+    private TimerSettingsEditor? timerEditor;
     private CancellationTokenSource? playbackCancellation;
     private bool checkingScenes, sendingScene;
     private string? lastConfirmedScene;
@@ -55,7 +55,7 @@ public sealed partial class MainWindow
             RefreshPlayback();
         };
         next.Click += async (_, _) => { player.Next(); await AdvanceWorkflowAsync(); };
-        stopButton.Click += (_, _) => StopWorkflow("Workflow stopped.");
+        stopButton.Click += (_, _) => { if (!CancelRecordingCue()) StopWorkflow("Workflow stopped."); };
         row.Children.Add(hold); row.Children.Add(next); row.Children.Add(stopButton);
     }
 
@@ -64,57 +64,34 @@ public sealed partial class MainWindow
         if (timerWindow is not null) { timerWindow.Activate(); return; }
         var window = new Window { Title = localization.Text("Timer") };
         timerWindow = window;
-        var body = Column(12);
-        body.Padding = new(20);
-        body.RequestedTheme = root.RequestedTheme;
-        body.Language = localization.Language;
-        timerScene = Heading("");
-        timerDigits = new TextBlock { FontSize = 64, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
-        timerDetails = Text("");
-        body.Children.Add(timerScene); body.Children.Add(timerDigits); body.Children.Add(timerDetails);
-        var controls = Row();
-        detachedPause = new Button(); detachedNext = new Button(); detachedStop = new Button();
-        WireTransport(controls, detachedPause, detachedNext, detachedStop);
-        body.Children.Add(controls);
-        var free = Row();
-        var duration = SecondsBox("Duration (seconds)", 180);
-        free.Children.Add(duration);
-        freeStart = new Button { Content = "Start timer", VerticalAlignment = VerticalAlignment.Bottom };
-        freeStart.Click += (_, _) =>
-        {
-            try
-            {
-                if (PlaybackActive || sendingScene || workflowDialogOpen || editingLibrary || rendering) return;
-                player.StartFree(ReadSeconds(duration));
-                RefreshPlayback();
-            }
-            catch (ArgumentException error) { timerDetails.Text = error.Message; }
-        };
-        free.Children.Add(freeStart);
-        body.Children.Add(Section("Free timer", free, true));
-        window.Content = new ScrollViewer { Content = body };
+        var face = new PresenterFace(this);
+        timerFace = face;
+        window.Content = new ScrollViewer { Content = face.Body, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        face.Body.RequestedTheme = root.RequestedTheme;
+        face.Body.Language = localization.Language;
         timerLocalization.Language = localization.Language;
-        timerLocalization.Attach(body);
-        // Notes are user text. Keep them out of the catalog bindings.
-        timerNote = Text("");
-        body.Children.Insert(3, timerNote);
-        window.AppWindow.Resize(new(540, 440));
+        timerLocalization.Attach(face.Body);
+        long statusBinding = status.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) => face.ShowObsStatus(status.Text));
         window.Closed += (_, _) =>
         {
+            CancelRecordingCue();
+            timerEditor?.Dialog.Hide();
             if (player.Mode == WorkflowMode.Free && PlaybackActive) StopWorkflow("Timer stopped.");
+            status.UnregisterPropertyChangedCallback(TextBlock.TextProperty, statusBinding);
+            face.Close();
             timerLocalization.Dispose();
             timerWindow = null;
-            timerScene = timerDigits = timerDetails = timerNote = null;
-            detachedPause = detachedNext = detachedStop = freeStart = null;
+            timerFace = null;
         };
+        window.Activate();
+        face.ApplySize(window, settings.Timer.Large);
         UpdateWorkflowControls();
         RefreshPlayback();
-        window.Activate();
     }
 
     private async Task StartWorkflowAsync(bool useObs)
     {
-        if (CurrentWorkflow is not { Steps.Length: > 0 } flow || PlaybackActive || sendingScene || editingLibrary || workflowDialogOpen || rendering) return;
+        if (recordingCue is not null || CurrentWorkflow is not { Steps.Length: > 0 } flow || PlaybackActive || sendingScene || editingLibrary || workflowDialogOpen || rendering) return;
         CancellationToken token = lifetime.Token;
         try
         {
@@ -229,25 +206,24 @@ public sealed partial class MainWindow
 
     private void UpdateWorkflowControls()
     {
-        bool editable = workflowLibrary is not null && !PlaybackActive && !sendingScene && !editingLibrary && !rendering && !workflowDialogOpen;
+        bool editable = workflowLibrary is not null && recordingCue is null && !PlaybackActive && !sendingScene && !editingLibrary && !rendering && !workflowDialogOpen;
         libraryButton.IsEnabled = targetButton.IsEnabled = paletteSurface.IsEnabled = editable;
         rehearse.IsEnabled = editable && CurrentWorkflow?.Steps.Length > 0;
         live.IsEnabled = rehearse.IsEnabled && service is not null && state?.ConnectionAvailable == true && !stopPending && !connecting && !manualTakeoverPending && !commandBusy;
         apply.IsEnabled = editable;
-        if (freeStart is not null) freeStart.IsEnabled = !PlaybackActive && !sendingScene && !editingLibrary && !rendering && !workflowDialogOpen;
+        if (timerEditor is not null) timerEditor.FreeStart.IsEnabled = CanStartFreeTimer;
         bool active = PlaybackActive;
         foreach (var button in new[] { pauseWorkflow, nextWorkflow, stopWorkflow })
-            button.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+            button.Visibility = active || button == stopWorkflow && recordingCue?.IsPending == true ? Visibility.Visible : Visibility.Collapsed;
         rehearse.Visibility = live.Visibility = active ? Visibility.Collapsed : Visibility.Visible;
         inlineTimer.Visibility = player.State == WorkflowState.Idle ? Visibility.Collapsed : Visibility.Visible;
         bool running = player.State == WorkflowState.Running;
         bool paused = player.State == WorkflowState.Paused;
-        foreach (var button in new[] { pauseWorkflow, detachedPause })
-            if (button is not null) { button.Content = paused ? "Resume" : "Pause"; button.IsEnabled = running || paused; }
-        foreach (var button in new[] { nextWorkflow, detachedNext })
-            if (button is not null) button.IsEnabled = running && player.Mode != WorkflowMode.Free;
-        foreach (var button in new[] { stopWorkflow, detachedStop })
-            if (button is not null) button.IsEnabled = PlaybackActive;
+        pauseWorkflow.Content = paused ? "Resume" : "Pause";
+        pauseWorkflow.IsEnabled = running || paused;
+        nextWorkflow.IsEnabled = running && player.Mode != WorkflowMode.Free;
+        stopWorkflow.IsEnabled = PlaybackActive || recordingCue?.IsPending == true;
+        timerFace?.UpdateTransport();
     }
 
     private void RefreshPlayback()
@@ -263,28 +239,21 @@ public sealed partial class MainWindow
         HighlightWorkflowStep();
         string title = player.Current is { } current ? SceneTitle(current.Scene) : localization.Text("Timer");
         string digits = ClockText(player.RemainingSeconds);
-        string summary = localization.Text(checkingScenes ? "Checking scenes…" : player.State switch
+        string mode = localization.Text(checkingScenes ? "Checking scenes…" : player.State switch
         {
             WorkflowState.Switching => "Switching scene…", WorkflowState.Finished => "Workflow finished.",
             WorkflowState.Stopped => player.Reason, WorkflowState.Idle => "Ready", WorkflowState.Paused => "Paused",
             _ => player.Mode switch { WorkflowMode.Rehearsal => "Rehearsal", WorkflowMode.Free => "Free timer", _ => "Play in OBS" }
         });
+        string summary = mode;
         if (player.NextStep is { } next && PlaybackActive) summary += "  ·  " + localization.Text("Next") + " " + SceneTitle(next.Scene);
         if (player.Mode != WorkflowMode.Free && PlaybackActive) summary += "  ·  " + localization.Text("Remaining") + " " + ClockText(player.TotalRemainingSeconds);
         if (player.Mode == WorkflowMode.Live && player.State == WorkflowState.Finished)
             summary += "  ·  " + localization.Text(service is null || state?.ConnectionAvailable != true || !state.IsFresh
                 ? "Check recording in OBS." : state.IsRecording ? "OBS is recording." : "OBS is not recording.");
         if (inlineTimer.Text != summary + "  ·  " + title + " " + digits) inlineTimer.Text = summary + "  ·  " + title + " " + digits;
-        if (timerScene is null || timerDigits is null || timerDetails is null) return;
-        if (timerScene.Text != title) timerScene.Text = title;
-        if (timerDigits.Text != digits) timerDigits.Text = digits;
-        if (timerDetails.Text != summary) timerDetails.Text = summary;
-        if (timerNote is not null)
-        {
-            string note = player.Current?.Note ?? "";
-            if (timerNote.Text != note) timerNote.Text = note;
-            timerNote.Visibility = note.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
-        }
+        timerFace?.Present(mode);
+        if (timerEditor is not null) timerEditor.FreeStart.IsEnabled = CanStartFreeTimer;
     }
 
     private async Task VerifyWorkflowUiAsync()
@@ -314,6 +283,7 @@ public sealed partial class MainWindow
         await AdvanceWorkflowAsync();
         if (player.Current?.Scene != "Thank you" || highlightedIndex != 1 || camera.IsValueCreated || service is not null || client is not null)
             throw new InvalidOperationException("Rehearsal did not stay offline.");
+        await CheckPresenterAsync();
         StopWorkflow("Workflow stopped.");
         timerWindow.Close();
     }

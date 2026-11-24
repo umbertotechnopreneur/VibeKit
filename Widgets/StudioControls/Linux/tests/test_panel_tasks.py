@@ -15,7 +15,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
 
-from obs_remote import OBSConnectionError
+from obs_remote import OBSConnectionError, RecordCountdown
 from panel_config import DEFAULT_SCREEN_PRESETS, load_screen_presets
 
 
@@ -123,6 +123,7 @@ def load_controller(loop):
         "GLib": loop,
         "Gtk": SimpleNamespace(Application=SimpleNamespace(do_shutdown=lambda self: None)),
         "OBSConnectionError": OBSConnectionError,
+        "RecordCountdown": RecordCountdown,
         "CancelledError": CancelledError,
         "logger": Mock(),
         "load_config": lambda path: {"logo": ""},
@@ -231,6 +232,43 @@ class PanelTaskTests(unittest.TestCase):
     def setUp(self):
         self.loop = Loop()
         self.panel, self.namespace = make_panel(self.loop)
+
+    def test_recording_countdown_orders_lights_and_rejects_stale_callbacks(self):
+        panel = self.panel
+        panel.recording = False
+        panel.obs.ws = object()
+        panel.obs.recording_target = Mock(return_value=("Synthetic", None))
+        panel.obs.record_after_countdown = Mock()
+        panel.workflow = Mock()
+        panel.workflow.timer_options.lead_in_enabled = True
+
+        def prepare():
+            panel.manual_record()
+            self.assertEqual(panel.record_button.text, "Cancel recording countdown")
+            panel.worker.run_pending()
+            callback, args = self.loop.idles.pop()
+            callback(*args)
+            return self.loop.timers[panel.record_cue_timer][1]
+
+        stale = prepare()
+        self.assertTrue(panel.cancel_record_cue())
+        self.assertFalse(stale())
+        self.assertIsNone(panel.record_cue)
+        panel.workflow.reset_mock()
+
+        tick = prepare()
+        self.assertTrue(tick())
+        self.assertTrue(tick())
+        colors = [call.args for call in panel.workflow.show_record_cue.call_args_list]
+        self.assertEqual(colors, [("green", 3), ("amber", 2), ("red", 1)])
+        self.assertFalse(tick())
+        self.assertEqual(len(panel.worker.tasks), 1)
+        panel.obs.record_after_countdown.assert_not_called()
+        # Client cancellation still wins if the worker was queued after the red light.
+        ticket = panel.record_cue
+        self.assertTrue(panel.cancel_record_cue())
+        with self.assertRaises(ValueError):
+            ticket.claim()
 
     def test_card_rendering_keeps_stop_available_on_obs_worker(self):
         panel = self.panel

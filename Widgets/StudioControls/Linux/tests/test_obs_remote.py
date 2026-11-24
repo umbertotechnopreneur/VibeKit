@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from obs_remote import OBS, OBSConnectionError, OBSRequestError, ProjectApplyError
+from obs_remote import OBS, OBSConnectionError, OBSRequestError, ProjectApplyError, RecordCountdown
 
 
 class FakeSocket:
@@ -98,6 +98,7 @@ class StubOBS(OBS):
         self.active = True
         self.paused = False
         self.scene_name = "Intro"
+        self.collection = "Synthetic"
         self.fail_status = False
         self.fail_optional_transport = False
 
@@ -110,6 +111,8 @@ class StubOBS(OBS):
             if self.fail_status:
                 raise OBSConnectionError("Disconnected")
             return {"outputActive": self.active, "outputPaused": self.paused}
+        if kind == "GetSceneCollectionList":
+            return {"currentSceneCollectionName": self.collection}
         if kind == "GetCurrentProgramScene":
             return {"currentProgramSceneName": self.scene_name}
         if kind == "GetSourceFilterList":
@@ -147,6 +150,43 @@ class StubOBS(OBS):
         ):
             return {}
         raise AssertionError(kind)
+
+
+class RecordCountdownTests(unittest.TestCase):
+    def test_only_one_start_on_original_idle_target_after_countdown(self):
+        for condition in ("start", "cancel", "expired", "early", "disconnect", "collection", "scene", "active", "paused"):
+            with self.subTest(condition=condition):
+                obs = StubOBS()
+                obs.ws = object()
+                obs.active = False
+                now = [0]
+                cue = RecordCountdown(obs.ws, obs.scene_name, lambda now=now: now[0])
+                target = obs.recording_target(cue)
+                self.assertTrue(cue.begin())
+                now[0] = 3
+                if condition == "cancel":
+                    self.assertTrue(cue.cancel())
+                elif condition == "expired":
+                    now[0] = 10
+                elif condition == "early":
+                    now[0] = 1
+                elif condition == "disconnect":
+                    obs.ws = object()
+                elif condition == "collection":
+                    obs.collection = "Different collection"
+                elif condition == "scene":
+                    obs.scene_name = "Detail"
+                elif condition == "active":
+                    obs.active = True
+                elif condition == "paused":
+                    obs.paused = True
+                if condition == "start":
+                    result = obs.record_after_countdown(cue, target)
+                    self.assertTrue(result["outputActive"])
+                    obs.active = False  # An external stop must not make this ticket reusable.
+                with self.assertRaises(ValueError):
+                    obs.record_after_countdown(cue, target)
+                self.assertEqual(sum(kind == "StartRecord" for kind, _ in obs.requests), int(condition == "start"))
 
 
 class TransportTests(unittest.TestCase):

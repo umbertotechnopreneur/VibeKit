@@ -58,6 +58,7 @@ public sealed partial class MainWindow
 
     private async Task DisconnectAsync()
     {
+        CancelRecordingCue();
         InterruptLivePlayback("OBS disconnected.");
         if (service is not null && !await obsGate.WaitAsync(0, lifetime.Token))
             throw new InvalidOperationException("Wait for the current OBS action before disconnecting.");
@@ -90,6 +91,7 @@ public sealed partial class MainWindow
     private async Task CommandAsync(string operation, Func<CancellationToken, Task<StudioStatus>> action, bool takeover = false)
     {
         if (closed || service is null || stopPending || manualTakeoverPending) return;
+        if (operation is "scene" or "record.pause") CancelRecordingCue();
         // A deliberate scene or pause command can follow an already-sent automation
         // request. The command is submitted only once, after rechecking Stop.
         if (takeover) { manualTakeoverPending = true; UpdateEnabled(true); }
@@ -130,6 +132,8 @@ public sealed partial class MainWindow
 
     private async Task StopRecordingAsync()
     {
+        if (state?.IsRecording == true) CancelRecordingCue();
+        else if (CancelRecordingCue()) return;
         if (closed || stopPending || service is null || state?.ConnectionAvailable != true) return;
         InterruptLivePlayback("Recording stop requested.");
         stopPending = true;
@@ -187,6 +191,8 @@ public sealed partial class MainWindow
     {
         if (closed) return;
         if (result.SceneName != state?.SceneName) pendingEffects.Remove("screen");
+        if (recordingCue is { } cue && (!result.ConnectionAvailable || !result.IsFresh || result.IsRecording || result.IsPaused || result.SceneName != cue.Scene))
+            CancelRecordingCue();
         ObserveWorkflowStatus(result);
         state = result;
         if (!result.ConnectionAvailable)
@@ -222,8 +228,10 @@ public sealed partial class MainWindow
     {
         bool ready = connected && !commandBusy && !connecting && !stopPending && !manualTakeoverPending;
         foreach (var button in sceneButtons.Values) button.IsEnabled = ready;
-        record.IsEnabled = ready && state?.IsRecording != true;
-        stop.IsEnabled = connected && !connecting && !stopPending && state?.IsRecording == true;
+        bool countdownPending = recordingCue?.IsPending == true;
+        record.IsEnabled = recordingCue is null && ready && state is { IsRecording: false, IsFresh: true };
+        if (!stopPending) stop.Content = countdownPending ? "Cancel recording countdown" : "■ Stop and save";
+        stop.IsEnabled = countdownPending || (connected && !connecting && !stopPending && state?.IsRecording == true);
         pause.IsEnabled = ready && state?.IsRecording == true;
         foreach (var (name, button) in audioButtons)
             button.IsEnabled = ready && state?.AudioAvailable.GetValueOrDefault(name) == true;
@@ -239,6 +247,7 @@ public sealed partial class MainWindow
     {
         Diagnostics.Record("obs.connection", error);
         if (closed) return;
+        CancelRecordingCue();
         InterruptLivePlayback("OBS connection lost.");
         polling.Stop(); effectsTimer.Stop(); pendingEffects.Clear();
         if (state is not null) state = state with { ConnectionAvailable = false, IsFresh = false };
@@ -342,7 +351,7 @@ public sealed partial class MainWindow
     private void Shutdown()
     {
         if (closed) return;
-        closed = true; lifetime.Cancel();
+        closed = true; CancelRecordingCue(); lifetime.Cancel();
         CloseWorkflow();
         polling.Stop(); effectsTimer.Stop(); cameraTimer.Stop(); smokeTimer?.Stop();
         pendingEffects.Clear(); pendingCamera.Clear();

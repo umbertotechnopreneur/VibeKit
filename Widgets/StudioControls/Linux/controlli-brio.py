@@ -6,7 +6,7 @@ import subprocess
 from concurrent.futures import CancelledError, ThreadPoolExecutor
 from threading import Event
 
-from obs_remote import OBS, OBSConnectionError
+from obs_remote import OBS, OBSConnectionError, RecordCountdown
 from screen_framing import VIGNETTES
 from lab_titles import load_config, atomic_bytes, prepare_cards, CONFIG, FIELD_LIMITS
 from camera_controls import (
@@ -90,6 +90,8 @@ SCENE_SUBTITLES = {
 
 class BrioPanel(Gtk.Application):
     workflow = None
+    record_cue = None
+    record_cue_timer = None
     library = None
 
     def __init__(self):
@@ -582,16 +584,90 @@ class BrioPanel(Gtk.Application):
         return GLib.SOURCE_CONTINUE
 
     def manual_scene(self, name):
+        self.cancel_record_cue()
         if self.workflow:
             self.workflow.manual_override()
         self.perform(self.obs.scene, name)
 
     def manual_record(self):
-        if self.recording and self.workflow:
-            self.workflow.manual_override()
-        self.perform(self.obs.record, not self.recording)
+        if self.record_cue is not None:
+            self.cancel_record_cue()
+            return
+        if self.closing or self.action_busy or not self.obs_connected:
+            return
+        if self.recording:
+            if self.workflow:
+                self.workflow.manual_override()
+            self.perform(self.obs.record, False)
+            return
+        if self.workflow is None or not self.workflow.timer_options.lead_in_enabled:
+            self.perform(self.obs.record, True)
+            return
+        cue = RecordCountdown(self.obs.ws, self.current_scene)
+        self.record_cue = cue
+        self.record_button.set_label("Cancel recording countdown")
+
+        def prepared(target, error, _operation):
+            if self.record_cue is not cue:
+                return
+            if error:
+                self.cancel_record_cue()
+                self.result_note.set_label(self.localizer.text(str(error)))
+                return
+            if not cue.begin():
+                self.cancel_record_cue()
+                return
+            self.workflow.show_record_cue("green", 3)
+            stages = iter((("amber", 2), ("red", 1)))
+
+            def advance():
+                if self.record_cue is not cue:
+                    return GLib.SOURCE_REMOVE
+                stage = next(stages, None)
+                if stage is not None:
+                    self.workflow.show_record_cue(*stage)
+                    return GLib.SOURCE_CONTINUE
+                self.record_cue_timer = None
+                if self.closing or self.action_busy or not self.obs_connected:
+                    self.cancel_record_cue()
+                else:
+                    self.action_busy = True
+                    self.active_operation = "record"
+                    self.set_obs_sensitive(False)
+                    self.submit_task(
+                        self.obs.record_after_countdown, (cue, target),
+                        lambda value, exc, op: self.finish_record_cue(cue, value, exc, op),
+                        operation="record",
+                    )
+                return GLib.SOURCE_REMOVE
+
+            self.record_cue_timer = GLib.timeout_add(1000, advance)
+
+        self.submit_task(self.obs.recording_target, (cue,), prepared, operation="record_preflight")
+
+    def finish_record_cue(self, cue, result, error, operation):
+        if self.record_cue is cue:
+            self.record_cue = None
+            self.workflow.clear_record_cue()
+            self.record_button.set_label("●  Start recording")
+        self.obs_result(result, error, operation)
+
+    def cancel_record_cue(self):
+        cue = self.record_cue
+        if cue is None or not cue.cancel():
+            return False
+        self.record_cue = None
+        if self.record_cue_timer is not None:
+            GLib.source_remove(self.record_cue_timer)
+            self.record_cue_timer = None
+        if not self.closing:
+            self.workflow.clear_record_cue()
+            self.record_button.set_label("●  Start recording")
+            self.result_note.set_label("Recording countdown cancelled.")
+        return True
 
     def manual_pause(self):
+        self.cancel_record_cue()
         if self.workflow:
             self.workflow.manual_override()
         self.perform(self.obs.pause, not self.paused)
@@ -648,7 +724,7 @@ class BrioPanel(Gtk.Application):
     def set_obs_sensitive(self, enabled):
         for button in self.scene_buttons.values():
             button.set_sensitive(enabled)
-        self.record_button.set_sensitive(enabled)
+        self.record_button.set_sensitive(enabled or self.record_cue is not None)
         self.pause_button.set_sensitive(enabled and self.recording)
         for name, button in self.audio_buttons.items():
             button.set_sensitive(enabled and name in self.audio_mutes)
@@ -670,6 +746,7 @@ class BrioPanel(Gtk.Application):
         else:
             self.polling = False
         if error:
+            self.cancel_record_cue()
             self.visual_pending.clear()
             self.cancel_blur()
             if isinstance(error, OBSConnectionError) or not self.obs_connected:
@@ -694,6 +771,12 @@ class BrioPanel(Gtk.Application):
 
         self.obs_connected = result.get("connectionAvailable", True)
         current_scene = result.get("currentProgramSceneName", self.current_scene)
+        if self.record_cue is not None and (
+            current_scene != self.record_cue.scene or not self.obs_connected
+            or not result.get("statusFresh", True) or result.get("outputActive") is not False
+            or result.get("outputPaused") is not False
+        ):
+            self.cancel_record_cue()
         if current_scene != self.current_scene:
             # Item IDs belong to a scene. Never combine a new scene name with
             # the previous scene's item ID while other effects are pending.
@@ -757,9 +840,8 @@ class BrioPanel(Gtk.Application):
         if not result.get("statusFresh", True):
             state += " · status refresh pending"
         self.obs_status.set_label(state + " · " + (self.current_scene or "Unknown scene"))
-        self.record_button.set_label(
-            "■  Stop and save recording" if self.recording else "●  Start recording"
-        )
+        record_label = "■  Stop and save recording" if self.recording else "●  Start recording"
+        self.record_button.set_label("Cancel recording countdown" if self.record_cue else record_label)
         self.pause_button.set_label("Resume recording" if self.paused else "Pause recording")
 
     def update_audio_status(self):
@@ -1262,6 +1344,7 @@ class BrioPanel(Gtk.Application):
     def do_shutdown(self):
         # Closing the panel never changes recording or resumes any device/action.
         self.closing = True
+        self.cancel_record_cue()
         if self.workflow:
             self.workflow.close()
         if self.system_settings and self.system_theme_handler is not None:

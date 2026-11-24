@@ -71,17 +71,24 @@ jobs:
         run: ./scripts/Build-Windows.ps1 -Configuration Release -Verify -OutputDirectory '${{ runner.temp }}/studio-controls-windows'
       - name: Exercise isolated native window startup and theme changes
         shell: pwsh
+        env:
+          STUDIO_TIMER_PREVIEW_DIR: ${{ runner.temp }}/studio-timer-previews
         run: |
           $exe = Join-Path '${{ runner.temp }}/studio-controls-windows' 'StudioControls.Windows.exe'
-          $process = Start-Process -FilePath $exe -ArgumentList '--ui-smoke' -PassThru
+          $process = Start-Process -FilePath $exe -ArgumentList '--ui-smoke', '--timer-previews' -PassThru
           if (-not $process.WaitForExit(60000)) {
             Stop-Process -Id $process.Id
             throw 'The isolated UI smoke process timed out.'
           }
-          if ($process.ExitCode -ne 0) { throw "Native UI smoke failed: $($process.ExitCode)" }
           $report = Join-Path '${{ runner.temp }}/studio-controls-windows' 'ui-smoke.txt'
           if (-not (Test-Path -LiteralPath $report)) { throw 'No native UI smoke report was produced.' }
           Get-Content -LiteralPath $report
+          if ($process.ExitCode -ne 0) { throw "Native UI smoke failed: $($process.ExitCode)" }
+      - uses: actions/upload-artifact@v6
+        with:
+          name: studio-controls-windows-timer-previews
+          path: ${{ runner.temp }}/studio-timer-previews/*.png
+          if-no-files-found: error
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '6.0.x'

@@ -3529,6 +3529,236 @@
       "OBS에서 대상 장면의 전환 재정의를 확인하세요. 복원이 확인되지 않았습니다.",
       "请检查 OBS 中目标场景的转场覆盖设置。尚未确认设置已恢复。",
       "OBS で切り替え先シーンのトランジション上書きを確認してください。復元を確認できませんでした。"
+    ],
+    "Timer settings": [
+      "Impostazioni timer",
+      "Timer settings",
+      "Cài đặt bộ đếm giờ",
+      "Réglages du minuteur",
+      "Timer-Einstellungen",
+      "타이머 설정",
+      "计时器设置",
+      "タイマー設定"
+    ],
+    "Display": [
+      "Visualizzazione",
+      "Display",
+      "Hiển thị",
+      "Affichage",
+      "Anzeige",
+      "표시",
+      "显示",
+      "表示"
+    ],
+    "Timer size": [
+      "Dimensione timer",
+      "Timer size",
+      "Kích thước bộ đếm",
+      "Taille du minuteur",
+      "Timergröße",
+      "타이머 크기",
+      "计时器大小",
+      "タイマーのサイズ"
+    ],
+    "Compact": [
+      "Compatto",
+      "Compact",
+      "Gọn",
+      "Compact",
+      "Kompakt",
+      "작게",
+      "紧凑",
+      "コンパクト"
+    ],
+    "Large": [
+      "Grande",
+      "Large",
+      "Lớn",
+      "Grand",
+      "Groß",
+      "크게",
+      "大",
+      "大"
+    ],
+    "Show next scene": [
+      "Mostra la scena successiva",
+      "Show next scene",
+      "Hiện cảnh tiếp theo",
+      "Afficher la scène suivante",
+      "Nächste Szene anzeigen",
+      "다음 장면 표시",
+      "显示下一场景",
+      "次のシーンを表示"
+    ],
+    "Show total remaining": [
+      "Mostra il tempo residuo della scaletta",
+      "Show total remaining",
+      "Hiện thời gian còn lại của kịch bản",
+      "Afficher le temps total restant",
+      "Gesamte Restzeit anzeigen",
+      "전체 남은 시간 표시",
+      "显示总剩余时间",
+      "全体の残り時間を表示"
+    ],
+    "Show scene note": [
+      "Mostra il promemoria della scena",
+      "Show scene note",
+      "Hiện ghi chú cảnh",
+      "Afficher la note de scène",
+      "Szenennotiz anzeigen",
+      "장면 메모 표시",
+      "显示场景备注",
+      "シーンのメモを表示"
+    ],
+    "Show OBS status": [
+      "Mostra lo stato di OBS",
+      "Show OBS status",
+      "Hiện trạng thái OBS",
+      "Afficher l’état d’OBS",
+      "OBS-Status anzeigen",
+      "OBS 상태 표시",
+      "显示 OBS 状态",
+      "OBS の状態を表示"
+    ],
+    "Signals": [
+      "Segnali",
+      "Signals",
+      "Tín hiệu",
+      "Signaux",
+      "Signale",
+      "신호",
+      "信号",
+      "合図"
+    ],
+    "Recording countdown": [
+      "Conto alla rovescia prima della registrazione",
+      "Recording countdown",
+      "Đếm ngược trước khi ghi",
+      "Décompte avant l’enregistrement",
+      "Countdown vor der Aufnahme",
+      "녹화 시작 카운트다운",
+      "录制前倒计时",
+      "録画開始前のカウントダウン"
+    ],
+    "End warning": [
+      "Segnale verde a fine tempo",
+      "End warning",
+      "Đèn xanh khi sắp hết giờ",
+      "Feu vert en fin de décompte",
+      "Grünes Signal kurz vor Ablauf",
+      "종료 직전 녹색 신호",
+      "即将结束时亮绿灯",
+      "終了間際の緑信号"
+    ],
+    "Warning (seconds)": [
+      "Preavviso (secondi)",
+      "Warning (seconds)",
+      "Báo trước (giây)",
+      "Préavis (secondes)",
+      "Vorlauf (Sekunden)",
+      "사전 알림(초)",
+      "提前提醒（秒）",
+      "事前通知（秒）"
+    ],
+    "Current scene": [
+      "Scena attuale",
+      "Current scene",
+      "Cảnh hiện tại",
+      "Scène en cours",
+      "Aktuelle Szene",
+      "현재 장면",
+      "当前场景",
+      "現在のシーン"
+    ],
+    "Next scene": [
+      "Scena successiva",
+      "Next scene",
+      "Cảnh tiếp theo",
+      "Scène suivante",
+      "Nächste Szene",
+      "다음 장면",
+      "下一场景",
+      "次のシーン"
+    ],
+    "Scene remaining": [
+      "Fine scena tra",
+      "Scene remaining",
+      "Thời gian cảnh còn lại",
+      "Temps restant de la scène",
+      "Restzeit der Szene",
+      "장면 남은 시간",
+      "场景剩余时间",
+      "シーンの残り時間"
+    ],
+    "Workflow remaining": [
+      "Fine scaletta tra",
+      "Workflow remaining",
+      "Kịch bản còn lại",
+      "Conducteur restant",
+      "Restzeit im Ablauf",
+      "진행표 남은 시간",
+      "流程剩余时间",
+      "進行表の残り時間"
+    ],
+    "Recording in": [
+      "Registrazione tra",
+      "Recording in",
+      "Bắt đầu ghi sau",
+      "Enregistrement dans",
+      "Aufnahme in",
+      "녹화 시작까지",
+      "即将录制",
+      "録画開始まで"
+    ],
+    "Could not save timer settings.": [
+      "Impossibile salvare le impostazioni del timer.",
+      "Could not save timer settings.",
+      "Không thể lưu cài đặt bộ đếm giờ.",
+      "Impossible d’enregistrer les réglages du minuteur.",
+      "Die Timer-Einstellungen konnten nicht gespeichert werden.",
+      "타이머 설정을 저장하지 못했습니다.",
+      "无法保存计时器设置。",
+      "タイマー設定を保存できませんでした。"
+    ],
+    "Cancel recording countdown": [
+      "Annulla il conto alla rovescia",
+      "Cancel recording countdown",
+      "Hủy đếm ngược ghi hình",
+      "Annuler le décompte avant l’enregistrement",
+      "Aufnahme-Countdown abbrechen",
+      "녹화 카운트다운 취소",
+      "取消录制倒计时",
+      "録画開始前のカウントダウンを中止"
+    ],
+    "Recording countdown cancelled.": [
+      "Conto alla rovescia annullato.",
+      "Recording countdown cancelled.",
+      "Đã hủy đếm ngược ghi hình.",
+      "Décompte avant l’enregistrement annulé.",
+      "Aufnahme-Countdown abgebrochen.",
+      "녹화 카운트다운이 취소되었습니다.",
+      "录制倒计时已取消。",
+      "録画カウントダウンを中止しました。"
+    ],
+    "OBS is already recording.": [
+      "OBS sta già registrando.",
+      "OBS is already recording.",
+      "OBS đang ghi hình.",
+      "OBS enregistre déjà.",
+      "OBS nimmt bereits auf.",
+      "OBS가 이미 녹화 중입니다.",
+      "OBS 已经开始录制。",
+      "OBS は既に録画中です。"
+    ],
+    "The recording target changed.": [
+      "La destinazione della registrazione è cambiata.",
+      "The recording target changed.",
+      "Đích ghi hình đã thay đổi.",
+      "La cible de l’enregistrement a changé.",
+      "Das Aufnahmeziel hat sich geändert.",
+      "녹화 대상이 변경되었습니다.",
+      "录制目标已更改。",
+      "録画先が変更されました。"
     ]
   }
 }

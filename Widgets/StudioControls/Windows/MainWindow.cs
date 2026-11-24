@@ -192,7 +192,7 @@ public sealed partial class MainWindow : Window
         transport.Children.Add(status);
         transport.Children.Add(notice);
         var buttons = Row();
-        record.Click += async (_, _) => await CommandAsync("record.start", token => service!.SetRecordingAsync(true, token));
+        record.Click += async (_, _) => await ManualRecordAsync();
         stop.Click += async (_, _) => await StopRecordingAsync();
         pause.Click += async (_, _) =>
         {

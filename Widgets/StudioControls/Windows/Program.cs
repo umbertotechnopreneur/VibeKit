@@ -9,10 +9,11 @@ public static class Program
     public static int Main(string[] args)
     {
         if (args.SequenceEqual(new[] { "--verify" })) return WindowsVerification.Run();
-        bool smokeRequested = args.SequenceEqual(new[] { "--ui-smoke" });
+        bool exportPreviews = args.SequenceEqual(new[] { "--ui-smoke", "--timer-previews" });
+        bool smokeRequested = exportPreviews || args.SequenceEqual(new[] { "--ui-smoke" });
         try
         {
-            if (smokeRequested) UiSmoke.Prepare();
+            if (smokeRequested) UiSmoke.Prepare(exportPreviews);
             Diagnostics.Initialize();
             string user = System.Security.Principal.WindowsIdentity.GetCurrent().User?.Value
                 ?? throw new InvalidOperationException("The current Windows user could not be identified.");

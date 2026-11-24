@@ -6,6 +6,11 @@ namespace VibeKit.StudioControls.Windows;
 
 public sealed record Framing(double Zoom = 1, double X = 0, double Y = 0);
 public sealed record CameraFraming(int Zoom, int Pan, int Tilt);
+public sealed record TimerSettings(
+    bool Large = false, bool ShowNext = true, bool ShowTotal = true, bool ShowNote = false,
+    bool ShowObs = true, bool RecordCountdown = true, bool EndWarning = true,
+    int WarningSeconds = 5, int FreeSeconds = 180);
+
 public sealed class PanelSettings
 {
     public string Theme { get; set; } = "Light";
@@ -13,6 +18,7 @@ public sealed class PanelSettings
     public string Host { get; set; } = "127.0.0.1";
     public int Port { get; set; } = 4455;
     public string ProtectedPassword { get; set; } = "";
+    public TimerSettings Timer { get; set; } = new();
     public string CameraId { get; set; } = "";
     public Dictionary<string, Framing> ScreenPresets { get; set; } = new()
     {
@@ -43,6 +49,9 @@ public static class LocalSettings
             if (value.Theme is not ("Light" or "Dark" or "System")) value.Theme = "Light";
             if (!VibeKit.StudioControls.Core.StudioTranslations.Languages.Any(item => item.Code == value.Language)) value.Language = "en";
             if (value.Port is < 1 or > 65535) value.Port = 4455;
+            var timer = value.Timer ?? new TimerSettings();
+            value.Timer = timer with { WarningSeconds = Math.Clamp(timer.WarningSeconds, 1, 60),
+                                       FreeSeconds = Math.Clamp(timer.FreeSeconds, 1, 86400) };
             value.ScreenPresets ??= new PanelSettings().ScreenPresets;
             value.CameraPresets ??= new();
             foreach (string key in value.CameraPresets.Keys.ToArray())

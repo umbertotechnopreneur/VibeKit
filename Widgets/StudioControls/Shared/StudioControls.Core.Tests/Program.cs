@@ -30,6 +30,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("scene preparation rejects traversal and missing assets", Tests.SceneTraversal),
     ("optional request failure isolates capabilities", Tests.OptionalCapability),
     ("optional transport failure stops reconnect cascade", Tests.OptionalTransport),
+    ("record countdown is cancellable and only starts once on the original target", Tests.CountdownRecording),
     ("confirmed recording survives refresh failure", Tests.ConfirmedRecording),
     ("optional cue failure cannot fail recording", Tests.CueFailure),
     ("saved recording path is action-local", Tests.SavedPath),
@@ -330,6 +331,49 @@ internal static class Tests
         var obs = new FakeObs { Handle = (type, _) => type == "GetSourceFilterList" ? throw new ObsConnectionException("synthetic disconnect") : null };
         StudioStatus status = await new StudioService(obs).GetStatusAsync();
         Check(!status.ConnectionAvailable && status.Warnings.Count == 1 && obs.Requests.Count == 3);
+    }
+
+    private sealed class ManualClock : TimeProvider
+    {
+        public int Seconds { get; set; }
+        public override long TimestampFrequency => 1;
+        public override long GetTimestamp() => Seconds;
+    }
+
+    public static async Task CountdownRecording()
+    {
+        foreach (string condition in new[] { "start", "cancel", "expired", "early", "disconnect", "collection", "scene", "active", "paused" })
+        {
+            var obs = new FakeObs();
+            string collection = "Synthetic";
+            bool paused = false;
+            obs.Handle = (kind, _) => kind switch
+            {
+                "GetSceneCollectionList" => Json(new { currentSceneCollectionName = collection }),
+                "GetRecordStatus" => Json(new { outputActive = obs.Recording, outputPaused = paused }),
+                _ => null
+            };
+            var clock = new ManualClock();
+            var service = new StudioService(obs);
+            var cue = new RecordCountdown(obs.ConnectionGeneration, obs.Scene, clock);
+            var target = await service.GetRecordingTargetAsync(cue);
+            Check(cue.Begin());
+            clock.Seconds = 3;
+            switch (condition)
+            {
+                case "cancel": Check(cue.Cancel()); break;
+                case "expired": clock.Seconds = 10; break;
+                case "early": clock.Seconds = 1; break;
+                case "disconnect": obs.ConnectionGeneration++; break;
+                case "collection": collection = "Different collection"; break;
+                case "scene": obs.Scene = "Detail"; break;
+                case "active": obs.Recording = true; break;
+                case "paused": paused = true; break;
+                case "start": await service.StartAfterCountdownAsync(cue, target); break;
+            }
+            await Throws<InvalidOperationException>(() => service.StartAfterCountdownAsync(cue, target));
+            Check(obs.Requests.Count(request => request.Type == "StartRecord") == (condition == "start" ? 1 : 0));
+        }
     }
 
     public static async Task ConfirmedRecording()

@@ -287,6 +287,35 @@ window.umberto-lab .workflow-library-section {
 }
 window.umberto-lab .workflow-library-list { background-color: @lab_surface; }
 window.umberto-lab .workflow-library-list row:selected { background-color: @lab_hover; color: @lab_foreground; }
+/* Keep the lit time face legible in both desktop themes. */
+window.umberto-lab .presenter-stage {
+  background: #1e262b;
+  color: #f4f6f4;
+  border: 1px solid #394348;
+  border-radius: 12px;
+}
+window.umberto-lab .presenter-clock-row { padding: 12px 16px; }
+window.umberto-lab.presenter-large .presenter-clock-row { padding: 18px 24px; }
+window.umberto-lab .presenter-caption { color: #b0c2c7; font-size: 12px; font-weight: 500; }
+window.umberto-lab .presenter-clock, window.umberto-lab .presenter-total {
+  font-family: monospace;
+  font-variant-numeric: tabular-nums;
+  color: #f7faf7;
+  font-weight: 700;
+}
+window.umberto-lab .presenter-clock { font-size: 48px; }
+window.umberto-lab.presenter-large .presenter-clock { font-size: 84px; }
+window.umberto-lab .presenter-total { font-size: 19px; }
+window.umberto-lab.presenter-large .presenter-total { font-size: 28px; }
+window.umberto-lab .presenter-route { padding: 9px 16px 11px; border-top: 1px solid #445155; }
+window.umberto-lab.presenter-large .presenter-route { padding: 13px 24px 17px; }
+window.umberto-lab .presenter-route .dim-label { color: #a5b4b8; }
+window.umberto-lab .presenter-current, window.umberto-lab .presenter-next { font-size: 17px; font-weight: 600; }
+window.umberto-lab.presenter-large .presenter-current, window.umberto-lab.presenter-large .presenter-next { font-size: 25px; }
+window.umberto-lab .presenter-note { padding: 0 16px 10px; color: #e1e8e7; }
+window.umberto-lab .presenter-obs { font-size: 12px; color: @lab_muted; }
+window.umberto-lab button.presenter-command { min-width: 24px; min-height: 26px; padding: 3px 5px; }
+window.umberto-lab .timer-settings-row { padding: 6px 2px; }
 window.umberto-lab .title-1 { font-size: 28px; }
 """
         + "\n".join(icon_rules)

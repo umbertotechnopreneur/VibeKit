@@ -7,6 +7,8 @@ import gi
 
 from obs_remote import WorkflowTransitionRecoveryError
 from panel_theme import SCENE_COLORS
+from presenter_timer import PresenterTimer
+from timer_options import TimerOptions
 from workflow_dialogs import LibraryDialog, step_dialog, workflow_details
 from workflow_widgets import (
     TRANSITIONS,
@@ -41,7 +43,9 @@ class WorkflowPanel:
         self.dispatched = None
         self.confirmed_scene = None
         self.recording_seen = False
+        self.timer_options = TimerOptions.load()
         self.timer_window = None
+        self.record_cue = None
         self.control_rows = []
         self.build()
         self.refresh()
@@ -373,48 +377,29 @@ class WorkflowPanel:
 
     def open_timer(self):
         if self.timer_window is None:
-            window = Gtk.Window(
-                title="Timer",
-                transient_for=self.panel.window,
-                destroy_with_parent=True,
-                hide_on_close=True,
-            )
-            self.timer_window = window
-            window.add_css_class("umberto-lab")
-            window.set_default_size(440, 260)
-            body = box(True, 10)
-            for edge in ("top", "bottom", "start", "end"):
-                getattr(body, "set_margin_" + edge)(18)
-            self.clock_label = Gtk.Label()
-            self.clock_label.add_css_class("title-1")
-            self.scene_label = Gtk.Label(wrap=True)
-            self.next_label = Gtk.Label(wrap=True)
-            self.cue_label = Gtk.Label(wrap=True)
-            self.cue_label.skip_localization = True
-            self.record_label = Gtk.Label()
-            self.free_seconds = Gtk.SpinButton.new_with_range(1, 86400, 1)
-            self.free_seconds.set_value(180)
-            self.panel.localizer.accessible(self.free_seconds, "Free timer (seconds)")
-            self.free_button = button("Start timer", self.start_free)
-            add(
-                body,
-                self.scene_label,
-                self.clock_label,
-                self.next_label,
-                self.cue_label,
-                self.record_label,
-                self.controls(),
-                add(
-                    box(),
-                    Gtk.Label(label="Free timer (seconds)"),
-                    self.free_seconds,
-                    self.free_button,
-                ),
-            )
-            window.set_child(body)
-            self.panel.localizer.attach(window)
+            self.timer_window = PresenterTimer(self)
         self.display()
         self.timer_window.present()
+        return self.timer_window
+
+    def apply_timer_options(self, options):
+        options.save()
+        self.timer_options = options
+        if self.timer_window is not None:
+            self.timer_window.configure()
+        self.display()
+
+    def show_record_cue(self, color, seconds):
+        first = self.record_cue is None
+        self.record_cue = color, seconds
+        if first:
+            self.open_timer()
+        else:
+            self.display()
+
+    def clear_record_cue(self):
+        self.record_cue = None
+        self.display()
 
     @property
     def active(self):
@@ -423,7 +408,7 @@ class WorkflowPanel:
     def start_free(self):
         if self.active:
             return
-        self.player.start_timer(self.free_seconds.get_value_as_int())
+        self.player.start_timer(self.timer_options.free_seconds)
         self.schedule()
 
     def start(self, live):
@@ -616,41 +601,18 @@ class WorkflowPanel:
             "stopped": "Stopped",
         }[player.state]
         title = tr("Checking OBS…" if self.checking else state)
-        subtitle = ""
-        cue = ""
         if not self.checking and player.mode == "timer":
             title += " · " + tr("Free timer")
         elif not self.checking and player.steps and 0 <= player.index < len(player.steps):
-            step = player.steps[player.index]
-            title = ("OBS" if player.mode == "live" else tr("Rehearsal")) + " · " + title
-            title += " · " + self.scene_title(step["scene"])
-            if player.index + 1 < len(player.steps):
-                subtitle = (
-                    tr("Next") + " · " + self.scene_title(player.steps[player.index + 1]["scene"])
-                )
-            subtitle += (
-                ("\n" if subtitle else "")
-                + tr("Remaining")
-                + " · "
-                + timecode(player.total_remaining)
-            )
-            cue = step["note"]
+            mode = "OBS" if player.mode == "live" else tr("Rehearsal")
+            title = mode + " · " + title + " · " + self.scene_title(player.steps[player.index]["scene"])
         if player.reason and not self.checking:
             title += " · " + tr(player.reason)
         self.status.set_label(
             title + (" · " + timecode(player.remaining) if active and not self.checking else "")
         )
         if self.timer_window is not None:
-            self.free_button.set_sensitive(not active)
-            self.free_seconds.set_sensitive(not active)
-            self.clock_label.set_label(
-                timecode(player.remaining) if active and not self.checking else "0:00"
-            )
-            self.scene_label.set_label(title)
-            self.next_label.set_label(subtitle)
-            self.cue_label.set_label(cue)
-            self.cue_label.set_visible(bool(cue))
-            self.record_label.set_label(self.panel.obs_status.get_label())
+            self.timer_window.update_display("Checking OBS…" if self.checking else state)
 
     def close(self):
         self.cancel.set()

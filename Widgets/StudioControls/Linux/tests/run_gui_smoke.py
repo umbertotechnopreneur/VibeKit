@@ -281,6 +281,29 @@ def run_child() -> int:
         library.close()
         flow.start(False)
         assert flow.player.state == "running" and flow.timer_window.get_visible()
+        timer = flow.timer_window
+        assert timer.clock.get_label() == "00:01"
+        assert timer.current_name.get_label() == "Intro"
+        assert timer.next_name.get_label() == flow.scene_title("Detail")
+        assert timer.signal.get_visible_child_name() == "green"
+        assert not timer.note.get_visible()
+        settings = timer.open_settings()
+        assert settings.get_modal()
+        settings.values["show_note"].set_active(True)
+        settings.cancel.emit("clicked")
+        assert not flow.timer_options.show_note
+        settings = timer.open_settings()
+        settings.size.set_selected(1)
+        settings.values["show_note"].set_active(True)
+        settings.apply.emit("clicked")
+        assert timer.has_css_class("presenter-large")
+        assert timer.note.get_visible() and timer.note.get_label() == "Synthetic cue"
+        assert type(flow.timer_options).load() == flow.timer_options
+        for color, seconds in (("green", 3), ("amber", 2), ("red", 1)):
+            flow.show_record_cue(color, seconds)
+            assert timer.signal.get_visible_child_name() == color
+            assert timer.clock.get_label() == f"00:0{seconds}"
+        flow.clear_record_cue()
         flow.toggle_pause()
         assert flow.player.state == "paused"
         flow.toggle_pause()

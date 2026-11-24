@@ -24,7 +24,42 @@ public sealed partial class StudioService(IObsClient client, StudioCatalog? cata
         }, cancellationToken);
     }
 
-    public Task<StudioStatus> SetRecordingAsync(bool start, CancellationToken cancellationToken = default) => RunAsync(async token =>
+    public Task<RecordingTarget> GetRecordingTargetAsync(RecordCountdown cue, CancellationToken token = default) =>
+        RunAsync(deadline => ReadRecordingTargetAsync(cue, deadline), token);
+
+    private async Task<RecordingTarget> ReadRecordingTargetAsync(RecordCountdown cue, CancellationToken token)
+    {
+        if (!cue.IsPending || client.ConnectionGeneration != cue.Generation)
+            throw new InvalidOperationException("Recording countdown cancelled.");
+        string collection = await CurrentCollectionAsync(token).ConfigureAwait(false);
+        JsonElement scene = await CallAsync("GetCurrentProgramScene", null, token).ConfigureAwait(false);
+        if (scene.GetProperty("currentProgramSceneName").GetString() != cue.Scene)
+            throw new InvalidOperationException("The recording target changed.");
+        JsonElement status = await CallAsync("GetRecordStatus", null, token).ConfigureAwait(false);
+        if (status.GetProperty("outputActive").GetBoolean() || status.GetProperty("outputPaused").GetBoolean())
+            throw new InvalidOperationException("OBS is already recording.");
+        if (client.ConnectionGeneration != cue.Generation)
+            throw new InvalidOperationException("OBS connection changed.");
+        return new(collection, JsonRead.String(scene, "currentProgramSceneUuid"));
+    }
+
+    public Task<StudioStatus> StartAfterCountdownAsync(RecordCountdown cue, RecordingTarget originalTarget,
+        CancellationToken cancellationToken = default) => RunAsync(async token =>
+    {
+        try
+        {
+            if (await ReadRecordingTargetAsync(cue, token).ConfigureAwait(false) != originalTarget)
+                throw new InvalidOperationException("The recording target changed.");
+            cue.Claim();
+            return await ChangeRecordingAsync(true, token).ConfigureAwait(false);
+        }
+        finally { cue.Cancel(); }
+    }, cancellationToken);
+
+    public Task<StudioStatus> SetRecordingAsync(bool start, CancellationToken cancellationToken = default) =>
+        RunAsync(token => ChangeRecordingAsync(start, token), cancellationToken);
+
+    private async Task<StudioStatus> ChangeRecordingAsync(bool start, CancellationToken token)
     {
         JsonElement response = await CallAsync(start ? "StartRecord" : "StopRecord", null, token).ConfigureAwait(false);
         var warnings = new List<string>();
@@ -51,7 +86,7 @@ public sealed partial class StudioService(IObsClient client, StudioCatalog? cata
         return await AfterActionAsync(start ? "Start recording" : "Stop recording",
             state => state with { IsRecording = start, IsPaused = false }, token,
             warnings, string.IsNullOrWhiteSpace(outputPath) ? null : outputPath, transportFailed).ConfigureAwait(false);
-    }, cancellationToken);
+    }
 
     public Task<StudioStatus> SetPausedAsync(bool paused, CancellationToken cancellationToken = default) => RunAsync(async token =>
     {

@@ -15,9 +15,18 @@ internal static class UiSmoke
     private static string? temporary;
     private static string ReportPath => Path.Combine(AppContext.BaseDirectory, "ui-smoke.txt");
 
-    public static void Prepare()
+    internal static string? PreviewDirectory { get; private set; }
+
+    public static void Prepare(bool exportPreviews)
     {
         Enabled = true;
+        if (exportPreviews)
+        {
+            string? destination = Environment.GetEnvironmentVariable("STUDIO_TIMER_PREVIEW_DIR");
+            if (string.IsNullOrWhiteSpace(destination) || !Path.IsPathFullyQualified(destination))
+                throw new ArgumentException("An absolute STUDIO_TIMER_PREVIEW_DIR is required.");
+            PreviewDirectory = Directory.CreateDirectory(destination).FullName;
+        }
         temporary = Path.Combine(Path.GetTempPath(), "StudioControls-ui-smoke-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(temporary);
         LocalSettings.VerificationDirectory = temporary;

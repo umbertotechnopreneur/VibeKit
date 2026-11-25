@@ -104,14 +104,10 @@ internal sealed class DesktopWorkspaceModel : IDisposable
     }
 
     /// <summary>Opens a verified startup page first and exposes the graph only after full enumeration.</summary>
-    public async Task OpenAsync(string directory, string? preferredPath, HistoryEntry? restore, bool readOnly,
+    public async Task OpenAsync(string directory, string? preferredPath, HistoryEntry? restore,
         Func<Task> initialReady, CancellationToken token)
     {
         var info = Files.Open(directory);
-        if (readOnly)
-        {
-            info = info with { Capabilities = info.Capabilities with { CanWriteSidecars = false, CanOpenParent = false } };
-        }
         var workspace = new DesktopWorkspace(new LocalWorkspaceProvider(Files, info));
         var priority = Files.FindInitialDocument(info.Id, preferredPath) ?? Files.FindInitialDocument(info.Id, "README.md");
         if (priority != null)
@@ -363,9 +359,8 @@ internal sealed class DesktopWorkspaceModel : IDisposable
     }
 
     /// <summary>Stores the current visit through the native session store.</summary>
-    public Task RememberAsync(CancellationToken token) => Workspace is { Info.Capabilities.CanWriteSidecars: false } && Preferences.RememberLastDocument
-        ? Task.CompletedTask
-        : Files.RememberAsync(Workspace?.Document != null ? History.Current : null, Preferences.RememberLastDocument, token);
+    public Task RememberAsync(CancellationToken token) =>
+        Files.RememberAsync(Workspace?.Document != null ? History.Current : null, Preferences.RememberLastDocument, token);
 
     /// <summary>Reads bounded images in the active granted workspace for local WebView rendering.</summary>
     public async Task<string> ReadImageAsync(string workspaceId, string path, CancellationToken token)

@@ -18,93 +18,66 @@
 
 <#
 .SYNOPSIS
-Generate the original MarkVibe package logos and a PNG-backed Windows icon at the requested destination.
+Generate the transparent package logos from the 256-pixel frame of the native MarkVibe icon.
 #>
 
-param([Parameter(Mandatory)][string]$Destination)
+param(
+    [Parameter(Mandatory)][string]$Destination,
+    [Parameter(Mandatory)][string]$IconPath
+)
+
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
-[System.IO.Directory]::CreateDirectory($Destination) | Out-Null
-foreach ($assetSpec in @(
-        @(
-            'Square44x44Logo.png', 44), @(
-            'Square150x150Logo.png', 150), @(
-            'StoreLogo.png', 50), @(
-            'AppIcon.png', 256))) {
-    $pixelSize = [int]$assetSpec[1]
-    $bitmap = [System.Drawing.Bitmap]::new($pixelSize, $pixelSize)
-    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-    $background = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml('#525ce8'))
-    $foreground = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::White)
-    $backgroundShape = [System.Drawing.Drawing2D.GraphicsPath]::new()
-    try {
-        $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-        $graphics.Clear([System.Drawing.Color]::Transparent)
-        $scale = $pixelSize / 64.0
-        $graphics.ScaleTransform($scale, $scale)
-        $backgroundShape.AddArc(0, 0, 36, 36, 180, 90)
-
-        $backgroundShape.AddArc(28, 0, 36, 36, 270, 90)
-        $backgroundShape.AddArc(28, 28, 36, 36, 0, 90)
-
-        $backgroundShape.AddArc(0, 28, 36, 36, 90, 90)
-
-        $backgroundShape.CloseFigure()
-        $graphics.FillPath($background, $backgroundShape)
-        # Same original M geometry as wwwroot/favicon.svg.
-        $letterPoints = [System.Drawing.PointF[]]@(
-            [System.Drawing.PointF]::new(14, 46),
-            [System.Drawing.PointF]::new(14, 18),
-            [System.Drawing.PointF]::new(22, 18),
-            [System.Drawing.PointF]::new(32, 34),
-            [System.Drawing.PointF]::new(42, 18),
-            [System.Drawing.PointF]::new(50, 18),
-            [System.Drawing.PointF]::new(50, 46),
-            [System.Drawing.PointF]::new(42, 46),
-            [System.Drawing.PointF]::new(42, 31),
-            [System.Drawing.PointF]::new(32, 46),
-            [System.Drawing.PointF]::new(22, 31),
-            [System.Drawing.PointF]::new(22, 46))
-        $graphics.FillPolygon($foreground, $letterPoints)
-        $bitmap.Save((Join-Path $Destination $assetSpec[0]), [System.Drawing.Imaging.ImageFormat]::Png)
-    } finally {
-
-        $backgroundShape.Dispose()
-
-        $foreground.Dispose()
-
-        $background.Dispose()
-
-        $graphics.Dispose()
-
-        $bitmap.Dispose()
+$icon = [System.IO.File]::ReadAllBytes($IconPath)
+if ($icon.Length -lt 6 -or [BitConverter]::ToUInt16($icon, 0) -ne 0 -or
+    [BitConverter]::ToUInt16($icon, 2) -ne 1) {
+    throw 'Expected a Windows icon file for the package logos.'
+}
+$entryCount = [BitConverter]::ToUInt16($icon, 4)
+$directoryEnd = 6 + (16 * $entryCount)
+$frameOffset = 0
+$frameLength = 0
+if ($directoryEnd -le $icon.Length) {
+    for ($entry = 6; $entry -lt $directoryEnd; $entry += 16) {
+        # A zero width and height in an ICO directory entry represent 256 pixels.
+        if ($icon[$entry] -eq 0 -and $icon[$entry + 1] -eq 0) {
+            $frameLength = [BitConverter]::ToUInt32($icon, $entry + 8)
+            $frameOffset = [BitConverter]::ToUInt32($icon, $entry + 12)
+            break
+        }
     }
 }
-$iconPngBytes = [System.IO.File]::ReadAllBytes((Join-Path $Destination 'AppIcon.png'))
-$iconStream = [System.IO.File]::Create((Join-Path $Destination 'MarkVibe.ico'))
-$iconWriter = [System.IO.BinaryWriter]::new($iconStream)
+if ($frameOffset -lt $directoryEnd -or $frameLength -eq 0 -or
+    ([long]$frameOffset + $frameLength) -gt $icon.Length) {
+    throw 'The MarkVibe icon is missing its 256-pixel frame.'
+}
+
+$stream = [System.IO.MemoryStream]::new($icon, [int]$frameOffset, [int]$frameLength, $false)
 try {
-    $iconWriter.Write([uint16]0)
-
-    $iconWriter.Write([uint16]1)
-
-    $iconWriter.Write([uint16]1)
-    $iconWriter.Write([byte]0)
-
-    $iconWriter.Write([byte]0)
-
-    $iconWriter.Write([byte]0)
-
-    $iconWriter.Write([byte]0)
-    $iconWriter.Write([uint16]1)
-
-    $iconWriter.Write([uint16]32)
-
-    $iconWriter.Write([uint32]$iconPngBytes.Length)
-
-    $iconWriter.Write([uint32]22)
-    $iconWriter.Write($iconPngBytes)
+    $source = [System.Drawing.Image]::FromStream($stream)
+    try {
+        [System.IO.Directory]::CreateDirectory($Destination) | Out-Null
+        foreach ($asset in @(
+                @{ Name = 'Square44x44Logo.png'; Size = 44 },
+                @{ Name = 'Square150x150Logo.png'; Size = 150 },
+                @{ Name = 'StoreLogo.png'; Size = 50 })) {
+            $bitmap = [System.Drawing.Bitmap]::new($asset.Size, $asset.Size)
+            try {
+                $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+                try {
+                    $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                    $graphics.DrawImage($source, 0, 0, $asset.Size, $asset.Size)
+                } finally {
+                    $graphics.Dispose()
+                }
+                $bitmap.Save((Join-Path $Destination $asset.Name), [System.Drawing.Imaging.ImageFormat]::Png)
+            } finally {
+                $bitmap.Dispose()
+            }
+        }
+    } finally {
+        $source.Dispose()
+    }
 } finally {
-
-    $iconWriter.Dispose()
+    $stream.Dispose()
 }

@@ -45,6 +45,7 @@ $Architectures = @($Architectures | Select-Object -Unique)
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $artifactsDirectory = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot 'artifacts'))
 $windowsPackaging = Join-Path $repositoryRoot 'packaging/windows'
+$appIcon = Join-Path $repositoryRoot 'src/MarkVibe.Windows/Assets/MarkVibe.ico'
 $versionFile = Join-Path $windowsPackaging 'version.json'
 $packageMetadata = Get-Content -LiteralPath $versionFile -Raw | ConvertFrom-Json
 $previousVersion = [version]$packageMetadata.version
@@ -167,35 +168,18 @@ try {
     Invoke-BuildTool 'dotnet' @(
         'restore', 'src/MarkVibe.Windows/MarkVibe.Windows.csproj', '--locked-mode')
     $icons = Join-Path $workRoot 'icons'
-    & (Join-Path $windowsPackaging 'New-PackageAssets.ps1') -Destination $icons
-    $signingPassword = [Guid]::NewGuid().ToString('N')
+    & (Join-Path $windowsPackaging 'New-PackageAssets.ps1') -Destination $icons -IconPath $appIcon
+    $thumbprint = $null
     if (-not $Unsigned) {
-        # The private signing key never belongs to the distribution or artifact upload tree.
-        $signingRoot = Join-Path $repositoryRoot "src/MarkVibe.Windows/obj/packaging-signing/$buildId"
-        [System.IO.Directory]::CreateDirectory($signingRoot) | Out-Null
-        $signingFile = Join-Path $signingRoot 'development.pfx'
-        $signingKey = [System.Security.Cryptography.RSA]::Create(2048)
+        $getCertificate = Join-Path $repositoryRoot '../../scripts/packaging/Get-VibeWareDevelopmentCertificate.ps1'
+        $certificate = & $getCertificate -Publisher $Publisher
         try {
-            $certificateRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($Publisher, $signingKey, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
-            $certificateRequest.CertificateExtensions.Add([System.Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($false, $false, 0, $true))
-            $certificateRequest.CertificateExtensions.Add([System.Security.Cryptography.X509Certificates.X509KeyUsageExtension]::new([System.Security.Cryptography.X509Certificates.X509KeyUsageFlags]::DigitalSignature, $true))
-            $enhancedKeyUsages = [System.Security.Cryptography.OidCollection]::new()
-
-            $enhancedKeyUsages.Add([System.Security.Cryptography.Oid]::new('1.3.6.1.5.5.7.3.3')) | Out-Null
-            $certificateRequest.CertificateExtensions.Add([System.Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]::new($enhancedKeyUsages, $true))
-            $certificateRequest.CertificateExtensions.Add([System.Security.Cryptography.X509Certificates.X509SubjectKeyIdentifierExtension]::new($certificateRequest.PublicKey, $false))
-            $certificate = $certificateRequest.CreateSelfSigned([DateTimeOffset]::UtcNow.AddMinutes(-5), [DateTimeOffset]::UtcNow.AddYears(1))
-            try {
-                [System.IO.File]::WriteAllBytes($signingFile, $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, $signingPassword))
-                [System.IO.File]::WriteAllBytes((Join-Path $artifactsRoot 'MarkVibe-Development.cer'), $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
-                $thumbprint = $certificate.Thumbprint
-            } finally {
-
-                $certificate.Dispose()
-            }
+            $thumbprint = $certificate.Thumbprint
+            $signingArguments = @('sign', '/fd', 'SHA256', '/s', 'My', '/sha1', $thumbprint)
+            [System.IO.File]::WriteAllBytes((Join-Path $artifactsRoot 'MarkVibe-Development.cer'),
+                $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
         } finally {
-
-            $signingKey.Dispose()
+            $certificate.Dispose()
         }
     }
     $bundleInput = Join-Path $workRoot 'bundle'
@@ -220,14 +204,16 @@ try {
             "-p:FileVersion=$Version",
             "-p:InformationalVersion=$Version-$channel",
             "-p:MarkVibeBuildTime=$builtAt",
-            "-p:MarkVibeNodeExe=$selectedNode",
-            "-p:ApplicationIcon=$(Join-Path $icons 'MarkVibe.ico')")
+            "-p:MarkVibeNodeExe=$selectedNode")
         foreach ($file in @('MarkVibe.Windows.exe', 'MarkVibe.Windows.pri', 'App.xbf', 'Microsoft.WinUI.dll',
-                'Microsoft.Web.WebView2.Core.dll', 'app/index.html', 'app/js/markvibe.js',
+                'Microsoft.Web.WebView2.Core.dll', 'Assets/MarkVibe.ico', 'app/favicon.svg', 'app/index.html', 'app/js/markvibe.js',
                 'app/js/markvibe.css', 'app/js/editor.worker.js', 'app/js/diagram-frame.html')) {
             if (-not (Test-Path -LiteralPath (Join-Path $payload $file) -PathType Leaf)) {
                 throw "The WinUI publish output is missing $file."
             }
+        }
+        if (-not $Unsigned) {
+            Invoke-BuildTool $signTool ($signingArguments + (Join-Path $payload 'MarkVibe.Windows.exe'))
         }
         $runtimeConfig = Get-Content -LiteralPath (Join-Path $payload 'MarkVibe.Windows.runtimeconfig.json') -Raw | ConvertFrom-Json
         if ($runtimeConfig.runtimeOptions.framework.name -ne 'Microsoft.NETCore.App' -or
@@ -301,11 +287,10 @@ try {
                 -Version $packageVersion `
                 -Configuration $Configuration `
                 -Architecture $architecture `
-                -IconPath (Join-Path $icons 'MarkVibe.ico')
+                -IconPath $appIcon
 
             if (-not $Unsigned) {
-                Invoke-BuildTool $signTool @(
-                    'sign', '/fd', 'SHA256', '/f', $signingFile, '/p', $signingPassword, $msiPath)
+                Invoke-BuildTool $signTool ($signingArguments + $msiPath)
             }
         }
 
@@ -338,8 +323,7 @@ try {
             'pack', '/d', $payload, '/p', $packagePath, '/o')
         if (-not $Unsigned) {
 
-            Invoke-BuildTool $signTool @(
-                'sign', '/fd', 'SHA256', '/f', $signingFile, '/p', $signingPassword, $packagePath)
+            Invoke-BuildTool $signTool ($signingArguments + $packagePath)
         }
         Copy-Item -LiteralPath $packagePath -Destination $bundleInput
     }
@@ -347,8 +331,7 @@ try {
     Invoke-BuildTool $makeAppx @(
         'bundle', '/d', $bundleInput, '/p', $bundle, '/bv', $Version, '/o')
     if (-not $Unsigned) {
-        Invoke-BuildTool $signTool @(
-            'sign', '/fd', 'SHA256', '/f', $signingFile, '/p', $signingPassword, $bundle)
+        Invoke-BuildTool $signTool ($signingArguments + $bundle)
         Copy-Item -LiteralPath (Join-Path $windowsPackaging 'Install-MarkVibe.ps1') -Destination $artifactsRoot
     }
     $buildInfo = [ordered]@{
@@ -394,9 +377,9 @@ The MSIX bundle contains $($Architectures -join ', ') and includes Windows App S
 Windows 11, Microsoft .NET Runtime 10.0 (matching architecture) and Microsoft Edge WebView2 Runtime are required.
 Install .NET from https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime
 
-For the development-signed bundle, open PowerShell as administrator and run
-.\Install-MarkVibe.ps1 -TrustDevelopmentCertificate, then open MarkVibe from Start.
-The public development certificate is supplied alongside the bundle.
+For the development-signed bundle, run .\Install-MarkVibe.ps1 -TrustDevelopmentCertificate
+and open MarkVibe from Start. Use administrator PowerShell the first time this
+public certificate is trusted on the machine.
 
 Created by Umberto Giacobbi. MIT license. VibeWare.
 https://github.com/umbertotechnopreneur/MarkVibe
@@ -413,10 +396,10 @@ Remove it through Installed apps. Documents and profile data are retained.
 MSI and MSIX are separate installations; choose one installer format.
 MSI version $msiProductVersion maps application version $Version without losing its revision.
 
-MSIX: bundle contains $($Architectures -join ', '). For this development-signed build,
-open PowerShell as administrator and run .\Install-MarkVibe.ps1 -TrustDevelopmentCertificate.
-Then open MarkVibe from Start. The public CER is included; the private key is not distributed.
-Each signed build uses a fresh development certificate; trust its supplied CER for installation.
+MSIX: bundle contains $($Architectures -join ', '). For the development-signed bundle,
+run .\Install-MarkVibe.ps1 -TrustDevelopmentCertificate and open MarkVibe from Start.
+Use administrator PowerShell the first time this public certificate is trusted on the machine.
+Later builds signed with the same certificate install from a regular PowerShell session.
 
 MARKDOWN: installation offers to open Windows Default apps for .md and .markdown.
 Confirm MarkVibe there to make it the default; declining preserves existing defaults.

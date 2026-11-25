@@ -8,8 +8,10 @@ The [VibeKit agreements](../../AGENTS.md) also apply. The Windows app uses WinUI
 
 ## Windows delivery and verification
 
+- Sign local Windows development builds with the [shared VibeWare development certificate](../../docs/windows-development-signing.md) for `CN=Umberto Giacobbi`. Reuse the registered signing key from the Desktop kit.
+
 - A build request on this machine means **Release x64 MSIX**, built from current source, installed and launched. An explicit MSI request also requires a real Windows Installer artifact. Keep the installed distribution type unless the owner requests a change. Debug, ARM64 and x86 require explicit requests.
-- For that Release delivery, the owner authorizes closing MarkVibe, discarding unsaved in-app work, trusting only its generated development certificate in `LocalMachine/TrustedPeople`, replacing the previous MarkVibe package as needed and removing the retired Debug installation. Preserve source documents, application data and unrelated applications and certificates.
+- For that Release delivery, the owner authorizes closing MarkVibe, discarding unsaved in-app work, trusting the shared public development certificate in `LocalMachine/TrustedPeople`, replacing the previous MarkVibe package as needed and removing the retired Debug installation. Preserve source documents, application data and unrelated applications and certificates.
 - Use the latest installed stable .NET 10 SDK (minimum 10.0.402) and Node 22.12 or newer. Obtain authorization for SDK installation. Keep the Visual Studio `.sln` and CLI `.slnx` project lists aligned. Preserve design-time, IDE and CLI bundle behavior. See [Visual Studio](docs/visual-studio.md).
 - The packaging script records each distribution in its own directory under `artifacts/`. Preserve existing generated material unless the owner requests its removal. Keep packaging work and outputs under this application. See [Windows packaging](docs/windows-packaging.md).
 - Run tests only when explicitly requested for the current task. Use synthetic fixtures and the appropriate core, native, client or Windows checks. The owner performs GUI acceptance. Driving input, focusing or moving windows, desktop capture and interactive checks require an explicit request beyond installation and launch.

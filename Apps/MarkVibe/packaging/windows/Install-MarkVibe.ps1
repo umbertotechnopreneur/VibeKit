@@ -79,11 +79,24 @@ if (-not $compatibleRuntime) {
     throw "Install Microsoft .NET Runtime 10.0 ($runtimeArchitecture) from https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime, then run this helper again. MarkVibe does not include .NET."
 }
 if ($TrustDevelopmentCertificate) {
-    $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
-    if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        throw 'Open PowerShell as administrator to trust the development certificate, then run this script again.'
+    $certificatePath = Join-Path $PSScriptRoot 'MarkVibe-Development.cer'
+    $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($certificatePath)
+    try {
+        $subject = [System.Security.Cryptography.X509Certificates.X500DistinguishedName]::new($buildInfo.publisher).Name
+        if ($certificate.Thumbprint -ne $buildInfo.certificateThumbprint -or $certificate.Subject -cne $subject -or $certificate.HasPrivateKey) {
+            throw 'The public development certificate does not match this MarkVibe distribution.'
+        }
+        $trustPath = "Cert:\LocalMachine\TrustedPeople\$($certificate.Thumbprint)"
+        if (-not (Test-Path -LiteralPath $trustPath)) {
+            $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
+            if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+                throw 'Run this helper as administrator once to trust the development certificate. Later builds using it install without elevation.'
+            }
+            Import-Certificate -FilePath $certificatePath -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' | Out-Null
+        }
+    } finally {
+        $certificate.Dispose()
     }
-    Import-Certificate -FilePath (Join-Path $PSScriptRoot 'MarkVibe-Development.cer') -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' | Out-Null
 }
 Add-AppxPackage -Path $msixBundles[0].FullName
 Write-Host 'MarkVibe installed for the current Windows user. Open it from Start.'

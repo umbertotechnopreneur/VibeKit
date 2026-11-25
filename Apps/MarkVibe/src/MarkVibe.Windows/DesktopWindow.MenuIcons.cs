@@ -41,7 +41,7 @@ public sealed partial class DesktopWindow
             "sourceHere" or "exportHtml" => '\uE943',
             "copyPath" or "copySection" => '\uE71B',
             "browser" => '\uE774',
-            "reveal" or "sample" => '\uE8B7',
+            "reveal" => '\uE8B7',
             "terminal" or "copyCode" => '\uE756',
             "delete" => '\uE74D',
             "appearance" => '\uE790',

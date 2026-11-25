@@ -15,7 +15,7 @@ VBWR E -->
         <Grid x:Name="ToolbarLayout" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto"
               Padding="8,0" ColumnSpacing="8" Background="{ThemeResource WorkspaceToolbarTintBrush}">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Button x:Name="SidebarToggle" Style="{StaticResource SubtleButtonStyle}" Click="ToggleSidebar"
+                <Button x:Name="SidebarToggle" Style="{StaticResource SubtleButtonStyle}" Click="ToggleSidebar" Visibility="Collapsed"
                         AutomationProperties.Name="Toggle document sidebar" ToolTipService.ToolTip="Toggle sidebar">
                     <SymbolIcon Symbol="GlobalNavigationButton" />
                 </Button>
@@ -56,15 +56,15 @@ VBWR E -->
         </Grid>
         <Grid x:Name="WorkArea" Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="SidebarColumn" Width="240" />
+                <ColumnDefinition x:Name="SidebarColumn" Width="0" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition x:Name="AiColumn" Width="0" />
             </Grid.ColumnDefinitions>
-            <Border x:Name="Sidebar" Background="Transparent">
+            <Border x:Name="Sidebar" Background="Transparent" Visibility="Collapsed">
                 <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="10" RowSpacing="8">
                     <StackPanel>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
-                            <TextBlock x:Name="WorkspaceName" Text="No workspace" Margin="2,0" FontWeight="SemiBold"
+                            <TextBlock x:Name="WorkspaceName" Margin="2,0" FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                             <Button x:Name="FolderCommandsButton" Grid.Column="1" Style="{StaticResource SubtleButtonStyle}"
                                     Width="32" Height="32" Padding="4" AutomationProperties.Name="Folder commands" IsEnabled="False">
@@ -157,11 +157,55 @@ VBWR E -->
                                KeyDown="ResizePaneByKey" AutomationProperties.Name="Resize source and reader" />
                     </Grid>
                     <Grid x:Name="MapSlot" Visibility="Collapsed" />
-                    <StackPanel x:Name="Welcome" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
-                        <TextBlock Text="Open a Markdown file or folder." Style="{StaticResource SubtitleTextBlockStyle}" />
-                        <Button x:Name="ResumeButton" Content="Reopen last workspace" Click="ResumeWorkspace" Visibility="Collapsed" />
-                        <Button x:Name="SampleButton" Content="Open sample workspace" Click="OpenSample" />
-                    </StackPanel>
+                    <ScrollViewer x:Name="Welcome" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch"
+                                  VerticalContentAlignment="Stretch" IsTabStop="False">
+                        <Grid Padding="20,24">
+                            <StackPanel MaxWidth="360" VerticalAlignment="Center" Spacing="20">
+                                <StackPanel Spacing="4">
+                                    <Image Width="112" Height="112" AutomationProperties.AccessibilityView="Raw"
+                                           IsHitTestVisible="False">
+                                        <Image.Source>
+                                            <SvgImageSource UriSource="ms-appx:///app/favicon.svg" />
+                                        </Image.Source>
+                                    </Image>
+                                    <TextBlock x:Name="WelcomeTitle" Text="Your Markdown workspace"
+                                               Style="{StaticResource TitleTextBlockStyle}" TextWrapping="Wrap"
+                                               TextAlignment="Center" AutomationProperties.HeadingLevel="Level1" />
+                                </StackPanel>
+                                <StackPanel Spacing="8">
+                                    <Button x:Name="WelcomeOpenFile" Click="OpenFile" Style="{StaticResource AccentButtonStyle}"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                            Padding="16,12" AutomationProperties.AutomationId="WelcomeOpenFile">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                            <SymbolIcon Symbol="OpenFile" />
+                                            <StackPanel Grid.Column="1" Spacing="2">
+                                                <TextBlock x:Name="WelcomeFileLabel" Text="Open file" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                <TextBlock Text=".md, .markdown, .mdown" FontSize="12" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="12" />
+                                        </Grid>
+                                    </Button>
+                                    <Button x:Name="WelcomeOpenFolder" Click="OpenFolder"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                            Padding="16,12" AutomationProperties.AutomationId="WelcomeOpenFolder">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                            <SymbolIcon Symbol="Folder" />
+                                            <StackPanel Grid.Column="1" Spacing="2">
+                                                <TextBlock x:Name="WelcomeFolderLabel" Text="Browse folder" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                <TextBlock x:Name="WelcomeFolderDetail" Text="Explore documents and subfolders"
+                                                           Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            </StackPanel>
+                                            <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="12" />
+                                        </Grid>
+                                    </Button>
+                                </StackPanel>
+                                <HyperlinkButton x:Name="ResumeButton" Content="Reopen last workspace" Click="ResumeWorkspace"
+                                                 HorizontalAlignment="Center" Visibility="Collapsed" />
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
                     <Border x:Name="PreviewOverlay" Visibility="Collapsed" Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}" BorderThickness="1" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
                         <Grid RowDefinitions="Auto,*">
                             <CommandBar DefaultLabelPosition="Right">
@@ -178,7 +222,7 @@ VBWR E -->
                 </Grid>
             </Grid>
             <Grid x:Name="AiSlot" Grid.Column="2" Visibility="Collapsed" />
-            <Thumb x:Name="SidebarGrip" Grid.Column="0" Style="{StaticResource PaneResizeGripStyle}" HorizontalAlignment="Right" Margin="0,0,-3,0"
+            <Thumb x:Name="SidebarGrip" Grid.Column="0" Style="{StaticResource PaneResizeGripStyle}" HorizontalAlignment="Right" Margin="0,0,-3,0" Visibility="Collapsed"
                    DragDelta="DragSidebar" DragCompleted="FinishSidebarDrag" KeyDown="ResizePaneByKey" AutomationProperties.Name="Resize sidebar" />
             <Thumb x:Name="AiGrip" Grid.Column="2" Style="{StaticResource PaneResizeGripStyle}" HorizontalAlignment="Left" Margin="-3,0,0,0"
                    DragDelta="DragAi" DragCompleted="FinishAiDrag" KeyDown="ResizePaneByKey" AutomationProperties.Name="Resize assistant" />

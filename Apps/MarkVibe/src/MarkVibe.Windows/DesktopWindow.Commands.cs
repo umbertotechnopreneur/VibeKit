@@ -44,7 +44,7 @@ public sealed partial class DesktopWindow
         {
             return null;
         }
-        var local = !IsSample(workspace) && !_options.SmokeTest;
+        var local = !_options.SmokeTest;
         var contextual = includeReaderActions || target.Fingerprint.Length > 0 || target.HeadingId.Length > 0;
         var current = contextual && workspace.Document?.Path == target.Path ? workspace.Document : null;
         var descriptors = DocumentCommands.Create(target, local, current, _model.Layout.ReaderExpanded);
@@ -120,7 +120,7 @@ public sealed partial class DesktopWindow
         switch (action)
         {
             case "copySelection": Copy(target.SelectedText); break;
-            case "copyPath": Copy(IsSample(workspace) ? target.Path : _model.Files.ResolveLocation(workspace.Info.Id, target.Path)); break;
+            case "copyPath": Copy(_model.Files.ResolveLocation(workspace.Info.Id, target.Path)); break;
             case "copyFile":
                 var content = current ?? await _model.ReadAsync(target.Path, token);
                 if (_model.Workspace == workspace) { Copy(content.Source); }
@@ -135,7 +135,7 @@ public sealed partial class DesktopWindow
                 break;
             case "reveal":
             case "terminal": DesktopFileActions.OpenLocation(_model.Files, workspace.Info.Id, target.Path, action == "terminal"); break;
-            case "delete" when !target.IsFolder && !IsSample(workspace): await DeleteDocumentAsync(workspace, target.Path, token); break;
+            case "delete" when !target.IsFolder && !_options.SmokeTest: await DeleteDocumentAsync(workspace, target.Path, token); break;
             case "find":
                 if (_model.View == "map") { await SetViewAsync("read", token); }
                 if (_model.Workspace == workspace) { ShowFind(target); }
@@ -553,7 +553,11 @@ public sealed partial class DesktopWindow
             }
             else if (!_compactSidebarOpen)
             {
-                if (_reader is { IsReady: true } reader)
+                if (ShowsWelcome)
+                {
+                    WelcomeOpenFile.Focus(FocusState.Programmatic);
+                }
+                else if (_reader is { IsReady: true } reader)
                 {
                     reader.Control.Focus(FocusState.Programmatic);
                 }

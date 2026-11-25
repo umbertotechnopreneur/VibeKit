@@ -138,7 +138,7 @@ public sealed partial class DesktopWindow
                 {
                     return [];
                 }
-                var localFiles = !IsSample(active) && !_options.SmokeTest;
+                var localFiles = !_options.SmokeTest;
                 return DocumentCommands.CreateFileActions(localFiles, WorkspacePath.IsMarkdown(target.Path), target.IsFolder, false)
                     .Where(command => command.Enabled).ToArray();
             };

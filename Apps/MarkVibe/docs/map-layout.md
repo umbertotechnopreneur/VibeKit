@@ -316,10 +316,8 @@ flowchart TB
     class CONFLICT notice
 ```
 
-- **Windows local folders:** card moves and appearance changes autosave through
-  contained, revision-checked atomic writes in `MarkVibe.Native`.
-- **Sample workspace:** changes stay in memory until the native save action
-  exports a separate layout copy. Source documents remain unchanged.
+Card moves and appearance changes autosave through contained, revision-checked
+atomic writes in `MarkVibe.Native`.
 
 The managed state serializes edits and the pointer adapter keeps unacknowledged
 previews until C# accepts them. Navigation waits for pending edits. Unsaved changes

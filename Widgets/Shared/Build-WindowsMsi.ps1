@@ -44,4 +44,5 @@ try {
 if (-not (Test-Path -LiteralPath $outputPath -PathType Leaf)) {
     throw 'Windows Installer compilation did not produce a package.'
 }
+& (Join-Path $PSScriptRoot '../../scripts/packaging/Sign-VibeWareDevelopmentFile.ps1') -Path $outputPath -WhenConfigured
 Write-Output "MSI: $outputPath"

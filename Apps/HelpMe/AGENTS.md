@@ -1,3 +1,7 @@
+> **File name** `AGENTS.md`<br>
+> **Full path** `E:\vibekit\Apps\HelpMe\AGENTS.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/HelpMe/AGENTS.md`
+
 # HelpMe repository instructions
 
 These instructions apply to every change in this repository.
@@ -132,3 +136,11 @@ pwsh -NoProfile -File .\scripts\HelpMe.ps1 -Command build -Configuration Release
 ```
 
 Only when explicitly requested by the user, run the appropriate automated tests, such as `pwsh -NoProfile -File .\scripts\HelpMe.ps1 -Command test -Configuration Release -NoBuild`, or proportionate CLI smoke tests with a disposable `HELPME_DATA_DIR`. Run these checks before cleanup when they need the build output. Do not use real secrets or mutate PATH/fonts during validation.
+
+## Local Windows development signing
+
+- Sign local Windows development builds with the [shared VibeWare development certificate](../../docs/windows-development-signing.md) for `CN=Umberto Giacobbi`. Reuse the imported Desktop kit and follow the established release signing rules.
+
+> **File name** `AGENTS.md`<br>
+> **Full path** `E:\vibekit\Apps\HelpMe\AGENTS.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/HelpMe/AGENTS.md`

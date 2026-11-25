@@ -1,3 +1,7 @@
+> **File name** `AGENTS.md`<br>
+> **Full path** `E:\vibekit\Apps\VoiceDucker\AGENTS.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/VoiceDucker/AGENTS.md`
+
 # VoiceDucker repository instructions
 
 ## Purpose
@@ -79,3 +83,11 @@ network calls or startup registration without a request.
 ## Shared publication interface
 
 Follow VibeWare templates/APP-PUBLICATION.md: centered About app · Terms · Privacy, first-person About disclosure, application and VibeWare GitHub links, personal site, and This is VibeWare · Manifesto. Use the generic website legal pages with app-specific data documentation. Scroll the whole main workspace including the footer without a visible vertical scrollbar; keep the footer at the bottom when content fits. Do not hide or fade footer links. Right-align the VibeWare text and Manifesto link. Keep About links available.
+
+## Local Windows development signing
+
+- Sign local Windows development builds with the [shared VibeWare development certificate](../../docs/windows-development-signing.md) for `CN=Umberto Giacobbi`. Reuse the imported Desktop kit and follow the established release signing rules.
+
+> **File name** `AGENTS.md`<br>
+> **Full path** `E:\vibekit\Apps\VoiceDucker\AGENTS.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/VoiceDucker/AGENTS.md`

@@ -14,6 +14,7 @@ if ($Channel -in @('Portable','All')) {
     $repoOut = Join-Path $repoArtifacts 'publish\repo-radar-win-x64'
     & dotnet publish $repoProject -c $Configuration -r win-x64 --self-contained false -o $repoOut
     if ($LASTEXITCODE) { throw 'Windows source build failed.' }
+    & (Join-Path $PSScriptRoot '../../scripts/packaging/Sign-VibeWareDevelopmentFile.ps1') -Path (Join-Path $repoOut 'repo-radar.exe') -WhenConfigured
     & $repoPython $repoPackager windows $repoOut $repoDistributions
     if ($LASTEXITCODE) { throw 'Portable ZIP creation failed.' }
     @{ relativeDll = 'artifacts\publish\repo-radar-win-x64\repo-radar.dll' } | ConvertTo-Json |

@@ -216,4 +216,5 @@ $wixArguments = @(
 )
 & dotnet --roll-forward Major $wix @wixArguments
 if ($LASTEXITCODE -ne 0) { throw 'MSI compilation failed.' }
+& (Join-Path $repo '../../scripts/packaging/Sign-VibeWareDevelopmentFile.ps1') -Path $output -WhenConfigured
 Write-Host "MSI: $output"

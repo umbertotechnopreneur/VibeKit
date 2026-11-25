@@ -1,3 +1,7 @@
+> **File name** `AGENTS.md`<br>
+> **Full path** `E:\vibekit\Apps\ThermalRight Panel\AGENTS.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/ThermalRight Panel/AGENTS.md`
+
 # Thermalright VibeWare repository instructions
 
 ## Owner approval comes first
@@ -78,3 +82,11 @@ I am Umberto Giacobbi. Thermalright VibeWare is my MIT-licensed holiday hobby pr
 - The Windows MSI must show installation progress and handle upgrade/removal cleanup. Use its normal visible UI when installing unless the owner explicitly requests silent mode. Close only verified Thermalright VibeWare processes before changing files. For an Open Hardware Monitor driver belonging to this user's Thermalright VibeWare installation, wait for it to stop, remove its service registration, verify that registration is gone, and remove/check the generated `.sys` file. Request administrator rights only when cleanup needs them. Preserve drivers owned by other software and report a busy driver or pending deletion as a failure, never as completed cleanup.
 - The successful MSI completion page has independent, default-checked "Start after install" and "See the latest news" options. Finish launches the installed app and/or opens the Thermalright VibeWare GitHub Releases page with fixed UTM campaign tags according to those choices. Do not run these completion actions during silent setup, repair, removal, failure or cancellation.
 - For C# changes, run restore and changed-file format verification before the mandatory Debug build and reinstall above. Do not run a separate Release compilation unless the owner explicitly asks for one. Do not perform physical-device writes merely to validate a build.
+
+## Local Windows development signing
+
+- Sign local Windows development builds with the [shared VibeWare development certificate](../../docs/windows-development-signing.md) for `CN=Umberto Giacobbi`. Reuse the imported Desktop kit and follow the established release signing rules.
+
+> **File name** `AGENTS.md`<br>
+> **Full path** `E:\vibekit\Apps\ThermalRight Panel\AGENTS.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/ThermalRight Panel/AGENTS.md`

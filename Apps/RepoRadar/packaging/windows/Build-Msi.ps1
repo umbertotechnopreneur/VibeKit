@@ -189,6 +189,7 @@ foreach ($file in $payload) {
         throw "Cabinet verification failed for $($file.Name)"
     }
 }
+& (Join-Path $projectRoot '../../scripts/packaging/Sign-VibeWareDevelopmentFile.ps1') -Path $msi -WhenConfigured
 $destination = Join-Path $packageDir $packageName
 Assert-Child $packageDir $destination
 [IO.File]::Move($msi, $destination, $true)

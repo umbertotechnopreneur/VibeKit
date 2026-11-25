@@ -65,7 +65,7 @@ param(
     [string] $Configuration = 'Release',
     [ValidateSet('x64', 'arm64')]
     [string] $Architecture = 'x64',
-    [string] $PublisherSubject = 'CN=umber',
+    [string] $PublisherSubject = 'CN=Umberto Giacobbi',
     [string] $StoreConfig,
     [string] $PackageVersion,
     [switch] $SignStoreTestPackage
@@ -466,16 +466,20 @@ try {
         return
     }
 
-    $certificate = Get-ChildItem -Path Cert:\CurrentUser\My |
-        Where-Object { $_.Subject -eq $PublisherSubject -and $_.HasPrivateKey -and $_.NotAfter -gt (Get-Date).AddDays(30) } |
-        Sort-Object NotAfter -Descending |
-        Select-Object -First 1
+    $certificate = if (-not $StoreConfig) {
+        & (Join-Path $root '../../scripts/packaging/Get-VibeWareDevelopmentCertificate.ps1') -Publisher $PublisherSubject
+    } else {
+        Get-ChildItem -Path Cert:\CurrentUser\My |
+            Where-Object { $_.Subject -eq $PublisherSubject -and $_.HasPrivateKey -and $_.NotAfter -gt (Get-Date).AddDays(30) } |
+            Sort-Object NotAfter -Descending |
+            Select-Object -First 1
+    }
     if ($null -eq $certificate) {
         throw "A usable signing certificate for $PublisherSubject is unavailable in Cert:\CurrentUser\My."
     }
-    $trustedRoot = "Cert:\CurrentUser\Root\$($certificate.Thumbprint)"
-    if (-not (Test-Path -LiteralPath $trustedRoot)) {
-        throw "The signing certificate for $PublisherSubject is not trusted in Cert:\CurrentUser\Root."
+    $trustStore = if ($StoreConfig) { 'Cert:\CurrentUser\Root' } else { 'Cert:\LocalMachine\TrustedPeople' }
+    if (-not (Test-Path -LiteralPath (Join-Path $trustStore $certificate.Thumbprint))) {
+        throw "The signing certificate for $PublisherSubject is not trusted in $trustStore."
     }
     Export-Certificate -Cert "Cert:\CurrentUser\My\$($certificate.Thumbprint)" -FilePath $pendingCertificate | Out-Null
     & $signTool sign /fd SHA256 /sha1 $certificate.Thumbprint /s My $pendingPackage
@@ -491,8 +495,9 @@ try {
 
     if ($Install) {
         Add-AppxPackage -Path $output -ForceApplicationShutdown -ForceUpdateFromAnyVersion
-        $package = Get-AppxPackage -Name $packageName -ErrorAction Stop
-        if ($package.Status -ne 'Ok') { throw "Installed MSIX has status $($package.Status)." }
+        $package = Get-AppxPackage -Name $packageName -ErrorAction Stop |
+            Where-Object { $_.Publisher -ceq $PublisherSubject }
+        if (-not $package -or $package.Status -ne 'Ok') { throw 'The requested MSIX did not report Ok status.' }
         Write-Host "Installed: $($package.PackageFullName)"
     }
     Write-Host "MSIX ready: $output"

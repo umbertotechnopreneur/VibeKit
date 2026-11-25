@@ -30,6 +30,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Windows publish failed.' }
     foreach ($file in @('OpenAIUsage.Windows.exe','OpenAIUsage.Windows.pri','App.xbf','OpenAIUsage.Windows.runtimeconfig.json')) { if (-not (Test-Path -LiteralPath (Join-Path $payload $file))) { throw "Missing $file" } }
     if ((Get-Item (Join-Path $payload 'OpenAIUsage.Windows.dll')).VersionInfo.FileVersion -ne "$version.0") { throw 'Published version mismatch.' }
+    $developmentSigner = Join-Path $root '../../scripts/packaging/Sign-VibeWareDevelopmentFile.ps1'
+    & $developmentSigner -Path (Join-Path $payload 'OpenAIUsage.Windows.exe') -WhenConfigured
     $notices = Join-Path $payload 'licenses'
     New-Item -ItemType Directory -Path $notices | Out-Null
     Get-ChildItem -LiteralPath $packages -Directory | ForEach-Object { $id = $_.Name; Get-ChildItem -LiteralPath $_.FullName -Directory | ForEach-Object { $v = $_.Name; Get-ChildItem -LiteralPath $_.FullName -File | Where-Object Name -Match '(?i)^(license|third[-_]?party|notice)' | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $notices "$id-$v-$($_.Name)") } } }
@@ -41,6 +43,7 @@ try {
     & dotnet (Join-Path $tools 'wix/tools/net6.0/any/wix.dll') build $wxs -arch x64 -o $msi -pdbtype none `
         -intermediatefolder (Join-Path $stage 'wix-intermediate') -ext $uiExtension -ext $netfxExtension
     if ($LASTEXITCODE -ne 0) { throw 'MSI build failed.' }
+    & $developmentSigner -Path $msi -WhenConfigured
     & (Join-Path $PSScriptRoot 'Verify-WindowsRequirement.ps1') -PackagePath $msi
     Write-Output "MSI: $msi"
 } finally { Pop-Location }

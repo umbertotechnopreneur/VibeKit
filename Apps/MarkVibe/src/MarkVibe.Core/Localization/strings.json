@@ -284,6 +284,8 @@
     "Search document contents": ["Cerca nelle pagine","Rechercher dans les pages","Tìm trong các trang","搜索页面内容","搜尋頁面內容","Cari isi halaman","페이지 내용 검색","ページ内を検索"],
     "Document font": ["Font dei documenti","Police des documents","Phông chữ tài liệu","文档字体","文件字型","Fon dokumen","문서 글꼴","文書のフォント"],
     "Reading zoom": ["Zoom di lettura","Zoom de lecture","Thu phóng khi đọc","阅读缩放","閱讀縮放","Zoom bacaan","읽기 확대/축소","閲覧時のズーム"],
+    "Another app": ["Un’altra app","Une autre application","Ứng dụng khác","其他应用","其他應用程式","Aplikasi lain","다른 앱","別のアプリ"],
+    "Refresh": ["Aggiorna","Actualiser","Làm mới","刷新","重新整理","Segarkan","새로 고침","更新"],
     "Automatic": ["Automatico","Automatique","Tự động","自动","自動","Otomatis","자동","自動"],
     "Email diagnostics…": ["Invia diagnostica via email…","Envoyer le diagnostic par e-mail…","Gửi chẩn đoán qua email…","通过电子邮件发送诊断信息…","以電郵傳送診斷資料…","Kirim diagnostik melalui email…","진단 정보를 이메일로 보내기…","診断情報をメールで送信…"],
     "Searching {0} of {1} documents…": ["Ricerca in corso · {0} di {1} documenti","Recherche en cours · {0} documents sur {1}","Đang tìm kiếm · {0} trên {1} tài liệu","正在搜索 · {0}/{1} 个文档","搜尋緊 · {0}/{1} 份文件","Mencari · {0} dari {1} dokumen","검색 중 · 문서 {1}개 중 {0}개","検索中 · 全 {1} 文書中 {0} 文書"],

@@ -9,6 +9,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Hosting;
@@ -46,21 +48,60 @@ internal sealed class WindowsPaperSurface
     /// <summary>Attaches once to the actual surface while preserving its native brush and children.</summary>
     public static void Attach(FrameworkElement host) => Surfaces.GetValue(host, static element => new WindowsPaperSurface(element));
 
-    /// <summary>Attaches to the visible panel of a modal without covering the window's dimming layer.</summary>
-    public static void AttachDialog(ContentDialog dialog)
+    /// <summary>Owns a decorative layer inside the actual popup template for this presentation of a dialog.</summary>
+    internal sealed class DialogLayer : IDisposable
     {
-        if (FindDialogBackground(dialog) is { } background) { Attach(background); }
-    }
+        private readonly FrameworkElement? _content;
+        private readonly Border _overlay = new() { IsHitTestVisible = false };
 
-    /// <summary>Locates the pinned SDK's dialog background before descending into any user content.</summary>
-    private static Border? FindDialogBackground(DependencyObject element)
-    {
-        if (element is Border { Name: "BackgroundElement" } background) { return background; }
-        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(element); index++)
+        /// <summary>Uses the presented content as an anchor even when WinUI moves the dialog into a separate popup tree.</summary>
+        public DialogLayer(ContentDialog dialog)
         {
-            if (FindDialogBackground(VisualTreeHelper.GetChild(element, index)) is { } found) { return found; }
+            if (dialog.Content is string text)
+            {
+                dialog.Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
+            }
+            _content = dialog.Content as FrameworkElement;
+            if (_content == null) { return; }
+            AutomationProperties.SetAccessibilityView(_overlay, AccessibilityView.Raw);
+            Attach(_overlay);
+            _content.Loaded += ContentLoaded;
+            if (_content.IsLoaded) { ResolveLayout(); }
         }
-        return null;
+
+        /// <summary>Reacquires the visible dialog grid when a popup or a new theme realizes the content.</summary>
+        private void ContentLoaded(object sender, RoutedEventArgs args) => ResolveLayout();
+
+        /// <summary>Waits for the first completed layout when the loaded event precedes popup reparenting.</summary>
+        private void LayoutUpdated(object? sender, object args) => ResolveLayout();
+
+        /// <summary>Places a noninteractive sibling above both native rows and leaves the popup's own composition visual alone.</summary>
+        private void ResolveLayout()
+        {
+            if (_content == null) { return; }
+            _content.LayoutUpdated -= LayoutUpdated;
+            for (DependencyObject? ancestor = _content; ancestor != null; ancestor = VisualTreeHelper.GetParent(ancestor))
+            {
+                if (ancestor is not Grid { Name: "DialogSpace" } space) { continue; }
+                if (ReferenceEquals(_overlay.Parent, space)) { return; }
+                if (_overlay.Parent is Panel previous) { previous.Children.Remove(_overlay); }
+                _overlay.CornerRadius = space.CornerRadius;
+                Grid.SetRowSpan(_overlay, Math.Max(1, space.RowDefinitions.Count));
+                Grid.SetColumnSpan(_overlay, Math.Max(1, space.ColumnDefinitions.Count));
+                space.Children.Add(_overlay);
+                return;
+            }
+            _content.LayoutUpdated += LayoutUpdated;
+        }
+
+        /// <summary>Removes the owned overlay and its realization handlers when the modal closes.</summary>
+        public void Dispose()
+        {
+            if (_content == null) { return; }
+            _content.Loaded -= ContentLoaded;
+            _content.LayoutUpdated -= LayoutUpdated;
+            if (_overlay.Parent is Panel panel) { panel.Children.Remove(_overlay); }
+        }
     }
 
     /// <summary>Installs the finish on each popup realization, including later openings of the same flyout.</summary>

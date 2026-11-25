@@ -81,6 +81,7 @@ internal static class WindowsDialogs
     public static async Task<ContentDialogResult> ShowAsync(ContentDialog dialog)
     {
         var host = dialog.XamlRoot.Content as FrameworkElement;
+        using var paper = new WindowsPaperSurface.DialogLayer(dialog);
 
         /// <summary>Applies the current host theme to the popup's separate visual tree.</summary>
         void ApplyTheme(FrameworkElement sender, object args) => dialog.RequestedTheme = sender.ActualTheme;
@@ -91,7 +92,6 @@ internal static class WindowsDialogs
         /// <summary>Applies typography and fallback tooltips after WinUI creates the native action buttons.</summary>
         void ApplyOpenedPresentation(ContentDialog sender, ContentDialogOpenedEventArgs args)
         {
-            WindowsPaperSurface.AttachDialog(sender);
             ApplyFont();
             ApplyButtonToolTips(sender);
         }

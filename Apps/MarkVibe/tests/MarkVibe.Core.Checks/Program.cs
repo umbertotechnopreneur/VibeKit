@@ -30,7 +30,21 @@ var checks = new (string Name, Func<Task> Run)[]
         Equal("Courier New", legacy.DocumentFont);
         Equal("system", legacy.GraphFont);
         Equal("system", legacy.GraphPalette);
-        Equal(ReaderPaper.Default, legacy.Paper);
+        Equal("ivory", new Preferences().Paper);
+        Equal("ivory", Preferences.RestoreGlobal(legacy).Paper);
+        var plain = Wire.Decode<Preferences>("""{"paper":"none"}""").Validated();
+        Equal("none", plain.Paper);
+        var olderFolder = Wire.Decode<ReaderAppearance>("""
+            {"lightDocumentTheme":"markvibe","darkDocumentTheme":"markvibe","lightCodeTheme":"auto","darkCodeTheme":"auto","underlineLinks":true,"documentFont":"system"}
+            """);
+        Equal("ivory", olderFolder.ApplyTo(legacy).Paper);
+        var restoredGlobal = Preferences.RestoreGlobal(plain);
+        Equal("ivory", restoredGlobal.Paper);
+        Equal("ivory", olderFolder.ApplyTo(restoredGlobal).Paper);
+        Equal("antique", olderFolder.ApplyTo(legacy with { Paper = "antique" }).Paper);
+        var plainFolder = Wire.Decode<ReaderAppearance>(Wire.Encode(ReaderAppearance.From(plain)));
+        Equal("none", plainFolder.ApplyTo(restoredGlobal).Paper);
+        Equal("cotton", Preferences.RestoreGlobal(legacy with { Paper = "cotton" }).Paper);
 
         var selected = legacy with { GraphFont = "cascadia mono", GraphPalette = "EMBER" };
         var saved = Wire.Decode<Preferences>(Wire.Encode(selected)).Validated();

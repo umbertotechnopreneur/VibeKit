@@ -127,6 +127,15 @@ public sealed record Preferences(
     string Paper = ReaderPaper.Default
 )
 {
+    /// <summary>Loads the global settings file; the previous global "none" was written automatically before a paper was chosen.</summary>
+    public static Preferences RestoreGlobal(Preferences? stored)
+    {
+        if (stored == null) { return new(); }
+        // The paper picker writes explicit choices to ReaderAppearance for the workspace, never to this global field.
+        var preferences = stored.Paper == ReaderPaper.ThemeBackground ? stored with { Paper = ReaderPaper.Default } : stored;
+        return preferences.Validated();
+    }
+
     /// <summary>Returns preferences with supported choices and bounded zoom while retaining the existing defaults.</summary>
     public Preferences Validated() => this with
     {
@@ -155,7 +164,7 @@ public sealed record ReaderAppearance(
     string DarkCodeTheme,
     bool UnderlineLinks,
     string DocumentFont,
-    string Paper = ReaderPaper.Default
+    string? Paper = null
 )
 {
     /// <summary>Captures a folder's effective reader choices without copying unrelated global settings.</summary>
@@ -177,7 +186,7 @@ public sealed record ReaderAppearance(
         DarkCodeTheme = DarkCodeTheme,
         UnderlineLinks = UnderlineLinks,
         DocumentFont = DocumentFont,
-        Paper = Paper
+        Paper = Paper ?? preferences.Paper
     }).Validated();
 }
 

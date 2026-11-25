@@ -9,14 +9,16 @@ namespace MarkVibe.Core;
 /// <summary>Identifies a bundled pair of light and dark paper tiles and its localizable name.</summary>
 public sealed record ReaderPaper(string Id, string Label)
 {
-    public const string Default = "none";
+    public const string Default = "ivory";
+    public const string ThemeBackground = "none";
     public static IReadOnlyList<ReaderPaper> Options { get; } = Array.AsReadOnly<ReaderPaper>(
     [
-        new("ivory", "Ivory"), new("antique", "Antique paper"), new("cotton", "Cotton rag"),
+        new(Default, "Ivory"), new("antique", "Antique paper"), new("cotton", "Cotton rag"),
         new("vellum", "Vellum"), new("recycled", "Recycled pulp"), new("kraft", "Kraft"),
         new("washi", "Washi"), new("watercolor", "Watercolor paper"), new("newsprint", "Newsprint"), new("blue", "Blue paper")
     ]);
 
-    /// <summary>Returns the untextured theme background for missing or unsupported preferences.</summary>
-    public static string Normalize(string? id) => Options.FirstOrDefault(option => option.Id == id)?.Id ?? Default;
+    /// <summary>Retains an explicit untextured background and falls back to ivory for missing or unsupported choices.</summary>
+    public static string Normalize(string? id) => id == ThemeBackground
+        ? ThemeBackground : Options.FirstOrDefault(option => option.Id == id)?.Id ?? Default;
 }

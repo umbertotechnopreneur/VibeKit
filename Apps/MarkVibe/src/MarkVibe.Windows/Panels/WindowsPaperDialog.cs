@@ -29,7 +29,7 @@ internal static class WindowsPaperDialog
             IsItemClickEnabled = false
         };
         AutomationProperties.SetName(gallery, T("Paper"));
-        gallery.Items.Add(Sample(ReaderPaper.Default, T("Theme background")));
+        gallery.Items.Add(Sample(ReaderPaper.ThemeBackground, T("Theme background")));
         foreach (var paper in ReaderPaper.Options)
         {
             gallery.Items.Add(Sample(paper.Id, T(paper.Label)));
@@ -100,7 +100,7 @@ internal static class WindowsPaperDialog
             {
                 var swatch = (Border)((StackPanel)item.Content).Children[0];
                 var id = (string)item.Tag;
-                if (contrast || id == ReaderPaper.Default)
+                if (contrast || id == ReaderPaper.ThemeBackground)
                 {
                     swatch.Background = new SolidColorBrush(contrast ? systemBackground :
                         dark ? global::Windows.UI.Color.FromArgb(255, 25, 29, 35) : Microsoft.UI.Colors.White);

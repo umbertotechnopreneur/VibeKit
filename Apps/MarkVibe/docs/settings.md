@@ -40,9 +40,10 @@ appearance settings without writing into the source folder. The font catalog
 is `src/MarkVibe.Core/Presentation/ui-fonts.json`. Windows offers its installed
 families without downloading fonts.
 
+The Markdown reader starts with **Ivory** paper, with a darker version for dark mode.
 Choose **Paper** from the document context menu to preview ten textures in the
-native gallery. **Apply paper** saves the choice for this workspace. **Theme
-background** restores its plain reading surface. Contrast themes use the system
+native gallery. **Apply paper** saves the choice for this workspace. Choose **Theme
+background** for a plain reading surface. Contrast themes use the system
 background for legibility.
 
 WinUI applies the light or dark theme to the Mica window. The native graph

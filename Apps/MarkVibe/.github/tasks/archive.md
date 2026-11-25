@@ -4,10 +4,12 @@
 
 # Latest delivery
 
-WinUI 3 Release x64 MSIX **0.1.0.55** was built from source, signed and
-installed on 2026-11-25. The reader has a native gallery with ten paper
-textures. The map uses portrait A4 pages and grouped options. Pages searches
-workspace contents and Outline highlights occurrences in the open document.
+WinUI 3 Release x64 MSIX **0.1.0.56** was built from source, signed and
+installed on 2026-11-25. The reader opens on ivory paper and remembers the
+paper chosen for each workspace. The native gallery offers ten textures and
+a plain theme background. The map uses portrait A4 pages and grouped options.
+The Pages tab searches workspace contents. The Outline tab highlights matches
+in the open document.
 Toolbars and dialogs share a subtle paper finish. Settings retains its size
 when changing tabs. The package requires the shared .NET Runtime 10.0 for x64.
 

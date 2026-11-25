@@ -86,7 +86,7 @@ internal sealed class DesktopWorkspaceModel : IDisposable
             if (File.Exists(_settingsPath) && new FileInfo(_settingsPath).Length <= 262144)
             {
                 var saved = Wire.Decode<Settings>(File.ReadAllText(_settingsPath));
-                Preferences = saved.Preferences?.Validated() ?? new();
+                Preferences = MarkVibe.Core.Preferences.RestoreGlobal(saved.Preferences);
                 Layout = saved.Layout?.Validated() ?? new();
                 foreach (var pair in (saved.FolderAppearance ?? []).Take(64))
                 {

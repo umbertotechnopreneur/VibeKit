@@ -9,9 +9,9 @@ VBWR E -->
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="MarkVibe">
-    <Grid x:Name="Shell"
+    <Grid x:Name="Shell" Background="{ThemeResource WorkspaceGlassOverlayBrush}"
           RowDefinitions="Auto,*,Auto" Loaded="ShellLoaded" SizeChanged="ShellSizeChanged">
-        <Border Background="{ThemeResource WorkspaceSurfaceBrush}" IsHitTestVisible="False" />
+        <Border Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" IsHitTestVisible="False" />
         <Grid x:Name="ToolbarLayout" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto"
               Padding="8,0" ColumnSpacing="8" Background="{ThemeResource WorkspaceToolbarTintBrush}">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -60,7 +60,7 @@ VBWR E -->
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition x:Name="AiColumn" Width="0" />
             </Grid.ColumnDefinitions>
-            <Border x:Name="Sidebar" Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}">
+            <Border x:Name="Sidebar" Background="Transparent">
                 <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="10" RowSpacing="8">
                     <StackPanel>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
@@ -146,7 +146,7 @@ VBWR E -->
                     </Grid>
                 </Border>
                 <Grid x:Name="Viewport" Grid.Row="1">
-                    <Grid x:Name="ReaderSlot" Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}" />
+                    <Grid x:Name="ReaderSlot" />
                     <Grid x:Name="SplitChrome" Visibility="Collapsed">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition x:Name="SplitSourceColumn" Width="1*" />
@@ -184,7 +184,7 @@ VBWR E -->
                    DragDelta="DragAi" DragCompleted="FinishAiDrag" KeyDown="ResizePaneByKey" AutomationProperties.Name="Resize assistant" />
         </Grid>
         <Grid x:Name="StatusBar" Grid.Row="2" RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="12,3"
-              Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}">
+              Background="Transparent">
             <TextBlock x:Name="Status" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" AutomationProperties.LiveSetting="Polite" />
             <Grid x:Name="FooterSlot" Grid.Column="1" />
         </Grid>

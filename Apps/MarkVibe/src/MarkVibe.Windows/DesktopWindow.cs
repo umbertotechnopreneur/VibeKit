@@ -71,7 +71,7 @@ public sealed partial class DesktopWindow : Window
         WindowsPaperSurface.Attach(ToolbarLayout);
         WindowsPaperSurface.AttachFlyout(ShellMenu);
         WindowsPaperSurface.AttachFlyout(FolderCommandsMenu);
-        SystemBackdrop = new MicaBackdrop();
+        SystemBackdrop = WindowsWorkspaceBackdrop.Create();
         Viewport.SizeChanged += (_, _) => QueuePreviewPlacement();
         ResizeForDisplay();
         _documentFiles = new DesktopDocumentFiles(options, _model.Files, WindowNative.GetWindowHandle(this));
@@ -233,7 +233,7 @@ public sealed partial class DesktopWindow : Window
         UpdateLabels();
     }
 
-    /// <summary>Matches the Windows caption to the Mica shell's current theme.</summary>
+    /// <summary>Matches the Windows caption to the shell's current theme.</summary>
     private void ApplyWindowColors()
     {
         var dark = Shell.ActualTheme == ElementTheme.Dark;

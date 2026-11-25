@@ -25,12 +25,22 @@ VBWR E -->
     <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
    </ResourceDictionary.MergedDictionaries>
    <ResourceDictionary.ThemeDictionaries>
-    <ResourceDictionary x:Key="Default">
-     <SolidColorBrush x:Key="WorkspaceSurfaceBrush" Color="{ThemeResource SolidBackgroundFillColorBase}" Opacity="0.84" />
-     <SolidColorBrush x:Key="WorkspaceToolbarTintBrush" Color="{ThemeResource SystemAccentColor}" Opacity="0.045" />
+    <ResourceDictionary x:Key="Light">
+     <SolidColorBrush x:Key="WorkspaceGlassOverlayBrush" Color="#88FFFFFF" />
+     <LinearGradientBrush x:Key="WorkspaceToolbarTintBrush" StartPoint="0,0" EndPoint="1,1" Opacity="0.07">
+      <GradientStop Color="{ThemeResource SystemAccentColor}" Offset="0" />
+      <GradientStop Color="Transparent" Offset="1" />
+     </LinearGradientBrush>
+    </ResourceDictionary>
+    <ResourceDictionary x:Key="Dark">
+     <SolidColorBrush x:Key="WorkspaceGlassOverlayBrush" Color="#6C000000" />
+     <LinearGradientBrush x:Key="WorkspaceToolbarTintBrush" StartPoint="0,0" EndPoint="1,1" Opacity="0.12">
+      <GradientStop Color="{ThemeResource SystemAccentColor}" Offset="0" />
+      <GradientStop Color="Transparent" Offset="1" />
+     </LinearGradientBrush>
     </ResourceDictionary>
     <ResourceDictionary x:Key="HighContrast">
-     <SolidColorBrush x:Key="WorkspaceSurfaceBrush" Color="{ThemeResource SystemColorWindowColor}" />
+     <SolidColorBrush x:Key="WorkspaceGlassOverlayBrush" Color="{ThemeResource SystemColorWindowColor}" />
      <SolidColorBrush x:Key="WorkspaceToolbarTintBrush" Color="Transparent" />
     </ResourceDictionary>
    </ResourceDictionary.ThemeDictionaries>

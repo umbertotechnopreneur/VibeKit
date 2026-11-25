@@ -50,18 +50,18 @@ try {
           const rect = reader.getBoundingClientRect();
           const overflows = reader.scrollHeight > reader.clientHeight;
           return { x: rect.x, y: rect.y, width: rect.width, height: rect.height,
-            gutter: reader.offsetWidth - reader.clientWidth, radius: style.borderTopRightRadius,
+            gutter: reader.offsetWidth - reader.clientWidth, radius: style.borderRadius,
             overflow: style.overflowY, overflows, thumb: style.scrollbarColor };
         }, long);
-        assert.equal(box.radius, "0px");
+        assert.equal(box.radius, "0px 0px 0px 16px");
         assert.equal(box.overflow, "auto");
         assert.equal(box.overflows, long);
         if (long) assert.ok(box.gutter > 0, "The fixture needs a classic scrollbar to check its track");
         else assert.equal(box.gutter, 0);
         assert.doesNotMatch(box.thumb, /^rgba\(0, 0, 0, 0\) /);
-        // Inspect rendered pixels, including the classic scrollbar track below the thumb.
-        const screenshot = (await page.screenshot()).toString("base64");
-        const differences = await page.evaluate(async ({ screenshot, tile, box }) => {
+        // A transparent pixel exposes the native acrylic. A white or dark browser background would hide it.
+        const screenshot = (await page.screenshot({ omitBackground: true })).toString("base64");
+        const samples = await page.evaluate(async ({ screenshot, tile, box }) => {
           /** Decodes an image to a readable pixel surface without altering the test page. */
           async function pixels(source) {
             const image = new Image();
@@ -76,27 +76,37 @@ try {
           }
           const screen = await pixels("data:image/png;base64," + screenshot);
           const paper = await pixels(tile);
-          return [[1, 1], [1, box.height - 2], [box.width - 2, box.height * .73]].map(([x, y]) => {
+          const width = box.width, height = box.height;
+          const points = [[1, 1], [20, height - 2], [1, height - 20], [width - 2, height * .73]];
+          if (!box.gutter) points.push([width - 2, 1], [width - 2, height - 2]);
+          const paperDeltas = points.map(([x, y]) => {
             const observed = screen.getImageData(box.x + x, box.y + y, 1, 1).data;
             const expected = paper.getImageData(x % 256, y % 256, 1, 1).data;
-            return Math.max(...[0, 1, 2].map(channel => Math.abs(observed[channel] - expected[channel])));
+            return Math.max(...[0, 1, 2, 3].map(channel => Math.abs(observed[channel] - expected[channel])));
           });
+          const cornerAlpha = screen.getImageData(box.x + 1, box.y + height - 2, 1, 1).data[3];
+          return { paperDeltas, cornerAlpha };
         }, { screenshot, tile, box });
-        assert.ok(differences.every(delta => delta <= 2), JSON.stringify({ theme, view, long, box, differences }));
+        assert.ok(samples.paperDeltas.every(delta => delta <= 2), JSON.stringify({ theme, view, long, box, samples }));
+        assert.equal(samples.cornerAlpha, 0, JSON.stringify({ theme, view, long, box, samples }));
       }
       await page.keyboard.press("Tab");
       const focusedRadius = await page.locator(".mv-view.reader").evaluate(reader =>
-        reader.matches(":focus-visible") ? getComputedStyle(reader).borderTopRightRadius : null);
-      assert.equal(focusedRadius, "0px");
+        reader.matches(":focus-visible") ? getComputedStyle(reader).borderRadius : null);
+      assert.equal(focusedRadius, "0px 0px 0px 16px");
       await page.emulateMedia({ forcedColors: "active" });
       const contrast = await page.locator(".mv-view.reader").evaluate(reader => {
         const style = getComputedStyle(reader);
-        return [style.backgroundImage, style.scrollbarColor];
+        return [style.backgroundImage, style.scrollbarColor, style.borderRadius];
       });
-      assert.deepEqual(contrast, ["none", "auto"]);
+      assert.deepEqual(contrast, ["none", "auto", "0px 0px 0px 16px"]);
       await page.emulateMedia({ forcedColors: "none" });
       await page.emulateMedia({ media: "print" });
-      assert.equal(await page.locator(".mv-view.reader").evaluate(reader => getComputedStyle(reader).backgroundImage), "none");
+      const printStyle = await page.locator(".mv-view.reader").evaluate(reader => {
+        const style = getComputedStyle(reader);
+        return [style.backgroundImage, style.borderRadius];
+      });
+      assert.deepEqual(printStyle, ["none", "0px"]);
       await page.emulateMedia({ media: "screen" });
     }
   }

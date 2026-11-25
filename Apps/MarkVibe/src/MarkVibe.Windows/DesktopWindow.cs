@@ -71,7 +71,7 @@ public sealed partial class DesktopWindow : Window
         WindowsPaperSurface.Attach(ToolbarLayout);
         WindowsPaperSurface.AttachFlyout(ShellMenu);
         WindowsPaperSurface.AttachFlyout(FolderCommandsMenu);
-        SystemBackdrop = new MicaBackdrop { Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt };
+        SystemBackdrop = new MicaBackdrop();
         Viewport.SizeChanged += (_, _) => QueuePreviewPlacement();
         ResizeForDisplay();
         _documentFiles = new DesktopDocumentFiles(options, _model.Files, WindowNative.GetWindowHandle(this));

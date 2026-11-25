@@ -54,7 +54,7 @@ internal sealed partial class DocumentWebView : IDisposable
     public Grid View { get; } = new();
 
     /// <summary>The visible control used to anchor native document context popups.</summary>
-    public WebView2 Control { get; } = new();
+    public WebView2 Control { get; } = new() { DefaultBackgroundColor = Microsoft.UI.Colors.Transparent };
 
     /// <summary>Handles file and export requests delegated to the current native workspace.</summary>
     public Func<string, JsonElement, CancellationToken, Task<object?>>? HandleNativeRequest { get; set; }

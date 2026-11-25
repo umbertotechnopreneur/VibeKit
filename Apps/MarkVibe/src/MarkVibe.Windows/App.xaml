@@ -24,6 +24,16 @@ VBWR E -->
    <ResourceDictionary.MergedDictionaries>
     <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
    </ResourceDictionary.MergedDictionaries>
+   <ResourceDictionary.ThemeDictionaries>
+    <ResourceDictionary x:Key="Default">
+     <SolidColorBrush x:Key="WorkspaceSurfaceBrush" Color="{ThemeResource SolidBackgroundFillColorBase}" Opacity="0.84" />
+     <SolidColorBrush x:Key="WorkspaceToolbarTintBrush" Color="{ThemeResource SystemAccentColor}" Opacity="0.045" />
+    </ResourceDictionary>
+    <ResourceDictionary x:Key="HighContrast">
+     <SolidColorBrush x:Key="WorkspaceSurfaceBrush" Color="{ThemeResource SystemColorWindowColor}" />
+     <SolidColorBrush x:Key="WorkspaceToolbarTintBrush" Color="Transparent" />
+    </ResourceDictionary>
+   </ResourceDictionary.ThemeDictionaries>
    <Style x:Key="CommandMenuIconStyle" TargetType="FontIcon">
     <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
    </Style>

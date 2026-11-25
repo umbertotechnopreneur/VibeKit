@@ -47,9 +47,11 @@ background** for a plain reading surface. Contrast themes use the system
 background for legibility.
 
 WinUI uses the Windows accent for selections, menu icons and active resize handles.
-The Mica window and map toolbars follow the shell theme. The native graph
-uses the same appearance and respects system motion settings. Acrylic on the
-map is off by default and falls back to solid fills when Windows disables
+The toolbar uses a light tint of that accent over Mica. The Pages and Outline
+sidebar and the full status bar use Windows Acrylic, including the footer links.
+The native graph follows the shell's light or dark appearance and respects
+system motion settings. Acrylic on the map is off by default and falls back
+to solid fills when Windows disables
 transparency. The model sends document and code themes to WebView2. Settings,
 About and confirmation dialogs are native WinUI surfaces.
 

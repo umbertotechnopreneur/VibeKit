@@ -8,13 +8,23 @@ using Microsoft.UI.Xaml.Shapes;
 
 namespace OpenAIUsage.Windows;
 
-public sealed class FlipTile : Grid
+internal interface IWidgetTile
+{
+    double MinimumTileWidth { get; }
+    double PreferredWidth { get; }
+    double FontLimit(double available);
+    double WidthForFont(double fontSize);
+    void FitWidth(double available, double fontSize);
+    void SetLabelPosition(string position);
+}
+
+public sealed class FlipTile : Grid, IWidgetTile
 {
     public readonly record struct CreaseShadow(double Spread, global::Windows.UI.Color Color, global::Windows.UI.Color Line);
     public readonly record struct DigitDelay(int MinimumMilliseconds, int MaximumMilliseconds);
     public readonly record struct Flap(int Start, int Length, int Milliseconds);
 
-    private const double FaceHeight = 30;
+    internal const double FaceHeight = 30;
     internal const double MinimumWidth = 30;
     private const double CharacterAdvance = .61;
     private const double CharacterPadding = 3;
@@ -24,11 +34,11 @@ public sealed class FlipTile : Grid
     private static readonly DigitDelay DefaultDelay = new(300, 1000);
     private static readonly FontFamily NumberFont = new("Consolas");
     private static readonly SolidColorBrush Ink = new(Colors.FloralWhite);
-    private static readonly SolidColorBrush FaceRim = new(ColorHelper.FromArgb(255, 20, 21, 23));
+    internal static readonly SolidColorBrush FaceRim = new(ColorHelper.FromArgb(255, 20, 21, 23));
     private static readonly SolidColorBrush Divider = new(ColorHelper.FromArgb(128, 0, 0, 0));
     private static readonly SolidColorBrush Hinge = new(ColorHelper.FromArgb(255, 114, 116, 119));
     private static readonly SolidColorBrush FlapLip = new(ColorHelper.FromArgb(192, 100, 102, 106));
-    private static readonly LinearGradientBrush FaceGradient = new()
+    internal static readonly LinearGradientBrush FaceGradient = new()
     {
         StartPoint = new(0, 0), EndPoint = new(0, 1),
         GradientStops =
@@ -37,7 +47,7 @@ public sealed class FlipTile : Grid
             new() { Color = ColorHelper.FromArgb(255, 29, 30, 33), Offset = 1 }
         }
     };
-    private static readonly LinearGradientBrush FlapGradient = new()
+    internal static readonly LinearGradientBrush FlapGradient = new()
     {
         StartPoint = new(0, 0), EndPoint = new(0, 1),
         GradientStops =
@@ -162,7 +172,8 @@ public sealed class FlipTile : Grid
     };
 
     private double? progress;
-    internal double PreferredWidth => preferredWidth;
+    public double PreferredWidth => preferredWidth;
+    double IWidgetTile.MinimumTileWidth => MinimumWidth;
 
     public void SetProgress(double? percent, Brush? color)
     {
@@ -180,14 +191,14 @@ public sealed class FlipTile : Grid
         // In a very narrow tile, leave at least half of each slot for the glyph.
         Math.Min(CharacterPadding, pitch / 4);
 
-    internal double FontLimit(double available) => FontLimit(available, current);
+    public double FontLimit(double available) => FontLimit(available, current);
     private double FontLimit(double available, string value)
     {
         double pitch = Math.Max(1, available - FaceInsets) / TextColumns(value);
         return (pitch - 2 * EffectivePadding(pitch)) / CharacterAdvance;
     }
 
-    internal double WidthForFont(double size) =>
+    public double WidthForFont(double size) =>
         Math.Max(MinimumWidth, Math.Ceiling(FaceInsets + FullPitch(size) * TextColumns(current)));
 
     public void FitWidth(double available, double fontSize)

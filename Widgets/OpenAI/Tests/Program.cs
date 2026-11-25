@@ -1,4 +1,5 @@
 using OpenAIUsage;
+using System.Globalization;
 using System.Text.Json;
 
 int passed = 0;
@@ -14,6 +15,22 @@ Check(Analytics.Compact(1_000_000_000) == "1 G", "Token giga suffix instead of B
 Check(Analytics.Compact(1_000_000_000_000) == "1 T", "Token tera suffix");
 Check(Analytics.Compact(999_999_999) == "1 G", "Rounding promotes the next unit");
 Check(Analytics.Compact(0) == "0" && Analytics.Compact(double.NaN) == "—", "Zero and invalid token quantities");
+var creditProgress = new CreditProgress();
+Check(creditProgress.Observe("first-account", 0) == 0 && creditProgress.Observe("first-account", null) is null,
+    "An empty credit balance is distinct from an unavailable balance");
+Check(creditProgress.Observe("first-account", 10_000) == 100 && creditProgress.Observe("first-account", 6_250) == 62.5m,
+    "Remaining credits percentage uses the session high-water mark");
+Check(creditProgress.Observe(null, null) is null && creditProgress.Observe("first-account", 10) == .1m,
+    "A connection failure preserves the credit high-water mark");
+Check(creditProgress.Observe("second-account", 40) == 100 && creditProgress.Observe("second-account", 80) == 100 &&
+      creditProgress.Observe("second-account", 40) == 50,
+    "Account switches and credit top-ups set the correct session reference");
+foreach (var (percentage, active) in new (decimal?, int)[] { (null, 0), (0, 0), (.1m, 1), (12.5m, 2), (12.5001m, 3), (43.75m, 7), (62.5m, 10), (100, 16) })
+    Check(CreditProgress.LitLenses(percentage) == active, $"{percentage?.ToString(CultureInfo.InvariantCulture) ?? "Unavailable"}% lights {active} credit lenses");
+Check(CreditProgress.Format(.001m, CultureInfo.GetCultureInfo("it-IT")) == "0,1%" &&
+      CreditProgress.Format(99.99m, CultureInfo.InvariantCulture) == "99.9%" &&
+      CreditProgress.Format(100, CultureInfo.InvariantCulture) == "100%",
+    "A positive balance stays distinguishable from zero and a partial balance from full");
 var now = new DateTimeOffset(2026, 11, 2, 0, 0, 0, TimeSpan.Zero);
 var days = new[] { 14d, 17, 22, 16, 20, 19, 18 }.Select((used, i) => new QuotaDay($"2026-10-{26+i:00}", used, 1)).ToArray();
 var forecast = Analytics.Predict(42, days, now.AddHours(62).ToUnixTimeSeconds(), now);
@@ -85,6 +102,7 @@ try
     store.SaveSettings(settings);
     Check(store.LoadSettings().TimeZoneId == "UTC", "Settings persist atomically");
     var state = new UsageService(store).Build(parsed, settings, now);
+    Check(state.CreditAccountKey == parsed.Identity, "Credit progress uses the hashed account key");
     Check(!settings.EnableDetailsBar, "Details bar is opt-in for existing profiles");
     Check(state.FiveHourAllowance?.Remaining == 80 && state.WeeklyAllowance?.Remaining == 42 &&
         state.FiveHourAllowance.ResetsAt == parsed.Windows[1].ResetsAt, "Allowance cards use both authoritative quota windows");

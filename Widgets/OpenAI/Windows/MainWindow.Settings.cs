@@ -19,6 +19,8 @@ public sealed partial class MainWindow
     private void ApplySettingsTheme(Window window, Panel surface)
     {
         surface.RequestedTheme = root.RequestedTheme;
+        if (window.SystemBackdrop is WidgetAcrylicBackdrop acrylic)
+            acrylic.SetTheme(surface.RequestedTheme);
         surface.Background = root.Background;
         var titleBar = window.AppWindow.TitleBar;
         titleBar.ButtonForegroundColor = PrimaryText.Color;
@@ -362,7 +364,7 @@ public sealed partial class MainWindow
         };
 
         window.Content = surface;
-        if (WidgetAcrylicBackdrop.IsSupported) window.SystemBackdrop = new WidgetAcrylicBackdrop();
+        if (WidgetAcrylicBackdrop.IsSupported) window.SystemBackdrop = new WidgetAcrylicBackdrop(root.RequestedTheme);
         window.ExtendsContentIntoTitleBar = true;
         window.SetTitleBar(titleBar);
         window.AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Branding", "app-icon.ico"));
@@ -429,6 +431,7 @@ public sealed partial class MainWindow
         ListViewItem BuildItem(Module module)
         {
             var toggle = Switch(module.Label, ModuleEnabled(module.Key));
+            AutomationProperties.SetAutomationId(toggle, $"{module.Key}-visibility");
             toggle.OnContent = toggle.OffContent = "";
             toggle.HorizontalAlignment = HorizontalAlignment.Right;
             toggle.VerticalAlignment = VerticalAlignment.Center;

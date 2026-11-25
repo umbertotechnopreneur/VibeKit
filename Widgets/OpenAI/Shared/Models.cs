@@ -80,6 +80,7 @@ public sealed class WidgetState
     public IReadOnlyList<ResetVoucherDisplay> ResetVoucherExpirations { get; set; } = [];
     public string CreditsLabel { get; set; } = "Unavailable";
     public decimal? CreditsBalance { get; set; }
+    public string? CreditAccountKey { get; set; }
     public string AccessNote { get; set; } = "";
     public string AverageLabel { get; set; } = "Collecting quota history";
     public bool ForecastAvailable { get; set; }

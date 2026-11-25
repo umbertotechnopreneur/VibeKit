@@ -1,5 +1,6 @@
 """Check live GTK display and preferences against a synthetic quota snapshot."""
 from pathlib import Path
+import locale
 import sys
 import time
 
@@ -10,7 +11,8 @@ import openai_usage as widget
 expiry = int(time.time()) + 86_400
 snapshot = {
     "connected": True, "remaining": 60, "selectedWindow": "codex:weekly", "creditsBalance": 170,
-    "creditsLabel": "170", "resetVoucherCount": 3, "forecastAvailable": True, "forecastCompact": "3d 21h",
+    "creditsLabel": "170", "creditAccountKey": "account-a", "resetVoucherCount": 3,
+    "forecastAvailable": True, "forecastCompact": "3d 21h",
     "windows": [{"key": "codex:weekly", "minutes": 10080}],
     "resetVoucherExpirations": [
         {"expiresAt": expiry + index * 86400, "value": f"0{index}/10 10:00", "detail": f"October {index} · 10:00 UTC"}
@@ -131,6 +133,26 @@ def poll():
             assert not any(isinstance(control, widget.Gtk.LinkButton) for control in descendants(view.body))
             assert len({tile.layout.font_size for tile in tiles}) == 1
             assert all(tile.layout.row_height == 30 for tile in tiles)
+            percentage = view.credits_percentage_tile
+            assert tiles.index(percentage) == tiles.index(view.credits_tile) + 1
+            assert percentage.display.get_first_child() is percentage.face
+            assert percentage.display.get_last_child() is percentage.meter
+            assert percentage.meter.get_content_height() == percentage.layout.row_height
+            assert percentage.value == "100%" and percentage.active_lenses == 16
+            assert percentage.LENS_COLORS.count(percentage.LENS_COLORS[-1]) == 2
+            assert percentage.LENS_COLORS.count(percentage.LENS_COLORS[-3]) == 5
+            view.update_metrics(dict(snapshot, creditsBalance=106.25))
+            assert percentage.value == locale.format_string("%g", 62.5) + "%"
+            assert percentage.active_lenses == 10 and view.credits_tile.progress == .625
+            view.update_metrics(dict(snapshot, creditsBalance=.17))
+            assert percentage.value == locale.format_string("%g", .1) + "%" and percentage.active_lenses == 1
+            view.update_metrics(dict(snapshot, creditAccountKey=None, creditsBalance=None))
+            assert percentage.value == "—" and percentage.active_lenses == 0 and view.highest_credits == 170
+            view.update_metrics(dict(snapshot, creditAccountKey="account-b", creditsBalance=0))
+            assert percentage.value == "0%" and percentage.active_lenses == 0 and view.highest_credits == 0
+            view.update_metrics(dict(snapshot, creditAccountKey="account-b", creditsBalance=15))
+            assert percentage.value == "100%" and view.highest_credits == 15
+            view.update_metrics(snapshot)
             assert_resize_edges(view)
             assert view.signal.last_remaining == snapshot["remaining"]
             view.signal.next_flicker = time.monotonic() - 1
@@ -221,6 +243,13 @@ def poll():
                                ("Time to run out", view.estimate_tile)):
                 toggles[name].set_active(False)
                 assert tile.get_parent() is None
+            assert view.credits_percentage_tile.get_parent() is view.strip
+            toggles["Remaining Credits Percentage"].set_active(False)
+            assert view.credits_percentage_tile.get_parent() is None
+            view.update_metrics(dict(snapshot, creditsBalance=200))
+            assert view.highest_credits == 200
+            view.update_metrics(snapshot)
+            assert view.credits_percentage_tile.value == "85%"
             assert view.voucher_expiry_tile.get_parent() is view.strip
             alerts.set_expanded(True)
             assert alerts.get_expanded() and not fields.get_expanded()
@@ -253,6 +282,7 @@ def poll():
             assert stored["labelPosition"] == "hidden"
             assert stored["alertSound"] is False and stored["creditsAlertThreshold"] == 125
             assert not any(stored[key] for key in ("showAvailableResets", "showCredits", "showEstimatedTime"))
+            assert "credits-percentage" in stored["hiddenFields"]
             assert view.get_width() == size
             assert stored["enableDetailsBar"] and view.menu_button.get_visible() and not view.compact_switch.get_active()
             assert view.strip.get_first_child() == view.detail_tiles[-1]
@@ -269,10 +299,11 @@ def poll():
             tiles = list(widget.WrapLayout.children(view.strip))
             assert tiles == [view.allowance_tile, view.voucher_expiry_tile, view.reset_clock]
             assert not view.signal.get_visible()
-            view.update_settings(showAvailableResets=True, showCredits=True, showEstimatedTime=True,
+            view.update_settings(showAvailableResets=True, showCredits=True, showEstimatedTime=True, hiddenFields=[],
                                  fieldOrder=["forecast", "clock", "allowance"])
             assert list(widget.WrapLayout.children(view.strip)) == [
-                view.reset_clock, view.allowance_tile, view.credits_tile, view.estimate_tile, view.voucher_tile, view.voucher_expiry_tile]
+                view.reset_clock, view.allowance_tile, view.credits_tile, view.credits_percentage_tile,
+                view.estimate_tile, view.voucher_tile, view.voucher_expiry_tile]
             view.compact_switch.set_active(False)
             stable_after = time.monotonic() + 0.3
             stage = 2.5

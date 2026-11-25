@@ -25,14 +25,16 @@ public sealed partial class MainWindow
     private SizeInt32? requestedSize;
     private SizeInt32? expandedSize;
 
-    private sealed record Module(string Key, string Label, string Description, FrameworkElement Element, FlipTile? Tile = null, bool Detail = false);
+    private sealed record Module(string Key, string Label, string Description, FrameworkElement Element, IWidgetTile Tile, bool Detail = false);
 
     private void BuildResponsiveLayout()
     {
         modules =
         [
             new("allowance", "Allowance remaining", "Percentage still available in the selected Codex quota.", usageLink, remaining),
-            new("credits", "Remaining Credits", "Remaining credit balance. The bar compares it with the highest balance seen this session.", credits, credits),
+            new("credits", "Remaining Credits", "Remaining credit balance. The bar compares it with the highest balance seen for this account during this session.", credits, credits),
+            new(CreditPercentageTile.FieldKey, CreditPercentageTile.FieldLabel,
+                "Credits left as a percentage of the highest balance seen for this account during this session.", creditPercentage, creditPercentage),
             new("estimate", "Time to run out", "Estimated time until the selected quota runs out at your observed usage rate.", forecastLink, forecast),
             new("vouchers", "Available vouchers", "Vouchers you can use now for a manual quota reset. Click the count for their expiration dates.", vouchersButton, vouchers),
             new("first-reset", "Next voucher expiry", "When the next available voucher with a reported date expires. A dash means no date is available.", voucherExpiry, voucherExpiry),
@@ -63,8 +65,15 @@ public sealed partial class MainWindow
     private IEnumerable<Module> OrderedModules()
     {
         var byKey = modules.ToDictionary(module => module.Key);
-        foreach (var key in settings.FieldOrder ?? [])
-            if (key is not null && byKey.Remove(key, out var module)) yield return module;
+        var order = settings.FieldOrder ?? [];
+        bool hasCreditPercentagePosition = order.Contains(CreditPercentageTile.FieldKey);
+        foreach (var key in order)
+        {
+            if (key is null || !byKey.Remove(key, out var module)) continue;
+            yield return module;
+            if (key == "credits" && !hasCreditPercentagePosition && byKey.Remove(CreditPercentageTile.FieldKey, out var percentageModule))
+                yield return percentageModule;
+        }
         foreach (var module in modules)
             if (byKey.ContainsKey(module.Key)) yield return module;
     }
@@ -87,8 +96,8 @@ public sealed partial class MainWindow
             foreach (var element in visible) strip.Children.Add(element);
             fitHeight = true;
         }
-        foreach (var tile in modules.Select(module => module.Tile).OfType<FlipTile>())
-            tile.SetLabelPosition(settings.LabelPosition);
+        foreach (var module in modules)
+            module.Tile.SetLabelPosition(settings.LabelPosition);
         UpdateSnapshotMetrics();
         UpdateDetails(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         QueueLayout();
@@ -141,14 +150,15 @@ public sealed partial class MainWindow
         fitHeight = false;
 
         var tiles = modules.Where(module => strip.Children.Contains(module.Element))
-            .Select(module => module.Tile).OfType<FlipTile>().ToArray();
+            .Select(module => module.Tile).ToArray();
         double fixedWidth = widgetBody.Padding.Left + widgetBody.Padding.Right + TileSpacing + MenuButtonWidth;
         double gaps = Math.Max(0, tiles.Length - 1) * TileSpacing;
+        double minimumTileWidth = tiles.Sum(tile => tile.MinimumTileWidth);
         double preferredWidth = tiles.Sum(tile => tile.PreferredWidth);
         int clientWidth = IsDocked ? dockClientWidth : restore?.Width ?? size.Width;
         double zoom = settings.BigSize && clientWidth >= 375 * dpi ? 1 + LargerWidgetPercent / 100d : 1;
         double minimumWidth = compact
-            ? Math.Max(MinimumWidth, fixedWidth + (gaps + Math.Max(tiles.Length * FlipTile.MinimumWidth, preferredWidth * .6)) * zoom)
+            ? Math.Max(MinimumWidth, fixedWidth + (gaps + Math.Max(minimumTileWidth, preferredWidth * .6)) * zoom)
             : MinimumWidth;
         int minimum = IsDocked ? 1 : Math.Min(maxWidth, (int)Math.Ceiling(minimumWidth * dpi));
         if (!IsDocked)
@@ -159,7 +169,7 @@ public sealed partial class MainWindow
         }
         double contentWidth = Math.Max(1, clientWidth / dpi - fixedWidth);
         if (compact && tiles.Length > 0)
-            zoom = Math.Min(zoom, contentWidth / (gaps + tiles.Length * FlipTile.MinimumWidth));
+            zoom = Math.Min(zoom, contentWidth / (gaps + minimumTileWidth));
 
         double width = contentWidth / zoom;
         bool showSignal = !compact && tiles.Length > 0;
@@ -226,7 +236,7 @@ public sealed partial class MainWindow
         UpdateDragRegions();
     }
 
-    private static double[] FitCompactWidths(FlipTile[] tiles, double available)
+    private static double[] FitCompactWidths(IWidgetTile[] tiles, double available)
     {
         double low = 0, high = 20;
         foreach (var tile in tiles)

@@ -6,6 +6,7 @@ import ctypes
 import ctypes.util
 import datetime as dt
 import fcntl
+import locale
 import math
 import os
 import re
@@ -220,7 +221,7 @@ class FlipTile(LabeledDisplay):
             self.info.add_css_class("dim")
             display.append(self.info)
         pitch = self.VALUE_FONT_SIZE * self.CHARACTER_ADVANCE + 2 * self.CHARACTER_PADDING
-        self.base_width = max(width, math.ceil(self.face_insets() + len(sizing_text or "") * pitch))
+        self.base_width = max(width, self.width_for_face(math.ceil(self.FACE_PADDING + len(sizing_text or "") * pitch), 1))
         self.available_width = self.base_width
         self.value = "—"
         self.accent = None
@@ -236,21 +237,24 @@ class FlipTile(LabeledDisplay):
     def text_columns(self, value):
         return 1 if self.wrap_value else max(1, len(value), len(self.sizing_text or ""))
 
-    def face_insets(self):
-        return self.FACE_PADDING + (self.INFO_WIDTH if self.info is not None else 0)
+    def face_width(self, available, scale):
+        return available - (self.INFO_WIDTH if self.info is not None else 0)
+
+    def width_for_face(self, face, scale):
+        return face + (self.INFO_WIDTH if self.info is not None else 0)
 
     def effective_padding(self, pitch, scale):
         # In a very narrow tile, leave at least half of each slot for the glyph.
         return min(self.CHARACTER_PADDING * scale, pitch / 4)
 
     def font_limit(self, available, value, scale):
-        pitch = max(1, available - self.face_insets()) / self.text_columns(value)
+        pitch = max(1, self.face_width(available, scale) - self.FACE_PADDING) / self.text_columns(value)
         return (pitch - 2 * self.effective_padding(pitch, scale)) / self.CHARACTER_ADVANCE
 
     def width_for_font(self, font_size, scale):
         pitch = font_size * self.CHARACTER_ADVANCE + 2 * self.CHARACTER_PADDING * scale
         text_width = pitch * self.text_columns(self.value)
-        return max(self.MINIMUM_WIDTH, math.ceil(text_width + self.face_insets()))
+        return max(self.MINIMUM_WIDTH, self.width_for_face(math.ceil(text_width + self.FACE_PADDING), scale))
 
     def resize(self, scale, available=None, font_size=None):
         available = round(self.base_width * scale) if available is None else available
@@ -272,7 +276,7 @@ class FlipTile(LabeledDisplay):
         yield value
 
     def update_slots(self, value, animate, flaps, duration):
-        width = self.available_width - (self.INFO_WIDTH if self.info is not None else 0)
+        width = self.face_width(self.available_width, self.scale)
         space = max(1, width - self.FACE_PADDING)
         minimum = self.text_columns(value)
         font_size = min(self.font_size, self.font_limit(self.available_width, value, self.scale))
@@ -368,9 +372,7 @@ class FlipTile(LabeledDisplay):
         glyph.set_text("0", -1)
         digit_ink, _ = glyph.get_extents()
         text_top = layout.row_height / 2 - (digit_ink.y + digit_ink.height / 2) / Pango.SCALE
-        flap = cairo.LinearGradient(0, 0, 0, layout.row_height)
-        for offset, r, g, b in self.FLAP_TONES:
-            flap.add_color_stop_rgb(offset, r / 255, g / 255, b / 255)
+        flap = self.flap_gradient(layout.row_height)
         flap_width = layout.columns * layout.pitch
         left = (width - flap_width) / 2
         for row in range(layout.rows):
@@ -402,6 +404,12 @@ class FlipTile(LabeledDisplay):
                     cr.fill()
             self.draw_seam(cr, width, y, layout.row_height)
         self.draw_progress(cr, width, height)
+
+    def flap_gradient(self, height):
+        flap = cairo.LinearGradient(0, 0, 0, height)
+        for offset, r, g, b in self.FLAP_TONES:
+            flap.add_color_stop_rgb(offset, r / 255, g / 255, b / 255)
+        return flap
 
     def draw_character(self, cr, glyph, char, x, y):
         if char == " ":
@@ -501,6 +509,83 @@ class FlipTile(LabeledDisplay):
             cr.line_to(7 + (width - 14) * self.progress, y)
             cr.stroke()
             cr.restore()
+
+
+class CreditsPercentageTile(FlipTile):
+    DESCRIPTION = "Credits left as a percentage of the highest balance seen for this account during this session."
+    GREEN_LENSES = 9
+    AMBER_LENSES = 5
+    RED_LENSES = 2
+    LENS_COUNT = GREEN_LENSES + AMBER_LENSES + RED_LENSES
+    METER_WIDTH = LENS_COUNT * 10 + 8
+    MINIMUM_WIDTH = 120
+    GAP = 6
+    LENS_COLORS = (((.16, .77, .46),) * GREEN_LENSES + ((1, .53, .08),) * AMBER_LENSES
+                   + ((.94, .18, .22),) * RED_LENSES)
+
+    def __init__(self):
+        self.meter = Gtk.DrawingArea()
+        self.active_lenses = 0
+        super().__init__("Remaining Credits Percentage", "Remaining Credits Percentage", 270,
+                         sizing_text="99.9%", worn=True)
+        self.display.set_spacing(self.GAP)
+        self.display.append(self.meter)
+        self.meter.set_draw_func(self.draw_meter)
+        self.set_detail(self.DESCRIPTION)
+        self.meter.set_tooltip_text(self.DESCRIPTION)
+
+    def face_width(self, available, scale):
+        return available - self.GAP - min(round(self.METER_WIDTH * scale), available * 3 // 5)
+
+    def width_for_face(self, face, scale):
+        minimum = face + self.GAP
+        return min(minimum + round(self.METER_WIDTH * scale), math.ceil(minimum / .4))
+
+    def resize(self, scale, available=None, font_size=None):
+        super().resize(scale, available, font_size)
+        meter_width = self.available_width - self.layout.width - self.GAP
+        if self.meter.get_content_width() != meter_width:
+            self.meter.set_content_width(meter_width)
+        if self.meter.get_content_height() != self.layout.row_height:
+            self.meter.set_content_height(self.layout.row_height)
+
+    def set_percentage(self, percent, animate):
+        if percent is None:
+            self.update("—", animate)
+        elif percent == 0 or percent == 100:
+            self.update(f"{percent:g}%", animate)
+        else:
+            rounded = min(99.9, max(.1, round(percent, 1)))
+            self.update(locale.format_string("%g", rounded) + "%", animate)
+        active_lenses = math.ceil(percent * self.LENS_COUNT / 100) if percent else 0
+        if self.active_lenses != active_lenses:
+            self.active_lenses = active_lenses
+            self.meter.queue_draw()
+
+    def draw_meter(self, area, cr, width, height):
+        self.draw_face(cr, width, height)
+        pitch = (width - 8) / self.LENS_COUNT
+        top = self.flap_gradient(height)
+        for i in range(self.LENS_COUNT):
+            cr.set_source(top)
+            cr.rectangle(4 + i * pitch, 2, pitch - 1, height - 4)
+            cr.fill()
+        self.draw_grain(cr, width, height)
+        self.draw_seam(cr, width, 0, height)
+        y = height / 2
+        radius = min(height * .3, pitch * .39)
+        for i, tint in enumerate(self.LENS_COLORS):
+            x = 4 + (i + .5) * pitch
+            active = i >= self.LENS_COUNT - self.active_lenses
+            color = tint if active else (.25, .26, .27)
+            lens = cairo.RadialGradient(x - radius * .28, y - radius * .38, 0, x, y, radius)
+            lens.add_color_stop_rgb(0, *(min(1, .15 + c) for c in color))
+            lens.add_color_stop_rgb(.54, *color)
+            lens.add_color_stop_rgb(.87, *(c * .63 for c in color))
+            lens.add_color_stop_rgb(1, .05, .05, .06)
+            cr.set_source(lens)
+            cr.arc(x, y, radius, 0, math.tau)
+            cr.fill()
 
 
 class VoucherTile(FlipTile):
@@ -758,6 +843,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.layout_width = 1240
         self.resize_surface = None
         self.highest_credits = 0
+        self.credit_account_key = None
         self.connect("close-request", self.on_close)
 
         strip = self.strip = wrap_box()
@@ -768,10 +854,12 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.signal.set_valign(Gtk.Align.START)
         self.allowance_tile = FlipTile("Allowance remaining", "Allowance left", 115, worn=True, compact_accent=True)
         self.credits_tile = FlipTile("Remaining Credits", "Remaining Credits", 108, sizing_text="000,000", worn=True, compact_accent=True)
+        self.credits_percentage_tile = CreditsPercentageTile()
         self.estimate_tile = FlipTile("Time to run out", "Time to run out", 152)
         self.voucher_tile = VoucherTile()
         self.voucher_expiry_tile = FlipTile("Next voucher expiry", "Next voucher expiry", 160, info=True, sizing_text="00/00 00:00")
-        self.metrics = (self.allowance_tile, self.credits_tile, self.estimate_tile, self.voucher_tile, self.voucher_expiry_tile)
+        self.metrics = (self.allowance_tile, self.credits_tile, self.credits_percentage_tile,
+                        self.estimate_tile, self.voucher_tile, self.voucher_expiry_tile)
         self.reset_clock = FlipTile("Auto reset clock", "Auto reset clock", 403,
                                     sizing_text="WEDNESDAY 00 SEPTEMBER 00")
 
@@ -781,6 +869,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.modules = [
             ("allowance", self.allowance_tile, "Percentage still available in the selected Codex quota."),
             ("credits", self.credits_tile, "Remaining credit balance. The bar compares it with the highest balance seen this session."),
+            ("credits-percentage", self.credits_percentage_tile, CreditsPercentageTile.DESCRIPTION),
             ("estimate", self.estimate_tile, "Estimated time until the selected quota runs out at your observed usage rate."),
             ("vouchers", self.voucher_tile, "Vouchers you can use now for a manual quota reset. Click the count for their expiration dates."),
             # Keep the existing field ID for saved visibility and ordering.
@@ -994,14 +1083,21 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
                            + state.get("forecastDetail", "Collecting quota history."))
         self.estimate_tile.set_detail(estimate_detail)
         credits = state.get("creditsLabel", "Unavailable")
+        credit_account_key = state.get("creditAccountKey")
+        if credit_account_key and credit_account_key != self.credit_account_key:
+            self.credit_account_key = credit_account_key
+            self.highest_credits = 0
         balance = state.get("creditsBalance")
-        if balance is not None:
+        credit_percent = None
+        if type(balance) in (int, float) and math.isfinite(balance) and balance >= 0:
             self.highest_credits = max(self.highest_credits, balance)
+            credit_percent = balance / self.highest_credits * 100 if self.highest_credits else 0
         self.set_progress(self.allowance_tile, remaining)
-        self.set_progress(self.credits_tile, balance / self.highest_credits * 100 if balance is not None and self.highest_credits else None)
+        self.set_progress(self.credits_tile, credit_percent)
         self.credits_tile.update("—" if credits == "Unavailable" else credits.upper(),
                                  animate and self.credits_tile.get_mapped())
         self.credits_tile.set_detail(f"Credits remaining as reported by Codex: {credits}. The displayed balance is rounded to a whole number.")
+        self.credits_percentage_tile.set_percentage(credit_percent, animate and self.credits_percentage_tile.get_mapped())
         self.voucher_tile.show_vouchers(state.get("resetVoucherCount"), state.get("resetVoucherExpirations", []),
                                        animate and self.voucher_tile.get_mapped())
 
@@ -1253,8 +1349,14 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
 
     def ordered_modules(self):
         available = {module[0]: module for module in self.modules}
-        ordered = [available.pop(key) for key in self.settings.get("fieldOrder") or [] if key in available]
-        return ordered + list(available.values())
+        saved = self.settings.get("fieldOrder") or []
+        ordered = [available.pop(key) for key in saved if key in available] + list(available.values())
+        if "credits-percentage" not in saved:
+            percentage_at = next(i for i, module in enumerate(ordered) if module[0] == "credits-percentage")
+            percentage = ordered.pop(percentage_at)
+            credits_at = next(i for i, module in enumerate(ordered) if module[0] == "credits")
+            ordered.insert(credits_at + 1, percentage)
+        return ordered
 
     def module_enabled(self, key):
         setting = self.LEGACY_MODULE_KEYS.get(key)
@@ -1308,7 +1410,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
 
         minimum = max(300, chrome + FlipTile.MINIMUM_WIDTH)
         if not expanded:
-            minimum_tiles = len(tiles) * FlipTile.MINIMUM_WIDTH
+            minimum_tiles = sum(tile.MINIMUM_WIDTH for tile in tiles)
             minimum = max(minimum, chrome + gaps + round(max(minimum_tiles, sum(preferred.values()) * .6)))
             surface = self.get_surface()
             monitor = self.get_display().get_monitor_at_surface(surface) if surface else None

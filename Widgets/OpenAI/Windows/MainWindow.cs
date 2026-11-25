@@ -76,8 +76,8 @@ public sealed partial class MainWindow : Window
             presenter.SetBorderAndTitleBar(true,false);
             presenter.IsMinimizable=false; presenter.IsMaximizable=false; presenter.IsResizable=true;
         }
-        if(WidgetAcrylicBackdrop.IsSupported)SystemBackdrop=new WidgetAcrylicBackdrop();
         ApplySystemTheme();
+        if(WidgetAcrylicBackdrop.IsSupported)SystemBackdrop=new WidgetAcrylicBackdrop(root.RequestedTheme);
         systemSettings.ColorValuesChanged+=ThemeChanged;
         BuildWidgetStrip();
         BuildWidgetMenu();
@@ -270,6 +270,8 @@ public sealed partial class MainWindow : Window
         var background=systemSettings.GetColorValue(UIColorType.Background);
         bool dark=background.R*299+background.G*587+background.B*114<128000;
         root.RequestedTheme=dark?ElementTheme.Dark:ElementTheme.Light;
+        if (SystemBackdrop is WidgetAcrylicBackdrop acrylic)
+            acrylic.SetTheme(root.RequestedTheme);
         root.Background=new SolidColorBrush(WidgetAcrylicBackdrop.IsSupported?Colors.Transparent:dark?ColorHelper.FromArgb(255,24,30,37):ColorHelper.FromArgb(255,245,249,252));
         PrimaryText.Color=dark?ColorHelper.FromArgb(255,235,241,249):ColorHelper.FromArgb(255,23,39,62);
         SecondaryText.Color=dark?ColorHelper.FromArgb(255,194,205,221):ColorHelper.FromArgb(255,69,87,111);
@@ -277,9 +279,12 @@ public sealed partial class MainWindow : Window
         ApplyMenuTheme(dark);
         if (settingsWindow is { Content: Panel settingsSurface } preferences)
             ApplySettingsTheme(preferences, settingsSurface);
-        if(activeDialog is { ExtendsContentIntoTitleBar: true, Content: FrameworkElement dialogRoot })
+        if(activeDialog is { ExtendsContentIntoTitleBar: true, Content: Grid dialogRoot })
         {
             dialogRoot.RequestedTheme=root.RequestedTheme;
+            if (activeDialog.SystemBackdrop is WidgetAcrylicBackdrop dialogAcrylic)
+                dialogAcrylic.SetTheme(dialogRoot.RequestedTheme);
+            dialogRoot.Background=root.Background;
             activeDialog.AppWindow.TitleBar.ButtonForegroundColor=PrimaryText.Color;
             activeDialog.AppWindow.TitleBar.ButtonInactiveForegroundColor=SecondaryText.Color;
         }

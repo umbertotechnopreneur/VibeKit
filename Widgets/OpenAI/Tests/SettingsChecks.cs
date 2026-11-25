@@ -13,13 +13,17 @@ internal static class SettingsChecks
         storage.SaveSettings(new WidgetSettings
         {
             TimeZoneId = "UTC", LabelPosition = "hidden", ShowAvailableResets = false, ShowEstimatedTime = false,
-            AlertSound = false, CreditsAlertThreshold = 0, DockPosition = "bottom"
+            AlertSound = false, CreditsAlertThreshold = 0, DockPosition = "bottom",
+            HiddenFields = ["credits-percentage"], FieldOrder = ["credits-percentage", "credits"]
         });
         var savedPreferences = storage.LoadSettings();
         check(savedPreferences.LabelPosition == "hidden" && !savedPreferences.ShowAvailableResets && savedPreferences.ShowCredits &&
             !savedPreferences.ShowEstimatedTime && !savedPreferences.AlertSound && savedPreferences.CreditsAlertThreshold == 0,
             "Independent metrics, hidden labels and the optional credits threshold persist");
         check(savedPreferences.Copy().DockPosition == "bottom", "Docking survives persistence and editing");
+        check(savedPreferences.ShowCredits && savedPreferences.HiddenFields.SequenceEqual(["credits-percentage"]) &&
+            savedPreferences.FieldOrder.SequenceEqual(["credits-percentage", "credits"]),
+            "Credits percentage visibility and order persist independently of the balance");
         foreach (string invalid in new[] { "{broken", "null", "{\"timeZoneId\":\"Invalid/Fixture\"}",
             "{\"labelPosition\":\"side\"}", "{\"dockPosition\":\"side\"}", "{\"creditsAlertThreshold\":-1}",
             new string('x', Storage.MaximumSettingsBytes + 1) })

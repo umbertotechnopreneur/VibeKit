@@ -43,6 +43,7 @@ public sealed class UsageService(Storage storage)
             Windows = usage.Windows, SelectedWindow = selected?.Key,
             CreditsLabel = usage.UnlimitedCredits ? "Unlimited" : usage.Credits?.ToString("N0", CultureInfo.InvariantCulture) ?? "Unavailable",
             CreditsBalance = usage.UnlimitedCredits ? null : usage.Credits,
+            CreditAccountKey = usage.Identity,
             TokenDays = usage.Tokens.Where(d => string.CompareOrdinal(d.Date, tokenToday.AddDays(-14).ToString("yyyy-MM-dd")) >= 0 && string.CompareOrdinal(d.Date, tokenToday.ToString("yyyy-MM-dd")) < 0).ToList(),
             TokenEndDate = tokenToday.AddDays(-1).ToString("yyyy-MM-dd"),
             AccessNote = usage.SpendBlocked ? "Account spending control reached." : usage.OrdinaryUsageAllowed == false ? "Included usage is currently blocked by the service." : ""

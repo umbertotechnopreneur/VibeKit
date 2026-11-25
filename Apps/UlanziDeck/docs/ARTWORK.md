@@ -15,6 +15,10 @@ Required by the MIT License: retain the copyright and permission notice in all c
 
 VBWR E -->
 
+> **File name** `ARTWORK.md`<br>
+> **Full path** `E:\vibekit\Apps\UlanziDeck\docs\ARTWORK.md`<br>
+> **Path relative to the VibeKit repository** `Apps/UlanziDeck/docs/ARTWORK.md`
+
 # Pictures and icons
 
 ## Find the pictures
@@ -32,8 +36,7 @@ VBWR E -->
 Most button pictures are 196 × 196 pixels. The page-index status panel is 400 × 200. The Rust drawing code in `src/art.rs` creates unavailable buttons from the normal pictures and a ribbon; there is no separate disabled-picture set.
 
 The current wordmark is `assets/brand/ulanzi-deck-logo.png`; the current boot master
-is `assets/boot/ulanzi-deck-boot-v2.png`. Use [Store delivery](STORE-DELIVERY.md)
-for upload icons and banners. The README opens with `dock-closeup-clean.png` and
+is `assets/boot/ulanzi-deck-boot-v2.png`. The README opens with `dock-closeup-clean.png` and
 `desk-clean.png` from `docs/photos/`; the original photographs remain beside them.
 
 The startup master is not a ready-made set of key files. During a source build, `build.rs` resizes and slices it for the thirteen square keys and wide panel. The controller joins those slices into one picture across the dock.
@@ -57,11 +60,7 @@ The [OBS guide](../presets/obs-creator/README.md#rebuild-the-pictures-and-pdf) e
 
 ## App icon and logo
 
-The app icon is my pixel art, separate from official Ulanzi branding. The Windows installer uses a simpler drawing at small sizes. Rebuild its two masters with:
-
-```powershell
-pwsh -NoProfile -File scripts/ulanzi.ps1 -Command msix-icons
-```
+The app icon is my pixel art, separate from official Ulanzi branding. The Windows installer uses the 64-pixel frame from `assets/icons/ulanzi-dock.ico`.
 
 To package the existing `assets/brand/ulanzi-dock-icon.png` master as PNG, ICO and ICNS files in `assets/icons/`:
 
@@ -74,3 +73,7 @@ Keep the original [VibeWare floppy](../assets/brand/vibeware-logo.png) unchanged
 Some early symbols came from AI-made sheets. The drawing code adds labels, theme colors and original Utility, Office, Themes and OBS symbols. Office and OBS symbols are not official logos. Labels use Bitstream Vera Bold; keep its [font license](../assets/fonts/bitstream-vera-license.txt).
 
 Preview sheets show the artwork. See the [platform guide](PLATFORMS.md) for supported features.
+
+> **File name** `ARTWORK.md`<br>
+> **Full path** `E:\vibekit\Apps\UlanziDeck\docs\ARTWORK.md`<br>
+> **Path relative to the VibeKit repository** `Apps/UlanziDeck/docs/ARTWORK.md`

@@ -1,3 +1,7 @@
+> **File name** `PLATFORMS.md`<br>
+> **Full path** `E:\vibekit\Apps\UlanziDeck\docs\PLATFORMS.md`<br>
+> **Path relative to the VibeKit repository** `Apps/UlanziDeck/docs/PLATFORMS.md`
+
 <!-- VBWR B
 
 Project: UlanziDeck
@@ -33,7 +37,7 @@ The controller shares its Rust code across Windows and Linux. The controller ret
 | Follow the app in front and dim inactive actions | Implemented | Not implemented  |
 | Sign-in startup and replacement of a running controller | Implemented | Opt-in installed user service; desktop launcher reuses it  |
 | Automatic reconnect after a missing/disconnected dock | Implemented | Implemented; owner confirmed display restoration after reconnect  |
-| Download format | ZIP and local x64 and ARM64 MSIX builder | tar.gz and Debian package  |
+| Download format | ZIP and per-user MSI for x64 and ARM64 | tar.gz and Debian package  |
 
 On Linux, active-application matching reports “unsupported”. Enabled pages remain available, but do not switch automatically. The Linux application selector below does not add active-application matching. The page index always lists enabled pages, including those whose app is closed. Selecting LibreOffice changes the visible Word/Excel/PowerPoint labels to Writer/Calc/Impress while keeping the internal page identifiers.
 
@@ -55,7 +59,7 @@ Keep your Linux profile in a folder you control. Use regular files for the setti
 
 Open the Debian desktop launcher to open settings and start or reuse the controller service. It can start with a new profile without a terminal. Turn on **Start at sign-in** in Settings or run `ulanzideck startup --enable`. Disabling this option leaves a running controller active. Use `configure` to open settings on its own, or `about --gui` to open About. Theme, brightness and enabled pages update while the controller runs. Restart after changing app mappings or shortcuts.
 
-The Linux build targets Ubuntu 24.04. It needs compatible system libraries and USB/HID permission. The [build workflow](../.github/workflows/build.yml) lists development packages.
+The Linux build targets Ubuntu 24.04. It needs compatible system libraries and USB/HID permission. The [build workflow](../../../.github/workflows/ci-ulanzideck.yml) lists development packages.
 
 On Wayland, the first keyboard shortcut opens the desktop's keyboard permission dialog. Allow keyboard access, return to the app you want to use and press the dock button again. If the session closes, a later press can open a new permission dialog. On X11, shortcuts use a persistent X11 input connection.
 
@@ -121,10 +125,7 @@ The OBS preset keeps the project's existing shortcut chords. Assign them manuall
 
 Choose pages manually on Linux. Desktop shortcut assignments and application keymaps can intercept configured keys on both Wayland and X11.
 
-## Current build
-
-The latest local package is Windows x64 Debug 1.0.9.0, built from source and
-signed for local testing. Windows x64 Release 1.0.8.0 is still installed.
+## Device coverage
 
 I own and use only a D200H on Windows x64. Other models and platforms need owner
 reports. [Tell me what you find](https://github.com/umbertotechnopreneur/VibeKit/issues),
@@ -135,3 +136,7 @@ including your model, operating system and processor type.
 For contributors: `Cargo.toml` selects platform-specific HID backends. `src/actions.rs` provides Windows foreground detection and delegates URL opening to `src/tray.rs`. `src/linux_apps.rs` discovers supported Linux installations, and `src/linux_apps/shortcuts.rs` defines explicitly applied presets. `src/model.rs` and `src/settings.rs` load and save the independent Linux choices. `src/gui.rs` exposes their Linux selector and standalone Slint windows on all platforms, but its resident event loop and saved monitor placement in `src/gui/placement.rs` are Windows-only. `src/controller.rs`, `src/tray.rs`, `src/startup.rs` and `src/singleton.rs` contain the connection recovery, tray, startup and single-instance rules. The locked `enigo` 0.6.1 dependency uses its default `x11rb` input feature.
 
 The planned WinUI 3 editor is [a separate Windows-only design](design/README.md). It does not replace the portable controller or current Slint windows.
+
+> **File name** `PLATFORMS.md`<br>
+> **Full path** `E:\vibekit\Apps\UlanziDeck\docs\PLATFORMS.md`<br>
+> **Path relative to the VibeKit repository** `Apps/UlanziDeck/docs/PLATFORMS.md`

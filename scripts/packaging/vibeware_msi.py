@@ -62,18 +62,31 @@ def read_runtime(payload, executable, architecture, runtime_type="core"):
 
 
 def add_installer_ui(root, *, payload, executable, output, home_url, logo, architecture="x64", runtime_type="core"):
-    """Add common native dialogs, metadata and the WiX 5 NetFx check to one package."""
+    """Add common dialogs and metadata, with a NetFx check for .NET apps."""
     package = root.find(WIX + "Package")
-    version = read_runtime(Path(payload), executable, architecture, runtime_type)
-    _, runtime_name = RUNTIMES[runtime_type]
     scope = "Per-machine installation" if package.get("Scope") == "perMachine" else "Per-user installation"
-    display_version = "10.0" if version == "10.0.0" else version
     properties = {
         "VibeWareInstallScope": scope,
-        "VibeWareRuntimeDescription": f"{runtime_name} {display_version} ({architecture})",
         "ARPURLINFOABOUT": home_url,
         "ARPHELPLINK": CONTACT,
     }
+    if runtime_type is not None:
+        version = read_runtime(Path(payload), executable, architecture, runtime_type)
+        runtime_name = RUNTIMES[runtime_type][1]
+        display_version = "10.0" if version == "10.0.0" else version
+        properties["VibeWareRuntimeDescription"] = f"{runtime_name} {display_version} ({architecture})"
+        ET.register_namespace("netfx", NETFX)
+        ET.SubElement(package, f"{{{NETFX}}}DotNetCompatibilityCheck",
+                      Property="VibeWareDotNetResult", Platform=architecture, RuntimeType=runtime_type,
+                      RollForward="latestPatch", Version=version)
+        action = f"override Wix4NetFxDotNetCompatibilityCheck_{ARCHITECTURES[architecture]}"
+        for name, condition in (("InstallUISequence", "UILevel = 5 AND NOT Installed"),
+                                ("InstallExecuteSequence", "NOT Installed")):
+            sequence = package.find(WIX + name)
+            if sequence is None:
+                sequence = ET.SubElement(package, WIX + name)
+            ET.SubElement(sequence, WIX + "Custom", Action=action, Before="LaunchConditions", Condition=condition)
+
     for name, value in properties.items():
         prop = package.find(f"{WIX}Property[@Id='{name}']")
         if prop is None:
@@ -81,20 +94,25 @@ def add_installer_ui(root, *, payload, executable, output, home_url, logo, archi
         prop.set("Value", value)
 
     ET.register_namespace("", WIX[1:-1])
-    ET.register_namespace("netfx", NETFX)
-    ET.SubElement(package, f"{{{NETFX}}}DotNetCompatibilityCheck",
-                  Property="VibeWareDotNetResult", Platform=architecture, RuntimeType=runtime_type,
-                  RollForward="latestPatch", Version=version)
-    action = f"override Wix4NetFxDotNetCompatibilityCheck_{ARCHITECTURES[architecture]}"
-    for name, condition in (("InstallUISequence", "UILevel = 5 AND NOT Installed"),
-                            ("InstallExecuteSequence", "NOT Installed")):
-        sequence = package.find(WIX + name)
-        if sequence is None:
-            sequence = ET.SubElement(package, WIX + name)
-        ET.SubElement(sequence, WIX + "Custom", Action=action, Before="LaunchConditions", Condition=condition)
-
     icon = Path(output).resolve().with_suffix(".setup.ico")
     write_setup_icon(Path(logo), icon)
     ET.SubElement(package, WIX + "Binary", Id="VibeWareSetupIcon", SourceFile=str(icon))
     ET.SubElement(package, WIX + "UIRef", Id="VibeWareInstallerUI")
-    root.extend(ET.parse(Path(__file__).with_name("VibeWareInstallerUI.wxs")).getroot())
+    dialogs = ET.parse(Path(__file__).with_name("VibeWareInstallerUI.wxs")).getroot()
+    if runtime_type is None:
+        fragment = dialogs.find(WIX + "Fragment")
+        fragment.remove(fragment.find(f"{WIX}Property[@Id='VibeWareRuntimeDownload']"))
+        fragment.remove(fragment.find(WIX + "CustomAction"))
+        fragment.remove(fragment.find(WIX + "InstallExecuteSequence"))
+        ui = fragment.find(WIX + "UI")
+        ui.remove(ui.find(f"{WIX}Dialog[@Id='VibeWareMissingRuntime']"))
+        sequence = ui.find(WIX + "InstallUISequence")
+        sequence.remove(sequence.find(f"{WIX}Show[@Dialog='VibeWareMissingRuntime']"))
+        progress = ui.find(f"{WIX}Dialog[@Id='VibeWareProgress']")
+        progress.set("Height", "210")
+        for control in ("Runtime", "Welcome"):
+            progress.remove(progress.find(f"{WIX}Control[@Id='{control}']"))
+        for control, y in {"ProductLink": "75", "SupportLink": "93", "Status": "141",
+                           "Progress": "160", "Divider": "174", "Cancel": "183"}.items():
+            progress.find(f"{WIX}Control[@Id='{control}']").set("Y", y)
+    root.extend(dialogs)

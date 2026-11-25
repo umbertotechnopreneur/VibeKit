@@ -21,7 +21,21 @@
 name: ulanzideck / Build
 on:
   workflow_call:
+    inputs:
+      tag:
+        description: Version label for packages, without the repository namespace
+        type: string
+        default: ''
+      run_tests:
+        description: Run hardware-free unit tests
+        type: boolean
+        default: true
   workflow_dispatch:
+    inputs:
+      run_tests:
+        description: Run hardware-free unit tests
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -47,6 +61,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+      - uses: actions/setup-dotnet@v4
+        if: runner.os == 'Windows'
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install WiX for Windows installers
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet tool install wix --version 5.0.2 --tool-path "$env:RUNNER_TEMP/ulanzideck-wix"
+          if ($LASTEXITCODE -ne 0) { throw 'WiX installation failed.' }
+          "$env:RUNNER_TEMP/ulanzideck-wix" | Add-Content -LiteralPath $env:GITHUB_PATH
       - name: Install Linux development libraries
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y dpkg-dev libudev-dev libxdo-dev libxkbcommon-dev libfontconfig1-dev libwayland-dev
@@ -57,6 +82,7 @@ jobs:
           rustup target add ${{ matrix.target }}
           if ($LASTEXITCODE -ne 0) { throw 'Rust target installation failed.' }
       - name: Run unit tests without hardware
+        if: inputs.run_tests
         shell: pwsh
         run: |
           cargo test --locked --lib --bins --target ${{ matrix.target }}
@@ -66,13 +92,18 @@ jobs:
         run: |
           cargo build --locked --release --target ${{ matrix.target }}
           if ($LASTEXITCODE -ne 0) { throw 'Release build failed.' }
-      - name: Package executable, documentation and notices
+      - name: Package Windows ZIP and MSI or Linux archive
         shell: pwsh
+        env:
+          PACKAGE_TAG: ${{ inputs.tag }}
         run: |
-          $versionLine = Select-String -LiteralPath Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
-          if (-not $versionLine) { throw 'Package version was not found in Cargo.toml.' }
-          $version = $versionLine.Matches[0].Groups[1].Value
-          ./scripts/package-release.ps1 -Target '${{ matrix.target }}' -Label '${{ matrix.label }}' -Tag "v$version-stable"
+          $tag = $env:PACKAGE_TAG -replace '^ulanzideck/', ''
+          if (-not $tag) {
+            $versionLine = Select-String -LiteralPath Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
+            if (-not $versionLine) { throw 'Package version was not found in Cargo.toml.' }
+            $tag = "v$($versionLine.Matches[0].Groups[1].Value)-stable"
+          }
+          ./scripts/package-release.ps1 -Target '${{ matrix.target }}' -Label '${{ matrix.label }}' -Tag $tag
       - name: Package native Linux Debian installer
         if: runner.os == 'Linux'
         run: CARGO_HOME="$HOME/.cargo" python3 scripts/ulanzi.py deb --binary target/${{ matrix.target }}/release/ulanzi-dock-vibeware
@@ -82,6 +113,7 @@ jobs:
           name: release-${{ matrix.label }}
           path: |
             Apps/UlanziDeck/dist/ulanzi-dock-vibeware-*.zip
+            Apps/UlanziDeck/dist/ulanzi-dock-vibeware-*.msi
             Apps/UlanziDeck/dist/ulanzi-dock-vibeware-*.tar.gz
             Apps/UlanziDeck/dist/ulanzi-dock-vibeware-*.sha256
             Apps/UlanziDeck/dist/ulanzi-dock-vibeware_*.deb

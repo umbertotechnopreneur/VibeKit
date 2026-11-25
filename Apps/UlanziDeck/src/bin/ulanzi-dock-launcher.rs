@@ -17,7 +17,7 @@
  *
  * VBWR E */
 
-//! Start the adjacent controller from an MSIX entry point or an owned startup shortcut.
+//! Start the adjacent controller from the Start menu or an owned startup shortcut.
 //! The Windows GUI subsystem keeps sign-in launches quiet. This helper resolves paths and
 //! spawns the controller; it does not own the HID session or run a second controller loop.
 
@@ -40,8 +40,7 @@ fn launch() -> anyhow::Result<()> {
     let arguments: Vec<_> = env::args_os().skip(1).collect();
     let (controller, working_directory, settings, background) = if arguments.is_empty() {
         let launcher = env::current_exe()?;
-        let settings = paths::package_settings(&launcher)?
-            .context("the no-argument launcher requires an MSIX package")?;
+        let settings = paths::default_settings()?;
         let working_directory = settings
             .parent()
             .context("settings path has no parent folder")?

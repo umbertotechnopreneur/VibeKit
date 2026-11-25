@@ -97,69 +97,10 @@ jobs:
         working-directory: Apps/UlanziDeck
   package:
     needs: prepare
-    env:
-      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: windows-latest
-            target: x86_64-pc-windows-msvc
-            label: windows-x64
-          - runner: windows-11-arm
-            target: aarch64-pc-windows-msvc
-            label: windows-arm64
-          - runner: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-            label: linux-x64
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Install Linux development libraries
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y dpkg-dev libudev-dev libxdo-dev libxkbcommon-dev libfontconfig1-dev libwayland-dev
-          libx11-xcb-dev libxcursor-dev libxkbcommon-x11-dev
-      - name: Add Rust target
-        shell: pwsh
-        run: |
-          rustup target add ${{ matrix.target }}
-          if ($LASTEXITCODE -ne 0) { throw 'Rust target installation failed.' }
-      - name: Run unit tests without hardware
-        if: inputs.run_tests
-        shell: pwsh
-        run: |
-          cargo test --locked --lib --bins --target ${{ matrix.target }}
-          if ($LASTEXITCODE -ne 0) { throw 'Unit tests failed.' }
-      - name: Build release executables
-        shell: pwsh
-        run: |
-          cargo build --locked --release --target ${{ matrix.target }}
-          if ($LASTEXITCODE -ne 0) { throw 'Release build failed.' }
-      - name: Package executable, documentation and notices
-        shell: pwsh
-        run: ./scripts/package-release.ps1 -Target '${{ matrix.target }}' -Label '${{ matrix.label }}' -Tag ($env:RELEASE_TAG -replace
-          '^ulanzideck/', '')
-      - name: Package native Linux Debian installer
-        if: runner.os == 'Linux'
-        run: CARGO_HOME="$HOME/.cargo" python3 scripts/ulanzi.py deb --binary target/${{ matrix.target }}/release/ulanzi-dock-vibeware
-          --output dist
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-${{ matrix.label }}
-          path: |
-            Apps/UlanziDeck/dist/ulanzi-dock-vibeware-*.zip
-            Apps/UlanziDeck/dist/ulanzi-dock-vibeware-*.tar.gz
-            Apps/UlanziDeck/dist/ulanzi-dock-vibeware-*.sha256
-            Apps/UlanziDeck/dist/ulanzi-dock-vibeware_*.deb
-            Apps/UlanziDeck/dist/ulanzi-dock-vibeware_*.deb.sha256
-          if-no-files-found: error
-
-    defaults:
-      run:
-        working-directory: Apps/UlanziDeck
+    uses: ./.github/workflows/ci-ulanzideck.yml
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
+      run_tests: ${{ inputs.run_tests }}
   release:
     needs: [prepare, package]
     runs-on: ubuntu-latest
@@ -183,10 +124,14 @@ jobs:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $archives = @(Get-ChildItem -LiteralPath dist -File | Where-Object { $_.Name -match '\.(zip|tar\.gz)$' })
-          $debs = @(Get-ChildItem -LiteralPath dist -Filter '*.deb')
-          $checksums = @(Get-ChildItem -LiteralPath dist -Filter '*.sha256')
-          if ($archives.Count -ne 3 -or $debs.Count -ne 1 -or $checksums.Count -ne 4) { throw 'Three platform archives, the Linux Debian package and all four checksums are required.' }
+          $tag = $env:RELEASE_TAG -replace '^ulanzideck/', ''
+          $stem = "ulanzi-dock-vibeware-$tag"
+          $debs = @(Get-ChildItem -LiteralPath dist -Filter '*.deb' -File)
+          if ($debs.Count -ne 1) { throw 'Exactly one Linux Debian package is required.' }
+          $names = "$stem-windows-x64.zip", "$stem-windows-x64.msi", "$stem-windows-arm64.zip",
+            "$stem-windows-arm64.msi", "$stem-linux-x64.tar.gz", $debs[0].Name
+          $packages = foreach ($name in $names) { Get-Item -LiteralPath (Join-Path dist $name) }
+          $checksums = foreach ($name in $names) { Get-Item -LiteralPath (Join-Path dist "$name.sha256") }
           Push-Location dist
           try {
             Get-Content -LiteralPath $checksums.FullName | Set-Content -LiteralPath SHA256SUMS.txt -Encoding ascii
@@ -196,8 +141,7 @@ jobs:
           $cliArgs = @('release', 'create', $env:RELEASE_TAG, '--target', $env:SOURCE_SHA,
             '--title', "UlanziDock VibeWare $env:RELEASE_VERSION", '--generate-notes',
             "--draft=$env:IS_DRAFT", "--prerelease=$env:IS_PRERELEASE")
-          $cliArgs += $archives.FullName
-          $cliArgs += $debs.FullName
+          $cliArgs += $packages.FullName
           $cliArgs += 'dist/SHA256SUMS.txt'
           gh @cliArgs
           if ($LASTEXITCODE -ne 0) { throw 'Release creation failed.' }

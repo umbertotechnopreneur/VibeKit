@@ -22,15 +22,15 @@ VBWR E -->
 
 ## Use the Windows installer
 
-Binary downloads are not yet published in VibeKit. Start with the [source build guide](DEVELOPMENT.md), or [build your own installer](#build-your-own-installer). MSIX is Windows' app package format. Once you have a locally built package:
+Choose the MSI for your Windows processor (x64 or ARM64) from the project build artifacts, or [build your own installer](#build-your-own-installer). The MSI installs UlanziDeck for your Windows account.
 
-1. Open the MSIX and choose **Install**.
+1. Open the MSI and wait for setup to finish.
 2. Open **UlanziDeck** from Start.
 3. Follow the first-run setup. Right-click the tray icon, then choose **Settings** to change your choices later.
 
 The tray icon is the small app icon near the Windows clock. Starting the controller can update a connected dock. If startup fails, an error window explains why.
 
-After the first launch, Windows lists the app in **Startup apps**. Turn it off there if you do not want it to start at sign-in. Terminal users can use `ulanzi-dock-vibeware.exe` without finding the WindowsApps folder.
+To start UlanziDeck at sign-in, use the app's startup setting or run `ulanzi-dock-vibeware.exe startup --enable` from its installation folder. Use `startup --disable` before uninstalling if you enabled sign-in startup.
 
 A locally signed installer needs a trusted certificate from its maker. Check who made it before trusting that certificate.
 
@@ -55,7 +55,7 @@ The controller also keeps the last regular page in `settings.session.json`, besi
 
 Office shortcuts start with US English defaults. Adjust them for your keyboard and application language.
 
-The MSIX saves these files under `%LOCALAPPDATA%\Packages\<package-family>\LocalState\`. The portable app uses its executable folder. Local builds in `artifacts/` use the repository's settings. Files inside WindowsApps are not your editable settings.
+The installed app saves these files beside the executables in `%LOCALAPPDATA%\Programs\UlanziDeck\`. The portable app uses its extracted folder. Local builds in `artifacts/` use the repository's settings.
 
 Updates keep existing preferences. Back up the two settings files, the application catalogue and the session file before uninstalling or resetting. If a file uses an unsupported format, keep it as a reference and create a separate current file with `init --config new-settings.json`. Copy the shortcuts you want into that file; use the current application catalogue too.
 
@@ -67,22 +67,22 @@ With automatic switching on, OBS must be the app in front to select its page. Ha
 
 ## Build your own installer
 
-First follow [development setup](DEVELOPMENT.md). You also need Python 3.10 or newer and the Windows SDK tools `makeappx.exe` and `signtool.exe`.
+Follow [development setup](DEVELOPMENT.md). Install WiX 5.0.2 and have Windows SDK SignTool available for signing.
 
 Import the [shared VibeWare development certificate](../../../docs/windows-development-signing.md) first.
 The script selects the registered certificate with publisher `CN=Umberto Giacobbi`.
 
 ```powershell
-pwsh -NoProfile -File scripts/ulanzi.ps1 -Command msix -Configuration Debug
+dotnet tool install --global wix --version 5.0.2
+cargo build --locked --release --bins --target x86_64-pc-windows-msvc
+pwsh -NoProfile -File scripts/ulanzi.ps1 -Command package -Target x86_64-pc-windows-msvc -Label windows-x64 -Tag v0.4.0
 ```
 
-It builds both programs from current source, creates fresh package settings, includes licenses and signs an x64 MSIX in `artifacts/msix/`. The version comes from `Cargo.toml`. `-Configuration Release` makes an optimized build; the original `build-msix.ps1` command still defaults to Release when given parameters.
+Use the version in `Cargo.toml` for the tag. The package command writes the ZIP, MSI and their checksums to `dist/`. Pass `-WixPath` if WiX is outside PATH.
 
-Add `-Architecture arm64` for a native ARM64 package. The matching Rust target,
-Visual C++ ARM64 build tools and SDK libraries must already be installed. An x64
-PC can compile the ARM64 package; this does not check its behavior on ARM64 hardware.
+Use `aarch64-pc-windows-msvc` and `windows-arm64` for a native ARM64 package. Install the matching Rust target, Visual C++ tools and SDK libraries first.
 
-Add `-Install` to install the package on this PC. This can close a running copy. Local signing does not publish the app to Microsoft Store.
+Double-click the MSI to install it. For unattended installation, use `msiexec /i <package.msi> /quiet /norestart`.
 
 See [platform coverage](PLATFORMS.md) for what has been checked on real hardware.
 

@@ -27,11 +27,9 @@ COMMANDS = {
     'test-actions': 'Check the Linux reference actions with simulated button events',
     'configure': 'Open application settings without connecting to the dock',
     'run': 'Start the controller with the connected D200H',
-    'msix': 'Build a Windows installer',
-    'package': 'Package an existing build',
+    'package': 'Make a Windows ZIP and MSI or a Linux archive',
     'deb': 'Make a Debian package from a native Linux build',
     'icons': 'Prepare application icons',
-    'msix-icons': 'Prepare Windows installer icons',
     'atlases': 'Make preview sheets from exported buttons',
     'obs-guide': 'Prepare the OBS preview and guide',
     'notices': 'Collect dependency licenses',
@@ -349,7 +347,7 @@ def dispatch(command, options):
         if not binary.is_file():
             raise RuntimeError('Application is missing. Run build first.')
         run([binary, command, *options], env=env)
-    elif command in ('msix', 'msix-icons', 'package'):
+    elif command == 'package':
         run([require('pwsh'), '-NoProfile', '-File', SCRIPTS / 'ulanzi.ps1', '-Command', command, *options])
     else:
         run([sys.executable, SCRIPTS / 'tools.py', command, *options])

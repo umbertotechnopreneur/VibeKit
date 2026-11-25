@@ -32,6 +32,8 @@ def select_paths(paths):
             return list(PROJECTS)
         if path in {"Widgets/Shared/Build-WindowsMsi.ps1", "Widgets/Shared/create-widget-wix.py"}:
             selected.update({"helpme", "voiceducker", "desktop-ripple", "retro-terminal", "studio-controls"})
+            if path == "Widgets/Shared/create-widget-wix.py":
+                selected.add("ulanzideck")
             continue
         if path in {"Widgets/Shared/WindowsSignIn.cs", "Widgets/Shared/EffectStudioLayout.cs",
                     "Widgets/Shared/DisplayTarget.cs", "Widgets/Shared/EffectWindowCoverage.h"}:

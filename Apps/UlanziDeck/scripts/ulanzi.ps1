@@ -30,28 +30,14 @@ Select the task. Other parameters are forwarded only when that task accepts them
 For build: explicitly allow stopping verified workspace controller processes.
 .PARAMETER KeepBuildCache
 For build: keep the dedicated Cargo cache/output directory.
-.PARAMETER Install
-For msix: install the newly built package on this PC.
-.PARAMETER KeepStaging
-For msix: retain the package staging directory for inspection.
-.PARAMETER Configuration
-For msix: choose Debug or Release source compilation.
-.PARAMETER Architecture
-For msix: choose x64 or arm64. The default is x64.
-.PARAMETER PublisherSubject
-For msix: select the existing local signing certificate by subject.
-.PARAMETER StoreConfig
-For msix: private external Store identity JSON, enabling Store licensing.
-.PARAMETER PackageVersion
-For msix: explicit four-part package version, for example 1.0.0.0 for the Store.
-.PARAMETER SignStoreTestPackage
-For msix: sign a Debug Store-identity package with the existing trusted certificate.
 .PARAMETER Target
 For package or notices: Rust target triple whose outputs/dependencies are selected.
 .PARAMETER Label
 For package: supported platform label used in archive names.
 .PARAMETER Tag
 For package: output version label, without creating a Git tag.
+.PARAMETER WixPath
+For package: path to WiX 5.0.2 when it is not on PATH.
 .PARAMETER Source
 For atlases: directory containing the complete exported key pictures.
 .PARAMETER Settings
@@ -63,25 +49,18 @@ For obs-guide: folder containing the released OBS key pictures.
 .EXAMPLE
 pwsh -NoProfile -File scripts/ulanzi.ps1 -Command build -KeepBuildCache
 .EXAMPLE
-pwsh -NoProfile -File scripts/ulanzi.ps1 -Command msix -Configuration Debug
+pwsh -NoProfile -File scripts/ulanzi.ps1 -Command package -Target x86_64-pc-windows-msvc -Label windows-x64 -Tag v0.4.0
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('preflight', 'setup', 'configure', 'run', 'deb', 'build', 'msix', 'package', 'icons', 'msix-icons', 'atlases', 'obs-guide', 'notices')]
+    [ValidateSet('preflight', 'setup', 'configure', 'run', 'deb', 'build', 'package', 'icons', 'atlases', 'obs-guide', 'notices')]
     [string] $Command,
     [switch] $StopRunning,
     [switch] $KeepBuildCache,
-    [switch] $Install,
-    [switch] $KeepStaging,
-    [ValidateSet('Debug', 'Release')] [string] $Configuration,
-    [ValidateSet('x64', 'arm64')] [string] $Architecture,
-    [string] $PublisherSubject,
-    [string] $StoreConfig,
-    [string] $PackageVersion,
-    [switch] $SignStoreTestPackage,
     [string] $Target,
     [ValidateSet('windows-x64', 'windows-arm64', 'linux-x64')] [string] $Label,
     [string] $Tag,
+    [string] $WixPath,
     [string] $Source,
     [string] $Settings,
     [string] $Output,
@@ -98,10 +77,8 @@ $allowed = @{
     run = @()
     deb = @()
     build = @('StopRunning', 'KeepBuildCache')
-    msix = @('Install', 'KeepStaging', 'Configuration', 'Architecture', 'PublisherSubject', 'StoreConfig', 'PackageVersion', 'SignStoreTestPackage')
-    package = @('Target', 'Label', 'Tag')
+    package = @('Target', 'Label', 'Tag', 'WixPath')
     icons = @()
-    'msix-icons' = @()
     atlases = @('Source', 'Settings', 'Output')
     'obs-guide' = @('Artwork')
     notices = @('Target', 'Output')
@@ -121,18 +98,11 @@ function Invoke-Task([string] $Name, [hashtable] $Options) {
         if ($LASTEXITCODE -ne 0) { throw "The $Name task failed (exit code $LASTEXITCODE)." }
         return
     }
-    if (-not $IsWindows -and $Name -in @('build', 'msix', 'msix-icons')) {
-        throw 'This task uses Windows tools. On Linux, build with Cargo; see docs/DEVELOPMENT.md.'
-    }
     switch ($Name) {
         build {
             # An explicit false switch bypasses the legacy command's empty-input menu.
             if ($Options.Count -eq 0) { $Options.KeepBuildCache = $false }
             & (Join-Path $PSScriptRoot 'build-local.ps1') @Options
-        }
-        msix {
-            if ($Options.Count -eq 0) { $Options.Install = $false }
-            & (Join-Path $PSScriptRoot 'build-msix.ps1') @Options
         }
         package {
             foreach ($key in 'Target', 'Label', 'Tag') {
@@ -140,7 +110,6 @@ function Invoke-Task([string] $Name, [hashtable] $Options) {
             }
             & (Join-Path $PSScriptRoot 'package-release.ps1') @Options
         }
-        'msix-icons' { & (Join-Path $PSScriptRoot 'build-msix.ps1') -IconsOnly }
         default {
             if ($Name -eq 'atlases' -and -not $Options.Settings) { throw '-Settings is required for atlases.' }
             if ($Name -eq 'notices' -and -not $Options.Output) { throw '-Output is required for notices.' }

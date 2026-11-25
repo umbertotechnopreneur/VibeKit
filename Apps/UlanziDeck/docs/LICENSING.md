@@ -15,6 +15,10 @@ Required by the MIT License: retain the copyright and permission notice in all c
 
 VBWR E -->
 
+> **File name** `LICENSING.md`<br>
+> **Full path** `E:\vibekit\Apps\UlanziDeck\docs\LICENSING.md`<br>
+> **Path relative to the VibeKit repository** `Apps/UlanziDeck/docs/LICENSING.md`
+
 # Microsoft Store licensing
 
 All thirteen current themes are included in both Store and community builds.
@@ -78,36 +82,6 @@ or a non-Windows Store build. The runtime also compares the OS-reported package
 family to the expected family before querying Store services. With premium disabled, starting this EXE
 outside the matching MSIX package keeps every theme available without Store queries.
 
-To prepare an unsigned x64 Store submission from source when packaging is authorized:
-
-```powershell
-pwsh -NoProfile -File scripts/build-msix.ps1 -Configuration Release -PackageVersion 1.0.0.0 -StoreConfig 'C:\Private\Product\store-build.json'
-```
-
-This applies private package identity to the generated manifest and enables Store
-licensing in the source build. It produces `*.unsigned.msix` for Partner Center;
-it does not install, purchase, submit or publish. `-Install` is rejected in this mode.
-Without `-StoreConfig`, the script keeps its local signing/install behavior.
-
-For an owner-authorized local Debug installation using the same Store identity:
-
-```powershell
-pwsh -NoProfile -File scripts/build-msix.ps1 -Configuration Debug -PackageVersion 1.0.0.1 -StoreConfig 'C:\Private\Product\store-build.json' -SignStoreTestPackage
-```
-
-This requires an existing, trusted code-signing certificate matching the private
-Store publisher; the script never creates or trusts certificates. It produces a
-separate `-debug.msix` so Release submission output remains intact. Installation
-does not create a Store entitlement or validate purchases.
-
-`-PackageVersion` sets the four-part MSIX version separately from the source crate
-version. Store packages require the first section to be at least 1 and the fourth
-section to be 0. If the crate is still at 0.x, supply this parameter explicitly.
-
-The MSIX script supports `-Architecture x64` (the default) and `-Architecture arm64`.
-Cross-builds use a host-native build of the same source to generate clean settings;
-they do not execute the ARM64 application on an x64 PC. See [Store delivery](STORE-DELIVERY.md).
-
 Before enabling a premium offer, check owned and unowned accounts, cancellation,
 offline startup, restore and entitlement removal with the owner's authorization.
 
@@ -119,3 +93,7 @@ offline startup, restore and entitlement removal with the owner's authorization.
 - [Desktop StoreContext window ownership](https://learn.microsoft.com/en-us/uwp/api/windows.services.store.storecontext)
 - [Purchase requests](https://learn.microsoft.com/en-us/uwp/api/windows.services.store.storecontext.requestpurchaseasync)
 - [Create a durable add-on](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/add-on/what-are-add-ons)
+
+> **File name** `LICENSING.md`<br>
+> **Full path** `E:\vibekit\Apps\UlanziDeck\docs\LICENSING.md`<br>
+> **Path relative to the VibeKit repository** `Apps/UlanziDeck/docs/LICENSING.md`

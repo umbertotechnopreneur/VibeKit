@@ -57,7 +57,7 @@ use `cargo build --frozen --bins` with the same cache.
 ## Build on Linux
 
 Prepare Rust 1.90 or newer, a C compiler, C library headers, `pkg-config` and
-the native development libraries listed in the [build workflow](../.github/workflows/build.yml).
+the native development libraries listed in the [build workflow](../../../.github/workflows/ci-ulanzideck.yml).
 Use `dpkg-dev` for Debian packaging and Pillow and ReportLab for artwork tools.
 
 If you need fresh Cargo dependencies, stage the locked dependencies for your
@@ -126,17 +126,14 @@ Use `python3 scripts/ulanzi.py deb` to package a native Linux build.
 See [Debian packages](RELEASING.md#make-a-debian-package) for options and installation.
 The console also exposes icons, preview sheets, the OBS guide, dependency notices,
 Windows installers and packaging. On other systems, Python artwork tasks need separately prepared
-and scanned Pillow or ReportLab dependencies. Windows packaging tasks require
-PowerShell 7 and retain their existing options:
+and scanned Pillow or ReportLab dependencies. Windows build tasks require PowerShell 7:
 
 ```powershell
 pwsh -NoProfile -File scripts/ulanzi.ps1 -Command build
-pwsh -NoProfile -File scripts/ulanzi.ps1 -Command msix -Configuration Debug -PublisherSubject 'CN=Your Local Publisher'
 ```
 
-The Windows build stages both executables before replacing the output pair.
-MSIX packaging uses a separate build directory. Both use prepared dependencies.
-Packaging and publication are separate commands.
+The Windows build stages both executables before replacing the output pair. See
+[build your own installer](INSTALLATION.md#build-your-own-installer) for the Cargo target and packaging commands used to produce the Windows ZIP and MSI.
 
 ## Check Linux actions without a dock
 

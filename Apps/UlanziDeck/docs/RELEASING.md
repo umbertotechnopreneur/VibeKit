@@ -1,5 +1,9 @@
 <!-- Copyright (c) 2026 Umberto Giacobbi | MIT License: see LICENSE -->
 
+> **File name** `RELEASING.md`<br>
+> **Full path** `E:\vibekit\Apps\UlanziDeck\docs\RELEASING.md`<br>
+> **Path relative to the VibeKit repository** `Apps/UlanziDeck/docs/RELEASING.md`
+
 # Packages and releases
 
 This guide is for preparing downloads. For everyday use, start with [installation](INSTALLATION.md).
@@ -8,22 +12,22 @@ This guide is for preparing downloads. For everyday use, start with [installatio
 
 | Platform | Download |
 | --- | --- |
-| Windows x64 and ARM64 | ZIP with the controller and Windows sign-in launcher. |
+| Windows x64 and ARM64 | One portable ZIP and one per-user MSI per architecture. |
 | Linux x64 | tar.gz and a Debian `.deb` installer, built on Ubuntu 24.04 in CI. |
 
-See [platform coverage](PLATFORMS.md) for features and runtime limits. Windows also has a separate [local MSIX installer](INSTALLATION.md#build-your-own-installer) for x64 and ARM64.
+See [platform coverage](PLATFORMS.md) for features and runtime limits.
 
 Archives include the README, guides, presets, artwork credits, MIT license, Slint and font licenses, and dependency notices. Python collects notices from already restored Cargo packages. Missing dependencies must be obtained and scanned before packaging; the notice tool does not download them.
 
-## Make an archive
+## Make the packages
 
 Build the current source for the intended target first. The packaging script reads `target/<target>/release/`; it does not rebuild or use an installed copy. For example, after an authorized Windows x64 target build:
 
 ```powershell
-pwsh -NoProfile -File scripts/ulanzi.ps1 -Command package -Target x86_64-pc-windows-msvc -Label windows-x64 -Tag v0.2.0-stable
+pwsh -NoProfile -File scripts/ulanzi.ps1 -Command package -Target x86_64-pc-windows-msvc -Label windows-x64 -Tag v0.4.0-stable
 ```
 
-Use the intended version and matching platform. Packages go in `dist/`. The script refuses to overwrite an archive or reuse its package folder. It also writes a SHA-256 checksum, which lets someone check that a download arrived unchanged. Unix packages use tar.gz to keep executable permissions.
+Use the intended version and matching platform. Packages go in `dist/`, with one SHA-256 checksum per file. Windows packaging uses WiX 5.0.2 and signs local executables and the MSI with the registered development certificate. Unix archives use tar.gz to keep executable permissions.
 
 ## Make a Debian package
 
@@ -93,9 +97,9 @@ published merely by creating a local package or running Build CI.
 
 Publishing needs my explicit request. Source changes follow their normal review process. Documentation-only delivery follows `AGENTS.md`.
 
-Public versions increase by minor number: **0.1.0, 0.2.0, 0.3.0**, and so on. Update `Cargo.toml` and its matching entry in `Cargo.lock`. The manual Release workflow checks the next version and uses `v<version>-stable` unless given an explicit matching tag. Existing tags and releases stay unchanged.
+Public versions increase by minor number. Update `Cargo.toml` and its matching entry in `Cargo.lock`. The manual Release workflow checks the next version and uses `ulanzideck/v<version>-stable` unless given an explicit matching tag.
 
-Builds on `main` and pull requests save downloadable build artifacts; they do not publish a release. For an authorized release, run the manual Release workflow with `draft=true` and `prerelease=false`. Review all four platform archives, the Debian package and their checksums before publishing the draft.
+Builds on `main` and pull requests save downloadable build artifacts. For an authorized release, run the manual Release workflow with `draft=true` and `prerelease=false`. Review both Windows ZIPs, both MSIs, the Linux archive, the Debian package and their checksums before publishing the draft.
 
 See [platform coverage](PLATFORMS.md) for supported features and device limitations.
 
@@ -108,3 +112,7 @@ limit in the release notes. Do not describe skipped tests as passed.
 `UmbertoGiacobbi.UlanziDeck` is a proposed package ID, not a confirmed listing. For an authorized submission, use the actual release links and checksums for the two Windows ZIPs. Set `InstallerType: zip`, `NestedInstallerType: portable`, executable `ulanzi-dock-vibeware.exe` and command alias `ulanzi-dock-vibeware`.
 
 Keep the launcher and notices beside the executable. Validate manifests with `winget validate --manifest <manifest-directory>` before submitting them to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs). The install command becomes available only after acceptance and indexing. WinGet does not configure sign-in startup.
+
+> **File name** `RELEASING.md`<br>
+> **Full path** `E:\vibekit\Apps\UlanziDeck\docs\RELEASING.md`<br>
+> **Path relative to the VibeKit repository** `Apps/UlanziDeck/docs/RELEASING.md`

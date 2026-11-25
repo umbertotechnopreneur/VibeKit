@@ -43,7 +43,7 @@ flowchart LR
 | --- | --- |
 | Filo | Signs the WinUI and CLI executables before creating the ZIP and MSI. Signs the MSI after WiX builds it. |
 | Ram Taskman | Signs the Windows executable before creating the ZIP and MSI. Signs the MSI after WiX builds it. |
-| VibeKit apps | HelpMe and WorkTrail Debug MSIX, MarkVibe and VoiceDucker local MSIX, UlanziDeck local MSIX, Windows portable binaries where provided, and RepoRadar and ThermalRight Panel MSIs. |
+| VibeKit apps | HelpMe and WorkTrail Debug MSIX, MarkVibe and VoiceDucker local MSIX, Windows portable binaries where provided, and UlanziDeck, RepoRadar and ThermalRight Panel MSIs. |
 | VibeKit widgets | Local OpenAI Usage, RetroTerminal, Studio Controls, Vignette and WaterRipple Windows MSIs. |
 
 MSIX Store packaging follows the product's Store identity and signing procedure.

@@ -9,17 +9,20 @@ internal static class SettingsChecks
         var old = storage.LoadSettings();
         check(old.LabelPosition == "above" && old.ShowAvailableResets && old.ShowCredits && old.ShowEstimatedTime &&
             old.AlertSound && old.CreditsAlertThreshold is null, "Existing settings receive compatible presentation defaults");
+        check(old.DockPosition is null, "Existing profiles open as a floating widget");
         storage.SaveSettings(new WidgetSettings
         {
             TimeZoneId = "UTC", LabelPosition = "hidden", ShowAvailableResets = false, ShowEstimatedTime = false,
-            AlertSound = false, CreditsAlertThreshold = 0
+            AlertSound = false, CreditsAlertThreshold = 0, DockPosition = "bottom"
         });
         var savedPreferences = storage.LoadSettings();
         check(savedPreferences.LabelPosition == "hidden" && !savedPreferences.ShowAvailableResets && savedPreferences.ShowCredits &&
             !savedPreferences.ShowEstimatedTime && !savedPreferences.AlertSound && savedPreferences.CreditsAlertThreshold == 0,
             "Independent metrics, hidden labels and the optional credits threshold persist");
+        check(savedPreferences.Copy().DockPosition == "bottom", "Docking survives persistence and editing");
         foreach (string invalid in new[] { "{broken", "null", "{\"timeZoneId\":\"Invalid/Fixture\"}",
-            "{\"labelPosition\":\"side\"}", "{\"creditsAlertThreshold\":-1}", new string('x', Storage.MaximumSettingsBytes + 1) })
+            "{\"labelPosition\":\"side\"}", "{\"dockPosition\":\"side\"}", "{\"creditsAlertThreshold\":-1}",
+            new string('x', Storage.MaximumSettingsBytes + 1) })
         {
             File.WriteAllText(storage.SettingsPath, invalid);
             var editable = storage.LoadSettingsForEditing();

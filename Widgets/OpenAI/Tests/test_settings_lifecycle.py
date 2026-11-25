@@ -38,7 +38,7 @@ class SettingsLifecycleChecks(unittest.TestCase):
                                       saved_settings_revision=0, closed=False, exit_pending=False,
                                       settings_ready=False, settings_error=None, settings_status_label=None, settings_window=None,
                                       allow_close=False, tray=None, sound_process=None, clock_id=1, refresh_id=2,
-                                      problem=SimpleNamespace(set_visible=lambda _: None, set_tooltip_text=lambda _: None),
+                                      update_menu_status=lambda _status, warning=False: None,
                                       present=lambda: None, refresh=lambda: None)
         for method in methods:
             setattr(self.window, method.name, MethodType(environment[method.name], self.window))

@@ -23,7 +23,7 @@ public sealed partial class MainWindow : Window
     private const string ProjectUrl = "https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/OpenAI";
     private const string ManifestoUrl = "https://umbertogiacobbi.biz/vibeware/manifesto";
     private static readonly int[] WindowOpacityOptions = [25, 50, 75, 100];
-    private static readonly SolidColorBrush PrimaryText = new(), SecondaryText = new(), WarningText = new(), CloseText = new();
+    private static readonly SolidColorBrush PrimaryText = new(), SecondaryText = new(), WarningText = new();
     private static readonly FontFamily MetricFont = new("Cascadia Mono, Consolas");
     private readonly Storage storage=new();
     private WidgetSettings settings;
@@ -32,7 +32,6 @@ public sealed partial class MainWindow : Window
     private bool exitPending;
     private WidgetState state=new();
     private readonly Grid root=new() { Background=new SolidColorBrush(Colors.Transparent) };
-    private readonly Button connectionError=Button("\uE7BA","Connection settings");
     private readonly UISettings systemSettings=new();
     private readonly DispatcherTimer clock=new(){Interval=TimeSpan.FromSeconds(1)}, refresh=new(){Interval=TimeSpan.FromSeconds(60)};
     private readonly CancellationTokenSource lifetime=new();
@@ -81,52 +80,23 @@ public sealed partial class MainWindow : Window
         ApplySystemTheme();
         systemSettings.ColorValuesChanged+=ThemeChanged;
         BuildWidgetStrip();
-        pinButton.Click += (_, _) => UpdateSettings(next => next.AlwaysOnTop = !next.AlwaysOnTop);
-        AddAction(pinButton);
+        BuildWidgetMenu();
         ApplyTopmost();
-        connectionError.Visibility = Visibility.Collapsed;
-        connectionError.Click += async (_, _) => await ShowSettingsAsync();
-        AddAction(connectionError);
-        detailsButton.Click += (_, _) => SetDetailsOpen(!detailsOpen);
-
-        var preferences = Button("\uE713", "Settings");
-        preferences.Click += async (_, _) => await ShowSettingsAsync();
-        AddAction(preferences);
-        var about = Button("\uE946", "About OpenAI Usage");
-        about.Click += async (_, _) => await ShowAboutAsync();
-        AddAction(about);
-        AddAction(detailsButton);
-        var close = Button("\uE8BB", "Close", CloseText);
-        close.Click += (_, _) => Close();
-        AddAction(close);
-
-        void AddAction(Button control)
-        {
-            control.Width = control.Height = 28;
-            control.MinWidth = control.MinHeight = 0;
-            control.Padding = new(0);
-            control.HorizontalContentAlignment = HorizontalAlignment.Center;
-            control.VerticalContentAlignment = VerticalAlignment.Center;
-            if (control.Content is UIElement icon) icon.IsHitTestVisible = false;
-            ToolTipService.SetPlacement(control, PlacementMode.Bottom);
-            actions.Children.Add(control);
-        }
 
         BuildResponsiveLayout();
         SetDetailsOpen(detailsOpen);
         root.Children.Add(WarmAccent(.24, .72, .32, 28, 248, 112, 42));
         root.Children.Add(WarmAccent(.68, .25, .28, 23, 233, 65, 68));
-        root.Children.Add(viewport);
+        root.Children.Add(widgetBody);
         root.KeyDown += (_, args) =>
         {
             if (args.Key != global::Windows.System.VirtualKey.Escape || !detailsOpen) return;
             args.Handled = true;
             SetDetailsOpen(false);
-            detailsButton.Focus(FocusState.Programmatic);
+            menuButton.Focus(FocusState.Programmatic);
         };
         Content=root;
         root.SizeChanged += (_, _) => QueueLayout();
-        actions.SizeChanged += (_, _) => QueueLayout();
         strip.SizeChanged += (_, _) => QueueLayout();
         clock.Tick+=(_,_)=>Tick(); refresh.Tick+=async(_,_)=>await RefreshAsync();
         root.Loaded+=async(_,_)=>
@@ -144,25 +114,17 @@ public sealed partial class MainWindow : Window
                 Diagnostics.Record("tray.ready","Native notification icon registered."); }
             catch(Exception error) { Diagnostics.Record("tray.unavailable",error.Message); }
             ApplyTaskbarVisibility();
+            RestorePreferredDock();
             clock.Start(); refresh.Start(); await RefreshAsync();
             QueueLayout();
         };
         AppWindow.Closing+=AskToClose;
-        Closed+=(_,_)=>{closed=true;CloseSettings();activeDialog?.Close();tray?.Dispose();clock.Stop();refresh.Stop();resetClock.StopAnimation();StopSignalTransition();lifetime.Cancel();systemSettings.ColorValuesChanged-=ThemeChanged;};
+        Closed+=(_,_)=>{closed=true;desktopAppBar?.Dispose();CloseSettings();activeDialog?.Close();tray?.Dispose();clock.Stop();refresh.Stop();resetClock.StopAnimation();StopSignalTransition();lifetime.Cancel();systemSettings.ColorValuesChanged-=ThemeChanged;};
     }
 
     private void Tick()
     {
-        var connectionVisibility = settingsError is not null || !state.Connected ? Visibility.Visible : Visibility.Collapsed;
-        if (connectionError.Visibility != connectionVisibility)
-        {
-            connectionError.Visibility = connectionVisibility;
-            QueueLayout();
-        }
-        string warning = settingsError ?? state.Status;
-        if (string.IsNullOrWhiteSpace(warning)) warning = "Connection settings";
-        if (ToolTipService.GetToolTip(connectionError) as string != warning)
-            ToolTipService.SetToolTip(connectionError, warning);
+        UpdateMenuStatus();
         var now = DateTimeOffset.UtcNow;
         long? seconds = state.ResetsAt is { } reset ? Math.Max(0, reset - now.ToUnixTimeSeconds()) : null;
         UpdateResetClock(seconds);
@@ -219,9 +181,11 @@ public sealed partial class MainWindow : Window
     private void ApplyTaskbarVisibility() => AppWindow.IsShownInSwitchers = settings.ShowInTaskbar || tray?.IsAvailable != true;
     private void ShowWindow()
     {
+        bool restoring = !AppWindow.IsVisible;
         if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter)
             presenter.Restore();
         AppWindow.Show();
+        if (restoring && root.IsLoaded && !exitPending) RestorePreferredDock();
         var target = activeDialog ?? this;
         target.Activate();
         SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(target));
@@ -293,6 +257,7 @@ public sealed partial class MainWindow : Window
             {
                 CloseSettings();
                 AppWindow.Hide();
+                LeaveDock();
             }
         }
         catch(Exception error){Diagnostics.Record("close.prompt.failed",error.Message);}
@@ -309,7 +274,7 @@ public sealed partial class MainWindow : Window
         PrimaryText.Color=dark?ColorHelper.FromArgb(255,235,241,249):ColorHelper.FromArgb(255,23,39,62);
         SecondaryText.Color=dark?ColorHelper.FromArgb(255,194,205,221):ColorHelper.FromArgb(255,69,87,111);
         WarningText.Color=dark?ColorHelper.FromArgb(255,255,203,107):ColorHelper.FromArgb(255,148,82,0);
-        CloseText.Color = Rgb(dark ? 0xFF6C78u : 0xB62036u);
+        ApplyMenuTheme(dark);
         if (settingsWindow is { Content: Panel settingsSurface } preferences)
             ApplySettingsTheme(preferences, settingsSurface);
         if(activeDialog is { ExtendsContentIntoTitleBar: true, Content: FrameworkElement dialogRoot })

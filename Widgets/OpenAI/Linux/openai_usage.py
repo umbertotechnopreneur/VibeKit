@@ -103,15 +103,17 @@ window.micro:backdrop { border-color: transparent; box-shadow: none; }
 .micro.big .flip-caption { font-size: 14px; }
 .micro separator.metric-divider { background-color: alpha(@window_fg_color, .26); min-width: 1px; }
 .micro menubutton.voucher-count > button { padding: 0; border-width: 0; min-width: 0; min-height: 0; }
-.micro.big button.icon-action { padding: 6px; min-width: 21px; min-height: 21px; }
-.micro.big button.icon-action image { -gtk-icon-size: 18px; }
-.micro button.icon-action { padding: 5px; min-width: 18px; min-height: 18px; }
-.micro button.icon-action image { -gtk-icon-size: 16px; }
-.micro button.compact-action { background: alpha(@window_fg_color, .10); border: 1px solid alpha(@window_fg_color, .35); }
-.micro button.icon-action.close-action { color: #e01b24; }
-.micro button.icon-action.close-action image { -gtk-icon-size: 22px; }
-.micro.big button.icon-action.close-action image { -gtk-icon-size: 24px; }
-.micro button.icon-action.brand-action { padding: 0; }
+.micro menubutton.widget-menu > button { padding: 5px; min-width: 18px; min-height: 18px; }
+.micro menubutton.widget-menu > button image { color: @accent_color; -gtk-icon-size: 18px; }
+.micro.big menubutton.widget-menu > button { padding: 6px; min-width: 21px; min-height: 21px; }
+.micro.big menubutton.widget-menu > button image { -gtk-icon-size: 21px; }
+.widget-menu-popup button, .widget-menu-popup .menu-switch-row { padding: 6px 10px; }
+.widget-menu-popup .menu-pin { color: @blue_3; }
+.widget-menu-popup .menu-compact { color: @purple_2; }
+.widget-menu-popup .menu-settings { color: @orange_3; }
+.widget-menu-popup .menu-about { color: @green_4; }
+.widget-menu-popup .menu-vibeware { color: @yellow_4; }
+.widget-menu-popup .menu-exit { color: @red_3; }
 .heading { font-size: 15px; }
 .dim { opacity: .70; font-size: 12px; }
 .warning { color: @window_fg_color; font-weight: 650; }
@@ -123,11 +125,6 @@ window.micro:backdrop { border-color: transparent; box-shadow: none; }
 .history-bar trough, .history-bar progress { min-height: 4px; }
 .chart-number { font-family: monospace; font-size: 11px; font-weight: 650; }
 progressbar trough, progressbar progress { min-height: 7px; }
-button.icon-action { background: transparent; border: none; box-shadow: none; padding: 9px; min-width: 20px; color: @window_fg_color; }
-button.icon-action:hover, button.icon-action:active { color: @window_fg_color; }
-button.icon-action:hover { background: alpha(@window_fg_color, .07); }
-button.icon-action:active { background: alpha(@accent_bg_color, .15); }
-button.icon-action:checked { color: @accent_bg_color; background: alpha(@accent_bg_color, .15); }
 window.widget-about, .widget-about .about-body { background-color: #fff4dc; color: #232a2f; }
 .widget-about .about-body { font-family: monospace; font-size: 15px; }
 .widget-about .about-body label { color: #232a2f; }
@@ -721,10 +718,6 @@ class TrafficSignal(Gtk.Box):
 
 
 class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
-    APP_ICON_SIZE = 64
-    MANIFESTO_ICON_SIZE = 84
-    BRAND_SPACING = 8
-
     def __init__(self, app):
         # Adw.ApplicationWindow imposes a minimum height larger than the strip.
         super().__init__(application=app, title="OpenAI Usage", default_width=1240, default_height=80,
@@ -770,22 +763,6 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         strip = self.strip = wrap_box()
         strip.set_hexpand(True)
         strip.set_valign(Gtk.Align.START)
-        self.brand = Gtk.Image.new_from_file(str(ROOT / "Branding/app-icon-512.png"))
-        self.brand.set_pixel_size(self.APP_ICON_SIZE)
-        self.project_link = Gtk.LinkButton(uri=PROJECT_URL, child=self.brand, valign=Gtk.Align.CENTER,
-                                           tooltip_text="OpenAI Usage project page\nConnecting to Codex…")
-        self.manifesto_mark = about_mark("VibeWare.png", self.MANIFESTO_ICON_SIZE)
-        self.manifesto_mark.set_pixel_size(self.MANIFESTO_ICON_SIZE)
-        self.manifesto_mark.set_size_request(self.MANIFESTO_ICON_SIZE, self.MANIFESTO_ICON_SIZE)
-        self.manifesto_mark.set_halign(Gtk.Align.CENTER)
-        self.manifesto_mark.set_valign(Gtk.Align.CENTER)
-        self.manifesto_mark.set_can_target(False)
-        manifesto = Gtk.LinkButton(uri=MANIFESTO_URL, child=self.manifesto_mark, valign=Gtk.Align.CENTER,
-                                   tooltip_text="VibeWare manifesto")
-        for link, label in ((self.project_link, "OpenAI Usage project page"), (manifesto, "VibeWare manifesto")):
-            link.add_css_class("icon-action")
-            link.add_css_class("brand-action")
-            link.update_property([Gtk.AccessibleProperty.LABEL], [label])
 
         self.signal = TrafficSignal()
         self.signal.set_valign(Gtk.Align.START)
@@ -798,53 +775,8 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.reset_clock = FlipTile("Auto reset clock", "Auto reset clock", 403,
                                     sizing_text="WEDNESDAY 00 SEPTEMBER 00")
 
-        actions = self.actions = box(3, True)
-        actions.set_halign(Gtk.Align.END)
-        self.problem=Gtk.Button(icon_name="dialog-warning-symbolic",tooltip_text="Connection status")
-        self.problem.add_css_class("icon-action")
-        self.problem.connect("clicked",self.show_settings)
-        self.problem.set_visible(False)
-        actions.append(self.problem)
-        self.pin = Gtk.ToggleButton(icon_name="view-pin-symbolic")
-        self.pin.add_css_class("icon-action")
-        self.pin.set_sensitive(False)
-        self.pin.set_tooltip_text("Always on top is available on X11 with a compatible window manager")
-        self.syncing_pin = False
-        self.pin.connect("toggled", self.on_pin_toggled)
-        compact_icon = Gtk.DrawingArea(content_width=16, content_height=16, can_target=False)
-        def draw_compact_icon(_area, cr, _width, _height):
-            color = self.get_color()
-            cr.set_source_rgba(color.red, color.green, color.blue, color.alpha)
-            for x, height in ((2, 6), (7, 10), (12, 15)):
-                cr.rectangle(x, 16 - height, 3, height)
-            cr.fill()
-        compact_icon.set_draw_func(draw_compact_icon)
-        self.details_button = Gtk.ToggleButton(child=compact_icon, valign=Gtk.Align.CENTER)
-        self.details_button.add_css_class("icon-action")
-        self.details_button.add_css_class("compact-action")
-        self.details_button.set_active(True)
-        actions.append(self.pin)
         self.connect("map", self.on_window_mapped)
-        for icon,title,callback in [("emblem-system-symbolic","Settings",self.show_settings),
-                                    ("help-about-symbolic","About OpenAI Usage",self.show_about)]:
-            button=Gtk.Button(icon_name=icon,tooltip_text=title)
-            button.add_css_class("icon-action")
-            button.connect("clicked",lambda _,cb=callback:cb())
-            actions.append(button)
-        close = Gtk.Button(icon_name="window-close-symbolic", tooltip_text="Close")
-        close.add_css_class("icon-action")
-        close.add_css_class("close-action")
-        close.connect("clicked", lambda _: self.close())
-        actions.append(self.details_button)
-        actions.append(close)
-        brands = self.brands = box(self.BRAND_SPACING, True)
-        brands.set_halign(Gtk.Align.CENTER)
-        brands.append(self.project_link)
-        brands.append(manifesto)
-        rail = self.rail = box(6)
-        rail.set_valign(Gtk.Align.START)
-        rail.append(actions)
-        rail.append(brands)
+        self.menu_button = self.build_widget_menu()
         self.build_details()
         self.modules = [
             ("allowance", self.allowance_tile, "Percentage still available in the selected Codex quota."),
@@ -871,7 +803,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         body.set_margin_bottom(8)
         body.append(self.signal)
         body.append(strip)
-        body.append(rail)
+        body.append(self.menu_button)
         surface = self.widget_preview = Gtk.ScrolledWindow(child=body, overlay_scrolling=True, hscrollbar_policy=Gtk.PolicyType.NEVER,
                                     vscrollbar_policy=Gtk.PolicyType.AUTOMATIC)
         drag = Gtk.GestureClick(button=Gdk.BUTTON_PRIMARY)
@@ -886,8 +818,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         motion.connect("leave", lambda controller: controller.get_widget().set_cursor(None))
         self.window_content.add_controller(motion)
         self.set_child(self.window_content)
-        self.details_button.connect("toggled", self.details_toggled)
-        self.problem.connect("notify::visible", lambda *_: self.fit_layout(self.layout_width))
+        self.compact_switch.connect("notify::active", self.details_toggled)
         keys = Gtk.EventControllerKey()
         keys.connect("key-pressed", self.details_key_pressed)
         self.add_controller(keys)
@@ -895,13 +826,75 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         try:
             self.tray=StatusTray({"open":self.present,"about":self.show_about,"settings":self.show_settings,
                                  "website":lambda:Gio.AppInfo.launch_default_for_uri("https://umbertogiacobbi.biz",None),
-                                 "manifesto":lambda:Gio.AppInfo.launch_default_for_uri(MANIFESTO_URL,None),
+                                 "manifesto":self.open_manifesto,
                                  "exit":self.exit_application})
         except Exception as error:
             log_event("tray.unavailable",type(error).__name__)
         self.clock_id=GLib.timeout_add(1000,self.tick)
         self.refresh_id=GLib.timeout_add_seconds(60,self.refresh)
         self.refresh()
+
+    def build_widget_menu(self):
+        menu = self.widget_menu = Gtk.Popover()
+        menu.add_css_class("widget-menu-popup")
+        rows = box(2)
+        menu.set_child(rows)
+
+        def row(title, icon_name, style):
+            icon = Gtk.Image(icon_name=icon_name)
+            icon.add_css_class("menu-" + style)
+            label = Gtk.Label(label=title, xalign=0, hexpand=True)
+            content = box(10, horizontal=True)
+            content.append(icon)
+            content.append(label)
+            return content, icon, label
+
+        def item(title, icon_name, style, callback=None, toggle=False):
+            content, icon, label = row(title, icon_name, style)
+            button = (Gtk.ToggleButton if toggle else Gtk.Button)(child=content)
+            button.add_css_class("flat")
+
+            def on_clicked(_):
+                menu.popdown()
+                if callback is not None:
+                    callback()
+
+            button.connect("clicked", on_clicked)
+            rows.append(button)
+            return button, icon, label
+
+        self.pin, _, self.pin_label = item("Pin", "view-pin-symbolic", "pin", toggle=True)
+        self.pin.set_sensitive(False)
+        self.syncing_pin = False
+        self.pin.connect("toggled", self.on_pin_toggled)
+        compact_row, _, _ = row("Compact mode", "view-restore-symbolic", "compact")
+        compact_row.add_css_class("menu-switch-row")
+        self.compact_switch = Gtk.Switch(valign=Gtk.Align.CENTER)
+        self.compact_switch.update_property([Gtk.AccessibleProperty.LABEL], ["Compact mode"])
+        compact_row.append(self.compact_switch)
+        rows.append(compact_row)
+        self.settings_item, self.settings_icon, _ = item("Settings", "emblem-system-symbolic", "settings", self.show_settings)
+        item("About", "help-about-symbolic", "about", self.show_about)
+        item("VibeWare", "web-browser-symbolic", "vibeware", self.open_manifesto)
+        item("Exit", "system-log-out-symbolic", "exit", self.exit_application)
+        trigger = Gtk.MenuButton(icon_name="view-more-symbolic", valign=Gtk.Align.START, popover=menu)
+        trigger.add_css_class("widget-menu")
+        trigger.set_tooltip_text("Widget menu\nConnecting to Codex…")
+        trigger.update_property([Gtk.AccessibleProperty.LABEL], ["Widget menu"])
+        return trigger
+
+    @staticmethod
+    def open_manifesto():
+        Gio.AppInfo.launch_default_for_uri(MANIFESTO_URL, None)
+
+    def update_menu_status(self, status, warning=False):
+        if self.settings_item.get_tooltip_text() != status:
+            self.menu_button.set_tooltip_text("Widget menu\n" + status)
+            self.settings_item.set_tooltip_text(status)
+            self.settings_item.update_property([Gtk.AccessibleProperty.DESCRIPTION], [status])
+        icon = "dialog-warning-symbolic" if warning else "emblem-system-symbolic"
+        if self.settings_icon.get_icon_name() != icon:
+            self.settings_icon.set_from_icon_name(icon)
 
     def x11_surface(self):
         surface = self.get_surface()
@@ -939,6 +932,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.syncing_pin = True
         self.pin.set_active(enabled)
         self.syncing_pin = False
+        self.pin_label.set_label("Unpin" if enabled else "Pin")
         self.pin.set_tooltip_text("Always on top: " + ("on" if enabled else "off") + " (window manager permitting)")
         try:
             request_x11_state(surface, enabled, b"_NET_WM_STATE_ABOVE")
@@ -964,6 +958,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
             log_event("window.topmost.failed", str(error))
             return
         button.set_tooltip_text("Always on top: " + ("on" if enabled else "off") + " (window manager permitting)")
+        self.pin_label.set_label("Unpin" if enabled else "Pin")
         self.update_settings(alwaysOnTop=enabled)
 
     def received(self,settings,state,revision):
@@ -1044,19 +1039,20 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
                      wrap_value=True, sizing_text="EXPECTED TO LAST UNTIL RESET"),
         )
 
-    def details_toggled(self, button):
+    def details_toggled(self, switch, _):
         surface = self.get_surface()
-        restore = self.expanded_size if button.get_active() else None
-        if not button.get_active() and surface is not None:
+        compact = switch.get_active()
+        restore = None if compact else self.expanded_size
+        if compact and surface is not None:
             self.expanded_size = (surface.get_width(), surface.get_height())
-        elif button.get_active():
+        elif not compact:
             self.expanded_size = None
         self.apply_size()
         self.queue_fit_height(restore)
 
     def details_key_pressed(self, _, key, *_args):
-        if key == Gdk.KEY_Escape and self.details_button.get_active():
-            self.details_button.set_active(False)
+        if key == Gdk.KEY_Escape and not self.widget_menu.get_mapped() and not self.compact_switch.get_active():
+            self.compact_switch.set_active(True)
             return True
         return False
 
@@ -1215,10 +1211,9 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
             status += " · " + timestamp.astimezone().strftime("%H:%M:%S")
         if stale:
             status += " · STALE"
-        self.project_link.set_tooltip_text("OpenAI Usage project page\n" + status)
         problem_status = "Saving settings before closing…" if self.exit_pending else self.settings_error or status
-        self.problem.set_tooltip_text(problem_status)
-        self.problem.set_visible(self.exit_pending or bool(self.settings_error) or not self.state.get("connected",False) or stale)
+        warning = self.exit_pending or bool(self.settings_error) or not self.state.get("connected", False) or stale
+        self.update_menu_status(problem_status, warning)
         if seconds==0 and time.monotonic()-self.last_reset_refresh>=60:
             self.last_reset_refresh=time.monotonic()
             self.refresh()
@@ -1276,13 +1271,10 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.update_settings(hiddenFields=hidden if enabled else hidden + [key])
 
     def apply_size(self):
-        expanded = self.details_button.get_active()
+        expanded = not self.compact_switch.get_active()
         details = expanded and self.settings.get("enableDetailsBar", False)
         visible = [widget for key, widget, _ in self.ordered_modules()
                    if self.module_enabled(key) and (widget not in self.detail_tiles or details)]
-        label = "Compact mode" if expanded else "Expand widget"
-        self.details_button.set_tooltip_text(label)
-        self.details_button.update_property([Gtk.AccessibleProperty.LABEL], [label])
         current = list(WrapLayout.children(self.strip))
         if current != visible:
             while self.strip.get_first_child() is not None:
@@ -1294,7 +1286,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
 
     def fit_layout(self, width):
         layout = self.strip.get_layout_manager()
-        expanded = self.details_button.get_active()
+        expanded = not self.compact_switch.get_active()
         big = self.settings.get("bigSize", False) and width >= 375
         scale = 1 + LARGER_WIDGET_PERCENT / 100 if big else 1
         (self.add_css_class if big else self.remove_css_class)("big")
@@ -1303,19 +1295,15 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         tiles = list(WrapLayout.children(self.strip))
         preferred = {tile: round(tile.base_width * scale) for tile in tiles}
 
-        command_width = self.actions.measure(Gtk.Orientation.HORIZONTAL, -1)[1]
+        menu_width = self.menu_button.measure(Gtk.Orientation.HORIZONTAL, -1)[1]
         gaps = max(0, len(tiles) - 1) * layout.spacing
         margins = self.body.get_margin_start() + self.body.get_margin_end() + 2
         spacing = self.body.get_spacing()
-        plain_width = command_width + margins + spacing
-        # Reserve the real command width before deciding whether metrics wrap.
-        decorate = expanded and len(tiles) > 1 and sum(preferred.values()) + gaps > width - plain_width
-        self.signal.set_visible(decorate)
-        self.brands.set_visible(decorate)
+        plain_width = menu_width + margins + spacing
+        self.signal.set_visible(expanded)
         signal_width = 30 if width < 530 else 44
-        rail_width = self.rail.measure(Gtk.Orientation.HORIZONTAL, -1)[1]
-        chrome = rail_width + margins + spacing
-        if decorate:
+        chrome = plain_width
+        if expanded:
             chrome += signal_width + spacing
 
         minimum = max(300, chrome + FlipTile.MINIMUM_WIDTH)
@@ -1344,13 +1332,13 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.fit_tile_fonts(scale, widths)
 
         strip_height = self.strip.measure(Gtk.Orientation.VERTICAL, available)[1]
-        rail_height = self.rail.measure(Gtk.Orientation.VERTICAL, rail_width)[1]
-        if decorate:
-            self.signal.set_size_request(signal_width, min(128, strip_height))
+        menu_height = self.menu_button.measure(Gtk.Orientation.VERTICAL, menu_width)[1]
+        signal_height = min(128, max(menu_height, strip_height)) if expanded else 0
+        if expanded:
+            self.signal.set_size_request(signal_width, signal_height)
         vertical_insets = self.body.get_margin_top() + self.body.get_margin_bottom() + 2
-        # Keep the controls and both logos in view even when a resized window needs scrolling.
-        height = max(strip_height, rail_height) + vertical_insets
-        self.set_size_request(minimum, rail_height + vertical_insets)
+        height = max(strip_height, menu_height) + vertical_insets
+        self.set_size_request(minimum, menu_height + vertical_insets)
         return max(width, minimum), height
 
     @staticmethod
@@ -1535,7 +1523,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         if edge is None:
             target = widget.pick(x, y, Gtk.PickFlags.DEFAULT)
             while target is not None:
-                if isinstance(target, (Gtk.Button, Gtk.MenuButton, Gtk.Scrollbar)):
+                if isinstance(target, (Gtk.Button, Gtk.MenuButton, Gtk.Popover, Gtk.Scrollbar, Gtk.Switch)):
                     gesture.set_state(Gtk.EventSequenceState.DENIED)
                     return
                 target = target.get_parent()
@@ -1589,8 +1577,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.hide_settings()
         if self.saving or self.saved_settings_revision != self.settings_revision:
             self.exit_pending = True
-            self.problem.set_visible(True)
-            self.problem.set_tooltip_text("Saving settings before closing…")
+            self.update_menu_status("Saving settings before closing…", warning=True)
             if not self.saving:
                 self.save_async()
             return True

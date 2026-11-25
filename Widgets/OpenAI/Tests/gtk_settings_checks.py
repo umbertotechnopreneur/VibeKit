@@ -59,14 +59,15 @@ def poll():
             phase = 1
             widget.GLib.timeout_add(100, lambda: (release.set(), False)[1])
         elif phase == 1 and args.fail_first and not window.exit_pending and not window.saving:
-            assert not window.closed and window.get_visible() and window.problem.get_visible()
+            assert not window.closed and window.get_visible() and window.menu_button.get_visible()
+            assert window.settings_icon.get_icon_name() == "dialog-warning-symbolic"
             phase = 2
             retry_at = time.monotonic() + 1.2
             window.state = {"connected": True, "status": "Synthetic successful account refresh"}
             window.tick()
         elif phase == 2 and time.monotonic() >= retry_at:
-            assert not window.closed and window.problem.get_visible()
-            assert "Synthetic write failure" in window.problem.get_tooltip_text()
+            assert not window.closed and window.menu_button.get_visible()
+            assert "Synthetic write failure" in window.settings_item.get_tooltip_text()
             fail = False
             phase = 3
             window.exit_application()

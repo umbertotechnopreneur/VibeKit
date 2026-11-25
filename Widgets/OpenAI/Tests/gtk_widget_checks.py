@@ -117,24 +117,21 @@ def poll():
             tiles = list(widget.WrapLayout.children(view.strip))
             if not view.reset_clock.face.get_width():
                 return True
-            assert view.details_button.get_active(), "Widget must initially show the expanded view"
+            assert not view.compact_switch.get_active(), "Widget must initially show the expanded view"
             assert tiles == [*view.metrics, view.reset_clock]
-            assert view.details_button.get_visible()
-            close = view.actions.get_last_child()
-            assert close.has_css_class("close-action")
-            assert close.get_color().red > 4 * close.get_color().green
+            assert view.menu_button.get_mapped() and view.menu_button.get_icon_name() == "view-more-symbolic"
+            assert list(widget.WrapLayout.children(view.body))[-1] is view.menu_button
+            items = list(widget.WrapLayout.children(view.widget_menu.get_child()))
+            rows = [item.get_child() if isinstance(item, widget.Gtk.Button) else item for item in items]
+            assert [next(child.get_text() for child in widget.WrapLayout.children(row)
+                         if isinstance(child, widget.Gtk.Label)) for row in rows] == [
+                "Pin", "Compact mode", "Settings", "About", "VibeWare", "Exit"]
+            assert isinstance(rows[1].get_last_child(), widget.Gtk.Switch)
+            assert len({row.get_first_child().get_icon_name() for row in rows}) == len(rows)
+            assert not any(isinstance(control, widget.Gtk.LinkButton) for control in descendants(view.body))
             assert len({tile.layout.font_size for tile in tiles}) == 1
             assert all(tile.layout.row_height == 30 for tile in tiles)
             assert_resize_edges(view)
-            project = view.brands.get_first_child()
-            assert isinstance(project, widget.Gtk.LinkButton)
-            assert project.get_uri() == widget.PROJECT_URL and project.get_child() == view.brand
-            manifesto = project.get_next_sibling()
-            assert isinstance(manifesto, widget.Gtk.LinkButton)
-            assert manifesto.get_uri() == widget.MANIFESTO_URL
-            assert manifesto.get_child() == view.manifesto_mark
-            assert not view.manifesto_mark.get_can_target()
-            assert view.brands.get_orientation() == widget.Gtk.Orientation.HORIZONTAL
             assert view.signal.last_remaining == snapshot["remaining"]
             view.signal.next_flicker = time.monotonic() - 1
             view.signal.maybe_flicker(True)
@@ -189,7 +186,7 @@ def poll():
             view.state.update(remaining=19)
             view.check_alerts()
             assert len(dings) == 3
-            view.show_settings()
+            view.settings_item.emit("clicked")
             stage = 1.5
         elif (stage == 1.5 and not view.fit_source and view.settings_window.get_height() > 200
               and view.widget_preview.get_mapped()):
@@ -257,7 +254,7 @@ def poll():
             assert stored["alertSound"] is False and stored["creditsAlertThreshold"] == 125
             assert not any(stored[key] for key in ("showAvailableResets", "showCredits", "showEstimatedTime"))
             assert view.get_width() == size
-            assert stored["enableDetailsBar"] and view.details_button.get_visible() and view.details_button.get_active()
+            assert stored["enableDetailsBar"] and view.menu_button.get_visible() and not view.compact_switch.get_active()
             assert view.strip.get_first_child() == view.detail_tiles[-1]
             assert stored["fieldOrder"] == ["forecast", "allowance"]
             assert view.detail_tiles[0].value == "72%" and view.detail_tiles[1].value == "01h 42m"
@@ -268,15 +265,15 @@ def poll():
             view.state["forecastCompact"] = "4d"
             view.update_details(int(time.time()))
             assert view.detail_tiles[0].value == "73%" and view.detail_tiles[4].value == "4d"
-            assert view.details_key_pressed(None, widget.Gdk.KEY_Escape) and not view.details_button.get_active()
+            assert view.details_key_pressed(None, widget.Gdk.KEY_Escape) and view.compact_switch.get_active()
             tiles = list(widget.WrapLayout.children(view.strip))
             assert tiles == [view.allowance_tile, view.voucher_expiry_tile, view.reset_clock]
-            assert not view.signal.get_visible() and not view.brands.get_visible()
+            assert not view.signal.get_visible()
             view.update_settings(showAvailableResets=True, showCredits=True, showEstimatedTime=True,
                                  fieldOrder=["forecast", "clock", "allowance"])
             assert list(widget.WrapLayout.children(view.strip)) == [
                 view.reset_clock, view.allowance_tile, view.credits_tile, view.estimate_tile, view.voucher_tile, view.voucher_expiry_tile]
-            view.details_button.set_active(True)
+            view.compact_switch.set_active(False)
             stable_after = time.monotonic() + 0.3
             stage = 2.5
         elif stage == 2.5 and time.monotonic() >= stable_after:
@@ -294,7 +291,7 @@ def poll():
             assert tiles[0] is view.detail_tiles[-1] and tiles[1] is view.reset_clock
             allocations = [tile.get_allocation() for tile in tiles]
             width = view.strip.get_width()
-            assert width > 0 and all(r.x >= 0 and r.x + r.width <= width for r in allocations), (view.get_surface().get_width(), width, view.rail.get_width(), view.actions.get_width(), view.brands.get_width(), view.signal.get_width(), view.get_size_request(), [(r.x, r.width) for r in allocations])
+            assert width > 0 and all(r.x >= 0 and r.x + r.width <= width for r in allocations), (view.get_surface().get_width(), width, view.menu_button.get_width(), view.signal.get_width(), view.get_size_request(), [(r.x, r.width) for r in allocations])
             # Each tile follows its predecessor until the remaining line cannot contain it.
             for previous, current in zip(allocations, allocations[1:]):
                 if current.x == 0:
@@ -302,23 +299,20 @@ def poll():
                 else:
                     assert current.x == previous.x + previous.width + 8 and current.y == previous.y
             rows = sum(r.x == 0 for r in allocations)
-            if rows == 2:
-                assert view.signal.get_mapped() and view.brand.get_mapped() and view.manifesto_mark.get_mapped()
-                assert view.brands.get_allocation().y + view.brands.get_height() <= view.get_height()
-            actions = list(widget.WrapLayout.children(view.actions))
-            assert all(a.get_allocation().x + a.get_width() <= b.get_allocation().x
-                       for a, b in zip(actions, actions[1:]))
+            assert view.menu_button.get_mapped()
+            if rows > 1:
+                assert view.signal.get_mapped()
+            assert view.menu_button.get_allocation().y + view.menu_button.get_height() <= view.get_height()
             assert len({tile.layout.font_size for tile in tiles}) == 1
-            assert view.details_button.get_visible()
             row_counts.append(rows)
             if len(row_counts) < len(widths_to_check):
                 request_test_width(view, widths_to_check[len(row_counts)])
                 return True
-            assert row_counts[0] > row_counts[2] > row_counts[4] > row_counts[5] == 2, row_counts
+            assert row_counts[:6] == sorted(row_counts[:6], reverse=True) and row_counts[0] > row_counts[5] >= 2, row_counts
             assert row_counts[1] == row_counts[-1]
             print(f"Verified window widths {widths_to_check} and row counts {row_counts}")
             stage = 4
-            view.details_button.set_active(False)
+            view.compact_switch.set_active(True)
             stable_after = time.monotonic() + 0.3
         elif stage == 4 and time.monotonic() >= stable_after:
             assert view.get_surface().get_width() >= view.get_size_request().width
@@ -326,12 +320,12 @@ def poll():
             tiles = list(widget.WrapLayout.children(view.strip))
             assert all(tile.get_allocation().y == 0 for tile in tiles)
             assert sum(tile.get_width() for tile in tiles) + 8 * (len(tiles) - 1) <= view.strip.get_width()
-            view.details_button.set_active(True)
+            view.compact_switch.set_active(False)
             stable_after = time.monotonic() + 0.3
             stage = 5
         elif stage == 5 and time.monotonic() >= stable_after:
             assert view.get_surface().get_width() == widths_to_check[-1]
-            assert view.signal.get_mapped() and view.brands.get_mapped()
+            assert view.signal.get_mapped() and view.menu_button.get_mapped()
             # Request a taller window before running the periodic layout update.
             view.set_default_size(850, 700)
             stage = 6
@@ -342,20 +336,20 @@ def poll():
             stage = 7
         elif stage == 7 and time.monotonic() >= stable_after:
             assert (view.get_surface().get_width(), view.get_surface().get_height()) == (850, 700), (view.get_surface().get_width(), view.get_surface().get_height())
-            view.details_button.emit("clicked")
+            view.compact_switch.set_active(True)
             stable_after = time.monotonic() + 0.3
             stage = 8
         elif stage == 8 and time.monotonic() >= stable_after:
             assert view.get_surface().get_height() < 100
-            assert view.get_surface().get_height() >= view.actions.get_height()
+            assert view.get_surface().get_height() >= view.menu_button.get_height()
             assert not view.widget_preview.get_vscrollbar().get_child_visible()
-            assert not view.signal.get_visible() and not view.brands.get_visible()
-            view.details_button.emit("clicked")
+            assert not view.signal.get_visible()
+            view.compact_switch.set_active(False)
             stable_after = time.monotonic() + 0.3
             stage = 9
         elif stage == 9 and time.monotonic() >= stable_after:
             assert (view.get_surface().get_width(), view.get_surface().get_height()) == (850, 700), (view.get_surface().get_width(), view.get_surface().get_height())
-            assert view.signal.get_mapped() and view.brands.get_mapped()
+            assert view.signal.get_mapped() and view.menu_button.get_mapped()
             view.update_settings(enableDetailsBar=False)
             view.set_default_size(1150, 700)
             stable_after = time.monotonic() + 0.3
@@ -363,7 +357,7 @@ def poll():
         elif stage == 10 and time.monotonic() >= stable_after:
             tiles = list(widget.WrapLayout.children(view.strip))
             assert len({tile.get_allocation().y for tile in tiles}) == 2
-            assert view.signal.get_mapped() and view.brand.get_mapped() and view.manifesto_mark.get_mapped()
+            assert view.signal.get_mapped() and view.menu_button.get_mapped()
             assert view.signal.get_allocation().y <= view.strip.get_allocation().y + view.strip.get_height()
             view.set_default_size(1600, 700)
             stable_after = time.monotonic() + 0.3
@@ -371,8 +365,8 @@ def poll():
         elif stage == 11 and time.monotonic() >= stable_after:
             tiles = list(widget.WrapLayout.children(view.strip))
             assert len({tile.get_allocation().y for tile in tiles}) == 1
-            assert not view.signal.get_visible() and not view.brands.get_visible()
-            assert view.details_button.get_visible() and view.details_button.get_active()
+            assert view.signal.get_visible()
+            assert view.menu_button.get_visible() and not view.compact_switch.get_active()
             # Even a narrow expanded window is a single row when only one metric is enabled.
             view.update_settings(showAvailableResets=False, showCredits=False, showEstimatedTime=False,
                                  hiddenFields=["clock", "first-reset"])
@@ -382,8 +376,8 @@ def poll():
         elif stage == 12 and time.monotonic() >= stable_after:
             assert view.get_surface().get_width() == 450
             assert list(widget.WrapLayout.children(view.strip)) == [view.allowance_tile]
-            assert not view.signal.get_visible() and not view.brands.get_visible()
-            assert view.details_button.get_visible() and view.details_button.get_active()
+            assert view.signal.get_visible()
+            assert view.menu_button.get_visible() and not view.compact_switch.get_active()
             stage = 13
             view.exit_application()
             return False

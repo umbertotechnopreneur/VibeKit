@@ -22,7 +22,8 @@ class SettingsUiMixin:
             return True
         self.busy = True
         revision = self.settings_revision
-        self.project_link.set_tooltip_text("OpenAI Usage project page\nRefreshing Codex account…")
+        if self.settings_error is None:
+            self.update_menu_status("Refreshing Codex account…", warning=not self.state.get("connected", False))
         def worker():
             try:
                 settings = self.backend("settings-status")
@@ -93,8 +94,7 @@ class SettingsUiMixin:
                     return False
                 if error:
                     self.set_settings_error(error)
-                    self.problem.set_visible(True)
-                    self.problem.set_tooltip_text(error)
+                    self.update_menu_status(error, warning=True)
                     log_event("settings.failed", error)
                     if revision == self.settings_revision and self.exit_pending:
                         self.exit_pending = False
@@ -218,8 +218,7 @@ class SettingsUiMixin:
         if not self.get_visible():
             self.present()
         if not self.settings_ready:
-            self.problem.set_visible(True)
-            self.problem.set_tooltip_text("Settings are not available yet; retry after the account reader starts.")
+            self.update_menu_status("Settings are not available yet; retry after the account reader starts.", warning=True)
             self.refresh()
             return
         group = Adw.PreferencesGroup()

@@ -28,6 +28,7 @@ public sealed class WidgetSettings
     public string? SelectedWindow { get; set; }
     public string TimeZoneId { get; set; } = TimeZoneInfo.Local.Id;
     public bool AlwaysOnTop { get; set; }
+    public string? DockPosition { get; set; }
     public bool ShowInTaskbar { get; set; } = true;
     public bool BigSize { get; set; }
     public int WindowOpacityPercent { get; set; } = 100;
@@ -50,6 +51,8 @@ public sealed class WidgetSettings
         _ = TimeZoneInfo.FindSystemTimeZoneById(TimeZoneId);
         if (LabelPosition is not ("above" or "below" or "hidden"))
             throw new ArgumentException("Choose whether field labels appear above, below, or are hidden.");
+        if (DockPosition is not (null or "top" or "bottom"))
+            throw new ArgumentException("Choose top, bottom, or a floating widget.");
         if (CreditsAlertThreshold is < 0)
             throw new ArgumentException("Choose a nonnegative credits alert threshold.");
     }

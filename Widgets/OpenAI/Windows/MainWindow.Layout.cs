@@ -11,20 +11,14 @@ public sealed partial class MainWindow
     private const int MinimumWidth = 300;
     private const int LargerWidgetPercent = 15;
     private const double TileSpacing = 8;
-    private readonly Grid layout = new() { Padding = new(8) };
-    private readonly StackPanel actions = new() { Orientation = Orientation.Horizontal, Spacing = 3, HorizontalAlignment = HorizontalAlignment.Right };
-    private readonly StackPanel brands = new()
-    {
-        Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center
-    };
-    private readonly StackPanel rail = new() { Spacing = 6, Margin = new(TileSpacing, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
+    private readonly Grid widgetBody = new() { Padding = new(8) };
+    private readonly Grid layout = new();
     private readonly Viewbox layoutView = new() { VerticalAlignment = VerticalAlignment.Top };
     private readonly ScrollViewer viewport = new()
     {
         HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
         VerticalScrollBarVisibility = ScrollBarVisibility.Auto
     };
-    private readonly Button pinButton = Button("\uE718", "Keep on top");
     private Module[] modules = [];
     private bool layoutQueued;
     private bool fitHeight = true;
@@ -53,19 +47,17 @@ public sealed partial class MainWindow
         ];
         layout.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
         layout.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
-        layout.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
         layout.Children.Add(signalHousing);
         Grid.SetColumn(strip, 1);
         layout.Children.Add(strip);
-        brands.Children.Add(appWebsiteButton);
-        brands.Children.Add(manifestoButton);
-        rail.Children.Add(actions);
-        rail.Children.Add(brands);
-        Grid.SetColumn(rail, 2);
-        layout.Children.Add(rail);
         layoutView.Child = layout;
         viewport.Content = layoutView;
         viewport.ViewChanged += (_, _) => QueueLayout();
+        widgetBody.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
+        widgetBody.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+        widgetBody.Children.Add(viewport);
+        Grid.SetColumn(menuButton, 1);
+        widgetBody.Children.Add(menuButton);
     }
 
     private IEnumerable<Module> OrderedModules()
@@ -130,6 +122,18 @@ public sealed partial class MainWindow
         var workArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest)?.WorkArea;
         int maxWidth = workArea is { } display ? Math.Max(1, display.Width - frameWidth) : int.MaxValue;
         int maxHeight = workArea is { } screen ? Math.Max(1, screen.Height - frameHeight) : int.MaxValue;
+        int dockClientWidth = 0;
+        if (IsDocked)
+        {
+            if (!desktopAppBar!.TryGetMonitorBounds(out var monitor))
+            {
+                DockFailed("Windows could not find a display for the docked widget.");
+                return;
+            }
+            maxWidth = Math.Max(1, monitor.Width - frameWidth);
+            maxHeight = Math.Max(1, monitor.Height - frameHeight);
+            dockClientWidth = Math.Clamp((dockBounds?.Width ?? monitor.Width) - frameWidth, 1, maxWidth);
+        }
         bool compact = IsCompact;
         var restore = requestedSize;
         bool resizeHeight = fitHeight;
@@ -138,32 +142,31 @@ public sealed partial class MainWindow
 
         var tiles = modules.Where(module => strip.Children.Contains(module.Element))
             .Select(module => module.Tile).OfType<FlipTile>().ToArray();
-        int commandCount = actions.Children.Count(child => child.Visibility == Visibility.Visible);
-        double commandWidth = commandCount * 28 + Math.Max(0, commandCount - 1) * actions.Spacing;
-        double plainChrome = layout.Padding.Left + layout.Padding.Right + TileSpacing + commandWidth;
+        double fixedWidth = widgetBody.Padding.Left + widgetBody.Padding.Right + TileSpacing + MenuButtonWidth;
         double gaps = Math.Max(0, tiles.Length - 1) * TileSpacing;
         double preferredWidth = tiles.Sum(tile => tile.PreferredWidth);
-        int clientWidth = restore?.Width ?? size.Width;
+        int clientWidth = IsDocked ? dockClientWidth : restore?.Width ?? size.Width;
         double zoom = settings.BigSize && clientWidth >= 375 * dpi ? 1 + LargerWidgetPercent / 100d : 1;
         double minimumWidth = compact
-            ? Math.Max(MinimumWidth, (plainChrome + gaps + Math.Max(tiles.Length * FlipTile.MinimumWidth, preferredWidth * .6)) * zoom)
+            ? Math.Max(MinimumWidth, fixedWidth + (gaps + Math.Max(tiles.Length * FlipTile.MinimumWidth, preferredWidth * .6)) * zoom)
             : MinimumWidth;
-        int minimum = Math.Min(maxWidth, (int)Math.Ceiling(minimumWidth * dpi));
-        clientWidth = Math.Max(minimum, clientWidth);
-        if (resizeHeight || restore.HasValue)
-            clientWidth = Math.Min(clientWidth, maxWidth);
-        if (compact)
-            zoom = Math.Min(zoom, clientWidth / (dpi * (plainChrome + gaps + tiles.Length * FlipTile.MinimumWidth)));
+        int minimum = IsDocked ? 1 : Math.Min(maxWidth, (int)Math.Ceiling(minimumWidth * dpi));
+        if (!IsDocked)
+        {
+            clientWidth = Math.Max(minimum, clientWidth);
+            if (resizeHeight || restore.HasValue)
+                clientWidth = Math.Min(clientWidth, maxWidth);
+        }
+        double contentWidth = Math.Max(1, clientWidth / dpi - fixedWidth);
+        if (compact && tiles.Length > 0)
+            zoom = Math.Min(zoom, contentWidth / (gaps + tiles.Length * FlipTile.MinimumWidth));
 
-        double width = clientWidth / (dpi * zoom);
-        bool decorate = !compact && tiles.Length > 1 && preferredWidth + gaps > width - plainChrome;
-        brands.Visibility = decorate ? Visibility.Visible : Visibility.Collapsed;
-        signalHousing.Visibility = decorate ? Visibility.Visible : Visibility.Collapsed;
-        signalHousing.Width = width < 530 ? 30 : 44;
-        double railWidth = decorate ? Math.Max(commandWidth, BrandButtonSize + brands.Spacing + ManifestoButtonSize) : commandWidth;
-        double chrome = plainChrome - commandWidth + railWidth + (decorate ? TileSpacing + signalHousing.Width : 0);
-        double tileWidth = Math.Max(FlipTile.MinimumWidth, width - chrome);
-        actions.Width = commandWidth;
+        double width = contentWidth / zoom;
+        bool showSignal = !compact && tiles.Length > 0;
+        signalHousing.Visibility = showSignal ? Visibility.Visible : Visibility.Collapsed;
+        signalHousing.Width = width + fixedWidth < 530 ? 30 : 44;
+        double signalWidth = showSignal ? TileSpacing + signalHousing.Width : 0;
+        double tileWidth = Math.Max(FlipTile.MinimumWidth, width - signalWidth);
         strip.SingleRow = compact;
         strip.Width = tileWidth;
         double halfRow = Math.Max(100, Math.Floor((tileWidth - TileSpacing) / 2));
@@ -179,15 +182,15 @@ public sealed partial class MainWindow
 
         layout.Width = width;
         strip.Measure(new(tileWidth, double.PositiveInfinity));
-        rail.Measure(new(railWidth + rail.Margin.Left, double.PositiveInfinity));
-        double insets = layout.Padding.Top + layout.Padding.Bottom;
+        double insets = widgetBody.Padding.Top + widgetBody.Padding.Bottom;
         double stripHeight = strip.DesiredSize.Height;
-        double railHeight = rail.DesiredSize.Height;
+        double menuHeight = menuButton.Height;
         signalHousing.Height = Math.Min(128, stripHeight);
-        layout.Height = Math.Max(stripHeight, railHeight) + insets;
-        layoutView.Width = width * zoom;
-        layoutView.Height = layout.Height * zoom;
-        int minHeight = Math.Min(maxHeight, (int)Math.Ceiling((railHeight + insets) * zoom * dpi));
+        layout.Height = stripHeight;
+        layoutView.Width = contentWidth;
+        layoutView.Height = stripHeight * zoom;
+        double widgetHeight = Math.Max(layoutView.Height, menuHeight) + insets;
+        int minHeight = Math.Min(maxHeight, (int)Math.Ceiling((menuHeight + insets) * dpi));
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
             if (presenter.PreferredMinimumWidth != minimum + frameWidth)
@@ -195,8 +198,18 @@ public sealed partial class MainWindow
             if (presenter.PreferredMinimumHeight != minHeight + frameHeight)
                 presenter.PreferredMinimumHeight = minHeight + frameHeight;
         }
+        if (IsDocked)
+        {
+            int height = Math.Clamp((int)Math.Ceiling(widgetHeight * dpi), minHeight, maxHeight);
+            if (ApplyDockBounds(height + frameHeight))
+            {
+                root.UpdateLayout();
+                UpdateDragRegions();
+            }
+            return;
+        }
         int desiredHeight = resizeHeight
-            ? Math.Min(maxHeight, Math.Max(restore?.Height ?? 0, (int)Math.Ceiling(layoutView.Height * dpi)))
+            ? Math.Min(maxHeight, Math.Max(restore?.Height ?? 0, (int)Math.Ceiling(widgetHeight * dpi)))
             : size.Height;
         desiredHeight = Math.Max(minHeight, desiredHeight);
         var position = AppWindow.Position;
@@ -238,12 +251,15 @@ public sealed partial class MainWindow
     private void UpdateDragRegions()
     {
         if (!root.IsLoaded || root.ActualWidth <= 0 || root.ActualHeight <= 0) return;
+        if (IsDocked)
+        {
+            nonClientInput?.SetRegionRects(NonClientRegionKind.Caption, []);
+            return;
+        }
         double dpi = root.XamlRoot.RasterizationScale;
         int width = (int)Math.Round(root.ActualWidth * dpi), height = (int)Math.Round(root.ActualHeight * dpi);
         var caption = new List<RectInt32> { new(0, 0, width, height) };
-        var controls = strip.Children.OfType<FrameworkElement>().Append(actions).Append(signalHousing);
-        if (brands.Visibility == Visibility.Visible)
-            controls = controls.Concat([appWebsiteButton, manifestoButton]);
+        var controls = strip.Children.OfType<FrameworkElement>().Append(menuButton).Append(signalHousing);
         foreach (var control in controls)
         {
             if (control.Visibility != Visibility.Visible) continue;
@@ -280,12 +296,9 @@ public sealed partial class MainWindow
 
     private void ApplyTopmost()
     {
-        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        if (!IsDocked && AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.IsAlwaysOnTop = settings.AlwaysOnTop;
-        if (pinButton.Content is FontIcon icon) icon.Glyph = settings.AlwaysOnTop ? "\uE77A" : "\uE718";
-        string label = settings.AlwaysOnTop ? "Unpin from always on top" : "Pin on top";
-        ToolTipService.SetToolTip(pinButton, label);
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(pinButton, label);
+        RefreshMenuState();
     }
 
 }

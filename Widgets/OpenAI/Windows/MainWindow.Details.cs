@@ -11,7 +11,6 @@ public sealed partial class MainWindow
     private static readonly SolidColorBrush ForecastAmber = new(Rgb(0xFFC233));
     private static readonly SolidColorBrush QuotaRed = new(Rgb(0xF83C24));
     private static readonly SolidColorBrush QuotaGreen = new(Rgb(0x36CD73));
-    private readonly Button detailsButton = Button(DetailsIcon(), "Show usage details");
     private bool detailsOpen;
     private bool IsCompact => !detailsOpen;
     private readonly FlipTile fiveHour = new("5-hour allowance", 112, 20, SecondaryText, showAccent: true);
@@ -23,28 +22,20 @@ public sealed partial class MainWindow
     private readonly FlipTile forecastMessage = new("Will the quota last?", 442, 20, SecondaryText,
         wrapValue: true, sizingCharacters: "EXPECTED TO LAST UNTIL RESET".Length);
 
-    private static UIElement DetailsIcon()
-    {
-        var columns = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Height = 16 };
-        foreach (double height in new[] { 6d, 10d, 15d })
-            columns.Children.Add(new Border { Width = 3, Height = height, Background = PrimaryText, VerticalAlignment = VerticalAlignment.Bottom });
-        return columns;
-    }
-
     private void SetDetailsOpen(bool open)
     {
         if (open != detailsOpen)
         {
-            if (!open)
-                expandedSize = AppWindow.ClientSize;
-            RequestWidgetFit(open ? expandedSize : null);
-            if (open)
-                expandedSize = null;
+            if (IsDocked) RequestWidgetFit();
+            else
+            {
+                if (!open) expandedSize = AppWindow.ClientSize;
+                RequestWidgetFit(open ? expandedSize : null);
+                if (open) expandedSize = null;
+            }
         }
         detailsOpen = open;
-        string description = open ? "Compact mode" : "Expand widget";
-        ToolTipService.SetToolTip(detailsButton, description);
-        AutomationProperties.SetName(detailsButton, description);
+        RefreshMenuState();
         ApplySize();
     }
 

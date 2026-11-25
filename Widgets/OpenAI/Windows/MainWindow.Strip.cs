@@ -4,7 +4,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
 using System.Diagnostics;
 using System.Globalization;
 
@@ -12,8 +11,6 @@ namespace OpenAIUsage.Windows;
 
 public sealed partial class MainWindow
 {
-    private const double BrandButtonSize = 64;
-    private const double ManifestoButtonSize = 84;
     private readonly WrappingPanel strip = new(TileSpacing);
     private readonly FlipTile remaining = new("Allowance remaining", 115, 20, SecondaryText, label: "Allowance left", showAccent: true, worn: true, compactAccent: true);
     private readonly FlipTile credits = new("Remaining Credits", 108, 20, SecondaryText, sizingCharacters: 7, showAccent: true, worn: true, compactAccent: true);
@@ -23,12 +20,6 @@ public sealed partial class MainWindow
     private readonly FlipTile resetClock = new("Auto reset clock", 403, 20, SecondaryText,
         sizingCharacters: "WEDNESDAY 00 SEPTEMBER 00".Length);
     private readonly Stopwatch clockCycle = new();
-    private readonly Button appWebsiteButton = BrandLink(Logo(BrandButtonSize), "Open OpenAI Usage project page", ProjectUrl);
-    private readonly Button manifestoButton = BrandLink(new Image
-    {
-        Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Branding", "VibeWare.png"))),
-        Width = ManifestoButtonSize, Height = ManifestoButtonSize, Stretch = Stretch.Uniform
-    }, "VibeWare manifesto", ManifestoUrl);
     private readonly Button usageLink = Button("", "Open usage and resets in ChatGPT");
     private readonly Button forecastLink = Button("", "Open usage and resets in ChatGPT");
     private readonly Button vouchersButton = Button("", "Show voucher expiration dates");
@@ -50,21 +41,6 @@ public sealed partial class MainWindow
         BuildVoucherButton();
 
         ConfigureUsageLink(countdownLink, resetClock);
-    }
-
-    private static Button BrandLink(Image mark, string label, string url)
-    {
-        mark.HorizontalAlignment = HorizontalAlignment.Center;
-        mark.VerticalAlignment = VerticalAlignment.Center;
-        mark.IsHitTestVisible = false;
-        var button = Button(mark, label);
-        button.Width = mark.Width;
-        button.Height = mark.Height;
-        button.Padding = new(0);
-        button.HorizontalContentAlignment = HorizontalAlignment.Center;
-        button.VerticalContentAlignment = VerticalAlignment.Center;
-        button.Click += (_, _) => OpenLink(url);
-        return button;
     }
 
     private Button BuildVoucherButton()

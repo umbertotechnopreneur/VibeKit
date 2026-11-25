@@ -525,6 +525,7 @@ public sealed partial class DesktopWindow
     {
         SplitSourceColumn.Width = new GridLength(ratio, GridUnitType.Star);
         SplitReaderColumn.Width = new GridLength(1 - ratio, GridUnitType.Star);
+        _reader?.SetPaperMargin(_model.View, ratio);
     }
 
     /// <summary>Opens or closes the assistant in the native window.</summary>

@@ -33,6 +33,29 @@ let focusedView = "read";
 let synchronizing = false;
 let positionTimer;
 let appearanceRevision = 0;
+const forcedColors = matchMedia("(forced-colors: active)");
+
+/** Find the resolved opaque surface, including the lightweight source fallback and system contrast colors. */
+function surfaceColor(element) {
+  for (let current = element; current; current = current.parentElement || current.getRootNode()?.host) {
+    const rgb = /^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/u.exec(getComputedStyle(current).backgroundColor);
+    if (rgb) return (Number(rgb[1]) << 16) | (Number(rgb[2]) << 8) | Number(rgb[3]);
+  }
+  return null;
+}
+
+/** Carry the installed renderer's actual materials into the narrow native page margin below its viewport. */
+function publishReaderMaterial() {
+  if (!reader || readerPane.hidden || !rendered) return;
+  const editor = source?.root.querySelector(".monaco-editor-background") || source?.content;
+  emit({
+    type: "reader-material",
+    readerColor: surfaceColor(reader.body),
+    sourceColor: surfaceColor(editor),
+    paper: forcedColors.matches ? "none" : reader.container.dataset.paper || "none",
+    dark: document.documentElement.dataset.theme === "dark"
+  });
+}
 
 /** Send a renderer gesture to the native UI with the owning document's identity. */
 function emit(event) {
@@ -261,6 +284,7 @@ async function render(args, signal) {
   }
   await nextFrame();
   checkCancelled(signal);
+  publishReaderMaterial();
   return true;
 }
 
@@ -350,6 +374,7 @@ async function execute(operation, args, controller) {
       return true;
     case "appearance.apply":
       await applyAppearance(args, true, signal);
+      publishReaderMaterial();
       return true;
     case "layout.split":
       if (Number.isFinite(args.ratio)) {
@@ -413,6 +438,7 @@ function close() {
 }
 
 readerPane.addEventListener("focusin", () => { focusedView = "read"; });
+forcedColors.addEventListener("change", publishReaderMaterial);
 sourcePane.addEventListener("focusin", () => { focusedView = "source"; });
 window.addEventListener("keydown", event => {
   if (!rendered?.deferMedia || event.defaultPrevented) {

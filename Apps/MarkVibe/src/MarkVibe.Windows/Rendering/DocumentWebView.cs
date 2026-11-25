@@ -46,7 +46,10 @@ internal sealed partial class DocumentWebView : IDisposable
         _getEnvironment = getEnvironment;
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(lifetime);
         _lifetimeToken = _lifetime.Token;
+        View.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        View.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         View.Children.Add(Control);
+        InitializePaperMargin();
         AutomationProperties.SetName(Control, "Markdown document");
     }
 
@@ -82,6 +85,7 @@ internal sealed partial class DocumentWebView : IDisposable
         string anchor, ReadingPosition? position, ShellLayout layout, bool dark, CancellationToken token = default, bool deferMedia = false)
     {
         var snapshot = view == "read" ? document with { Source = "" } : document;
+        SetPaperMargin(view, layout.SourceRatio);
         return CallAsync("view.render", new { workspace, document = snapshot, view, preferences, anchor, position, layout, dark, deferMedia }, token);
     }
 
@@ -235,7 +239,8 @@ internal sealed partial class DocumentWebView : IDisposable
                     CompleteRendererCall(message);
                     break;
                 case "event" when message.TryGetProperty("event", out var rendererEvent) && rendererEvent.ValueKind == JsonValueKind.Object:
-                    EventReceived?.Invoke(rendererEvent.Clone());
+                    if (Text(rendererEvent, "type") == "reader-material") { await ApplyPaperMaterialAsync(rendererEvent); }
+                    else { EventReceived?.Invoke(rendererEvent.Clone()); }
                     break;
                 default:
                     await RouteNativeRequestAsync(message);
@@ -382,6 +387,8 @@ internal sealed partial class DocumentWebView : IDisposable
             return;
         }
         _disposed = true;
+        _paperEdge.SizeChanged -= PaperEdgeSizeChanged;
+        Control.SizeChanged -= PaperEdgeSizeChanged;
         _lifetime.Cancel();
         _print?.Close();
         Control.Close();

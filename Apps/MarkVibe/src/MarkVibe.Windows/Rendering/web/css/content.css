@@ -42,18 +42,14 @@
 .map-viewport{position:relative;width:100%;height:100%;overflow:hidden;cursor:grab;touch-action:none;background-color:var(--panel)}
 *{box-sizing:border-box}button,input,textarea{font:inherit;color:inherit}button{cursor:pointer}button:disabled{cursor:default;opacity:.5}
 button:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:4px}
-.mv-view{width:100%;height:100%;overflow:hidden;border-radius:12px;background:var(--panel)}
+.mv-view{width:100%;height:100%;overflow:hidden;background:var(--panel)}
+.mv-view.source, .mv-view.reader { border-radius: 0; }
 .mv-view.reader {
   overflow: auto;
   overscroll-behavior: contain;
-  border-radius: 0;
   scrollbar-color: var(--muted) transparent;
 }
 .mv-view.reader:focus-visible { outline-offset: -2px; }
-/* Only the document meets the native acrylic here, including the reader half of Split. */
-@media screen {
-  .mv-view.reader { border-bottom-left-radius: 16px; }
-}
 .document-meta{display:flex;justify-content:space-between;gap:20px;max-width:850px;margin:0 auto;padding:36px 52px 0;font-size:11px;color:var(--muted)}
 .eyebrow{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.reading-time{flex-shrink:0}
 .markdown{max-width:850px;padding:24px 52px 100px;margin:auto;font-size:calc(16px * var(--reading-scale,1));line-height:1.78;overflow-wrap:anywhere}

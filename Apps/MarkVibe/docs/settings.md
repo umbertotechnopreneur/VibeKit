@@ -47,12 +47,15 @@ background** for a plain reading surface. Contrast themes use the system
 background for legibility.
 
 WinUI uses the Windows accent for selections, menu icons and active resize handles.
-The toolbar uses a light tint of that accent over Mica. The Pages and Outline
-sidebar and the full status bar use Windows Acrylic, including the footer links.
+The toolbar uses a light wash of that accent over a solid surface matched to
+the current theme. The Pages and Outline sidebar and the entire status bar
+expose one thin Windows desktop Acrylic backdrop. The reader has one 16 DIP
+corner at the lower left. In Split view it follows the reader when the divider
+moves. Monaco keeps square corners.
 The native graph follows the shell's light or dark appearance and respects
 system motion settings. Acrylic on the map is off by default and falls back
-to solid fills when Windows disables
-transparency. The model sends document and code themes to WebView2. Settings,
+to solid fills when Windows disables transparency. The model sends document
+and code themes to WebView2. Settings,
 About and confirmation dialogs are native WinUI surfaces.
 
 Windows reopens the remembered local workspace when permitted and accessible.

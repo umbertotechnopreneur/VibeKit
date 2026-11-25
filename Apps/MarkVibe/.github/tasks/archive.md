@@ -4,14 +4,15 @@
 
 # Latest delivery
 
-WinUI 3 Release x64 MSIX **0.1.0.59** was built from source, signed and
+WinUI 3 Release x64 MSIX **0.1.0.62** was built from source, signed and
 installed on 2026-11-25. The reader opens on ivory paper and remembers the
 paper chosen for each workspace. The native gallery offers ten textures and
 a plain theme background. Paper extends to the reader edges and beneath the
-scrollbar. The reader's 16 DIP lower-left corner reveals the Acrylic shared
-by the sidebar and the status bar. Native controls use the Windows accent,
-and resize handles appear on interaction. The map uses portrait A4 pages and
-grouped options.
+scrollbar. A native paper margin continues the reader texture down to its
+single 16 DIP lower-left corner, including in Split view. The sidebar, the
+exposed corner and the status bar share a Windows desktop Acrylic backdrop.
+Native controls use the Windows accent, and resize handles appear on
+interaction. The map uses portrait A4 pages and grouped options.
 The Pages tab searches workspace contents. The Outline tab highlights matches
 in the open document.
 Toolbars and dialogs share a subtle paper finish. Settings retains its size

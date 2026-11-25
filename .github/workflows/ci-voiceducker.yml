@@ -13,7 +13,7 @@
 # License: MIT - see LICENSE
 # VBWR E
 
-name: voiceducker / Portable Windows ZIPs
+name: voiceducker / Portable ZIPs and MSI
 
 on:
   workflow_call:
@@ -100,6 +100,9 @@ jobs:
   windows-msi:
     name: Framework-dependent Windows MSI
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: Apps/VoiceDucker
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -108,18 +111,16 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           global-json-file: Apps/VoiceDucker/global.json
-      - name: Publish and package MSI
+      - name: Stage WiX 5
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
           dotnet tool install --tool-path "$env:RUNNER_TEMP/wix5" wix --version 5.0.2
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet publish Apps/VoiceDucker/VoiceDucker.csproj -c Release -r win-x64 -p:Platform=x64 -p:SelfContained=false -p:PublishProfile= -o "$env:RUNNER_TEMP/voiceducker-payload"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $version = ([xml](Get-Content Apps/VoiceDucker/VoiceDucker.csproj -Raw)).Project.PropertyGroup.Version | Select-Object -First 1
-          python scripts/ci/create-app-msi.py voiceducker $version "$env:RUNNER_TEMP/voiceducker-payload" "$env:RUNNER_TEMP/voiceducker.wxs"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & ./Widgets/Shared/Build-WindowsMsi.ps1 -WixPath "$env:RUNNER_TEMP/wix5/wix.exe" -Source "$env:RUNNER_TEMP/voiceducker.wxs" -Output "$env:RUNNER_TEMP/VoiceDucker-windows-x64.msi" -IntermediateDirectory "$env:RUNNER_TEMP/voiceducker-msi-work"
+      - name: Build x64 app
+        shell: pwsh
+        run: ./scripts/build.ps1 -Architecture x64 -Configuration Release
+      - name: Package MSI
+        shell: pwsh
+        run: ./scripts/package-msi.ps1 -WixPath "$env:RUNNER_TEMP/wix5/wix.exe" -OutputDirectory "$env:RUNNER_TEMP"
       - uses: actions/upload-artifact@v7
         with:
           name: voiceducker-windows-msi-x64

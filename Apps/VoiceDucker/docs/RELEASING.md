@@ -1,3 +1,7 @@
+> **File name** `RELEASING.md`<br>
+> **Full path** `E:\vibekit\Apps\VoiceDucker\docs\RELEASING.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/VoiceDucker/docs/RELEASING.md`
+
 # Releasing VoiceDucker
 
 The current public portable version is **0.2.0**, with tag **v0.2.0-stable**.
@@ -6,26 +10,33 @@ portable release as a downgrade over an existing development MSIX.
 
 ## Build and package
 
-On Windows with the .NET 10 SDK and Windows SDK tools:
+On Windows with the .NET 10 SDK, Windows SDK tools and Python, run these commands
+from `Apps/VoiceDucker`:
 
 ```powershell
 pwsh -NoProfile -File scripts/build.ps1 -Architecture x64 -Configuration Release
+dotnet tool install --tool-path artifacts/tools/wix-5.0.2 wix --version 5.0.2
+pwsh -NoProfile -File scripts/package-msi.ps1 -WixPath artifacts/tools/wix-5.0.2/wix.exe
 pwsh -NoProfile -File scripts/package-portable.ps1 -Runtime win-x64
 pwsh -NoProfile -File scripts/build.ps1 -Architecture ARM64 -Configuration Release
 pwsh -NoProfile -File scripts/package-portable.ps1 -Runtime win-arm64
 ```
 
 Do not pass `-Run` to prepare a release. Existing running applications are not
-stopped. ZIPs include the app, its companion runtimes, README, MIT license,
-screenshot and notices copied from restored NuGet dependencies. Keep each ZIP's
-companion files together. Packaging refuses to overwrite an existing ZIP.
+stopped. The per-user x64 MSI requires a compatible shared .NET 10 runtime and
+installs under `%LOCALAPPDATA%\Programs\VoiceDucker`. Local MSI packaging uses
+the registered VibeWare certificate for the MSI and executable. ZIPs include
+the app, its Windows App SDK files, README, MIT license, screenshot and notices
+copied from restored NuGet dependencies. Keep each ZIP's companion files together.
+Packaging refuses to overwrite an existing MSI or ZIP.
 
 ## GitHub
 
-Open a pull request for source changes. The **Portable Windows ZIPs** workflow
-builds both architectures and checks archive integrity and SHA-256 checksums.
-After owner review, run it manually with `release=true`, `tag=v0.2.0-stable`,
-and `draft=true`. Review both ZIPs and publish the draft when approved.
+Open a pull request for source changes. The **Portable ZIPs and MSI** workflow
+builds the x64 and Arm64 ZIPs and the x64 MSI and checks ZIP integrity and
+SHA-256 checksums. After owner review, run **Manual release** with a new
+`voiceducker/v<version>` tag matching the project and `draft=true`. Review both
+ZIPs, the MSI and `SHA256SUMS.txt` before publishing the draft.
 Builds compare dependency archive hashes with the pins in
 `docs/dependency-imports.json`. Before pinning a new or changed import, stage its
 official archive and extracted files and complete a targeted Defender scan.
@@ -119,3 +130,7 @@ in Windows Sandbox; keep microphone input disabled during this packaging check.
 
 References: [submission](https://learn.microsoft.com/en-us/windows/package-manager/package/repository)
 and [archive manifest schema](https://github.com/microsoft/winget-pkgs/blob/master/doc/manifest/schema/1.12.0/installer.md).
+
+> **File name** `RELEASING.md`<br>
+> **Full path** `E:\vibekit\Apps\VoiceDucker\docs\RELEASING.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/VoiceDucker/docs/RELEASING.md`

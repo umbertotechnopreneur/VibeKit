@@ -24,7 +24,7 @@ $fixture = Join-Path $applicationRoot ('artifacts/windows-fixture-' + [guid]::Ne
 $workspace = Join-Path $fixture 'workspace'
 $profile = Join-Path $fixture 'profile'
 [IO.Directory]::CreateDirectory($workspace) | Out-Null
-$source = "# Native migration fixture`n`nUnicode: città, perché.`n`n[Next](next.md)`n"
+$source = "# Native migration fixture`n`n## Outline fixture heading`n`nUnicode: città, perché.`n`n[Next](next.md)`n"
 [IO.File]::WriteAllText((Join-Path $workspace 'README.md'), $source)
 [IO.File]::WriteAllText((Join-Path $workspace 'next.md'), "# Next`n`nA second synthetic page.`n")
 # Explicit language and disabled remembering keep selectors deterministic and data isolated.
@@ -33,11 +33,16 @@ $source = "# Native migration fixture`n`nUnicode: città, perché.`n`n[Next](nex
 $previousWorkflow = $env:WINAPP_UI_WORKFLOW_ID
 $env:WINAPP_UI_WORKFLOW_ID = [guid]::NewGuid().ToString('N')
 $application = $null
+$window = $null
 <# .SYNOPSIS
-Run a native UI Automation command against this fixture process and propagate failures.
+Run a native UI Automation command against the fixture window or its launching process.
 #>
 function Invoke-FixtureUi([string[]]$Arguments) {
-    & winapp ui @Arguments -a $application.Id
+    if ($window) {
+        & winapp ui @Arguments -w $window
+    } else {
+        & winapp ui @Arguments -a $application.Id
+    }
     if ($LASTEXITCODE -ne 0) { throw "Native UI check failed: $($Arguments -join ' ')." }
 }
 try {
@@ -49,19 +54,35 @@ try {
     }
     $application = [Diagnostics.Process]::Start($start)
     Invoke-FixtureUi @('wait-for', 'Native migration fixture', '--type', 'Text', '--timeout', '30000')
+    $windows = Invoke-FixtureUi @('list-windows', '--json') | ConvertFrom-Json
+    $main = $windows | Where-Object title -eq 'Native migration fixture — MarkVibe' | Select-Object -First 1
+    if (-not $main.hwnd) { throw 'The synthetic MarkVibe main window was not found.' }
+    $window = [string]$main.hwnd
     Write-Host 'PASS native startup opens the synthetic Markdown workspace'
-    foreach ($view in @('Source', 'Split', 'Map', 'Read')) {
-        Invoke-FixtureUi @('invoke', $view, '--type', 'Button')
-        if ($view -eq 'Map') {
-            Invoke-FixtureUi @('wait-for', 'Find a document', '--timeout', '15000')
-            Invoke-FixtureUi @('wait-for', 'Document map', '--timeout', '15000')
-        }
-        if ($application.HasExited) { throw "Application exited while selecting $view." }
-    }
-    Write-Host 'PASS native Read, Source, Split and Map commands are invokable'
-    Invoke-FixtureUi @('invoke', 'About', '--type', 'Button')
-    Invoke-FixtureUi @('wait-for', 'About MarkVibe', '--timeout', '10000')
-    Invoke-FixtureUi @('invoke', 'Close', '--type', 'Button')
+    Invoke-FixtureUi @('wait-for', 'README.md', '--root', 'NavigationTree', '--type', 'Text', '--timeout', '10000')
+    Invoke-FixtureUi @('invoke', 'OutlineButton', '--action', 'select')
+    Invoke-FixtureUi @('wait-for', 'Outline fixture heading', '--root', 'NavigationTree', '--type', 'Text', '--timeout', '10000')
+    Invoke-FixtureUi @('invoke', 'PagesButton', '--action', 'select')
+    Invoke-FixtureUi @('wait-for', 'next.md', '--root', 'NavigationTree', '--type', 'Text', '--timeout', '10000')
+    Write-Host 'PASS Pages and Outline display document captions'
+    Invoke-FixtureUi @('invoke', 'SourceButton', '--action', 'select')
+    Invoke-FixtureUi @('wait-for', 'SourceButton', '--property', 'IsSelected', '--value', 'true', '--timeout', '10000')
+    Invoke-FixtureUi @('wait-for', 'Native migration fixture', '--type', 'Text', '--gone', '--timeout', '15000')
+    Invoke-FixtureUi @('invoke', 'SplitButton', '--action', 'select')
+    Invoke-FixtureUi @('wait-for', 'SplitGrip', '--timeout', '10000')
+    Invoke-FixtureUi @('wait-for', 'Native migration fixture', '--type', 'Text', '--timeout', '15000')
+    Invoke-FixtureUi @('invoke', 'MapButton', '--action', 'select')
+    Invoke-FixtureUi @('wait-for', 'Find a document', '--timeout', '15000')
+    Invoke-FixtureUi @('wait-for', 'Document map', '--class-name', 'WindowsGraphCanvas', '--timeout', '15000')
+    Invoke-FixtureUi @('invoke', 'ReadButton', '--action', 'select')
+    Invoke-FixtureUi @('wait-for', 'Native migration fixture', '--type', 'Text', '--timeout', '10000')
+    Invoke-FixtureUi @('wait-for', 'SplitGrip', '--gone', '--timeout', '10000')
+    Invoke-FixtureUi @('wait-for', 'Document map', '--class-name', 'WindowsGraphCanvas', '--gone', '--timeout', '10000')
+    Write-Host 'PASS native Read, Source, Split and Map display their selected surfaces'
+    Invoke-FixtureUi @('invoke', 'About MarkVibe', '--type', 'Hyperlink', '--action', 'invoke')
+    Invoke-FixtureUi @('wait-for', 'About MarkVibe', '--type', 'Text', '--timeout', '10000')
+    Invoke-FixtureUi @('invoke', 'Close', '--type', 'Button', '--class-name', 'Button', '--action', 'invoke')
+    Invoke-FixtureUi @('wait-for', 'Close', '--type', 'Button', '--class-name', 'Button', '--gone', '--timeout', '10000')
     Write-Host 'PASS native About dialog opens and closes'
     if ([IO.File]::ReadAllText((Join-Path $workspace 'README.md')) -ne $source) {
         throw 'Native smoke checks changed the original Markdown.'

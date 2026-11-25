@@ -26,6 +26,7 @@ internal sealed partial class DocumentWebView : IDisposable
     private static readonly TimeSpan StartupTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan ActionTimeout = TimeSpan.FromMinutes(5);
     private readonly DesktopOptions _options;
+    private readonly Func<Task<CoreWebView2Environment>> _getEnvironment;
     private readonly CancellationTokenSource _lifetime;
     private readonly CancellationToken _lifetimeToken;
     private readonly string _capability = Guid.NewGuid().ToString("N");
@@ -39,9 +40,10 @@ internal sealed partial class DocumentWebView : IDisposable
     private bool _disposed;
 
     /// <summary>Creates the visual container without starting WebView2 or reading disk assets.</summary>
-    public DocumentWebView(DesktopOptions options, CancellationToken lifetime)
+    public DocumentWebView(DesktopOptions options, Func<Task<CoreWebView2Environment>> getEnvironment, CancellationToken lifetime)
     {
         _options = options;
+        _getEnvironment = getEnvironment;
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(lifetime);
         _lifetimeToken = _lifetime.Token;
         View.Children.Add(Control);
@@ -118,6 +120,19 @@ internal sealed partial class DocumentWebView : IDisposable
         }
     }
 
+    /// <summary>Starts the window's private WebView environment, shared by reader, previews and printing.</summary>
+    internal static async Task<CoreWebView2Environment> CreateEnvironmentAsync(DesktopOptions options)
+    {
+        var arguments = "--no-first-run";
+        if (options.DebugPort != 0)
+        {
+            arguments += " --remote-debugging-address=127.0.0.1 --remote-debugging-port=" + options.DebugPort;
+        }
+        var userData = Path.Combine(options.DataDirectory, "WebView2.WinUI");
+        return await CoreWebView2Environment.CreateWithOptionsAsync(null, userData,
+            new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = arguments });
+    }
+
     /// <summary>Loads only the bundled document page in a separate profile with explicit navigation and permissions.</summary>
     private async Task InitializeAsync()
     {
@@ -125,15 +140,7 @@ internal sealed partial class DocumentWebView : IDisposable
         {
             throw new IOException("The bundled document renderer is missing. Rebuild MarkVibe.");
         }
-
-        var arguments = "--no-first-run";
-        if (_options.DebugPort != 0)
-        {
-            arguments += " --remote-debugging-address=127.0.0.1 --remote-debugging-port=" + _options.DebugPort;
-        }
-        var userData = Path.Combine(_options.DataDirectory, "WebView2.WinUI");
-        _environment = await CoreWebView2Environment.CreateWithOptionsAsync(null, userData,
-            new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = arguments });
+        _environment = await _getEnvironment();
         _lifetimeToken.ThrowIfCancellationRequested();
         await Control.EnsureCoreWebView2Async(_environment);
         _lifetimeToken.ThrowIfCancellationRequested();

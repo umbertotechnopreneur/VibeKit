@@ -49,6 +49,7 @@ public sealed partial class DesktopWindow
         var current = contextual && workspace.Document?.Path == target.Path ? workspace.Document : null;
         var descriptors = DocumentCommands.Create(target, local, current, _model.Layout.ReaderExpanded);
         var menu = new MenuFlyout();
+        WindowsPaperSurface.AttachFlyout(menu);
         var groups = new Dictionary<string, MenuFlyoutSubItem>(StringComparer.Ordinal);
         foreach (var command in descriptors)
         {
@@ -56,6 +57,7 @@ public sealed partial class DesktopWindow
                 ? new ToggleMenuFlyoutItem { IsChecked = command.Checked }
                 : new MenuFlyoutItem();
             item.Text = T(command.Label);
+            item.Icon = MenuIcon(command.Action);
             item.IsEnabled = command.Enabled;
             item.Click += async (_, _) => await RunAsync(token => ExecuteFileCommandAsync(workspace, target, command.Action, token));
             if (command.Group.Length == 0)
@@ -66,7 +68,7 @@ public sealed partial class DesktopWindow
             {
                 if (!groups.TryGetValue(command.Group, out var group))
                 {
-                    group = new MenuFlyoutSubItem { Text = T(command.Group) };
+                    group = new MenuFlyoutSubItem { Text = T(command.Group), Icon = MenuIcon(command.Group) };
                     groups.Add(command.Group, group);
                     menu.Items.Add(group);
                 }
@@ -75,16 +77,21 @@ public sealed partial class DesktopWindow
         }
         if (includeReaderActions || current != null)
         {
-            var appearance = new MenuFlyoutItem { Text = T("Reader appearance") };
+            var appearance = new MenuFlyoutItem { Text = T("Reader appearance"), Icon = MenuIcon("appearance") };
             appearance.Click += async (_, _) => await RunAsync(ReaderAppearanceAsync);
             menu.Items.Add(appearance);
+            var paper = new MenuFlyoutItem { Text = T("Paper"), Icon = MenuIcon("paper") };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(paper, "MenuReaderPaper");
+            paper.Click += async (_, _) => await RunAsync(token => ChooseReaderPaperAsync(workspace, token));
+            menu.Items.Add(paper);
         }
         if (!target.IsFolder && WorkspacePath.IsMarkdown(target.Path) && target.Path != workspace.Document?.Path)
         {
-            var reference = new MenuFlyoutItem { Text = T("Add to AI context") };
+            var reference = new MenuFlyoutItem { Text = T("Add to AI context"), Icon = MenuIcon("assistant") };
             reference.Click += async (_, _) => await RunAsync(token => AddAiReferencesAsync([target.Path], token));
             menu.Items.Add(reference);
         }
+        WindowsUiFont.ApplyTo(menu);
         return menu;
     }
 
@@ -183,16 +190,18 @@ public sealed partial class DesktopWindow
             return;
         }
         var menu = new MenuFlyout();
+        WindowsPaperSurface.AttachFlyout(menu);
         foreach (var format in new[] { "pdf", "html" })
         {
-            var item = new MenuFlyoutItem { Text = format.ToUpperInvariant() };
+            var item = new MenuFlyoutItem { Text = format.ToUpperInvariant(), Icon = MenuIcon(format == "pdf" ? "exportPdf" : "exportHtml") };
             item.Click += async (_, _) => await RunAsync(token => ExportAsync(workspace, document, format, token));
             menu.Items.Add(item);
         }
-        var copy = new MenuFlyoutItem { Text = T("Save Markdown copy"), IsEnabled = workspace.Catalog.TryGetSession(document.Path)?.IsModified == true };
+        var copy = new MenuFlyoutItem { Text = T("Save Markdown copy"), Icon = MenuIcon("copyFile"), IsEnabled = workspace.Catalog.TryGetSession(document.Path)?.IsModified == true };
         copy.Click += async (_, _) => await RunAsync(SaveDraftAsync);
         menu.Items.Add(copy);
-        menu.ShowAt(ExportButton);
+        WindowsUiFont.ApplyTo(menu);
+        menu.ShowAt(ShellMenuButton);
     }
 
     /// <summary>Prepares the selected managed snapshot in the document renderer and reports completion.</summary>
@@ -221,6 +230,13 @@ public sealed partial class DesktopWindow
             return;
         }
         var find = _model.Find;
+        if (_outlineFindActive)
+        {
+            FindQuery.Text = OutlineFindQuery.Text;
+            _outlineFindActive = false;
+            OutlineFindQuery.Text = "";
+            RefreshOutlineSearch();
+        }
         find.Target = target ?? new(workspace.Info.Id, document.Path, document.Title, Fingerprint: document.Fingerprint, View: _model.View);
         find.View = find.Target.View == "source" ? "source" : "read";
         FindBar.Visibility = Visibility.Visible;
@@ -248,7 +264,9 @@ public sealed partial class DesktopWindow
         if (args.Key == VirtualKey.Enter)
         {
             args.Handled = true;
-            await RunAsync(token => SearchAsync("next", token));
+            var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
+                .HasFlag(global::Windows.UI.Core.CoreVirtualKeyStates.Down);
+            await RunAsync(token => SearchAsync(shift ? "previous" : "next", token));
         }
     }
 
@@ -259,11 +277,11 @@ public sealed partial class DesktopWindow
     private async void FindNext(object sender, RoutedEventArgs args) => await RunAsync(token => SearchAsync("next", token));
 
     /// <summary>Queries the current renderer target and rejects stale results.</summary>
-    private async Task SearchAsync(string step, CancellationToken token)
+    private async Task SearchAsync(string step, CancellationToken token, int index = 0)
     {
         var find = _model.Find;
         var target = find.Target;
-        if (target == null || _reader is not { IsReady: true } reader)
+        if (target == null || _reader is not { } reader)
         {
             return;
         }
@@ -276,12 +294,13 @@ public sealed partial class DesktopWindow
             if (step == "query") { await Task.Delay(120, cancellation.Token); }
             var direction = step == "previous" ? -1 : step == "next" ? 1 : 0;
             var result = await reader.CallAsync<DocumentFindResult>("document.find",
-                new { target.WorkspaceId, target.Path, query = find.Query, direction, view = find.View }, cancellation.Token);
+                new { target.WorkspaceId, target.Path, query = find.Query, direction, view = find.View, index, excerpts = _outlineFindActive }, cancellation.Token);
             if (find.Revision == revision)
             {
                 find.Total = result.Total;
                 find.Current = result.Current;
                 FindCount.Text = find.Query.Length == 0 ? "" : find.Total > 0 ? $"{find.Current} / {find.Total}" : T("No matches");
+                if (_outlineFindActive) { DisplayOutlineMatches(result); }
             }
         }
         finally
@@ -301,6 +320,10 @@ public sealed partial class DesktopWindow
         _model.Find.Target = null;
         _model.Find.Query = "";
         _model.Find.Revision++;
+        _model.Find.Total = _model.Find.Current = 0;
+        _outlineFindActive = false;
+        if (!_openingFindReader) { OutlineFindQuery.Text = ""; }
+        DisplayOutlineMatches(new(0, 0));
         FindBar.Visibility = Visibility.Collapsed;
         FindCount.Text = "";
         FindQuery.Text = "";
@@ -326,10 +349,10 @@ public sealed partial class DesktopWindow
             UpdateAiTarget();
             if (simpleChanged && _model.View is "source" or "split") { await RenderCurrentAsync(true, token); }
             else { await RefreshRendererAppearanceAsync(token); }
-        }, _connections, _options, token));
-        if (_model.Layout.AiOpen && !_options.SmokeTest)
+        }, Connections, _options, token));
+        if (_model.Layout.AiOpen && !_options.SmokeTest && _ai is { } assistant)
         {
-            await _ai.RefreshAvailabilityAsync();
+            await assistant.RefreshAvailabilityAsync();
         }
     }
 
@@ -341,14 +364,26 @@ public sealed partial class DesktopWindow
             await RefreshRendererAppearanceAsync(token);
         }, token));
 
+    /// <summary>Applies the selected paper to the originating workspace once the native picker is accepted.</summary>
+    private Task ChooseReaderPaperAsync(DesktopWorkspace workspace, CancellationToken token) => ShowDialogAsync(async () =>
+    {
+        if (_model.Workspace != workspace) { return; }
+        var selected = await WindowsPaperDialog.ChooseAsync(Shell.XamlRoot, _model.EffectivePreferences.Paper, token);
+        if (selected == null || _model.Workspace != workspace) { return; }
+        var appearance = ReaderAppearance.From(_model.EffectivePreferences) with { Paper = selected };
+        await _model.SetFolderAppearanceAsync(appearance, token);
+        await RefreshRendererAppearanceAsync(token);
+    });
+
     /// <summary>Updates the renderer's appearance while keeping its reading position.</summary>
     private async Task RefreshRendererAppearanceAsync(CancellationToken token)
     {
         var appearance = new { preferences = _model.EffectivePreferences, layout = _model.Layout, dark = IsDark };
+        _map?.SetAppearance(appearance.dark, appearance.preferences.Acrylic, appearance.preferences.GraphPalette, appearance.preferences.GraphFont);
         if (_reader is { IsReady: true } reader) { await reader.CallAsync("appearance.apply", appearance, token); }
         if (_preview is { IsReady: true } preview)
         {
-            await preview.CallAsync("appearance.apply", new { appearance.preferences, appearance.layout, dark = _model.Preview != null || IsDark }, token);
+            await preview.CallAsync("appearance.apply", appearance, token);
         }
     }
 
@@ -375,14 +410,14 @@ public sealed partial class DesktopWindow
     /// <summary>Previews sidebar resizing until the native grip is released.</summary>
     private void DragSidebar(object sender, DragDeltaEventArgs args)
     {
-        _dragWidth = Math.Clamp(SidebarColumn.Width.Value + args.HorizontalChange, 180, Math.Max(180, Math.Min(520, Shell.ActualWidth * 0.5)));
+        _dragWidth = Math.Clamp(SidebarColumn.Width.Value + args.HorizontalChange, 180, SidebarWidthLimit);
         SidebarColumn.Width = new GridLength(_dragWidth.Value);
     }
 
     /// <summary>Commits the final sidebar width to the intermediate layout model.</summary>
     private async void FinishSidebarDrag(object sender, DragCompletedEventArgs args) => await RunAsync(async token =>
     {
-        if (_dragWidth is { } width) { await _model.SetLayoutAsync(_model.Layout with { SidebarWidth = width }, token); }
+        if (_dragWidth is { } width && !args.Canceled) { await _model.SetLayoutAsync(_model.Layout with { SidebarWidth = width }, token); }
         _dragWidth = null;
         ApplyGeometry();
     });
@@ -390,17 +425,65 @@ public sealed partial class DesktopWindow
     /// <summary>Previews the native assistant pane width during dragging.</summary>
     private void DragAi(object sender, DragDeltaEventArgs args)
     {
-        _dragWidth = Math.Clamp(AiColumn.Width.Value - args.HorizontalChange, 300, Math.Max(300, Math.Min(600, Shell.ActualWidth * 0.55)));
+        _dragWidth = Math.Clamp(AiColumn.Width.Value - args.HorizontalChange, 300, AssistantWidthLimit);
         AiColumn.Width = new GridLength(_dragWidth.Value);
     }
 
     /// <summary>Commits the final assistant width to the intermediate layout model.</summary>
     private async void FinishAiDrag(object sender, DragCompletedEventArgs args) => await RunAsync(async token =>
     {
-        if (_dragWidth is { } width) { await _model.SetLayoutAsync(_model.Layout with { AiWidth = width }, token); }
+        if (_dragWidth is { } width && !args.Canceled) { await _model.SetLayoutAsync(_model.Layout with { AiWidth = width }, token); }
         _dragWidth = null;
         ApplyGeometry();
     });
+
+    /// <summary>Moves the focused splitter by a fixed amount and saves the resulting pane layout.</summary>
+    private async void ResizePaneByKey(object sender, KeyRoutedEventArgs args)
+    {
+        const double step = 16;
+        if (args.Key is not (VirtualKey.Left or VirtualKey.Right))
+        {
+            return;
+        }
+        var offset = args.Key == VirtualKey.Left ? -step : step;
+        var layout = _model.Layout;
+        if (ReferenceEquals(sender, SidebarGrip))
+        {
+            layout = layout with { SidebarWidth = Math.Clamp(SidebarColumn.Width.Value + offset, 180, SidebarWidthLimit) };
+        }
+        else if (ReferenceEquals(sender, AiGrip))
+        {
+            layout = layout with { AiWidth = Math.Clamp(AiColumn.Width.Value - offset, 300, AssistantWidthLimit) };
+        }
+        else if (ReferenceEquals(sender, SplitGrip) && Viewport.ActualWidth > 0 && _reader is { IsReady: true })
+        {
+            var ratio = Math.Clamp(layout.SourceRatio + offset / Viewport.ActualWidth, .2, .8);
+            layout = layout with { SourceRatio = ratio };
+        }
+        else
+        {
+            return;
+        }
+
+        args.Handled = true;
+        if (layout == _model.Layout)
+        {
+            return;
+        }
+        await RunAsync(async token =>
+        {
+            var save = _model.SetLayoutAsync(layout, token);
+            ApplyGeometry();
+            if (ReferenceEquals(sender, SplitGrip) && _reader is { IsReady: true } reader)
+            {
+                await Task.WhenAll(save, reader.CallAsync("layout.split", new { ratio = _model.Layout.SourceRatio }, token));
+            }
+            else
+            {
+                await save;
+            }
+        });
+    }
 
     /// <summary>Resizes the two embedded document surfaces using a native WinUI grip.</summary>
     private void DragSplit(object sender, DragDeltaEventArgs args)
@@ -443,21 +526,55 @@ public sealed partial class DesktopWindow
     /// <summary>Constructs and activates assistant UI only when requested or restored.</summary>
     private async Task SetAssistantOpenAsync(bool open, CancellationToken token)
     {
-        if (open) { EnsureAssistantPanel(); }
+        var assistant = open ? EnsureAssistantPanel() : null;
+        if (open && _compactSidebar)
+        {
+            _compactSidebarOpen = false;
+        }
         await _model.SetLayoutAsync(_model.Layout with { AiOpen = open }, token);
         ApplyGeometry();
-        if (open && !_firstAiOpen)
+        if (_compactSidebar)
+        {
+            if (open)
+            {
+                _assistantPanel?.FocusClose();
+            }
+            else if (!_compactSidebarOpen && _model.View == "map")
+            {
+                _map?.FocusAfterPreview();
+            }
+            else if (!_compactSidebarOpen)
+            {
+                if (_reader is { IsReady: true } reader)
+                {
+                    reader.Control.Focus(FocusState.Programmatic);
+                }
+                else
+                {
+                    SidebarToggle.Focus(FocusState.Programmatic);
+                }
+            }
+        }
+        if (assistant != null && !_firstAiOpen)
         {
             _firstAiOpen = true;
-            await _ai.RefreshAvailabilityAsync();
+            await assistant.RefreshAvailabilityAsync();
         }
     }
 
+    /// <summary>Creates the connection service when the assistant or a CLI action first needs it.</summary>
+    private AiConnectionService Connections() => _connections ??= new AiConnectionService(_options.DataDirectory);
+
     /// <summary>Connects native assistant controls to model commands without putting data into the window.</summary>
-    private void EnsureAssistantPanel()
+    private WindowsAiSession EnsureAssistantPanel()
     {
-        if (_assistantPanel != null) { return; }
-        var panel = new WindowsAiPanel(_ai);
+        if (_assistantPanel != null && _ai is { } existing)
+        {
+            return existing;
+        }
+
+        var assistant = _ai ??= CreateAssistantSession();
+        var panel = new WindowsAiPanel(assistant);
         panel.SettingsRequested += () => _ = RunAsync(SettingsAsync);
         panel.UndoRequested += () => _ = RunAsync(token => StepRevisionAsync(DocumentRevisionAction.Undo, token));
         panel.RedoRequested += () => _ = RunAsync(token => StepRevisionAsync(DocumentRevisionAction.Redo, token));
@@ -469,26 +586,60 @@ public sealed partial class DesktopWindow
             token.ThrowIfCancellationRequested();
             if (_model.Document is { } current)
             {
-                await _ai.AddReferencesAsync([current.Path]);
+                await assistant.AddReferencesAsync([current.Path]);
             }
         });
-        panel.PreviewRequested += document => _ = RunAsync(token =>
+        panel.PreviewRequested += document => _ = RunAsync(async token =>
         {
+            await RevealDocumentFromAssistantAsync(token);
             DismissPreview();
-            return DisplayPreviewAsync(document, "", false, token);
+            await DisplayPreviewAsync(document, "", false, token);
         });
-        panel.OpenReferenceRequested += path => _ = RunAsync(token => NavigateAsync(path, "", null, true, token));
+        panel.OpenReferenceRequested += path => _ = RunAsync(async token =>
+        {
+            await RevealDocumentFromAssistantAsync(token);
+            await NavigateAsync(path, "", null, true, token);
+        });
+        UpdateAiTarget();
+        if (_pendingAiSelection is { } selection)
+        {
+            _pendingAiSelection = null;
+            assistant.SetSelection(selection.Fingerprint, selection.Start, selection.End, selection.Unsupported);
+        }
         AiSlot.Children.Add(panel);
         _assistantPanel = panel;
-        UpdateAiTarget();
+        return assistant;
+    }
+
+    /// <summary>Reveals the document surface when a compact assistant action opens a preview or reference.</summary>
+    private Task RevealDocumentFromAssistantAsync(CancellationToken token) =>
+        _compactSidebar && _model.Layout.AiOpen ? SetAssistantOpenAsync(false, token) : Task.CompletedTask;
+
+    /// <summary>Subscribes the graph once to reference changes from the newly created assistant.</summary>
+    private WindowsAiSession CreateAssistantSession()
+    {
+        var assistant = new WindowsAiSession(Connections(), ApplyAiAsync, _lifetime.Token, disabled: _options.SmokeTest);
+        assistant.Changed += SyncMapReferencePaths;
+        return assistant;
     }
 
     /// <summary>Shares the current target snapshot with the assistant's independent session model.</summary>
     private void UpdateAiTarget()
     {
-        var target = _model.Workspace is { Document: { } document } workspace
-            ? new WindowsAiTarget(workspace.Info, document, workspace.Catalog, workspace.Provider, workspace.References) : null;
-        _ai.SetTarget(_model.Preferences.AiProvider, target);
+        var workspace = _model.Workspace;
+        var document = workspace?.Document;
+        if (_pendingAiSelection is { } selection &&
+            (document == null || selection.Workspace != workspace || selection.Path != document.Path ||
+                selection.Fingerprint != document.Fingerprint))
+        {
+            _pendingAiSelection = null;
+        }
+        if (_ai is { } assistant)
+        {
+            var target = workspace != null && document != null
+                ? new WindowsAiTarget(workspace.Info, document, workspace.Catalog, workspace.Provider, workspace.References) : null;
+            assistant.SetTarget(_model.Preferences.AiProvider, target);
+        }
     }
 
     /// <summary>Adds selected map or navigation documents to the AI context without sending a request.</summary>
@@ -496,9 +647,9 @@ public sealed partial class DesktopWindow
     {
         var workspace = _model.Workspace;
         await SetAssistantOpenAsync(true, token);
-        if (workspace != null && _model.Workspace == workspace)
+        if (workspace != null && _model.Workspace == workspace && _ai is { } assistant)
         {
-            await _ai.AddReferencesAsync(paths);
+            await assistant.AddReferencesAsync(paths);
         }
     }
 
@@ -508,7 +659,7 @@ public sealed partial class DesktopWindow
         token.ThrowIfCancellationRequested();
         if (_model.Workspace?.References.Paths.Contains(path, StringComparer.Ordinal) == true)
         {
-            _ai.RemoveReference(path);
+            _ai?.RemoveReference(path);
             return Task.CompletedTask;
         }
         return AddAiReferencesAsync([path], token);

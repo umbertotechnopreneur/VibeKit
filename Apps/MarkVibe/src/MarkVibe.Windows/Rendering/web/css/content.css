@@ -46,8 +46,14 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus
 .document-meta{display:flex;justify-content:space-between;gap:20px;max-width:850px;margin:0 auto;padding:36px 52px 0;font-size:11px;color:var(--muted)}
 .eyebrow{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.reading-time{flex-shrink:0}
 .markdown{max-width:850px;padding:24px 52px 100px;margin:auto;font-size:calc(16px * var(--reading-scale,1));line-height:1.78;overflow-wrap:anywhere}
-.markdown>section{scroll-margin-top:24px}.markdown h1,.markdown h2,.markdown h3,.markdown h4{line-height:1.25;color:var(--text);font-weight:650;letter-spacing:-.03em}
-.markdown h1{font-size:2.6em;letter-spacing:-.045em;margin:.1em 0 .6em}.markdown h2{font-size:1.6em;margin:1.65em 0 .65em}.markdown h3{font-size:1.15em;margin:1.5em 0 .6em}
+.markdown > section { scroll-margin-top: 24px; }
+.markdown :is(h1,h2,h3,h4,h5,h6) { line-height: 1.28; color: var(--text); }
+.markdown h1 { font-size: 2.25em; font-weight: 300; letter-spacing: -.022em; line-height: 1.18; margin: .1em 0 .6em; }
+.markdown h2 { font-size: 1.6em; font-weight: 400; letter-spacing: -.015em; margin: 1.6em 0 .6em; }
+.markdown h3 { font-size: 1.22em; font-weight: 500; margin: 1.4em 0 .55em; }
+.markdown h4 { font-size: 1.08em; font-weight: 500; margin: 1.3em 0 .5em; }
+.markdown h5 { font-size: 1em; font-weight: 550; margin: 1.2em 0 .45em; }
+.markdown h6 { font-size: .94em; font-weight: 550; margin: 1.15em 0 .4em; }
 .markdown p{margin:0 0 1.2em}.markdown p:first-child{margin-top:0}
 /* Keep link decoration light and proportional to document font size. */
 .markdown a {
@@ -75,7 +81,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus
 .mv-diagram{padding:18px 20px;background:var(--code);border:1px solid var(--line);border-radius:12px;margin:1.5em 0;overflow:auto}.mv-diagram svg{max-width:100%;height:auto;display:block;margin:auto}.mv-diagram details{margin-top:12px;font-size:11px;color:var(--muted)}.mv-diagram details pre{font-size:12px;padding:14px}
 .missing-resource{padding:22px;background:var(--code);border:1px dashed var(--line);border-radius:10px;margin:1.2em 0;font-size:13px;display:flex;flex-direction:column;gap:10px}.missing-resource span,.resource-message{color:var(--muted)}
 :host([data-document-style=editorial]) .markdown{font-family:Georgia,"Times New Roman",serif;max-width:800px;font-size:calc(18px * var(--reading-scale,1));line-height:1.85;padding-top:32px}
-:host([data-document-style=editorial]) .markdown h1{font-size:2.7em;font-weight:600;letter-spacing:-.05em}:host([data-document-style=editorial]) .markdown h2{font-size:1.65em;line-height:1.35}
+:host([data-document-style=editorial]) .markdown h1{font-size:2.7em;font-weight:400;letter-spacing:-.025em}:host([data-document-style=editorial]) .markdown h2{font-size:1.65em;line-height:1.35}
 :host([data-document-style=editorial]) .markdown code,:host([data-document-style=editorial]) .markdown pre{font-family:"Cascadia Code",Consolas,monospace}
 :host([data-document-style=compact]) .markdown{max-width:980px;font-size:calc(14px * var(--reading-scale,1));line-height:1.6;padding:22px 36px 70px}
 :host([data-document-style=compact]) .markdown h1{font-size:2.25em}:host([data-document-style=compact]) .markdown h2{margin:1.3em 0 .5em}:host([data-document-style=compact]) .markdown p{margin-bottom:.85em}
@@ -744,7 +750,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus
 .reader>.document-meta{display:none}
 .reader>.markdown{max-width:1120px;padding:28px 40px 80px}
 :host([data-document-style=technical]) .reader>.markdown{max-width:1120px;padding:28px 40px 80px}
-.markdown h1{font-size:2.25em;font-weight:600;line-height:1.18}
 @media(max-width:760px){.reader>.markdown,:host([data-document-style=technical]) .reader>.markdown{padding:24px 26px 80px}}
 
 /* Width belongs to the live reader; typography and standalone export page sizes stay independent. */
@@ -875,6 +880,18 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus
   color: #8fcaff;
 }
 .map-attention-badge.missing { color: #efbc73; }
+/* A single bundled paper tile is shared with the native picker and follows the document while reading. */
+@media screen and (forced-colors: none) {
+  :host([data-paper]) .mv-view.reader {
+    background-image: var(--reader-paper) !important;
+    background-repeat: repeat;
+    background-size: 256px 256px;
+    background-attachment: local;
+  }
+  :host([data-paper]) .mv-view.reader > article.markdown {
+    background: transparent !important;
+  }
+}
 .in-ai-context .map-attention-badge { right: 24px; }
 .document-map .attention-match .page-card { border-color: #efbc73; }
 @media (prefers-reduced-motion: reduce) {

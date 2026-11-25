@@ -6,6 +6,7 @@
  * VBWR E */
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using MarkVibe.Core;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -16,6 +17,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
 using Windows.System;
+using Windows.UI.ViewManagement;
 using WinRT.Interop;
 using static MarkVibe.Core.UiStrings;
 
@@ -26,12 +28,15 @@ public sealed partial class DesktopWindow : Window
 {
     private const double CompactSidebarBreakpoint = 760;
     private readonly CancellationTokenSource _lifetime = new();
+    private readonly AccessibilitySettings _accessibility = new();
+    private bool _tracksContrastChanges;
     private readonly DesktopOptions _options;
     private readonly DesktopWorkspaceModel _model;
     private readonly DesktopDocumentFiles _documentFiles;
     private readonly CurrentDocumentWatcher _watcher;
-    private readonly AiConnectionService _connections;
-    private readonly WindowsAiSession _ai;
+    private readonly WindowsFooter _footer;
+    private AiConnectionService? _connections;
+    private WindowsAiSession? _ai;
     private DocumentWebView? _reader;
     private DocumentWebView? _preview;
     private WindowsMapView? _map;
@@ -47,6 +52,7 @@ public sealed partial class DesktopWindow : Window
     private bool _compactSidebar;
     private bool _compactSidebarOpen;
     private bool _changingWorkspace;
+    private bool _syncingViewSelector;
     private bool _closing;
     private bool _closeApproved;
     private bool _disposed;
@@ -61,26 +67,53 @@ public sealed partial class DesktopWindow : Window
         var language = CultureInfo.CurrentUICulture.Name;
         SetLanguage(_model.Preferences.Language, language);
         InitializeComponent();
+        WindowsPaperSurface.Attach(ToolbarLayout);
+        WindowsPaperSurface.AttachFlyout(ShellMenu);
+        WindowsPaperSurface.AttachFlyout(FolderCommandsMenu);
+        SystemBackdrop = new MicaBackdrop { Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt };
         Viewport.SizeChanged += (_, _) => QueuePreviewPlacement();
-        AppWindow.Resize(new SizeInt32(1350, 880));
+        ResizeForDisplay();
         _documentFiles = new DesktopDocumentFiles(options, _model.Files, WindowNative.GetWindowHandle(this));
         _watcher = new CurrentDocumentWatcher(_model.Files, DispatcherQueue, HandleDiskChange);
-        _connections = new AiConnectionService(options.DataDirectory);
-        _ai = new WindowsAiSession(_connections, ApplyAiAsync, _lifetime.Token, disabled: options.SmokeTest);
-        _ai.Changed += SyncMapReferencePaths;
         _model.CatalogChanged += CatalogChanged;
 
-        var footer = new WindowsFooter();
-        footer.AboutRequested += () => _ = RunAsync(AboutAsync);
-        FooterSlot.Children.Add(footer);
+        _footer = new WindowsFooter();
+        _footer.AboutRequested += () => _ = RunAsync(AboutAsync);
+        FooterSlot.Children.Add(_footer);
         ApplyPresentation();
-        if (_model.Layout.AiOpen) { EnsureAssistantPanel(); }
         SyncControls();
         InstallShortcuts();
-        Shell.ActualThemeChanged += (_, _) => _ = RunAsync(RefreshRendererAppearanceAsync);
+        Shell.ActualThemeChanged += (_, _) =>
+        {
+            ApplyWindowColors();
+            _ = RunAsync(RefreshRendererAppearanceAsync);
+        };
+        try
+        {
+            _accessibility.HighContrastChanged += OnHighContrastChanged;
+            _tracksContrastChanges = true;
+        }
+        catch (COMException error) when (error.HResult == unchecked((int)0x80070490))
+        {
+            // Some desktops can report contrast at layout time but do not expose its notification service.
+        }
         AppWindow.Closing += Closing;
         Closed += ClosedWindow;
     }
+
+    /// <summary>Fits the initial workspace to its monitor while preserving its reading width at higher DPI.</summary>
+    private void ResizeForDisplay()
+    {
+        var scale = GetDpiForWindow(WindowNative.GetWindowHandle(this)) / 96d;
+        var work = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest).WorkArea;
+        AppWindow.Resize(new SizeInt32(
+            Math.Min(work.Width, (int)Math.Round(1350 * scale)),
+            Math.Min(work.Height, (int)Math.Round(880 * scale))));
+    }
+
+    /// <summary>Returns the effective DPI of this per-monitor-aware window before its XAML root loads.</summary>
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern uint GetDpiForWindow(IntPtr window);
 
     /// <summary>Restores the native session or handles a file association after the first shell layout.</summary>
     private async void ShellLoaded(object sender, RoutedEventArgs args)
@@ -90,7 +123,12 @@ public sealed partial class DesktopWindow : Window
             return;
         }
         _loaded = true;
+        WindowsUiFont.ApplyTo(Shell);
         ApplyGeometry();
+        if (_model.Layout.AiOpen)
+        {
+            EnsureAssistantPanel();
+        }
         var sample = Path.Combine(_options.AssetsDirectory, "demo");
         SampleButton.Visibility = Directory.Exists(sample) ? Visibility.Visible : Visibility.Collapsed;
         if (_options.Document is { } requested)
@@ -132,7 +170,7 @@ public sealed partial class DesktopWindow : Window
                 DismissPreview();
                 args.Handled = true;
             }
-            else if (FindBar.Visibility == Visibility.Visible)
+            else if (_model.Find.IsOpen)
             {
                 _ = RunAsync(_ => CloseFindAsync());
                 args.Handled = true;
@@ -184,56 +222,103 @@ public sealed partial class DesktopWindow : Window
             "light" => ElementTheme.Light,
             _ => ElementTheme.Default
         };
-        if (preferences.Acrylic && SystemBackdrop == null)
+        ApplyWindowColors();
+        _map?.SetAppearance(IsDark, preferences.Acrylic, preferences.GraphPalette, preferences.GraphFont);
+        if (WindowsUiFont.Select(preferences.UiFont))
         {
-            SystemBackdrop = new DesktopAcrylicBackdrop();
-        }
-        else if (!preferences.Acrylic)
-        {
-            SystemBackdrop = null;
-        }
-        if (UiFontCatalog.Normalize(preferences.UiFont) is { } font && font != "system")
-        {
-            Shell.Resources["ContentControlThemeFontFamily"] = new FontFamily(font);
-        }
-        else
-        {
-            Shell.Resources.Remove("ContentControlThemeFontFamily");
+            WindowsUiFont.ApplyTo(Shell);
         }
         ApplyGeometry();
         UpdateLabels();
     }
 
-    /// <summary>Fits the docked panes or shows the transient full-width document navigator in compact windows.</summary>
+    /// <summary>Matches the caption to the shell and gives the Mica toolbar a light wash of the selected map color.</summary>
+    private void ApplyWindowColors()
+    {
+        var dark = Shell.ActualTheme == ElementTheme.Dark;
+        AppWindow.TitleBar.PreferredTheme = dark ? TitleBarTheme.Dark : TitleBarTheme.Light;
+        ApplyShellMenuIcons();
+        var theme = GraphThemeCatalog.Resolve(_model.Preferences.GraphPalette);
+        if (theme.Id == "system" || _accessibility.HighContrast)
+        {
+            ToolbarLayout.Background = null;
+            return;
+        }
+        var accent = (dark ? theme.Dark : theme.Light).Accent;
+        ToolbarLayout.Background = new SolidColorBrush(global::Windows.UI.Color.FromArgb(
+            (byte)(dark ? 24 : 16), (byte)(accent >> 16), (byte)(accent >> 8), (byte)accent));
+    }
+
+    /// <summary>Updates the shell on its UI thread when Windows changes the contrast setting.</summary>
+    private void OnHighContrastChanged(AccessibilitySettings sender, object args) =>
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!_disposed)
+            {
+                ApplyWindowColors();
+                var preferences = _model.Preferences;
+                _map?.SetAppearance(IsDark, preferences.Acrylic, preferences.GraphPalette, preferences.GraphFont);
+            }
+        });
+
+    /// <summary>Fits the docked panes or gives an active compact pane the full work area.</summary>
     private void ApplyGeometry()
     {
         var layout = _model.Layout;
         var width = Shell.ActualWidth;
+        var wrapToolbar = width > 0 && width < 800;
+        Grid.SetRow(DocumentToolbar, wrapToolbar ? 1 : 0);
+        Grid.SetColumn(DocumentToolbar, wrapToolbar ? 0 : 1);
+        Grid.SetColumnSpan(DocumentToolbar, wrapToolbar ? 3 : 1);
+        Grid.SetColumn(Header, wrapToolbar ? 1 : 2);
+        Grid.SetColumnSpan(Header, wrapToolbar ? 2 : 1);
+        Header.DefaultLabelPosition = width >= 1000 ? CommandBarDefaultLabelPosition.Right : CommandBarDefaultLabelPosition.Collapsed;
         var compact = width > 0 && width < CompactSidebarBreakpoint;
         if (compact != _compactSidebar)
         {
             _compactSidebar = compact;
             _compactSidebarOpen = false;
         }
-        var sidebar = !compact && layout.SidebarOpen
-            ? Math.Min(layout.SidebarWidth, width > 0 ? Math.Max(155, width * 0.42) : 520)
-            : 0;
-        var assistant = layout.AiOpen ? Math.Min(layout.AiWidth, width > 0 ? Math.Max(220, width * 0.47) : 600) : 0;
+        var sidebar = !compact && layout.SidebarOpen ? Math.Min(layout.SidebarWidth, SidebarWidthLimit) : 0;
         var overlay = compact && _compactSidebarOpen;
-        var assistantVisible = assistant > 0 && !overlay;
+        var assistantOverlay = compact && layout.AiOpen && !overlay;
+        var dockedAssistant = !compact && layout.AiOpen;
+        var assistantWidth = dockedAssistant ? Math.Min(layout.AiWidth, width > 0 ? Math.Min(AssistantWidthLimit, width * .47) : 600) : 0;
         Grid.SetColumnSpan(Sidebar, overlay ? WorkArea.ColumnDefinitions.Count : 1);
         SidebarColumn.Width = new GridLength(sidebar);
         SidebarGripColumn.Width = new GridLength(sidebar > 0 ? 6 : 0);
         SidebarGrip.Visibility = sidebar > 0 ? Visibility.Visible : Visibility.Collapsed;
-        Sidebar.Visibility = sidebar > 0 || overlay ? Visibility.Visible : Visibility.Collapsed;
-        DocumentArea.Visibility = overlay ? Visibility.Collapsed : Visibility.Visible;
-        AiColumn.Width = new GridLength(assistantVisible ? assistant : 0);
-        AiGripColumn.Width = new GridLength(assistantVisible ? 6 : 0);
-        AiGrip.Visibility = assistantVisible ? Visibility.Visible : Visibility.Collapsed;
-        AiSlot.Visibility = assistantVisible ? Visibility.Visible : Visibility.Collapsed;
-        AiButton.IsChecked = layout.AiOpen;
+        var sidebarVisible = sidebar > 0 || overlay;
+        Sidebar.Visibility = sidebarVisible ? Visibility.Visible : Visibility.Collapsed;
+        DocumentArea.Visibility = overlay || assistantOverlay ? Visibility.Collapsed : Visibility.Visible;
+        Grid.SetColumn(AiSlot, assistantOverlay ? 0 : WorkArea.ColumnDefinitions.Count - 1);
+        Grid.SetColumnSpan(AiSlot, assistantOverlay ? WorkArea.ColumnDefinitions.Count : 1);
+        AiColumn.Width = new GridLength(assistantWidth);
+        AiGripColumn.Width = new GridLength(dockedAssistant ? 6 : 0);
+        AiGrip.Visibility = dockedAssistant ? Visibility.Visible : Visibility.Collapsed;
+        AiSlot.Visibility = assistantOverlay || dockedAssistant ? Visibility.Visible : Visibility.Collapsed;
+        AiButton.Text = T(layout.AiOpen ? "Close assistant" : "Open assistant");
+        Hint(AiButton, layout.AiOpen ? "Close assistant" : "Open assistant");
         SetSplitGeometry(_dragSourceRatio ?? layout.SourceRatio);
+        // Allow room for the footer padding and a status caption on the shared wide row.
+        var footerWidth = width > 0 ? Math.Max(0, width - 24 - (compact ? 0 : 128)) : double.PositiveInfinity;
+        FooterSlot.MaxWidth = footerWidth;
+        _footer.FitWidth(footerWidth);
+        Grid.SetColumnSpan(Status, compact ? 2 : 1);
+        Grid.SetRow(FooterSlot, compact ? 1 : 0);
+        Grid.SetColumn(FooterSlot, compact ? 0 : 1);
+        Grid.SetColumnSpan(FooterSlot, compact ? 2 : 1);
+        if (_loaded && sidebarVisible && _navigationRefreshPending)
+        {
+            UpdateTree();
+        }
     }
+
+    /// <summary>Bounds the sidebar consistently while dragging, restoring or resizing by keyboard.</summary>
+    private double SidebarWidthLimit => Shell.ActualWidth > 0 ? Math.Clamp(Shell.ActualWidth * .42, 180, 520) : 520;
+
+    /// <summary>Bounds the preferred assistant width, which can be displayed narrower in compact windows.</summary>
+    private double AssistantWidthLimit => Shell.ActualWidth > 0 ? Math.Clamp(Shell.ActualWidth * .47, 300, 600) : 600;
 
     /// <summary>Closes the transient navigator after activation or Escape while leaving the docked preference intact.</summary>
     private bool CloseCompactSidebar()
@@ -252,24 +337,76 @@ public sealed partial class DesktopWindow : Window
     {
         OpenFileButton.Label = T("Open file");
         OpenFolderButton.Label = T("Open folder");
-        RecentButton.Label = T("Recent");
+        RecentButton.Text = T("Recent");
         SettingsButton.Label = T("Settings");
-        AboutButton.Label = T("About");
-        ReadButton.Label = T("Read");
-        SourceButton.Label = T("Source");
-        SplitButton.Label = T("Split");
-        MapButton.Label = T("Map");
+        AboutButton.Text = T("About MarkVibe");
+        ReadButton.Text = T("Read");
+        SourceButton.Text = T("Source");
+        SplitButton.Text = T("Split");
+        MapButton.Text = T("Map");
         FindButton.Label = T("Find in document");
-        ExportButton.Label = T("Export");
-        PagesButton.Content = T("Pages");
-        OutlineButton.Content = T("Outline");
+        ExportButton.Text = T("Export");
+        PagesButton.Text = T("Pages");
+        UpdatePageSearchLabels();
+        OutlineButton.Text = T("Outline");
         WorkspaceNamesWarning.Text = T("Some files or folders were skipped because of unsupported or ambiguous names. Rename them and reopen the workspace.");
-        AutomationProperties.SetName(ParentButton, T("Go up one folder"));
-        ToolTipService.SetToolTip(ParentButton, T("Go up one folder"));
-        AutomationProperties.SetName(RefreshButton, T("Refresh folder"));
-        ToolTipService.SetToolTip(RefreshButton, T("Refresh folder"));
+        AutomationProperties.SetName(FolderCommandsButton, T("Folder commands"));
+        GoUpFolderMenuItem.Text = T("Go up one folder");
+        RefreshFolderMenuItem.Text = T("Refresh folder");
+        WindowsUiFont.ApplyTo(FolderCommandsMenu);
         FindQuery.PlaceholderText = T("Find in document");
+        OutlineFindQuery.PlaceholderText = T("Find in document");
+        AutomationProperties.SetName(OutlineFindQuery, T("Find in document"));
+        AutomationProperties.SetName(OutlineFindResults, T("Search results"));
+        AutomationProperties.SetName(OutlinePrevious, T("Previous match"));
+        AutomationProperties.SetName(OutlineNext, T("Next match"));
+        Hint(OutlinePrevious, "Previous match", "Shift+F3");
+        Hint(OutlineNext, "Next match", "F3");
         ResumeButton.Content = T("Reopen last workspace");
+        SampleButton.Content = T("Open sample workspace");
+        PreviewCloseButton.Label = T("Close");
+        PreviewOpenButton.Label = T("Open document");
+        PreviewBackButton.Label = T("Back");
+        AiButton.Text = T(_model.Layout.AiOpen ? "Close assistant" : "Open assistant");
+        ShellMenuButton.Label = T("More commands");
+        Hint(ShellMenuButton, "More commands");
+        WindowsUiFont.ApplyTo(ShellMenu);
+        Hint(SidebarToggle, "Toggle sidebar");
+        Hint(BackButton, "Back", "Alt+←");
+        Hint(ForwardButton, "Forward", "Alt+→");
+        Hint(OpenFileButton, "Open file", "Ctrl+O");
+        Hint(OpenFolderButton, "Open folder", "Ctrl+Shift+O");
+        Hint(FindButton, "Find in document", "Ctrl+F");
+        Hint(SettingsButton, "Settings");
+        Hint(RecentButton, "Recent");
+        Hint(ExportButton, "Export");
+        Hint(AiButton, _model.Layout.AiOpen ? "Close assistant" : "Open assistant");
+        Hint(AboutButton, "About MarkVibe");
+        Hint(ReadButton, "Read Markdown");
+        Hint(SourceButton, "Show Markdown source");
+        Hint(SplitButton, "Source and preview");
+        Hint(MapButton, "Document map");
+        Hint(PagesButton, "Pages");
+        Hint(OutlineButton, "Outline");
+        Hint(FolderCommandsButton, "Folder commands");
+        Hint(GoUpFolderMenuItem, "Go up one folder");
+        Hint(RefreshFolderMenuItem, "Refresh folder");
+        Hint(SampleButton, "Open sample workspace");
+        Hint(ResumeButton, "Reopen last workspace");
+        Hint(FindPreviousButton, "Previous match", "Shift+F3");
+        Hint(FindNextButton, "Next match", "F3");
+        Hint(FindCloseButton, "Close", "Esc");
+        Hint(PreviewCloseButton, "Close", "Esc");
+        Hint(PreviewBackButton, "Back", "Alt+←");
+        Hint(PreviewOpenButton, "Open document");
+    }
+
+    /// <summary>Keeps pointer hints and screen-reader help aligned with the active language and shortcut.</summary>
+    private static void Hint(FrameworkElement control, string label, string? shortcut = null)
+    {
+        var description = shortcut == null ? T(label) : $"{T(label)} ({shortcut})";
+        ToolTipService.SetToolTip(control, description);
+        AutomationProperties.SetHelpText(control, description);
     }
 
     /// <summary>Mirrors only capabilities, labels and selection from the authoritative model.</summary>
@@ -279,28 +416,41 @@ public sealed partial class DesktopWindow : Window
         var document = workspace?.Document;
         var view = _model.View;
         var hasDocument = document != null;
+        RefreshOutlineSearch();
         WorkspaceName.Text = workspace?.Info.Name ?? T("No workspace");
+        ToolTipService.SetToolTip(WorkspaceName, WorkspaceName.Text);
         WorkspaceNamesWarning.Visibility = workspace?.Info.SkippedNames == true ? Visibility.Visible : Visibility.Collapsed;
-        DocumentTitle.Text = document?.Title ?? "MarkVibe";
         Title = hasDocument ? document!.Title + " — MarkVibe" : "MarkVibe";
-        ParentButton.IsEnabled = workspace is { Info.Capabilities.CanOpenParent: true } && !IsSample(workspace);
-        RefreshButton.IsEnabled = workspace != null;
+        GoUpFolderMenuItem.IsEnabled = workspace is { Info.Capabilities.CanOpenParent: true } && !IsSample(workspace);
+        RefreshFolderMenuItem.IsEnabled = workspace != null;
+        FolderCommandsButton.IsEnabled = GoUpFolderMenuItem.IsEnabled || RefreshFolderMenuItem.IsEnabled;
         ReadButton.IsEnabled = hasDocument;
         SourceButton.IsEnabled = hasDocument;
         SplitButton.IsEnabled = hasDocument && (Shell.ActualWidth == 0 || Shell.ActualWidth >= 1050);
-        MapButton.IsEnabled = workspace is { InventoryReady: true } && workspace.Catalog.Cards.Count > 0;
+        MapButton.IsEnabled = workspace is { InventoryReady: true } && workspace.Catalog.DocumentCount > 0;
         FindButton.IsEnabled = hasDocument && view != "map";
         ExportButton.IsEnabled = hasDocument;
-        ReadButton.IsChecked = view == "read";
-        SourceButton.IsChecked = view == "source";
-        SplitButton.IsChecked = view == "split";
-        MapButton.IsChecked = view == "map";
+        _syncingViewSelector = true;
+        DocumentToolbar.SelectedItem = view switch
+        {
+            "source" => SourceButton,
+            "split" => SplitButton,
+            "map" => MapButton,
+            _ => ReadButton
+        };
+        _syncingViewSelector = false;
+        DocumentToolbar.Visibility = hasDocument || MapButton.IsEnabled ? Visibility.Visible : Visibility.Collapsed;
         BackButton.IsEnabled = _model.History.CanBack || (_model.History.Current != null && !hasDocument);
         ForwardButton.IsEnabled = _model.History.CanForward;
         Welcome.Visibility = hasDocument || view == "map" ? Visibility.Collapsed : Visibility.Visible;
         ReaderSlot.Visibility = hasDocument || _reader != null ? Visibility.Visible : Visibility.Collapsed;
         ReaderSlot.Opacity = view == "map" ? 0 : 1;
         ReaderSlot.IsHitTestVisible = view != "map";
+        if (_reader is { } reader)
+        {
+            // Keep the renderer available for exports while the map owns keyboard input.
+            reader.Control.IsTabStop = view != "map";
+        }
         SplitChrome.Visibility = hasDocument && view == "split" ? Visibility.Visible : Visibility.Collapsed;
         MapSlot.Visibility = view == "map" ? Visibility.Visible : Visibility.Collapsed;
         PreviewBackButton.IsEnabled = _model.CanPreviewBack;
@@ -319,7 +469,8 @@ public sealed partial class DesktopWindow : Window
         }
         UpdateTree();
         SyncControls();
-        if (_mapWorkspace == _model.Workspace && _mapWorkspace != null)
+        // ShowMapAsync refreshes an existing projection when the user returns to it.
+        if (_model.View == "map" && _mapWorkspace == _model.Workspace && _mapWorkspace != null)
         {
             _map?.Refresh(_model.Document?.Path);
             SyncMapReferencePaths();
@@ -365,7 +516,7 @@ public sealed partial class DesktopWindow : Window
                 XamlRoot = Shell.XamlRoot, Title = T(title), Content = new TextBlock { Text = T(message), TextWrapping = TextWrapping.Wrap },
                 PrimaryButtonText = T(action), CloseButtonText = T("Cancel"), DefaultButton = ContentDialogButton.Close
             };
-            result = await dialog.ShowAsync() == ContentDialogResult.Primary;
+            result = await WindowsDialogs.ShowAsync(dialog) == ContentDialogResult.Primary;
         });
         return result;
     }
@@ -403,9 +554,16 @@ public sealed partial class DesktopWindow : Window
     private void ClosedWindow(object sender, WindowEventArgs args)
     {
         _disposed = true;
+        if (_tracksContrastChanges)
+        {
+            _accessibility.HighContrastChanged -= OnHighContrastChanged;
+        }
         _lifetime.Cancel();
-        _ai.Changed -= SyncMapReferencePaths;
-        _ai.Cancel();
+        if (_ai is { } assistant)
+        {
+            assistant.Changed -= SyncMapReferencePaths;
+            assistant.Cancel();
+        }
         _watcher.Dispose();
         _reader?.Dispose();
         _preview?.Dispose();

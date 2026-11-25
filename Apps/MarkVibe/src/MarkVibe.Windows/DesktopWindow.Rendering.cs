@@ -10,16 +10,39 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.Web.WebView2.Core;
 using Windows.Foundation;
 
 namespace MarkVibe.Windows;
 
 public sealed partial class DesktopWindow
 {
-    /// <summary>Changes the selected document view through the presentation model.</summary>
-    private async void SelectView(object sender, RoutedEventArgs args)
+    private Task<CoreWebView2Environment>? _documentEnvironment;
+
+    /// <summary>Shares initialization across document surfaces. A later open can retry a failed startup.</summary>
+    private Task<CoreWebView2Environment> GetDocumentEnvironmentAsync()
     {
-        if (sender is AppBarToggleButton { Tag: string view })
+        if (_documentEnvironment == null || _documentEnvironment.IsFaulted || _documentEnvironment.IsCanceled)
+        {
+            _documentEnvironment = DocumentWebView.CreateEnvironmentAsync(_options);
+        }
+        return _documentEnvironment;
+    }
+
+    /// <summary>Overlaps WebView startup with loading an explicitly opened document. The reader handles startup errors.</summary>
+    private async Task PrepareDocumentEnvironmentAsync()
+    {
+        try { await GetDocumentEnvironmentAsync(); }
+        catch (Exception error) { DesktopLog.Error("document.environment-startup", error); }
+    }
+
+    private (DesktopWorkspace Workspace, string Path, string Fingerprint, int Start, int End, bool Unsupported)? _pendingAiSelection;
+
+    /// <summary>Changes the selected document view through the presentation model.</summary>
+    private async void SelectView(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        if (!_syncingViewSelector && sender.SelectedItem is { Tag: string view, IsEnabled: true } &&
+            (view != _model.View || _navigation != null))
         {
             await RunAsync(token => SetViewAsync(view, token));
         }
@@ -39,7 +62,9 @@ public sealed partial class DesktopWindow
         try
         {
             await CapturePositionAsync(navigation.Token);
+            navigation.Token.ThrowIfCancellationRequested();
             await CloseFindAsync();
+            navigation.Token.ThrowIfCancellationRequested();
             DismissPreview();
             _model.SetView(view);
             SyncControls();
@@ -97,9 +122,13 @@ public sealed partial class DesktopWindow
     /// <summary>Starts the graph only when requested and preserves it across view switches.</summary>
     private async Task ShowMapAsync(DesktopWorkspace workspace, CancellationToken token)
     {
+        _model.EnsureCatalogIndex();
         if (_map == null)
         {
             var map = new WindowsMapView();
+            map.Loaded += (_, _) => WindowsUiFont.ApplyTo(map);
+            var preferences = _model.Preferences;
+            map.SetAppearance(IsDark, preferences.Acrylic, preferences.GraphPalette, preferences.GraphFont);
             map.OpenDocument += (path, anchor) => _ = RunAsync(cancellation => NavigateAsync(path, anchor, null, true, cancellation));
             map.PreviewDocument += (path, anchor) => _ = RunAsync(cancellation => PreviewMapDocumentAsync(path, anchor, cancellation));
             map.CreateLinkMenu = target => CreateFileMenu(target, includeReaderActions: true);
@@ -180,6 +209,7 @@ public sealed partial class DesktopWindow
             return _reader;
         }
         var reader = CreateRenderer(preview: false);
+        reader.Control.IsTabStop = _model.View != "map";
         ReaderSlot.Children.Add(reader.View);
         _reader = reader;
         return reader;
@@ -188,7 +218,7 @@ public sealed partial class DesktopWindow
     /// <summary>Creates a renderer with callbacks scoped to its native workspace model.</summary>
     private DocumentWebView CreateRenderer(bool preview)
     {
-        var renderer = new DocumentWebView(_options, _lifetime.Token);
+        var renderer = new DocumentWebView(_options, GetDocumentEnvironmentAsync, _lifetime.Token);
         renderer.HandleNativeRequest = (operation, args, token) => HandleRendererRequestAsync(renderer, operation, args, preview, token);
         renderer.EventReceived += data => OnRendererEvent(renderer, data, preview);
         return renderer;
@@ -260,7 +290,7 @@ public sealed partial class DesktopWindow
                 _model.CapturePosition(workspace.Info.Id, path, position.Deserialize<ReadingPosition>(Wire.Options) ?? new());
                 break;
             case "document-selection":
-                TrackSelection(data, document.Fingerprint);
+                TrackSelection(data, workspace, document);
                 break;
             case "document-find":
                 ShowFind(Target(data, document));
@@ -287,17 +317,27 @@ public sealed partial class DesktopWindow
             HeadingId: Text(data, "headingId"), View: Text(data, "view"));
     }
 
-    /// <summary>Preserves a validated source-range selection in the AI model.</summary>
-    private void TrackSelection(JsonElement data, string fingerprint)
+    /// <summary>Retains one source range until the assistant is first created and can own it.</summary>
+    private void TrackSelection(JsonElement data, DesktopWorkspace workspace, MarkdownModel document)
     {
         if (data.TryGetProperty("selection", out var selection) && selection.ValueKind == JsonValueKind.Object)
         {
             var unsupported = selection.TryGetProperty("unsupported", out var value) && value.ValueKind == JsonValueKind.True;
-            _ai.SetSelection(fingerprint, Integer(selection, "start"), Integer(selection, "end"), unsupported);
+            var start = Integer(selection, "start");
+            var end = Integer(selection, "end");
+            if (_ai is { } assistant)
+            {
+                assistant.SetSelection(document.Fingerprint, start, end, unsupported);
+            }
+            else
+            {
+                _pendingAiSelection = (workspace, document.Path, document.Fingerprint, start, end, unsupported);
+            }
         }
         else
         {
-            _ai.ClearSelection();
+            _pendingAiSelection = null;
+            _ai?.ClearSelection();
         }
     }
 
@@ -388,12 +428,11 @@ public sealed partial class DesktopWindow
         }
         PreviewTitle.Text = document.Title;
         PreviewOverlay.Visibility = Visibility.Visible;
-        PreviewOverlay.RequestedTheme = mapDocument ? ElementTheme.Dark : ElementTheme.Default;
         PreviewOpenButton.IsEnabled = mapDocument;
         PreviewBackButton.IsEnabled = _model.CanPreviewBack;
         UpdatePreviewPlacement();
         await _preview.RenderAsync(workspace.Info, document, "read", _model.EffectivePreferences, anchor, position,
-            _model.Layout, mapDocument || IsDark, token, deferMedia: mapDocument);
+            _model.Layout, IsDark, token, deferMedia: mapDocument);
         if (mapDocument && !token.IsCancellationRequested && _model.Preview?.Path == document.Path)
         {
             _preview?.Control.Focus(FocusState.Programmatic);

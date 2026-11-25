@@ -30,6 +30,7 @@ var checks = new (string Name, Func<Task> Run)[]
         Equal("Courier New", legacy.DocumentFont);
         Equal("system", legacy.GraphFont);
         Equal("system", legacy.GraphPalette);
+        Equal(ReaderPaper.Default, legacy.Paper);
 
         var selected = legacy with { GraphFont = "cascadia mono", GraphPalette = "EMBER" };
         var saved = Wire.Decode<Preferences>(Wire.Encode(selected)).Validated();
@@ -38,8 +39,10 @@ var checks = new (string Name, Func<Task> Run)[]
         Equal("Cascadia Mono", saved.GraphFont);
         Equal("ember", saved.GraphPalette);
 
-        var folder = ReaderAppearance.From(saved with { DocumentFont = "Lucida Console" }).ApplyTo(saved);
+        var folder = ReaderAppearance.From(saved with { DocumentFont = "Lucida Console", Paper = "cotton" }).ApplyTo(saved);
         Equal("Lucida Console", folder.DocumentFont);
+        Equal("cotton", Wire.Decode<Preferences>(Wire.Encode(folder)).Validated().Paper);
+        Equal(ReaderPaper.Default, (folder with { Paper = "../outside" }).Validated().Paper);
         Equal(saved.UiFont, folder.UiFont);
         Equal(saved.GraphFont, folder.GraphFont);
         Equal(saved.GraphPalette, folder.GraphPalette);
@@ -219,6 +222,18 @@ var checks = new (string Name, Func<Task> Run)[]
 
         Equal(LinkKind.External, WorkspacePath.Resolve("README.md", "https://example.com/docs").Kind);
         Equal(LinkKind.External, WorkspacePath.Resolve("README.md", "mailto:reader@example.com").Kind);
+    })),
+    ("map sheets show prose or retain linked targets for an index", Sync(() =>
+    {
+        var parser = new MarkdownParser();
+        var links = "[Related page](one.md)\n[Related page](two.md)";
+        var index = parser.Parse("index.md", "# Index\n\n" + links + "\n\n" + new string('x', 512));
+        Equal("", index.Introduction);
+        Equal(2, index.Links.Count);
+        var article = parser.Parse("article.md", links + "\n\nRead the **tidal** record.");
+        Equal("Read the tidal record.", article.Introduction);
+        Equal(210 * MapLayoutCodec.CardHeight, 297 * MapLayoutCodec.CardWidth);
+        True(MapLayoutCodec.RowStep > MapLayoutCodec.CardHeight);
     })),
     ("one Markdown parse owns metadata, duplicate anchors, links and source blocks", Sync(() =>
     {

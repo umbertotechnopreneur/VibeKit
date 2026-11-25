@@ -47,9 +47,11 @@ internal sealed partial class WindowsMapView
         }
         _cardFlyout?.Hide();
         var presenter = new Style(typeof(FlyoutPresenter));
-        presenter.Setters.Add(new Setter(Control.BackgroundProperty, MapAcrylic()));
+        presenter.Setters.Add(new Setter(Control.BackgroundProperty, MapSurface(_palette.Panel)));
+        presenter.Setters.Add(new Setter(FrameworkElement.RequestedThemeProperty, ActualTheme));
         presenter.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(12)));
         var menu = new Flyout { FlyoutPresenterStyle = presenter };
+        WindowsPaperSurface.AttachFlyout(menu);
         _cardFlyout = menu;
         menu.Closed += (_, _) =>
         {
@@ -60,7 +62,7 @@ internal sealed partial class WindowsMapView
         };
 
         var width = XamlRoot?.Size.Width ?? 380;
-        var contents = new StackPanel { Spacing = 10, RequestedTheme = ElementTheme.Dark, Width = Math.Clamp(width - 44, 220, 330) };
+        var contents = new StackPanel { Spacing = 10, RequestedTheme = ActualTheme, Width = Math.Clamp(width - 44, 220, 330) };
         var title = new Grid { ColumnSpacing = 8 };
         title.ColumnDefinitions.Add(new ColumnDefinition());
         title.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -98,9 +100,16 @@ internal sealed partial class WindowsMapView
         }
         contents.Children.Add(iconCaption);
         contents.Children.Add(iconPanel);
+        var galleryBackground = new SolidColorBrush(_palette.CardBackground);
         foreach (var icon in MapLayoutCodec.Icons)
         {
-            var choice = GalleryChoice(icon.Label, CardIcon(icon.Value, Color.FromArgb(255, 228, 237, 251)));
+            var glyph = new Border
+            {
+                Background = galleryBackground,
+                CornerRadius = new CornerRadius(4),
+                Child = CardIcon(icon.Value, _palette.CardText)
+            };
+            var choice = GalleryChoice(icon.Label, glyph);
             choice.Click += (_, _) => UpdateAppearance(null, icon.Value);
             iconPanel.Children.Add(choice);
             icons.Add(icon.Value, choice);
@@ -155,8 +164,8 @@ internal sealed partial class WindowsMapView
             var current = model.Layout.Nodes[path];
             var tint = WindowsGraphCanvas.ParseColor(current.Color);
             previewCard.BorderBrush = new SolidColorBrush(tint);
-            previewCard.Background = new SolidColorBrush(Color.FromArgb(44, tint.R, tint.G, tint.B));
-            previewIcon.Content = CardIcon(current.Icon, tint);
+            previewCard.Background = new SolidColorBrush(_palette.CardFill(tint, selected: true));
+            previewIcon.Content = CardIcon(current.Icon, _palette.IconColor(tint));
             colorCaption.Text = T("Card color") + " · " + T(MapLayoutCodec.Colors.First(item => item.Value == current.Color).Label);
             iconCaption.Text = T("Card icon") + " · " + T(MapLayoutCodec.Icons.First(item => item.Value == current.Icon).Label);
             UpdateGallerySelection(colors, current.Color);
@@ -246,18 +255,6 @@ internal sealed partial class WindowsMapView
     private void ConfigureCompactList()
     {
         AutomationProperties.SetName(_compact, T("Map documents"));
-        _compactActions.Children.Add(ButtonFor("Read here", () =>
-        {
-            if (_model is { SelectedPath.Length: > 0 } model) { PreviewDocument?.Invoke(model.SelectedPath, ""); }
-        }));
-        _compactActions.Children.Add(ButtonFor("Open document", () =>
-        {
-            if (_model is { SelectedPath.Length: > 0 } model) { OpenDocument?.Invoke(model.SelectedPath, ""); }
-        }));
-        _compactActions.Children.Add(ButtonFor("Customize card", () =>
-        {
-            if (_model is { SelectedPath.Length: > 0 } model) { ShowCardMenu(model.SelectedPath, _compactActions); }
-        }));
         _compact.ItemTemplate = (DataTemplate)XamlReader.Load("""
             <DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                           xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">

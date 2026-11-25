@@ -20,11 +20,13 @@ namespace MarkVibe.Windows;
 public sealed partial class DesktopWindow
 {
     private DesktopWorkspace? _navigationWorkspace;
-    private IReadOnlyList<DocumentCard>? _navigationCards;
     private (string? Path, string? Fingerprint, string? Language) _navigationOutline;
-    private TreeViewNode[] _pageNodes = [];
+    private (string Path, string Anchor, TreeViewNode? Node)? _outlineSelection;
+    private PageTreeState _pagesTree = new();
+    private PageTreeState _pageMatchesTree = new();
+    private PageTreeState? _displayedPages;
     private TreeViewNode[] _outlineNodes = [];
-    private bool _displayingOutline;
+    private bool _navigationRefreshPending = true;
 
     /// <summary>Opens the native picker for one Markdown file.</summary>
     private async void OpenFile(object sender, RoutedEventArgs args) => await RunAsync(PickFileAsync);
@@ -95,6 +97,10 @@ public sealed partial class DesktopWindow
             await CapturePositionAsync(token);
             SetStatus("Opening folder…");
             var readOnly = SampleDirectoryEquals(directory);
+            if (_documentEnvironment == null && requested != null && WorkspacePath.IsMarkdown(requested))
+            {
+                _ = PrepareDocumentEnvironmentAsync();
+            }
             var presented = false;
             Exception? renderingError = null;
             await _model.OpenAsync(directory, requested, visit, readOnly, PresentAsync, token);
@@ -233,7 +239,8 @@ public sealed partial class DesktopWindow
     /// <summary>Opens a workspace's containing folder after the user selects that navigation command.</summary>
     private async void OpenParent(object sender, RoutedEventArgs args) => await RunAsync(async token =>
     {
-        if (_model.Workspace is { } workspace && Directory.GetParent(_model.Files.Root(workspace.Info.Id)) is { } parent)
+        if (_model.Workspace is { Info.Capabilities.CanOpenParent: true } workspace && !IsSample(workspace) &&
+            Directory.GetParent(_model.Files.Root(workspace.Info.Id)) is { } parent)
         {
             await OpenLocationAsync(parent.FullName, "folder", true, token);
         }
@@ -263,9 +270,10 @@ public sealed partial class DesktopWindow
     private void ShowRecent(object sender, RoutedEventArgs args)
     {
         var menu = new MenuFlyout();
+        WindowsPaperSurface.AttachFlyout(menu);
         foreach (var (group, kind) in new[] { ("Recent files", "files"), ("Recent folders", "folder") })
         {
-            var submenu = new MenuFlyoutSubItem { Text = T(group) };
+            var submenu = new MenuFlyoutSubItem { Text = T(group), Icon = MenuIcon(kind == "folder" ? "reveal" : "copyFile") };
             foreach (var location in _model.Recent.List(kind))
             {
                 var item = new MenuFlyoutItem { Text = location.Path };
@@ -281,10 +289,11 @@ public sealed partial class DesktopWindow
                 menu.Items.Add(submenu);
             }
         }
-        var sample = new MenuFlyoutItem { Text = T("Open sample workspace"), IsEnabled = SampleButton.Visibility == Visibility.Visible };
+        var sample = new MenuFlyoutItem { Text = T("Open sample workspace"), Icon = MenuIcon("sample"), IsEnabled = SampleButton.Visibility == Visibility.Visible };
         sample.Click += OpenSample;
         menu.Items.Add(sample);
-        menu.ShowAt(RecentButton);
+        WindowsUiFont.ApplyTo(menu);
+        menu.ShowAt(ShellMenuButton);
     }
 
     /// <summary>Selects the uncommitted previous history entry.</summary>
@@ -315,48 +324,62 @@ public sealed partial class DesktopWindow
         }
     }
 
-    /// <summary>Displays the workspace page hierarchy.</summary>
-    private void ShowPages(object sender, RoutedEventArgs args)
+    /// <summary>Switches the shared tree between workspace paths and the current document's outline.</summary>
+    private void SelectNavigationMode(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
     {
-        _outline = false;
-        UpdateTree();
-    }
-
-    /// <summary>Displays headings and source-backed content for the current document.</summary>
-    private void ShowOutline(object sender, RoutedEventArgs args)
-    {
-        _outline = true;
-        UpdateTree();
+        if (sender.SelectedItem?.Tag is string mode && _outline != (mode == "outline"))
+        {
+            _outline = mode == "outline";
+            if (!_outline && _outlineFindActive) { _ = RunAsync(_ => CloseFindAsync()); }
+            RefreshOutlineSearch();
+            if (_loaded)
+            {
+                UpdateTree();
+            }
+        }
     }
 
     /// <summary>Updates the visible model projection while retaining existing rows and expansion state.</summary>
     private void UpdateTree()
     {
-        PagesButton.IsChecked = !_outline;
-        OutlineButton.IsChecked = _outline;
-        AutomationProperties.SetName(NavigationTree, T(_outline ? "Current document outline" : "Workspace documents"));
-        var nodes = NavigationTree.RootNodes;
         if (!ReferenceEquals(_navigationWorkspace, _model.Workspace))
         {
             _navigationWorkspace = _model.Workspace;
-            _navigationCards = null;
+            ResetPageSearch();
             _navigationOutline = default;
-            _pageNodes = [];
+            _outlineSelection = null;
+            _pagesTree = new();
+            _pageMatchesTree = new();
+            _displayedPages = null;
             _outlineNodes = [];
-            nodes.Clear();
+            NavigationTree.RootNodes.Clear();
         }
-        if (_displayingOutline != _outline)
+        _navigationRefreshPending = Sidebar.Visibility != Visibility.Visible;
+        SyncPageSearch();
+        if (_navigationRefreshPending)
         {
-            _displayingOutline = _outline;
+            return;
+        }
+        if (!_outline)
+        {
+            _model.EnsureCatalogIndex();
+        }
+
+        AutomationProperties.SetName(NavigationTree, T(_outline ? "Current document outline" : "Workspace documents"));
+        var nodes = NavigationTree.RootNodes;
+        var pages = _pageSearch == null ? _pagesTree : _pageMatchesTree;
+        var visiblePages = _outline ? null : pages;
+        if (!ReferenceEquals(_displayedPages, visiblePages))
+        {
+            _displayedPages = visiblePages;
             nodes.Clear();
-            foreach (var node in _outline ? _outlineNodes : _pageNodes)
+            foreach (var node in visiblePages?.Roots ?? _outlineNodes)
             {
                 nodes.Add(node);
             }
         }
 
         var document = _model.Document;
-        var catalog = _navigationWorkspace?.Catalog;
         if (_outline)
         {
             var outline = (Path: document?.Path, Fingerprint: document?.Fingerprint, Language);
@@ -370,16 +393,18 @@ public sealed partial class DesktopWindow
                 ReconcileNavigationNodes(nodes, DesktopNavigation.Outline(document), expandHeadings: true);
                 _outlineNodes = nodes.ToArray();
                 _navigationOutline = outline;
+                _outlineSelection = null;
             }
         }
-        else if (!ReferenceEquals(_navigationCards, catalog?.Cards))
+        else
         {
-            _navigationCards = catalog?.Cards;
-            ReconcileNavigationNodes(nodes, DesktopNavigation.Pages(catalog));
-            _pageNodes = nodes.ToArray();
+            var cards = _navigationWorkspace?.Catalog.Cards ?? [];
+            RefreshPageNodes(nodes, pages, _pageSearch?.MatchingCards(cards) ?? cards, _pageSearch != null);
         }
         var anchor = _outline ? _model.History.Current?.Anchor ?? "" : "";
-        var selected = document == null ? null : FindTreeNode(nodes, document.Path, anchor);
+        var selected = document == null ? null
+            : _outline ? FindOutlineSelection(nodes, document.Path, anchor)
+            : pages.ByPath.GetValueOrDefault(document.Path);
         if (!ReferenceEquals(NavigationTree.SelectedNode, selected))
         {
             for (var parent = selected?.Parent; parent != null; parent = parent.Parent)
@@ -390,9 +415,83 @@ public sealed partial class DesktopWindow
         }
     }
 
+    /// <summary>Rebuilds folder structure only when membership changes and otherwise refreshes changed titles in place.</summary>
+    private static void RefreshPageNodes(IList<TreeViewNode> nodes, PageTreeState pages, IReadOnlyList<DocumentCard> cards, bool expandFolders)
+    {
+        var previous = pages.Cards;
+        if (ReferenceEquals(previous, cards))
+        {
+            return;
+        }
+        pages.Cards = cards;
+        if (previous == null || !SamePagePaths(previous, cards))
+        {
+            ReconcileNavigationNodes(nodes, DesktopNavigation.Pages(cards));
+            pages.Roots = nodes.ToArray();
+            pages.ByPath.Clear();
+            IndexPageNodes(nodes, pages.ByPath, expandFolders);
+            return;
+        }
+
+        for (var index = 0; index < cards.Count; index++)
+        {
+            var card = cards[index];
+            if (card.Title != previous[index].Title && pages.ByPath.TryGetValue(card.Path, out var node))
+            {
+                UpdatePageNavigationRow((Grid)node.Content, DesktopNavigation.Page(card));
+            }
+        }
+    }
+
+    /// <summary>Compares the authoritative path-ordered snapshots without assigning meaning to other indexed metadata.</summary>
+    private static bool SamePagePaths(IReadOnlyList<DocumentCard> previous, IReadOnlyList<DocumentCard> current)
+    {
+        if (previous.Count != current.Count)
+        {
+            return false;
+        }
+        for (var index = 0; index < current.Count; index++)
+        {
+            if (previous[index].Path != current[index].Path)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// <summary>Indexes file nodes from a reconciled hierarchy so selection does not scan every folder.</summary>
+    private static void IndexPageNodes(IEnumerable<TreeViewNode> nodes, Dictionary<string, TreeViewNode> byPath, bool expandFolders)
+    {
+        foreach (var node in nodes)
+        {
+            if (NavigationItem(node) is { IsFolder: false } item)
+            {
+                byPath[item.Path] = node;
+            }
+            else
+            {
+                if (expandFolders)
+                {
+                    node.IsExpanded = true;
+                }
+                IndexPageNodes(node.Children, byPath, expandFolders);
+            }
+        }
+    }
+
     /// <summary>Keeps native nodes when their semantic identity is still present in the same branch.</summary>
     private static void ReconcileNavigationNodes(IList<TreeViewNode> nodes, IReadOnlyList<DesktopNavigationItem> items, bool expandHeadings = false)
     {
+        if (items.Count == 0)
+        {
+            if (nodes.Count > 0)
+            {
+                nodes.Clear();
+            }
+            return;
+        }
+
         var keys = items.Select(item => item.Key).ToHashSet(StringComparer.Ordinal);
         for (var index = nodes.Count - 1; index >= 0; index--)
         {
@@ -407,7 +506,8 @@ public sealed partial class DesktopWindow
             var item = items[index];
             if (!kept.TryGetValue(item.Key, out var node))
             {
-                node = new TreeViewNode { Content = CreateNavigationRow(item), IsExpanded = expandHeadings && item.Children.Count > 0 };
+                var row = item.Target == null ? CreatePageNavigationRow(item) : CreateNavigationRow(item);
+                node = new TreeViewNode { Content = row, IsExpanded = expandHeadings && item.Children.Count > 0 };
                 nodes.Insert(index, node);
             }
             else
@@ -417,23 +517,42 @@ public sealed partial class DesktopWindow
                     nodes.Remove(node);
                     nodes.Insert(index, node);
                 }
-                UpdateNavigationRow((Grid)node.Content, item);
+                if (item.Target == null)
+                {
+                    UpdatePageNavigationRow((Grid)node.Content, item);
+                }
+                else
+                {
+                    UpdateNavigationRow((Grid)node.Content, item);
+                }
             }
             ReconcileNavigationNodes(node.Children, item.Children);
         }
     }
 
-    /// <summary>Finds the native row for a file, semantic element or direct heading link.</summary>
-    private static TreeViewNode? FindTreeNode(IEnumerable<TreeViewNode> nodes, string path, string anchor)
+    /// <summary>Reuses the selected outline row across unrelated index notifications.</summary>
+    private TreeViewNode? FindOutlineSelection(IList<TreeViewNode> nodes, string path, string anchor)
+    {
+        if (_outlineSelection is { } selection && selection.Path == path && selection.Anchor == anchor)
+        {
+            return selection.Node;
+        }
+        var selected = anchor.Length == 0 ? null : FindOutlineNode(nodes, path, anchor);
+        _outlineSelection = (path, anchor, selected);
+        return selected;
+    }
+
+    /// <summary>Finds the native row for a semantic element or direct heading link.</summary>
+    private static TreeViewNode? FindOutlineNode(IEnumerable<TreeViewNode> nodes, string path, string anchor)
     {
         foreach (var node in nodes)
         {
-            if (NavigationItem(node) is { IsFolder: false } item && item.Path == path &&
-                (item.Target == null ? anchor.Length == 0 : anchor.Length > 0 && (item.Target.ElementId == anchor || item.Target.HeadingId == anchor)))
+            if (NavigationItem(node) is { Target: { } target } item && item.Path == path &&
+                (target.ElementId == anchor || target.HeadingId == anchor))
             {
                 return node;
             }
-            if (FindTreeNode(node.Children, path, anchor) is { } found)
+            if (FindOutlineNode(node.Children, path, anchor) is { } found)
             {
                 return found;
             }
@@ -441,40 +560,53 @@ public sealed partial class DesktopWindow
         return null;
     }
 
-    /// <summary>Creates a native row with a fixed-width icon or heading level and a truncating title.</summary>
+    /// <summary>Creates an outline row with a compact marker and room for two lines of heading text.</summary>
     private static Grid CreateNavigationRow(DesktopNavigationItem item)
     {
-        var row = new Grid { ColumnSpacing = 6, Padding = new Thickness(2, 1, 6, 1) };
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(25) });
+        var row = new Grid { ColumnSpacing = NavigationRowSpacing, Padding = NavigationRowPadding };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(NavigationIconColumnWidth) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        FrameworkElement icon = item.Target is { HeadingLevel: > 0 } target
-            ? new TextBlock { Text = $"H{target.HeadingLevel}", FontSize = 12 }
-            : item.Icon == "code"
-                ? new FontIcon { FontFamily = new FontFamily("Segoe Fluent Icons"), Glyph = "\uE943", FontSize = 16 }
-                : new SymbolIcon(NavigationSymbol(item.Icon)) { Width = 18, Height = 18 };
-        icon.VerticalAlignment = VerticalAlignment.Center;
-        icon.HorizontalAlignment = HorizontalAlignment.Center;
-        AutomationProperties.SetAccessibilityView(icon, AccessibilityView.Raw);
-        row.Children.Add(icon);
+        var headingLevel = item.Target?.HeadingLevel ?? 0;
+        var heading = headingLevel > 0;
+        if (heading)
+        {
+            var marker = new TextBlock
+            {
+                Text = $"H{headingLevel}", FontSize = 11, Margin = new Thickness(0, 2, 0, 0),
+                VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Center
+            };
+            AutomationProperties.SetAccessibilityView(marker, AccessibilityView.Raw);
+            row.Children.Add(marker);
+        }
+        else
+        {
+            row.Children.Add(CreateNavigationGlyph(item.Icon switch
+            {
+                "image" => "\uE8B9",
+                "paragraph" => "\uE8E4",
+                "table" => "\uE8A9",
+                "code" => "\uE943",
+                _ => "\uE8A5"
+            }));
+        }
         var label = new TextBlock
         {
-            FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis
+            FontSize = heading ? 13 : 12,
+            MaxLines = heading ? 2 : 1,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            TextWrapping = heading ? TextWrapping.Wrap : TextWrapping.NoWrap
         };
+        if (heading)
+        {
+            label.FontWeight = new global::Windows.UI.Text.FontWeight { Weight = 600 };
+        }
         Grid.SetColumn(label, 1);
         row.Children.Add(label);
+        WindowsUiFont.ApplyTo(row);
         UpdateNavigationRow(row, item);
         return row;
     }
-
-    /// <summary>Uses native glyphs for the navigation kinds shared with the preceding sidebar.</summary>
-    private static Symbol NavigationSymbol(string icon) => icon switch
-    {
-        "folder" => Symbol.Folder,
-        "image" => Symbol.Pictures,
-        "paragraph" => Symbol.AlignLeft,
-        "table" => Symbol.ViewAll,
-        _ => Symbol.Document
-    };
 
     /// <summary>Updates captions and tooltips in place while rebinding context actions to the current projection.</summary>
     private static void UpdateNavigationRow(Grid row, DesktopNavigationItem item)
@@ -482,8 +614,7 @@ public sealed partial class DesktopWindow
         if (row.Tag is not DesktopNavigationItem previous || previous.Label != item.Label || previous.Tooltip != item.Tooltip)
         {
             ((TextBlock)row.Children[1]).Text = item.Label;
-            ToolTipService.SetToolTip(row, item.Tooltip);
-            AutomationProperties.SetName(row, item.Target == null ? item.Path : item.Tooltip);
+            UpdateNavigationContainer(row, item);
         }
         row.Tag = item;
     }

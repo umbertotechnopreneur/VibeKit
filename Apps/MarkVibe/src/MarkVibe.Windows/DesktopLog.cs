@@ -24,19 +24,24 @@ namespace MarkVibe.Windows;
 internal static class DesktopLog
 {
     private const string SupportAppId = "MarkVibe";
-    private static Logger? _logger;
+    private static Task<Logger>? _startup;
     private static string? _directory;
 
     /// <summary>Starts seven-day file diagnostics beneath the selected application data directory.</summary>
     internal static void Initialize(string dataDirectory)
     {
-        _directory = Path.Combine(dataDirectory, "logs");
-        _logger = VibeWareDiagnostics.CreateLogger(SupportAppId, out _, _directory);
-        Write("info", "application.start", new
+        var directory = Path.Combine(dataDirectory, "logs");
+        _directory = directory;
+        _startup = Task.Run(() =>
         {
-            version = typeof(App).Assembly.GetName().Version?.ToString(),
-            runtime = Environment.Version.ToString(),
-            architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString()
+            var logger = VibeWareDiagnostics.CreateLogger(SupportAppId, out _, directory);
+            logger.Information("{Event:l} {Details:l}", "application.start", JsonSerializer.Serialize(new
+            {
+                version = typeof(App).Assembly.GetName().Version?.ToString(),
+                runtime = Environment.Version.ToString(),
+                architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString()
+            }));
+            return logger;
         });
     }
 
@@ -49,7 +54,7 @@ internal static class DesktopLog
             "warning" => LogEventLevel.Warning,
             _ => LogEventLevel.Information
         };
-        _logger?.Write(severity, "{Event:l} {Details:l}", eventName,
+        _startup?.GetAwaiter().GetResult().Write(severity, "{Event:l} {Details:l}", eventName,
             details is null ? "" : JsonSerializer.Serialize(details));
     }
 
@@ -76,8 +81,7 @@ internal static class DesktopLog
     /// <summary>Flushes pending diagnostics when the Windows host exits.</summary>
     internal static void Shutdown()
     {
-        _logger?.Dispose();
-        _logger = null;
+        Interlocked.Exchange(ref _startup, null)?.GetAwaiter().GetResult().Dispose();
     }
 
     /// <summary>Records exception types and method names, deliberately excluding messages and source file paths.</summary>

@@ -131,7 +131,7 @@ internal static class MarkdownFileAssociations
                 DefaultButton = ContentDialogButton.Close,
                 Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap }
             };
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await WindowsDialogs.ShowAsync(dialog) == ContentDialogResult.Primary)
             {
                 Process.Start(new ProcessStartInfo(settingsUri) { UseShellExecute = true });
             }
@@ -145,11 +145,13 @@ internal static class MarkdownFileAssociations
             DesktopLog.Error("fileAssociations.offerFailed", error);
             if (options.ConfigureFileAssociations)
             {
-                await new ContentDialog
+                var dialog = new ContentDialog
                 {
                     XamlRoot = root, Title = "MarkVibe", CloseButtonText = T("Close"),
+                    DefaultButton = ContentDialogButton.Close,
                     Content = new TextBlock { Text = T("Default-app setup could not be opened. Open Windows Settings > Apps > Default apps and select MarkVibe."), TextWrapping = TextWrapping.Wrap }
-                }.ShowAsync();
+                };
+                await WindowsDialogs.ShowAsync(dialog);
             }
         }
     }

@@ -34,28 +34,18 @@ using static MarkVibe.Core.UiStrings;
 namespace MarkVibe.Windows;
 
 /// <summary>Draws the visible map on a single Win2D surface and owns pointer previews and camera geometry.</summary>
-internal sealed class WindowsGraphCanvas : Grid, IDisposable
+internal sealed partial class WindowsGraphCanvas : Grid, IDisposable
 {
     private readonly MapPerformanceProbe? _performance = MapPerformanceProbe.Create();
     private static readonly Color Black = Color.FromArgb(255, 0, 0, 0);
-    private static readonly Color Accent = Color.FromArgb(255, 110, 203, 255);
-    private static readonly Color CardText = Color.FromArgb(255, 246, 248, 252);
-    private static readonly Color DetailText = Color.FromArgb(255, 188, 199, 213);
-    private static readonly Color IncomingColor = Color.FromArgb(255, 85, 215, 207);
-    private static readonly Color OutgoingColor = Color.FromArgb(255, 183, 163, 255);
-    private static readonly Color RouteColor = Color.FromArgb(255, 232, 200, 122);
-    private static readonly Color AttentionColor = Color.FromArgb(255, 252, 155, 96);
-    private static readonly Color ReferenceColor = Color.FromArgb(255, 255, 119, 210);
-    private static readonly Color VisitedColor = Color.FromArgb(255, 114, 149, 176);
-    private static readonly Color CardBackground = Color.FromArgb(255, 8, 11, 16);
-    private static readonly Color HoverBackground = Color.FromArgb(255, 13, 17, 25);
-    private static readonly Color SelectedBackground = Color.FromArgb(255, 14, 16, 27);
+    private WindowsMapPalette _palette = WindowsMapPalette.Dark;
     private static readonly string[] IslandPalette = ["#009fbd", "#914bff", "#e8ac45", "#008f83", "#5865d9", "#d64578"];
-    private static readonly HashSet<Color> PersistentLights = IslandPalette.Select(ParseColor).Append(Accent).ToHashSet();
+    private static readonly HashSet<Color> PersistentLights = IslandPalette.Select(ParseColor).ToHashSet();
     private static readonly Lazy<IReadOnlyDictionary<string, XElement>> IconSymbols = new(ReadIconSymbols);
     private const float MaximumDepth = 12;
     private const int DenseGraphEdgeCount = 250;
     private const int CardTransitionMilliseconds = 420;
+    private const int WheelTransitionMilliseconds = 60;
     private const int ImpulseMilliseconds = 850;
     private const int ImpulseMaximumDelay = 180;
     private const int DoubleClickWidthMetric = 36;
@@ -64,7 +54,8 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     private static readonly Vector2 CoordinateLimit = new((float)MapLayoutCodec.MaximumCoordinate);
     private static readonly Vector2 MinimumCard = new(MapLayoutCodec.MinimumCardWidth, MapLayoutCodec.MinimumCardHeight);
     private static readonly Vector2 MaximumCard = new(MapLayoutCodec.MaximumCardWidth, MapLayoutCodec.MaximumCardHeight);
-    private readonly CanvasControl _surface = new() { ClearColor = Black };
+    private readonly CanvasControl _surface = new() { ClearColor = Microsoft.UI.Colors.Transparent };
+    private readonly Border _canvasWash = new() { IsHitTestVisible = false };
     private readonly Button _readHere = new() { HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Visibility = Visibility.Collapsed };
     private readonly TranslateTransform _readHerePosition = new();
     private readonly TextBlock _linkDetails = new() { TextWrapping = TextWrapping.Wrap };
@@ -73,13 +64,15 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     {
         HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Visibility = Visibility.Collapsed,
         IsHitTestVisible = false, Padding = new Thickness(10, 7, 10, 7), CornerRadius = new CornerRadius(6), BorderThickness = new Thickness(1),
-        Background = new SolidColorBrush(Color.FromArgb(246, 24, 30, 42)), BorderBrush = new SolidColorBrush(Accent)
     };
-    private readonly CanvasTextFormat _titleFormat = new() { FontSize = 19, Options = CanvasDrawTextOptions.Clip };
-    private readonly CanvasTextFormat _overviewTitleFormat = new() { FontSize = 28, Options = CanvasDrawTextOptions.Clip };
+    private readonly CanvasTextFormat _titleFormat = new()
+    {
+        FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.Light, WordWrapping = CanvasWordWrapping.Wrap,
+        Options = CanvasDrawTextOptions.Clip
+    };
     private readonly CanvasTextFormat _detailFormat = new()
     {
-        FontSize = 14, Options = CanvasDrawTextOptions.Clip,
+        FontSize = 12.5f, WordWrapping = CanvasWordWrapping.Wrap, Options = CanvasDrawTextOptions.Clip,
         TrimmingGranularity = CanvasTextTrimmingGranularity.Character, TrimmingSign = CanvasTrimmingSign.Ellipsis
     };
     private readonly CanvasTextFormat _statsFormat = new()
@@ -94,7 +87,8 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         TrimmingGranularity = CanvasTextTrimmingGranularity.Character, TrimmingSign = CanvasTrimmingSign.Ellipsis
     };
     private readonly CanvasTextFormat _folderCountFormat = new() { FontSize = 12, HorizontalAlignment = CanvasHorizontalAlignment.Right, Options = CanvasDrawTextOptions.Clip };
-    private readonly CanvasTextFormat _iconFormat = new() { FontSize = 18, FontFamily = "Segoe Fluent Icons" };
+    private readonly CanvasTextFormat _iconFormat = new() { FontSize = 14, FontFamily = "Segoe Fluent Icons" };
+    private readonly string _defaultGraphFont;
     private readonly CanvasStrokeStyle _dashed = new() { DashStyle = CanvasDashStyle.Dash };
     private readonly CanvasStrokeStyle _dotted = new() { DashStyle = CanvasDashStyle.Dot };
     private readonly CanvasStrokeStyle _roundStroke = new() { StartCap = CanvasCapStyle.Round, EndCap = CanvasCapStyle.Round };
@@ -107,6 +101,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     private readonly HashSet<string> _referencePaths = new(StringComparer.Ordinal);
     private readonly HashSet<string> _visited = new(StringComparer.Ordinal);
     private readonly HashSet<string> _relatedCards = new(StringComparer.Ordinal);
+    private string? _relatedFocus;
     private readonly Dictionary<MapEdge, int> _impulse = [];
     private readonly Dictionary<string, float> _depthLevels = new(StringComparer.Ordinal);
     private Dictionary<string, (float Scale, float Depth)> _previousDepth = new(StringComparer.Ordinal);
@@ -114,8 +109,14 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     private Dictionary<string, Bounds> _previousCardPositions = new(StringComparer.Ordinal);
     private Dictionary<string, Bounds> _previousIslandPositions = new(StringComparer.Ordinal);
     private readonly Dictionary<MapEdge, (ConnectionCurve Curve, CanvasGeometry Path)> _curvePaths = [];
+    private readonly List<(MapEdge Edge, ConnectionCurve Curve)> _drawnEdges = [];
+    private Vector2 _drawnTranslation;
+    private float _drawnScale = 1;
+    private readonly Dictionary<MapEdge, float> _edgeLanes = [];
     private readonly Dictionary<(string Icon, Color Color), RenderedIcon> _icons = [];
     private readonly Dictionary<Color, CanvasRadialGradientBrush> _lights = [];
+    private CanvasLinearGradientBrush? _cardSheen;
+    private bool _highContrast;
     private readonly DispatcherQueueTimer _effectTimer;
     private readonly DispatcherQueueTimer _pointerTipTimer;
     private MapSnapshot? _map;
@@ -128,6 +129,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     private Vector2 _translation;
     private float _scale = 1;
     private float _toolbarInset;
+    private Bounds? _toolbarOcclusion;
     private int _focusDepth;
     private bool _depth;
     private bool _advanced;
@@ -137,6 +139,8 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     private CameraTransition? _cameraTransition;
     private string? _pendingCenter;
     private long _wheelGestureAt;
+    private WheelTransition? _wheelTransition;
+    private bool _animateWheelDetents;
     private uint? _pointer;
     private Gesture _gesture;
     private Card? _dragged;
@@ -184,9 +188,11 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     /// <summary>Attaches one draw surface and listens only for viewport changes and native input.</summary>
     public WindowsGraphCanvas()
     {
+        _defaultGraphFont = _titleFormat.FontFamily;
         IsTabStop = true;
         AutomationProperties.SetName(this, T("Document map"));
         AutomationProperties.SetHelpText(this, T("Use Tab and Shift+Tab to focus map items. Page Up and Page Down focus documents. Add Shift for connections or Control for folders. Space selects, and Enter opens. R focuses the resize grip and M focuses the minimap."));
+        Children.Add(_canvasWash);
         Children.Add(_surface);
         _readHere.Content = T("Read here");
         ToolTipService.SetToolTip(_readHere, T("Read here"));
@@ -194,7 +200,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         _readHere.Click += (_, _) => OpenSelectedPreview();
         _readHere.SizeChanged += (_, _) => _surface.Invalidate();
         Children.Add(_readHere);
-        _linkDetails.Foreground = new SolidColorBrush(CardText);
+
         _linkTip.Child = _linkDetails;
         _linkTip.RenderTransform = _linkTipPosition;
         _linkTip.SizeChanged += (_, _) => _surface.Invalidate();
@@ -223,6 +229,67 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         _pointerTipTimer.Tick += PointerTipReady;
     }
 
+    /// <summary>Updates semantic colors in place without resetting the camera or document selection.</summary>
+    public void SetAppearance(WindowsMapPalette palette, Brush background)
+    {
+        var previousAccent = _palette.Accent;
+        if (_palette != palette)
+        {
+            InvalidateGestureEdges();
+        }
+        if (_palette.CardBackground != palette.CardBackground || _palette.CardText != palette.CardText)
+        {
+            ReleaseIcons();
+        }
+        _palette = palette;
+        Background = background;
+        _highContrast = new AccessibilitySettings().HighContrast;
+        _cardSheen?.Dispose();
+        _cardSheen = null;
+        // XAML composites this stationary wash below Win2D, including when the base material is acrylic.
+        _canvasWash.Background = _highContrast ? null : new LinearGradientBrush
+        {
+            StartPoint = new Point(0, 0), EndPoint = new Point(1, .86),
+            GradientStops =
+            {
+                new GradientStop { Offset = 0, Color = Alpha(palette.IncomingColor, .13f) },
+                new GradientStop { Offset = .48, Color = Alpha(palette.Canvas, 0) },
+                new GradientStop { Offset = 1, Color = Alpha(palette.Accent, .18f) }
+            }
+        };
+        _linkTip.Background = new SolidColorBrush(palette.Panel);
+        _linkTip.BorderBrush = new SolidColorBrush(palette.Accent);
+        _linkDetails.Foreground = new SolidColorBrush(palette.CardText);
+        if (previousAccent != palette.Accent && _lights.Remove(previousAccent, out var brush))
+        {
+            brush.Dispose();
+        }
+        _surface.Invalidate();
+    }
+
+    /// <summary>Updates map typography and refreshes measurements that depend on the previous font.</summary>
+    public void SetGraphFont(string family)
+    {
+        var system = family == "system";
+        var display = system ? _defaultGraphFont : family;
+        _titleFormat.FontFamily = display;
+        _detailFormat.FontFamily = display;
+        _labelFormat.FontFamily = display;
+        _folderCountFormat.FontFamily = display;
+        _statsFormat.FontFamily = system ? "Cascadia Mono" : family;
+        if (system)
+        {
+            _linkDetails.ClearValue(TextBlock.FontFamilyProperty);
+        }
+        else
+        {
+            _linkDetails.FontFamily = new FontFamily(family);
+        }
+        ReleaseText();
+        _measuredStatistics = null;
+        _surface.Invalidate();
+    }
+
     /// <summary>Updates projection geometry and keeps compatible DirectWrite layouts across selection changes.</summary>
     public void Show(WindowsMapModel model, bool animateArrangement = false)
     {
@@ -233,6 +300,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
             return;
         }
         _deferredModel = null;
+        InvalidateGestureEdges();
         var canAnimateArrangement = animateArrangement && _map != null && model.Snapshot.Edges.Count < DenseGraphEdgeCount && AnimationsEnabled();
         var priorCards = canAnimateArrangement ? _cards.ToDictionary(pair => pair.Key, pair => AnimatedLogical(pair.Value), StringComparer.Ordinal) : null;
         var priorIslands = canAnimateArrangement ? _islands.ToDictionary(pair => pair.Key, pair => AnimatedIsland(pair.Value), StringComparer.Ordinal) : null;
@@ -291,7 +359,10 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
             _cards.Remove(path);
         }
         _edges.Clear();
+        _drawnEdges.Clear();
         _edges.AddRange(_map.Edges.Where(edge => _cards.ContainsKey(edge.Source) && _cards.ContainsKey(edge.Target)));
+        _relatedCards.Clear();
+        _relatedFocus = null;
         var projectedEdges = _edges.ToHashSet();
         foreach (var edge in _curvePaths.Keys.Where(edge => !projectedEdges.Contains(edge)).ToArray())
         {
@@ -305,7 +376,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
             _icons.Remove(icon);
         }
         var activeColors = activeIcons.Select(icon => icon.Color).ToHashSet();
-        foreach (var color in _lights.Keys.Where(color => !PersistentLights.Contains(color) && !activeColors.Contains(color)).ToArray())
+        foreach (var color in _lights.Keys.Where(color => color != _palette.Accent && !PersistentLights.Contains(color) && !activeColors.Contains(color)).ToArray())
         {
             _lights[color].Dispose();
             _lights.Remove(color);
@@ -326,6 +397,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
             _effectTimer.Start();
         }
         BuildIslands(model);
+        AssignEdgeLanes();
         if (priorCards != null && priorIslands != null)
         {
             BeginArrangement(priorCards, priorIslands);
@@ -347,15 +419,21 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         _surface.Invalidate();
     }
 
-    /// <summary>Reserves the top of the canvas for the measured floating toolbar.</summary>
-    public void SetToolbarInset(double top)
+    /// <summary>Retains the fit margin and records only the pixels covered by the floating toolbar.</summary>
+    public void SetToolbarArea(double top, Rect covered)
     {
         var inset = double.IsFinite(top) ? (float)Math.Clamp(top, 0, float.MaxValue) : 0;
-        if (_toolbarInset == inset)
+        var occlusion = covered.Width > 0 && covered.Height > 0 ? Bounds.From(covered) : (Bounds?)null;
+        if (_toolbarInset == inset && _toolbarOcclusion == occlusion)
         {
             return;
         }
         _toolbarInset = inset;
+        _toolbarOcclusion = occlusion;
+        if (_pointer == null && IsOverToolbar(_pointerCurrent))
+        {
+            ClearPointerHover();
+        }
         _surface.Invalidate();
     }
 
@@ -373,12 +451,16 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         _cards.Clear();
         _islands.Clear();
         _edges.Clear();
+        _edgeLanes.Clear();
+        _drawnEdges.Clear();
         _route.Clear();
         _routeCards.Clear();
         _referencePaths.Clear();
         _visited.Clear();
         _relatedCards.Clear();
+        _relatedFocus = null;
         _depthLevels.Clear();
+        Minimap = null;
         _labels = [];
         _folderLabels = [];
         SetHover(null, null);
@@ -401,6 +483,8 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     public void StopEffects()
     {
         _effectTimer.Stop();
+        _wheelTransition = null;
+        _wheelGestureAt = 0;
         _selectionProgress = _entranceProgress = _hoverProgress = _arrangementProgress = 1;
         _selectionStarted = _entranceStarted = _hoverStarted = 0;
         _arrangementStarted = null;
@@ -438,6 +522,8 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     private void AdvanceEffects(DispatcherQueueTimer timer, object args)
     {
         var now = Stopwatch.GetTimestamp();
+        var animating = HasActiveEffects();
+        var wheelActive = _wheelGestureAt != 0;
         _selectionProgress = AnimationProgress(_selectionStarted, now, CardTransitionMilliseconds);
         _entranceProgress = AnimationProgress(_entranceStarted, now, 1070);
         _hoverProgress = AnimationProgress(_hoverStarted, now, CardTransitionMilliseconds);
@@ -451,13 +537,20 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
             _previousIslandPositions.Clear();
         }
         AdvanceCamera(now);
-        _surface.Invalidate();
-        if (_selectionProgress >= 1 && _impulseElapsed >= ImpulseMilliseconds + ImpulseMaximumDelay && _entranceProgress >= 1 &&
-            _hoverProgress >= 1 && _arrangementProgress >= 1 && _cameraTransition == null && _wheelGestureAt == 0)
+        // A detent starts immediately, continues on this clock, then restores detail and hover at rest.
+        if (animating || wheelActive && _wheelGestureAt == 0)
+        {
+            _surface.Invalidate();
+        }
+        if (!HasActiveEffects() && _wheelGestureAt == 0)
         {
             StopEffects();
         }
     }
+
+    /// <summary>Reports whether a visual transition still needs animation ticks.</summary>
+    private bool HasActiveEffects() => _selectionProgress < 1 || _impulseElapsed < ImpulseMilliseconds + ImpulseMaximumDelay ||
+        _entranceProgress < 1 || _hoverProgress < 1 || _arrangementProgress < 1 || _cameraTransition != null || _wheelTransition.HasValue;
 
     /// <summary>Returns the bounded phase of a finite presentation transition.</summary>
     private static float AnimationProgress(long started, long now, int duration) => started == 0 ? 1 :
@@ -518,6 +611,29 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
             _pendingCenter = path;
             _surface.Invalidate();
         }
+    }
+
+    /// <summary>Preserves the zoom and keeps a previously visible selection beside an opened or widened inspector.</summary>
+    public void KeepSelectionVisible(Size previous, Size current)
+    {
+        if (!_cards.TryGetValue(_selected, out var card) || IsHidden(card) || current.Width < 80 || current.Height < 80)
+        {
+            return;
+        }
+        var box = ScreenBounds(DocumentShape(card));
+        if (!box.Overlaps(new Bounds(Vector2.Zero, new Vector2((float)previous.Width, (float)previous.Height))))
+        {
+            return;
+        }
+
+        const float gutter = 14;
+        var min = new Vector2(gutter, ToolbarInset + gutter);
+        var max = new Vector2((float)current.Width - gutter, (float)current.Height - 36);
+        var half = box.Size / 2;
+        var center = (min + max) / 2;
+        var target = Vector2.Clamp(box.Center, Vector2.Min(min + half, center), Vector2.Max(max - half, center));
+        _translation += target - box.Center;
+        _surface.Invalidate();
     }
 
     /// <summary>Captures the logical center and bounded zoom in the current viewport.</summary>
@@ -603,6 +719,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
                 _cameraTransition = null;
             }
         }
+        AdvanceWheel(now);
         if (_wheelGestureAt != 0 && Stopwatch.GetElapsedTime(_wheelGestureAt, now).TotalMilliseconds >= 180)
         {
             _wheelGestureAt = 0;
@@ -611,6 +728,33 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
                 UpdatePointerHover(_wheelPointer);
             }
         }
+    }
+
+    /// <summary>Advances a discrete detent against elapsed time and assigns its exact commanded scale at completion.</summary>
+    private bool AdvanceWheel(long now)
+    {
+        if (_wheelTransition is not { } wheel)
+        {
+            return false;
+        }
+        var progress = AnimationProgress(wheel.Started, now, WheelTransitionMilliseconds);
+        var eased = progress * (2 - progress);
+        var scale = progress >= 1 ? wheel.TargetScale :
+            wheel.StartScale * MathF.Pow(wheel.TargetScale / wheel.StartScale, eased);
+        var changed = scale != _scale;
+        ApplyWheelScale(wheel.Anchor, wheel.WorldAnchor, scale);
+        if (progress >= 1)
+        {
+            _wheelTransition = null;
+        }
+        return changed;
+    }
+
+    /// <summary>Projects the same logical point onto the cursor throughout a wheel transition.</summary>
+    private void ApplyWheelScale(Vector2 anchor, Vector2 worldAnchor, float scale)
+    {
+        _scale = scale;
+        _translation = anchor - worldAnchor * scale;
     }
 
     /// <summary>Preserves the requested logical center at the supplied zoom.</summary>
@@ -639,6 +783,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         _pendingCamera = null;
         _pendingCenter = null;
         _cameraTransition = null;
+        _wheelTransition = null;
         _wheelGestureAt = 0;
     }
 
@@ -646,6 +791,88 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     private float ToolbarInset => Math.Min(_toolbarInset, Viewport.Y * .5f);
     private bool IsArranging => _arrangementStarted.HasValue;
     private bool IsDense => _edges.Count >= DenseGraphEdgeCount || _cards.Count >= DenseGraphEdgeCount;
+
+    /// <summary>Checks whether the floating toolbar physically covers a viewport point.</summary>
+    private bool IsOverToolbar(Vector2 point) => _toolbarOcclusion is { } toolbar && toolbar.Contains(point);
+
+    /// <summary>Admits input anywhere inside the viewport that is exposed by the floating controls.</summary>
+    private bool IsCanvasPoint(Vector2 point) => new Bounds(Vector2.Zero, Viewport).Contains(point) && !IsOverToolbar(point);
+
+    /// <summary>Returns the largest visible rectangle of a target for native accessibility.</summary>
+    private Bounds? VisiblePart(Bounds target)
+    {
+        var near = Vector2.Max(target.Origin, Vector2.Zero);
+        var far = Vector2.Min(target.End, Viewport);
+        if (far.X <= near.X || far.Y <= near.Y)
+        {
+            return null;
+        }
+        var clipped = new Bounds(near, far - near);
+        if (_toolbarOcclusion is not { } toolbar || !toolbar.Overlaps(clipped))
+        {
+            return clipped;
+        }
+
+        Bounds? largest = null;
+        var area = 0f;
+        Consider(near, new Vector2(toolbar.Origin.X, far.Y));
+        Consider(new Vector2(toolbar.End.X, near.Y), far);
+        Consider(near, new Vector2(far.X, toolbar.Origin.Y));
+        Consider(new Vector2(near.X, toolbar.End.Y), far);
+        return largest;
+
+        /// <summary>Retains the largest unclipped side of the rectangle around the overlay.</summary>
+        void Consider(Vector2 start, Vector2 end)
+        {
+            var size = end - start;
+            if (size.X > 0 && size.Y > 0 && size.X * size.Y > area)
+            {
+                largest = new Bounds(start, size);
+                area = size.X * size.Y;
+            }
+        }
+    }
+
+    /// <summary>Keeps a native tooltip or action near its anchor while avoiding the toolbar.</summary>
+    private Vector2? PlaceOverlay(Vector2 preferred, Vector2 size, float margin)
+    {
+        var minimum = new Vector2(margin);
+        var maximum = Viewport - size - minimum;
+        if (maximum.X < margin || maximum.Y < margin)
+        {
+            return null;
+        }
+
+        var position = Vector2.Clamp(preferred, minimum, maximum);
+        if (_toolbarOcclusion is not { } toolbar || !toolbar.Overlaps(new Bounds(position, size)))
+        {
+            return position;
+        }
+
+        ReadOnlySpan<Vector2> choices =
+        [
+            new(toolbar.End.X + margin, position.Y),
+            new(toolbar.Origin.X - size.X - margin, position.Y),
+            new(position.X, toolbar.End.Y + margin),
+            new(position.X, toolbar.Origin.Y - size.Y - margin)
+        ];
+        Vector2? closest = null;
+        var best = float.PositiveInfinity;
+        foreach (var choice in choices)
+        {
+            if (choice.X < minimum.X || choice.Y < minimum.Y || choice.X > maximum.X || choice.Y > maximum.Y)
+            {
+                continue;
+            }
+            var distance = Vector2.DistanceSquared(choice, position);
+            if (distance < best)
+            {
+                closest = choice;
+                best = distance;
+            }
+        }
+        return closest;
+    }
 
     /// <summary>Draws one bounded frame. The control issues no continuous idle redraws.</summary>
     private void Draw(CanvasControl sender, CanvasDrawEventArgs args)
@@ -662,7 +889,8 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
 
         var drawing = args.DrawingSession;
         var visible = new Bounds(World(Vector2.Zero), viewport / _scale);
-        UpdateRelations();
+        var relationFocus = RelationFocus;
+        UpdateRelations(relationFocus);
         var worldTransform = Matrix3x2.CreateScale(_scale) * Matrix3x2.CreateTranslation(_translation);
         drawing.Transform = worldTransform;
         foreach (var island in _islands.Values)
@@ -674,57 +902,116 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
             }
         }
         DrawTrail(drawing);
-        foreach (var edge in _edges)
+        _drawnEdges.Clear();
+        _drawnTranslation = _translation;
+        _drawnScale = _scale;
+        // Every link and its visible card share the exact same pose during this draw.
+        foreach (var card in _cards.Values)
         {
-            DrawEdge(drawing, edge, visible);
+            card.DrawEndpoint = Endpoint(card);
+        }
+        var quietEdgeColor = Mix(_palette.DetailText, _palette.Accent, .32f);
+        var highlightedEdge = _hoveredEdge ?? FocusedEdge;
+        if (IsDense && IsDirectCameraGesture && !IsArranging)
+        {
+            DrawGestureEdges(drawing, visible, relationFocus, quietEdgeColor, highlightedEdge);
+        }
+        else
+        {
+            foreach (var edge in _edges)
+            {
+                if (edge != highlightedEdge)
+                {
+                    DrawEdge(drawing, edge, visible, relationFocus, quietEdgeColor);
+                }
+            }
+        }
+        if (highlightedEdge != null)
+        {
+            DrawEdge(drawing, highlightedEdge, visible, relationFocus, quietEdgeColor);
+        }
+        var wheelCards = IsDense && _wheelGestureAt != 0 && _scale >= .4f;
+        if (wheelCards)
+        {
+            drawing.Transform = Matrix3x2.Identity;
         }
         foreach (var card in VisibleCards().OrderBy(CardLayer))
         {
-            var shape = Display(card);
+            var shape = card.DrawEndpoint;
             if (shape.Overlaps(visible))
             {
+                if (_scale < .4f)
+                {
+                    DrawOverviewNode(drawing, card, shape);
+                    continue;
+                }
+                if (wheelCards)
+                {
+                    DrawWheelCard(drawing, card, ScreenBounds(shape), relationFocus != null);
+                    continue;
+                }
                 // Animating the whole card retains static text and lines up the links with its visible sides.
                 var logical = card.Logical;
                 var magnification = shape.Size / logical.Size;
                 drawing.Transform = Matrix3x2.CreateTranslation(-logical.Origin) * Matrix3x2.CreateScale(magnification) *
                     Matrix3x2.CreateTranslation(shape.Origin) * worldTransform;
-                DrawCard(drawing, card, card.Logical);
+                DrawCard(drawing, card, card.Logical, relationFocus != null);
             }
         }
         drawing.Transform = Matrix3x2.Identity;
+        var minimapBounds = IsArranging ? Bounds.Combine(VisibleCards().Select(AnimatedLogical).Concat(_islands.Values.Select(AnimatedIsland))).Expand(24) : bounds;
+        var graphContent = minimapBounds.Expand(-24);
+        var allVisible = visible.Contains(graphContent.Origin) && visible.Contains(graphContent.End);
+        Minimap = GetMinimapBounds(allVisible);
         UpdateReadHere(viewport);
         UpdateLinkDetails(viewport);
         DrawLabels(drawing, viewport);
-        var minimapBounds = IsArranging ? Bounds.Combine(VisibleCards().Select(AnimatedLogical).Concat(_islands.Values.Select(AnimatedIsland))).Expand(24) : bounds;
-        DrawMinimap(drawing, minimapBounds, visible);
+        DrawMinimap(drawing, minimapBounds, visible, allVisible);
         if (_focusTarget == FocusTarget.Minimap && Minimap is { } focusedMinimap)
         {
-            drawing.DrawRectangle(focusedMinimap.Rect, Accent, 2);
+            drawing.DrawRectangle(focusedMinimap.Rect, _palette.Accent, 2);
         }
-        DrawMapLegend(drawing, viewport);
+        DrawZoomCaption(drawing, viewport);
         if (_gesture == Gesture.Select)
         {
             var selection = Bounds.Between(_pointerStart, _pointerCurrent).Rect;
-            drawing.FillRectangle(selection, Alpha(Accent, .15f));
-            drawing.DrawRectangle(selection, Accent, 1);
+            drawing.FillRectangle(selection, Alpha(_palette.Accent, .15f));
+            drawing.DrawRectangle(selection, _palette.Accent, 1);
         }
         ViewportDrawn?.Invoke();
         _performance?.Record(_gesture == Gesture.Pan ? "pan" : _wheelGestureAt != 0 ? "zoom" : "other",
-            measuredAt, allocatedBefore, _cards.Count, _edges.Count);
+            measuredAt, allocatedBefore, _cards.Count, _edges.Count, _scale, _translation);
+    }
+
+    /// <summary>Represents a distant document as a point; the active document stays visible among its neighbors.</summary>
+    private void DrawOverviewNode(CanvasDrawingSession drawing, Card card, Bounds shape)
+    {
+        var path = card.Document.Path;
+        var active = path == _selected || path == _hovered || path == FocusedCard;
+        var radius = Math.Max(active ? 3.5f / _scale : 1.5f / _scale, shape.Size.X / 2);
+        var opacity = EntryOpacity(shape.Center);
+        var color = _routeCards.Contains(path) ? _palette.RouteColor : active || _picked.Contains(path) ? _palette.Accent :
+            _referencePaths.Contains(path) ? _palette.ReferenceColor : Mix(_palette.Accent, card.Color, .28f);
+        if (active)
+        {
+            drawing.FillCircle(shape.Center, radius + 3 / _scale, Alpha(_palette.Canvas, opacity));
+            drawing.DrawCircle(shape.Center, radius + 2.5f / _scale, Alpha(color, opacity * .65f), 1 / _scale);
+        }
+        drawing.FillCircle(shape.Center, radius, Alpha(color, opacity * (active || IsWithinDistance(path) ? 1 : .5f)));
     }
 
     /// <summary>Paints folder tint, boundary and the expanded or collapsed island heading.</summary>
     private void DrawIsland(CanvasDrawingSession drawing, Island island, Bounds shape)
     {
-        const float radius = 20;
+        const float radius = 8;
         var activeEdge = _hoveredEdge ?? FocusedEdge;
         var active = FocusedFolder == island.Path || activeEdge != null &&
             (_cards.GetValueOrDefault(activeEdge.Source)?.Folder == island.Path || _cards.GetValueOrDefault(activeEdge.Target)?.Folder == island.Path);
-        var background = island.Collapsed ? Color.FromArgb(255, 8, 11, 18) : Color.FromArgb(128, 5, 7, 11);
+        var background = island.Collapsed ? _palette.Panel : Alpha(_palette.Panel, .68f);
         if (active && !IsDirectCameraGesture)
         {
             var spread = 3 / _scale;
-            drawing.DrawRoundedRectangle(shape.Expand(spread).Rect, radius + spread, radius + spread, Alpha(Accent, .15f), 5 / _scale);
+            drawing.DrawRoundedRectangle(shape.Expand(spread).Rect, radius + spread, radius + spread, Alpha(_palette.Accent, .15f), 5 / _scale);
         }
         drawing.FillRoundedRectangle(shape.Rect, radius, radius, background);
         if (!IsDense && !IsDirectCameraGesture)
@@ -732,21 +1019,21 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
             DrawCardLight(drawing, shape, radius, island.Color, shape.Origin + new Vector2(shape.Size.X * .12f, 0),
                 shape.Size * new Vector2(.9f, .95f), island.Collapsed ? .23f : .15f);
         }
-        drawing.DrawRoundedRectangle(shape.Rect, radius, radius, active ? Accent : Alpha(island.Color, .38f), (active ? 2 : 1) / _scale);
+        drawing.DrawRoundedRectangle(shape.Rect, radius, radius, active ? _palette.Accent : Alpha(island.Color, .38f), (active ? 2 : 1) / _scale);
         if (_scale >= .4f)
         {
             var prefix = island.Collapsed ? "▸ " : "▾ ";
-            var foreground = active ? CardText : Mix(island.Color, CardText, .35f);
+            var foreground = _palette.CardText;
             var count = string.Format(System.Globalization.CultureInfo.CurrentCulture, T("{0} documents"), island.Count);
             if (island.Collapsed)
             {
                 drawing.DrawText(prefix + island.Label, new Rect(shape.Origin.X + 16, shape.Origin.Y + 32, shape.Size.X - 32, 24), foreground, _titleFormat);
-                drawing.DrawText(count, new Rect(shape.Origin.X + 16, shape.Origin.Y + 62, shape.Size.X - 32, 19), DetailText, _labelFormat);
+                drawing.DrawText(count, new Rect(shape.Origin.X + 16, shape.Origin.Y + 62, shape.Size.X - 32, 19), _palette.DetailText, _labelFormat);
             }
             else
             {
                 drawing.DrawText(prefix + island.Label, new Rect(shape.Origin.X + 16, shape.Origin.Y + 11, shape.Size.X - 154, 25), foreground, _detailFormat);
-                drawing.DrawText(count, new Rect(shape.End.X - 136, shape.Origin.Y + 11, 120, 19), DetailText, _folderCountFormat);
+                drawing.DrawText(count, new Rect(shape.End.X - 136, shape.Origin.Y + 11, 120, 19), _palette.DetailText, _folderCountFormat);
             }
         }
     }
@@ -759,57 +1046,67 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         {
             if (_cards.TryGetValue(step.First.Path, out var a) && _cards.TryGetValue(step.Second.Path, out var b) && !IsHidden(a) && !IsHidden(b))
             {
-                drawing.DrawLine(Display(a).Center, Display(b).Center, Alpha(VisitedColor, .3f), 1 / _scale, _dotted);
+                drawing.DrawLine(Display(a).Center, Display(b).Center, Alpha(_palette.VisitedColor, .3f), 1 / _scale, _dotted);
             }
         }
     }
 
     /// <summary>Draws directed edges with dynamic geometry, endpoint depth and optional relationship emphasis.</summary>
-    private void DrawEdge(CanvasDrawingSession drawing, MapEdge edge, Bounds visible)
+    private void DrawEdge(CanvasDrawingSession drawing, MapEdge edge, Bounds visible, string? focus, Color quietColor)
     {
-        if (EdgeGeometry(edge) is not { } curve || !curve.Hull.Expand(12 / _scale).Overlaps(visible))
+        if (EdgeGeometry(edge, useDrawEndpoints: true) is not { } curve || !curve.Hull.Expand(12 / _scale).Overlaps(visible))
         {
             return;
         }
 
-        var focus = RelationFocus;
-        var outgoing = focus != null && edge.Source == focus;
-        var incoming = focus != null && !outgoing && edge.Target == focus;
-        var onRoute = _route.Contains((edge.Source, edge.Target));
-        var emphasized = _hoveredEdge == edge || FocusedEdge == edge;
-        var selected = edge.Source == _selected || edge.Target == _selected;
-        var color = onRoute ? RouteColor : emphasized ? Accent : incoming ? IncomingColor : outgoing ? OutgoingColor : Accent;
+        var emphasis = GetEdgeEmphasis(edge, focus);
+        var (outgoing, incoming, onRoute, emphasized, selected) = emphasis;
+        var primary = emphasis.Primary;
+        var hue = onRoute ? _palette.RouteColor : emphasized ? _palette.Accent : incoming ? _palette.IncomingColor :
+            outgoing ? _palette.OutgoingColor : selected ? _palette.Accent : quietColor;
+        var opacity = 1f;
         if (!emphasized && !onRoute)
         {
-            var furthest = Math.Max(DepthLevel(edge.Source), DepthLevel(edge.Target));
-            var depthOpacity = 1 - furthest / MaximumDepth * .72f;
-            var relationOpacity = focus != null && !incoming && !outgoing ? .2f : 1;
-            var focusOpacity = IsWithinDistance(edge.Source) && IsWithinDistance(edge.Target) ? 1 : .24f;
-            var baseOpacity = selected ? .90f : _scale < .4f ? .08f : .32f;
-            color = Alpha(color, baseOpacity * depthOpacity * focusOpacity * relationOpacity);
+            var relationOpacity = focus != null && !primary ? NonFocusedEdgeOpacity : 1;
+            var focusOpacity = IsWithinDistance(edge.Source) && IsWithinDistance(edge.Target) ? 1 : DistantEdgeOpacity;
+            var baseOpacity = primary ? .90f : IsDense || _scale < .4f ? DenseEdgeOpacity : .56f;
+            opacity = baseOpacity * EdgeDepthOpacity(edge) * focusOpacity * relationOpacity;
         }
 
+        var color = Alpha(hue, opacity);
         var path = CurvePath(edge, curve);
-        var width = (emphasized || onRoute ? 3 : selected || incoming || outgoing ? 1.55f : 1) / _scale;
+        _drawnEdges.Add((edge, curve));
+        var width = (emphasized || onRoute ? 2.2f : primary ? 1.6f : BackgroundEdgeWidth) / _scale;
+        if (emphasized && !IsDirectCameraGesture)
+        {
+            drawing.DrawGeometry(path, Alpha(hue, .14f), 5.5f / _scale, _roundStroke);
+        }
         if (incoming && !onRoute && !emphasized)
         {
             drawing.DrawGeometry(path, color, width, _dashed);
         }
         else
         {
-            drawing.DrawGeometry(path, color, width);
+            drawing.DrawGeometry(path, color, width, _roundStroke);
         }
-        if (!IsDirectCameraGesture)
+        if (!IsDirectCameraGesture && (primary || !IsDense && _scale >= .55f))
         {
             var tangent = Vector2.Normalize(curve.End - curve.EndControl);
-            var arrowBase = curve.End - tangent * (8 / _scale);
-            var wing = new Vector2(-tangent.Y, tangent.X) * (3.2f / _scale);
-            drawing.DrawLine(curve.End, arrowBase + wing, color, width);
-            drawing.DrawLine(curve.End, arrowBase - wing, color, width);
+            var tip = curve.End - tangent * (2 / _scale);
+            var arrowBase = tip - tangent * ((primary ? 6.5f : 5) / _scale);
+            var wing = new Vector2(-tangent.Y, tangent.X) * ((primary ? 3.0f : 2.2f) / _scale);
+            var arrowColor = primary ? color : Alpha(hue, opacity * 1.30f);
+            drawing.DrawLine(tip, arrowBase + wing, arrowColor, width, _roundStroke);
+            drawing.DrawLine(tip, arrowBase - wing, arrowColor, width, _roundStroke);
+            if (primary && (!IsDense || emphasized))
+            {
+                var start = curve.Start + Vector2.Normalize(curve.StartControl - curve.Start) * (3.5f / _scale);
+                drawing.FillCircle(start, 2.25f / _scale, color);
+            }
         }
         if (!IsDirectCameraGesture && _impulse.TryGetValue(edge, out var delay))
         {
-            DrawImpulse(drawing, curve, edge.Source == _selected ? OutgoingColor : IncomingColor,
+            DrawImpulse(drawing, curve, edge.Source == _selected ? _palette.OutgoingColor : _palette.IncomingColor,
                 (_impulseElapsed - delay) / ImpulseMilliseconds);
         }
     }
@@ -880,16 +1177,14 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         }
 
         using var builder = new CanvasPathBuilder(_surface);
-        builder.BeginFigure(curve.Start);
-        builder.AddCubicBezier(curve.StartControl, curve.EndControl, curve.End);
-        builder.EndFigure(CanvasFigureLoop.Open);
+        AddConnectionFigure(builder, curve);
         var path = CanvasGeometry.CreatePath(builder);
         _curvePaths[edge] = (curve, path);
         return path;
     }
 
     /// <summary>Draws one card with retained style, level of detail, document statistics and emphasis.</summary>
-    private void DrawCard(CanvasDrawingSession drawing, Card card, Bounds shape)
+    private void DrawCard(CanvasDrawingSession drawing, Card card, Bounds shape, bool relationLens)
     {
         var path = card.Document.Path;
         var selected = path == _selected;
@@ -903,108 +1198,109 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         var attention = _map?.Attention.GetValueOrDefault(path);
         var matchesAttention = _exploration is { AttentionMode: not "all" } state && MatchesAttention(attention, state.AttentionMode);
         var entry = EntryOpacity(AnimatedLogical(card).Center);
-        var opacity = entry;
-        if (!selected && !picked && !candidate && !route)
+        var surfaceOpacity = entry;
+        var titleOpacity = entry;
+        var detailOpacity = entry;
+        if (!selected && !picked && !candidate && !route && !endpoint)
         {
-            var mutedOpacity = VisibilityOf(path);
-            if (RelationFocus != null && !_relatedCards.Contains(path))
-            {
-                mutedOpacity *= .38f;
-            }
-            if (_exploration is { AttentionMode: not "all" } && !matchesAttention)
-            {
-                mutedOpacity *= .25f;
-            }
-            opacity *= float.Lerp(mutedOpacity, 1, hoverEmphasis);
+            // Depth and filters are most visible in the surfaces. Titles remain readable at rest.
+            var filtered = !IsWithinDistance(path) || _exploration is { AttentionMode: not "all" } && !matchesAttention;
+            var outsideLens = relationLens && !_relatedCards.Contains(path);
+            var depthOpacity = 1 - DepthLevel(path) * .035f;
+            var surfaceEmphasis = filtered ? .48f : outsideLens ? .72f : 1;
+            surfaceOpacity *= float.Lerp(depthOpacity * surfaceEmphasis, 1, hoverEmphasis);
+            titleOpacity *= float.Lerp(filtered ? .77f : outsideLens ? .91f : 1, 1, hoverEmphasis);
+            detailOpacity *= float.Lerp(filtered ? .66f : outsideLens ? .83f : .95f, 1, hoverEmphasis);
         }
         var origin = shape.Origin;
         var size = shape.Size;
         var strongBorder = selected || picked || candidate || endpoint ? 1 : hoverEmphasis;
-        var regularBorder = route ? RouteColor : matchesAttention ? AttentionColor : card.Color;
-        var border = Mix(regularBorder, Accent, strongBorder);
-        DrawCardSurface(drawing, shape, card.Color, border, selected, hoverEmphasis, strongBorder, opacity, endpoint ? entry : opacity);
+        var regularBorder = route ? _palette.RouteColor : matchesAttention ? _palette.AttentionColor : Mix(_palette.Border, card.Color, .10f);
+        var border = Mix(regularBorder, _palette.Accent, strongBorder);
+        DrawCardSurface(drawing, shape, card.Color, border, selected, hoverEmphasis, strongBorder, surfaceOpacity, entry);
 
-        if (_scale < .4f)
-        {
-            var heading = origin + new Vector2(12, Math.Max(8, (size.Y - 65) / 2));
-            DrawIcon(drawing, card, heading + new Vector2(0, 4), 24, opacity);
-            card.DrawTitle(drawing, _surface, _overviewTitleFormat, heading + new Vector2(31, 0), Alpha(CardText, opacity), size.X - 53, 65);
-            DrawCardMarkers(drawing, path, shape, picked, opacity);
-            return;
-        }
-
-        DrawIcon(drawing, card, origin + new Vector2(12, 11), 18, opacity);
-        card.DrawTitle(drawing, _surface, _titleFormat, origin + new Vector2(37, 8), Alpha(CardText, opacity), size.X - 52, 44);
-        DrawAttentionBadge(drawing, shape, attention, opacity);
-
+        const float inset = 16;
+        var textWidth = size.X - 2 * inset;
         var detail = focused && _scale >= .72f;
-        var outline = detail && selected && !_advanced && _scale >= 1.05f && card.Document.Headings.Count > 0;
-        var availableDetail = size.Y - (detail ? outline || _advanced ? 53 : 24 : 8);
-        var introductionHeight = detail && _advanced ? 0 : Math.Min(focused ? 48 : 18, availableDetail - 43);
-        if (introductionHeight >= 15)
+        var showStatistics = detail && _advanced;
+        var bodyBottom = showStatistics ? (float)StatisticsRowBounds(shape, 0).Y - 7 : shape.End.Y - inset;
+        var ink = Alpha(_palette.CardText, titleOpacity);
+        var secondaryInk = Alpha(_palette.DetailText, detailOpacity);
+        var rule = Alpha(_palette.Border, detailOpacity * .62f);
+        var compact = size.Y < 154;
+        var headerTop = compact ? 6 : 12;
+        var ruleY = origin.Y + (compact ? 25 : 34);
+        var headerWidth = textWidth - DrawAttentionBadge(drawing, shape, attention, headerTop, titleOpacity) - 21;
+        DrawIcon(drawing, card, origin + new Vector2(inset, headerTop + 1), 14, titleOpacity);
+        var runningHead = detail ? path : card.FileName;
+        if (!runningHead.Equals(card.Document.Title, StringComparison.OrdinalIgnoreCase))
         {
-            card.DrawDetail(drawing, _surface, _detailFormat, origin + new Vector2(12, 43), Alpha(DetailText, opacity), size.X - 25, introductionHeight);
+            drawing.DrawText(runningHead, new Rect(origin.X + inset + 21, origin.Y + headerTop, headerWidth, 16), secondaryInk, _labelFormat);
         }
-        if (outline)
+        var left = origin.X + inset;
+        var right = shape.End.X - inset;
+        drawing.DrawLine(left, ruleY, right, ruleY, rule, .7f);
+        var titleTop = ruleY + (compact ? 4 : 8);
+        var titleHeight = card.DrawTitle(drawing, _surface, _titleFormat, new Vector2(left, titleTop),
+            ink, textWidth, Math.Clamp(bodyBottom - titleTop, 21, 44));
+        var bodyTop = titleTop + titleHeight + 8;
+        var introductionHeight = Math.Min(focused ? 96 : 74, bodyBottom - bodyTop);
+        if (introductionHeight >= 18 && card.Document.Introduction.Length > 0)
         {
-            var y = origin.Y + size.Y - 53;
-            foreach (var heading in card.Document.Headings.Take(3))
+            bodyTop += card.DrawDetail(drawing, _surface, _detailFormat, new Vector2(left, bodyTop),
+                secondaryInk, textWidth, introductionHeight) + 12;
+        }
+        if (_scale >= .58f && bodyBottom - bodyTop >= 36 && card.PreviewLines.Length != 0)
+        {
+            drawing.DrawText(T(card.PreviewUsesHeadings ? "Outline" : "Links"),
+                new Rect(left, bodyTop, textWidth, 15), secondaryInk, _labelFormat);
+            var lines = Math.Min(card.PreviewLines.Length, (int)((bodyBottom - bodyTop - 18) / 16));
+            for (var index = 0; index < lines; index++)
             {
-                drawing.DrawText(heading.Text, new Rect(origin.X + 12, y, size.X - 28, 14), Alpha(DetailText, opacity), _labelFormat);
-                y += 14;
+                drawing.DrawText(card.PreviewLines[index], new Rect(left, bodyTop + 18 + 16 * index, textWidth, 16), ink, _labelFormat);
             }
         }
-        else if (detail && _advanced)
+        if (showStatistics)
         {
-            drawing.DrawText(path, new Rect(origin.X + 12, origin.Y + size.Y - 62, size.X - 29, 16), Alpha(DetailText, opacity), _statsFormat);
-            DrawStatistics(drawing, card.Document.Statistics, shape, opacity);
-        }
-        else if (detail)
-        {
-            drawing.DrawText(path, new Rect(origin.X + 12, origin.Y + size.Y - 25, size.X - 29, 18), Alpha(DetailText, opacity), _statsFormat);
+            drawing.DrawLine(left, bodyBottom + 3, right, bodyBottom + 3, rule, .7f);
+            DrawStatistics(drawing, card.Document.Statistics, shape, detailOpacity);
         }
         if (focused)
         {
             var grip = origin + size - new Vector2(6);
-            drawing.DrawLine(grip - new Vector2(8, 0), grip - new Vector2(0, 8), Accent, 1 / _scale);
-            drawing.DrawLine(grip - new Vector2(4, 0), grip - new Vector2(0, 4), Accent, 1 / _scale);
+            var gripColor = Alpha(_palette.DetailText, _focusTarget == FocusTarget.Resize ? 1 : .52f);
+            drawing.DrawLine(grip - new Vector2(6, 0), grip - new Vector2(0, 6), gripColor, .9f / _scale);
+            drawing.DrawLine(grip - new Vector2(3, 0), grip - new Vector2(0, 3), gripColor, .9f / _scale);
         }
-        DrawCardMarkers(drawing, path, shape, picked, opacity);
+        DrawCardMarkers(drawing, path, shape, picked, titleOpacity);
     }
 
-    /// <summary>Paints the dark card, two subtle radial lights and bounded soft elevation on closer views.</summary>
+    /// <summary>Paints a restrained document surface with a single crisp edge and a raised selected state.</summary>
     private void DrawCardSurface(CanvasDrawingSession drawing, Bounds shape, Color tint, Color border, bool selected,
-        float hover, float emphasis, float opacity, float borderOpacity)
+        float hover, float emphasis, float opacity, float entry)
     {
-        const float radius = 10;
-        var fill = selected ? SelectedBackground : Mix(CardBackground, HoverBackground, hover);
-        var lift = _scale >= .4f && !IsDense && !IsDirectCameraGesture;
-        if (lift)
+        const float radius = 2;
+        if (!_highContrast && _depth && !IsDirectCameraGesture && (!IsDense || selected))
         {
-            var offset = (4 + 2 * emphasis) / _scale;
-            var shadow = new Bounds(shape.Origin + new Vector2(0, offset), shape.Size);
-            for (var layer = 3; layer >= 1; layer--)
-            {
-                var spread = layer * (2 + emphasis) / _scale;
-                drawing.FillRoundedRectangle(shadow.Expand(spread).Rect, radius + spread, radius + spread,
-                    Alpha(Black, opacity * (.09f + .035f * emphasis)));
-            }
-            if (emphasis > 0)
-            {
-                var spread = 2.5f / _scale;
-                drawing.DrawRoundedRectangle(shape.Expand(spread).Rect, radius + spread, radius + spread,
-                    Alpha(border, opacity * emphasis * .17f), 4 / _scale);
-            }
+            var shadow = new Bounds(shape.Origin + new Vector2(.5f, selected ? 2 : 1.2f), shape.Size);
+            drawing.FillRoundedRectangle(shadow.Rect, radius, radius, Alpha(Black, opacity * (selected ? .15f : .09f)));
         }
-        drawing.FillRoundedRectangle(shape.Rect, radius, radius, Alpha(fill, opacity));
-        if (_scale >= .4f && (!IsDense || emphasis > 0) && !IsDirectCameraGesture)
+        // Unrelated links pass behind the paper. Fading toward the canvas color keeps its surface opaque at rest.
+        var paper = Mix(_palette.Canvas, _palette.CardFill(tint, selected, hover), opacity);
+        drawing.FillRoundedRectangle(shape.Rect, radius, radius, Alpha(paper, entry));
+        if (!_highContrast && (!IsDense || !IsDirectCameraGesture || selected))
         {
-            DrawCardLight(drawing, shape, radius, selected ? Accent : tint, shape.Origin,
-                shape.Size * new Vector2(.78f, 1.12f), opacity * (selected ? .16f : .12f));
-            DrawCardLight(drawing, shape, radius, selected ? tint : Accent, shape.End,
-                shape.Size * new Vector2(.67f, .84f), opacity * (selected ? .1f : .07f));
+            // Lighten paper and deepen charcoal away from the text, leaving the icon's contrast intact.
+            var lightTheme = _palette.CardBackground.R > _palette.CardText.R;
+            var shade = lightTheme ? Microsoft.UI.Colors.White : Black;
+            _cardSheen ??= new CanvasLinearGradientBrush(_surface, shade, Alpha(shade, 0));
+            _cardSheen.StartPoint = lightTheme ? shape.Origin : shape.End;
+            _cardSheen.EndPoint = lightTheme ? shape.End : shape.Origin;
+            _cardSheen.Opacity = opacity * (lightTheme ? .46f : .14f);
+            drawing.FillRoundedRectangle(shape.Rect, radius, radius, _cardSheen);
         }
-        drawing.DrawRoundedRectangle(shape.Rect, radius, radius, Alpha(border, borderOpacity), float.Lerp(1.05f, 2.2f, emphasis) / _scale);
+        drawing.DrawRoundedRectangle(shape.Rect, radius, radius, Alpha(border, opacity * float.Lerp(.48f, .81f, emphasis)),
+            float.Lerp(.8f, 1.2f, emphasis) / _scale);
     }
 
     /// <summary>Fills a card with a device-cached gradient whose origin and extent follow the card.</summary>
@@ -1028,24 +1324,24 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         if (picked)
         {
             var position = new Vector2(shape.End.X - 11, shape.Origin.Y + 9);
-            var color = Alpha(Accent, opacity);
+            var color = Alpha(_palette.Accent, opacity);
             drawing.DrawLine(position + new Vector2(-9, 0), position + new Vector2(-5, 4), color, 1.6f / _scale, _roundStroke);
             drawing.DrawLine(position + new Vector2(-5, 4), position + new Vector2(2, -4), color, 1.6f / _scale, _roundStroke);
         }
-        if (_visited.Contains(path))
+        if (_visited.Contains(path) && path != _selected)
         {
             var point = new Vector2(shape.Origin.X + 14, shape.End.Y - 8);
-            drawing.DrawLine(point, point + new Vector2(14, 0), Alpha(VisitedColor, opacity), 2);
+            drawing.DrawLine(point, point + new Vector2(14, 0), Alpha(_palette.VisitedColor, opacity), 2);
         }
         if (_referencePaths.Contains(path))
         {
             var point = shape.End - new Vector2(13, 13);
-            drawing.FillCircle(point, Math.Max(4, 2.5f / _scale), Alpha(ReferenceColor, opacity));
+            drawing.FillCircle(point, Math.Max(4, 2.5f / _scale), Alpha(_palette.ReferenceColor, opacity));
         }
     }
 
-    /// <summary>Draws distinct local attention badges independently of the selected attention lens.</summary>
-    private void DrawAttentionBadge(CanvasDrawingSession drawing, Bounds shape, MapAttention? attention, float opacity)
+    /// <summary>Draws local attention in the header and returns the width to reserve beside the title.</summary>
+    private float DrawAttentionBadge(CanvasDrawingSession drawing, Bounds shape, MapAttention? attention, float headerTop, float opacity)
     {
         var text = attention switch
         {
@@ -1056,17 +1352,17 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         };
         if (text == null)
         {
-            return;
+            return 0;
         }
-        var badge = new Rect(shape.End.X - 46, shape.Origin.Y + 25, 36, 16);
-        drawing.FillRoundedRectangle(badge, 5, 5, Alpha(Black, opacity));
-        drawing.DrawText(text, badge, Alpha(AttentionColor, opacity), _labelFormat);
+        var badge = new Rect(shape.End.X - 50, shape.Origin.Y + headerTop, 32, 16);
+        drawing.DrawText(text, badge, Alpha(_palette.AttentionColor, opacity), _labelFormat);
+        return 36;
     }
 
     /// <summary>Separates source size and estimated tokens from the smaller counts on active cards.</summary>
     private void DrawStatistics(CanvasDrawingSession drawing, DocumentStatistics? statistics, Bounds shape, float opacity)
     {
-        var color = Alpha(DetailText, opacity);
+        var color = Alpha(_palette.DetailText, opacity);
         if (statistics == null)
         {
             drawing.DrawText(UiStrings.T("Metadata unavailable"), StatisticsRowBounds(shape, 0), color, _statsFormat);
@@ -1103,34 +1399,37 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         }
         var labels = new List<(string Path, Rect Box)>();
         var folders = new List<(string Path, Rect Box)>();
-        var occupied = new List<Bounds>(12);
+        var labelLimit = IsDirectCameraGesture ? 1 : IsDense ? 3 : 5;
+        var occupied = new List<Bounds>(labelLimit);
 
         // Inspect every projected document before bounding labels so panning outside the hub reveals names.
-        foreach (var card in VisibleCards().OrderByDescending(card => card.Document.Path == _selected))
+        foreach (var card in VisibleCards().OrderByDescending(CardLayer))
         {
-            var selected = card.Document.Path == _selected;
-            if (_islands.Count != 0 && !selected)
+            var path = card.Document.Path;
+            var selected = path == _selected;
+            var named = selected || path == _hovered || path == FocusedCard || _picked.Contains(path) || _routeCards.Contains(path);
+            if ((_islands.Count != 0 || IsDense) && !named)
             {
                 continue;
             }
-            if (TryLabel(Display(card).Center, card.Document.Title, selected ? Accent : DetailText) is { } label)
+            if (TryLabel(Display(card).Center, card.Document.Title, selected ? _palette.Accent : _palette.DetailText) is { } label)
             {
                 labels.Add((card.Document.Path, label));
             }
-            if (occupied.Count >= 12)
+            if (occupied.Count >= labelLimit)
             {
                 break;
             }
         }
         foreach (var island in _islands.Values)
         {
-            if (occupied.Count >= 12)
+            if (occupied.Count >= labelLimit)
             {
                 break;
             }
             var shape = AnimatedIsland(island);
             var point = new Vector2(shape.Center.X, shape.Origin.Y);
-            if (TryLabel(point, island.Label, island.Color) is { } label)
+            if (TryLabel(point, island.Label, _palette.CardText) is { } label)
             {
                 folders.Add((island.Path, label));
             }
@@ -1142,26 +1441,27 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         Rect? TryLabel(Vector2 world, string caption, Color color)
         {
             var point = Screen(world);
-            if (point.X < 12 || point.X > viewport.X - 12 || point.Y < ToolbarInset + 18 || point.Y > viewport.Y - 40)
+            if (point.X < 12 || point.X > viewport.X - 12 || point.Y < 18 || point.Y > viewport.Y - 40)
             {
                 return null;
             }
-            var left = Math.Clamp(point.X - 74, 6, viewport.X - 154);
-            var label = new Bounds(new Vector2(left, point.Y - 14), new Vector2(148, 28));
-            if (occupied.Any(previous => previous.Expand(3).Overlaps(label)) || Minimap is { } mini && mini.Overlaps(label))
+            var width = Math.Clamp(caption.Length * 6.6f + 14, 40, Math.Min(180, viewport.X - 12));
+            var left = Math.Clamp(point.X - width / 2, 6, viewport.X - width - 6);
+            var label = new Bounds(new Vector2(left, point.Y - 31), new Vector2(width, 21));
+            if (_toolbarOcclusion is { } toolbar && toolbar.Overlaps(label) ||
+                occupied.Any(previous => previous.Expand(3).Overlaps(label)) || Minimap is { } mini && mini.Overlaps(label))
             {
                 return null;
             }
-            drawing.FillRoundedRectangle(label.Rect, 7, 7, Color.FromArgb(237, 8, 13, 22));
-            drawing.DrawRoundedRectangle(label.Rect, 7, 7, Alpha(color, .68f), 1);
-            drawing.DrawText(caption, new Rect(left + 8, label.Origin.Y + 6, 132, 17), color, _labelFormat);
+            drawing.FillRoundedRectangle(label.Rect, 3, 3, Alpha(_palette.CardBackground, .87f));
+            drawing.DrawText(caption, new Rect(left + 6, label.Origin.Y + 2, width - 12, 18), color, _labelFormat);
             occupied.Add(label);
             return label.Rect;
         }
     }
 
-    /// <summary>Shows the map zoom level and the meaning of both relationship strokes.</summary>
-    private void DrawMapLegend(CanvasDrawingSession drawing, Vector2 viewport)
+    /// <summary>Shows the current zoom and detail level in the lower corner of the viewport.</summary>
+    private void DrawZoomCaption(CanvasDrawingSession drawing, Vector2 viewport)
     {
         if (viewport.X < 165 || viewport.Y < 72)
         {
@@ -1169,22 +1469,8 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         }
         var mode = UiStrings.T(_scale < .4f ? "Overview" : _scale >= 1.05f ? "Detail" : "Documents");
         var caption = $"{_scale:P0} · {mode}";
-        var width = Math.Min(Math.Max(105, caption.Length * 7 + 14), viewport.X - 24);
-        var badge = new Rect(12, viewport.Y - 35, width, 23);
-        drawing.FillRoundedRectangle(badge, 10, 10, Color.FromArgb(230, 8, 11, 18));
-        drawing.DrawRoundedRectangle(badge, 10, 10, Alpha(DetailText, .18f), 1);
-        drawing.DrawText(caption, new Rect(badge.X + 8, badge.Y + 4, badge.Width - 13, 17), DetailText, _labelFormat);
-
-        if (RelationFocus != null && viewport.X >= 330)
-        {
-            var incoming = "⇢ " + UiStrings.T("Incoming");
-            var outgoing = "→ " + UiStrings.T("Outgoing");
-            var top = ToolbarInset + 12;
-            var panel = new Rect(12, top - 4, 232, 24);
-            drawing.FillRoundedRectangle(panel, 7, 7, Alpha(CardBackground, .94f));
-            drawing.DrawText(incoming, new Rect(20, top, 105, 16), IncomingColor, _labelFormat);
-            drawing.DrawText(outgoing, new Rect(132, top, 105, 16), OutgoingColor, _labelFormat);
-        }
+        var width = Math.Min(180, viewport.X - 32);
+        drawing.DrawText(caption, new Rect(16, viewport.Y - 26, width, 18), _palette.DetailText, _labelFormat);
     }
 
     /// <summary>Returns the on-screen card rectangle for anchoring the native in-map preview.</summary>
@@ -1205,32 +1491,52 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         return true;
     }
 
-    /// <summary>Draws the minimap from card and island geometry and marks the current camera rectangle.</summary>
-    private void DrawMinimap(CanvasDrawingSession drawing, Bounds graph, Bounds visible)
+    /// <summary>Shows positions and selection with quiet marks, outlining the camera only for a partial view.</summary>
+    private void DrawMinimap(CanvasDrawingSession drawing, Bounds graph, Bounds visible, bool allVisible)
     {
         if (Minimap is not { } minimap)
         {
             return;
         }
-        drawing.FillRoundedRectangle(minimap.Rect, 14, 14, Color.FromArgb(255, 8, 11, 18));
-        drawing.DrawRoundedRectangle(minimap.Rect, 14, 14, Color.FromArgb(255, 48, 59, 76), 1);
+        drawing.FillRoundedRectangle(minimap.Rect, 10, 10, Alpha(_palette.Panel, allVisible ? .90f : 1));
+        drawing.DrawRoundedRectangle(minimap.Rect, 10, 10, Alpha(_palette.Border, allVisible ? .60f : 1), 1);
         var (origin, scale) = MinimapProjection(minimap, graph);
+        if (!allVisible)
+        {
+            var start = Vector2.Clamp(visible.Origin, graph.Origin, graph.End);
+            var end = Vector2.Clamp(visible.End, graph.Origin, graph.End);
+            var camera = MinimapRect(Bounds.Between(start, end));
+            if (camera.Width > 0 && camera.Height > 0)
+            {
+                drawing.FillRectangle(camera, Alpha(_palette.Accent, .06f));
+                drawing.DrawRectangle(camera, Alpha(_palette.Accent, .65f), 1);
+            }
+        }
+
+        Vector2? selection = null;
+        var dot = Alpha(_palette.DetailText, allVisible ? .40f : .53f);
         foreach (var card in VisibleCards())
         {
-            var rectangle = MinimapRect(AnimatedLogical(card));
-            var radius = 10 * scale;
-            drawing.FillRoundedRectangle(rectangle, radius, radius, card.Document.Path == _selected ? Accent : Alpha(card.Color, .65f));
+            var point = origin + (AnimatedLogical(card).Center - graph.Origin) * scale;
+            if (card.Document.Path == _selected)
+            {
+                selection = point;
+            }
+            else
+            {
+                drawing.FillCircle(point, 1.6f, dot);
+            }
         }
         foreach (var island in _islands.Values.Where(island => island.Collapsed))
         {
-            var radius = 12 * scale;
-            drawing.FillRoundedRectangle(MinimapRect(AnimatedIsland(island)), radius, radius, island.Color);
+            var rectangle = MinimapRect(AnimatedIsland(island));
+            drawing.DrawRoundedRectangle(rectangle, 2, 2, Alpha(island.Color, .42f), 1);
         }
-        var start = Vector2.Clamp(visible.Origin, graph.Origin, graph.End);
-        var end = Vector2.Clamp(visible.End, graph.Origin, graph.End);
-        var camera = MinimapRect(Bounds.Between(start, end));
-        drawing.FillRectangle(camera, Alpha(Accent, .12f));
-        drawing.DrawRectangle(camera, Mix(Accent, CardText, .4f), 1.5f);
+        if (selection is { } selected)
+        {
+            drawing.FillCircle(selected, 4.5f, Alpha(_palette.Accent, .22f));
+            drawing.FillCircle(selected, 2.6f, _palette.Accent);
+        }
 
         // Minimap coordinates remain independent of the main camera transform.
         Rect MinimapRect(Bounds source) => new Bounds(origin + (source.Origin - graph.Origin) * scale, source.Size * scale).Rect;
@@ -1248,14 +1554,15 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     private void PointerDown(object sender, PointerRoutedEventArgs args)
     {
         var input = args.GetCurrentPoint(_surface);
-        if (_map == null || IsArranging || _pointer.HasValue || input.Position.Y < ToolbarInset ||
+        var position = PointOf(input.Position);
+        if (_map == null || IsArranging || _pointer.HasValue || !IsCanvasPoint(position) ||
             (!input.Properties.IsLeftButtonPressed && !input.Properties.IsMiddleButtonPressed))
         {
             return;
         }
         CancelCamera();
         Focus(FocusState.Pointer);
-        _pointerStart = _pointerCurrent = PointOf(input.Position);
+        _pointerStart = _pointerCurrent = position;
         var world = World(_pointerStart);
         var control = args.KeyModifiers.HasFlag(VirtualKeyModifiers.Control);
         var shift = args.KeyModifiers.HasFlag(VirtualKeyModifiers.Shift);
@@ -1308,7 +1615,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
             _gesturePath = island.Path;
             BeginGesture(args, Gesture.Folder, Vector2.Zero);
         }
-        else if (left && !shift && !picking && HitEdge(world) is { } edge)
+        else if (left && !shift && !picking && HitEdge(_pointerStart) is { } edge)
         {
             _gestureEdge = edge;
             BeginGesture(args, Gesture.Link, Vector2.Zero);
@@ -1339,6 +1646,10 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         _gesture = gesture;
         _gestureOrigin = origin;
         _gestureMoved = false;
+        if (gesture == Gesture.Pan)
+        {
+            _performance?.ResetInterval();
+        }
         SetPointerTip(default);
         SetHover(null, null);
         return true;
@@ -1576,18 +1887,57 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
             args.Handled = true;
             return;
         }
-        if (_map == null || IsArranging || input.Position.Y < ToolbarInset || input.Properties.MouseWheelDelta == 0)
+        var anchor = PointOf(input.Position);
+        if (_map == null || IsArranging || !IsCanvasPoint(anchor) || input.Properties.MouseWheelDelta == 0)
         {
             return;
         }
-        CancelCamera();
+        var newGesture = _wheelGestureAt == 0;
+        if (newGesture)
+        {
+            CancelCamera();
+        }
         _lastClick = null;
-        var anchor = PointOf(input.Position);
+        var now = Stopwatch.GetTimestamp();
+        var commanded = _wheelTransition?.TargetScale ?? _scale;
+        var advanced = AdvanceWheel(now);
         var delta = Math.Clamp(input.Properties.MouseWheelDelta, -240, 240);
-        var scale = Math.Clamp(_scale * MathF.Exp(delta * .0018f), .001f, 1.8f);
-        _translation = anchor - (anchor - _translation) * (scale / _scale);
-        _scale = scale;
-        _wheelGestureAt = Stopwatch.GetTimestamp();
+        var factor = MathF.Exp(delta * .0018f);
+        var target = Math.Clamp(commanded * factor, .001f, 1.8f);
+        if (target == commanded)
+        {
+            if (!newGesture)
+            {
+                _wheelGestureAt = now;
+                _wheelPointer = anchor;
+            }
+            if (advanced)
+            {
+                _surface.Invalidate();
+            }
+            args.Handled = true;
+            return;
+        }
+        if (newGesture)
+        {
+            _performance?.ResetInterval();
+            _animateWheelDetents = AnimationsEnabled();
+        }
+        // Replan from the displayed pose to the accumulated destination. With fast reversals,
+        // opposite detents must cancel even before the display has reached the preceding target.
+        var worldAnchor = World(anchor);
+        if (_animateWheelDetents && input.Properties.MouseWheelDelta % 120 == 0 && target != _scale)
+        {
+            var lead = _scale * MathF.Pow(target / _scale, .25f);
+            ApplyWheelScale(anchor, worldAnchor, lead);
+            _wheelTransition = new WheelTransition(anchor, worldAnchor, lead, target, now);
+        }
+        else
+        {
+            _wheelTransition = null;
+            ApplyWheelScale(anchor, worldAnchor, target);
+        }
+        _wheelGestureAt = now;
         _wheelPointer = anchor;
         SetPointerTip(default);
         SetHover(null, null);
@@ -1600,11 +1950,11 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     private void RightTappedOnSurface(object sender, RightTappedRoutedEventArgs args)
     {
         var point = args.GetPosition(this);
-        if (IsArranging || point.Y < ToolbarInset)
+        var position = PointOf(point);
+        if (IsArranging || !IsCanvasPoint(position))
         {
             return;
         }
-        var position = PointOf(point);
         var path = _labels.FirstOrDefault(item => Bounds.From(item.Box).Contains(position)).Path ?? HitCard(World(position))?.Document.Path;
         if (path != null)
         {
@@ -1937,7 +2287,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     {
         var viewport = Viewport;
         if (viewport.X > 60 && viewport.Y - ToolbarInset > 60 &&
-            (point.X < 30 || point.Y < ToolbarInset + 30 || point.X > viewport.X - 30 || point.Y > viewport.Y - 30))
+            (point.X < 30 || point.Y < 30 || point.X > viewport.X - 30 || point.Y > viewport.Y - 30 || IsOverToolbar(point)))
         {
             CancelCamera();
             _translation += viewport / 2 + new Vector2(0, ToolbarInset / 2) - point;
@@ -1948,7 +2298,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     /// <summary>Updates card and connection hover only for the most recent valid pointer position.</summary>
     private void UpdatePointerHover(Vector2 point)
     {
-        if (point.X < 0 || point.Y < ToolbarInset || point.X > Viewport.X || point.Y > Viewport.Y)
+        if (!IsCanvasPoint(point))
         {
             SetPointerTip(default);
             SetHover(null, null);
@@ -1990,7 +2340,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         }
         else
         {
-            var edge = HitEdge(world);
+            var edge = HitEdge(point);
             SetHover(null, edge);
             SetPointerTip(edge == null ? default : new(TooltipKind.Link, Edge: edge));
         }
@@ -1999,6 +2349,12 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     /// <summary>Clears pointer hover without discarding a keyboard-focused edge.</summary>
     private void ClearPointerHover()
     {
+        if (_wheelTransition is { } wheel)
+        {
+            ApplyWheelScale(wheel.Anchor, wheel.WorldAnchor, wheel.TargetScale);
+            _wheelTransition = null;
+            _surface.Invalidate();
+        }
         _wheelGestureAt = 0;
         SetPointerTip(default);
         SetHover(null, null);
@@ -2083,26 +2439,29 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     /// <summary>Aligns a native, keyboard-accessible Read here button to the selected card after each camera change.</summary>
     private void UpdateReadHere(Vector2 viewport)
     {
-        if (_gesture != Gesture.None || IsArranging || !_cards.TryGetValue(_selected, out var card) || IsHidden(card) || viewport.X < 130 || viewport.Y - ToolbarInset < 90)
+        if (_scale < .4f || _gesture != Gesture.None || IsArranging || !_cards.TryGetValue(_selected, out var card) ||
+            IsHidden(card) || viewport.X < 130 || viewport.Y < 90)
         {
             _readHere.Visibility = Visibility.Collapsed;
             return;
         }
         var shape = Display(card);
-        var start = Screen(shape.Origin);
-        var end = Screen(shape.End);
-        if (end.X < 0 || end.Y < ToolbarInset || start.X > viewport.X || start.Y > viewport.Y)
+        var cardBounds = ScreenBounds(shape);
+        if (VisiblePart(cardBounds) == null)
         {
             _readHere.Visibility = Visibility.Collapsed;
             return;
         }
         var width = Math.Max(_readHere.ActualWidth, 92);
         var height = Math.Max(_readHere.ActualHeight, 32);
-        var right = Math.Clamp(end.X - width - 5, 4, Math.Max(4, viewport.X - width - 4));
-        var topEdge = ToolbarInset + 4;
-        var bottom = Math.Clamp(end.Y + 4, topEdge, Math.Max(topEdge, viewport.Y - height - 4));
-        _readHerePosition.X = right;
-        _readHerePosition.Y = bottom;
+        var preferred = cardBounds.End + new Vector2(-(float)width - 5, 4);
+        if (PlaceOverlay(preferred, new Vector2((float)width, (float)height), 4) is not { } position)
+        {
+            _readHere.Visibility = Visibility.Collapsed;
+            return;
+        }
+        _readHerePosition.X = position.X;
+        _readHerePosition.Y = position.Y;
         var caption = T("Read here");
         if (!Equals(_readHere.Content, caption))
         {
@@ -2116,13 +2475,13 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     {
         var positionedByPointer = _pointerTipReady;
         var hit = positionedByPointer ? _pointerTip : _keyboardTip ? KeyboardTooltip() : default;
-        if (hit.Kind == TooltipKind.None || _gesture != Gesture.None || _wheelGestureAt != 0 || IsArranging || viewport.X <= 90 || viewport.Y - ToolbarInset <= 65)
+        if (hit.Kind == TooltipKind.None || _gesture != Gesture.None || _wheelGestureAt != 0 || IsArranging || viewport.X <= 90 || viewport.Y <= 65)
         {
             _linkTip.Visibility = Visibility.Collapsed;
             return;
         }
         var anchor = positionedByPointer ? _pointerCurrent : TooltipAnchor(hit);
-        if (anchor is not { } point || point.Y < ToolbarInset || point.Y > viewport.Y)
+        if (anchor is not { } point || !IsCanvasPoint(point))
         {
             _linkTip.Visibility = Visibility.Collapsed;
             return;
@@ -2140,10 +2499,15 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         _linkTip.MaxWidth = Math.Min(320, viewport.X - 16);
         var width = Math.Min(_linkTip.MaxWidth, Math.Max(_linkTip.ActualWidth, 240));
         var height = Math.Max(_linkTip.ActualHeight, 34);
-        var top = ToolbarInset + 6;
-        _linkTipPosition.X = Math.Clamp(point.X + 12, 6, Math.Max(6, viewport.X - width - 6));
         var y = point.Y + height + 18 <= viewport.Y ? point.Y + 12 : point.Y - height - 12;
-        _linkTipPosition.Y = Math.Clamp(y, top, Math.Max(top, viewport.Y - height - 6));
+        var suggested = new Vector2(point.X + 12, (float)y);
+        if (PlaceOverlay(suggested, new Vector2((float)width, (float)height), 6) is not { } position)
+        {
+            _linkTip.Visibility = Visibility.Collapsed;
+            return;
+        }
+        _linkTipPosition.X = position.X;
+        _linkTipPosition.Y = position.Y;
         _linkTip.Visibility = Visibility.Visible;
     }
 
@@ -2161,9 +2525,16 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     /// <summary>Anchors a keyboard description to its painted target instead of using the mouse location.</summary>
     private Vector2? TooltipAnchor(TooltipHit hit)
     {
-        if (hit is { Kind: TooltipKind.Link, Edge: { } edge } && EdgeGeometry(edge) is { } curve)
+        if (hit is { Kind: TooltipKind.Link, Edge: { } edge })
         {
-            return Screen(curve.PointAt(.5f));
+            foreach (var drawn in _drawnEdges)
+            {
+                if (drawn.Edge == edge)
+                {
+                    return drawn.Curve.PointAt(.5f) * _drawnScale + _drawnTranslation;
+                }
+            }
+            return EdgeGeometry(edge) is { } curve ? Screen(curve.PointAt(.5f)) : null;
         }
         if (hit.Kind == TooltipKind.Minimap)
         {
@@ -2231,9 +2602,9 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         {
             return new(TooltipKind.Card, path);
         }
-        var rowIndex = Bounds.From(StatisticsRowBounds(shape, 0)).Contains(point) ? 0 :
-            Bounds.From(StatisticsRowBounds(shape, 1)).Contains(point) ? 1 : -1;
-        if (rowIndex < 0)
+        var firstRowY = (float)StatisticsRowBounds(shape, 0).Y;
+        var rowIndex = (int)Math.Floor((point.Y - firstRowY) / 16);
+        if (rowIndex is < 0 or > 2 || !Bounds.From(StatisticsRowBounds(shape, rowIndex)).Contains(point))
         {
             return new(TooltipKind.Card, path);
         }
@@ -2269,7 +2640,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
             }
             catch (Exception error) when (error is COMException or InvalidOperationException)
             {
-                // Pointer input can race Win2D device recovery. The visible control still has a monospace fallback.
+                // Pointer input can race Win2D device recovery. Approximate the extent until the surface is available.
                 return prefix.Length * _statsFormat.FontSize * .6f;
             }
         }
@@ -2277,7 +2648,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
 
     /// <summary>Computes the shared Win2D bounds for a statistics row, in the card's logical space.</summary>
     private static Rect StatisticsRowBounds(Bounds shape, int rowIndex) =>
-        new(shape.Origin.X + 12, shape.End.Y - 44 + 16 * rowIndex, shape.Size.X - 30, 15);
+        new(shape.Origin.X + 16, shape.End.Y - 62 + 16 * rowIndex, shape.Size.X - 32, 15);
 
     /// <summary>Formats the same visible values and full descriptions for painting, pointer hit-testing and automation.</summary>
     private StatisticPart[][] StatisticsRows(DocumentStatistics statistics)
@@ -2296,8 +2667,8 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
             [new(size, "UTF-8 size", $"{statistics.SourceBytes:N0} B"),
                 new($"≈{statistics.EstimatedTokens:N0}", "Est. tokens", $"{statistics.EstimatedTokens:N0}", Estimated: true)],
             [new($"# {statistics.Characters:N0}", "Characters", $"{statistics.Characters:N0}"),
-                new($"Aa {statistics.Words:N0}", "Words", $"{statistics.Words:N0}"),
-                new($"≡ {statistics.Lines:N0}", "Lines", $"{statistics.Lines:N0}"),
+                new($"Aa {statistics.Words:N0}", "Words", $"{statistics.Words:N0}")],
+            [new($"≡ {statistics.Lines:N0}", "Lines", $"{statistics.Lines:N0}"),
                 new($"↗ {statistics.OutgoingLinks:N0}", "Links", $"{statistics.OutgoingLinks:N0}")]
         ];
     }
@@ -2369,7 +2740,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         {
             return null;
         }
-        var cardBounds = ScreenBounds(Display(card));
+        var cardBounds = ScreenBounds(DocumentShape(card));
         return target.Kind == FocusTarget.Resize ? new Bounds(cardBounds.End - new Vector2(18), new Vector2(18)) : cardBounds;
     }
 
@@ -2457,7 +2828,10 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         foreach (var card in VisibleCards())
         {
             var layer = CardLayer(card);
-            if (layer >= topLayer && Display(card).Contains(world))
+            var shape = DocumentShape(card);
+            var hit = _scale < .4f ? Vector2.DistanceSquared(shape.Center, world) <= MathF.Pow(Math.Max(shape.Size.X / 2, 6 / _scale), 2)
+                : shape.Contains(world);
+            if (layer >= topLayer && hit)
             {
                 result = card;
                 topLayer = layer;
@@ -2466,18 +2840,15 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         return result;
     }
 
-    /// <summary>Finds the nearest visible link within a constant screen-space tolerance.</summary>
-    private MapEdge? HitEdge(Vector2 world)
+    /// <summary>Tests only painted curves using the camera that presented them, even between animation ticks.</summary>
+    private MapEdge? HitEdge(Vector2 point)
     {
-        var tolerance = 7 / _scale;
+        var world = (point - _drawnTranslation) / _drawnScale;
+        var tolerance = 7 / _drawnScale;
         var bestDistance = tolerance * tolerance;
         MapEdge? result = null;
-        foreach (var edge in _edges)
+        foreach (var (edge, curve) in _drawnEdges)
         {
-            if (EdgeGeometry(edge) is not { } curve)
-            {
-                continue;
-            }
             var distance = curve.DistanceSquaredTo(world, bestDistance, tolerance / 6);
             if (distance <= bestDistance)
             {
@@ -2488,43 +2859,81 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         return result;
     }
 
-    /// <summary>Connects current card or island sides with a directional cubic and hides links within collapsed islands.</summary>
-    private ConnectionCurve? EdgeGeometry(MapEdge edge)
+    /// <summary>Assigns stable offsets once per projection so reciprocal and repeated references can be picked separately.</summary>
+    private void AssignEdgeLanes()
+    {
+        _edgeLanes.Clear();
+        // A collapsed folder is one visible endpoint even when several of its documents link out.
+        var directions = _edges.ToLookup(edge => (VisibleEndpoint(edge.Source), VisibleEndpoint(edge.Target)));
+        foreach (var direction in directions)
+        {
+            var (source, target) = direction.Key;
+            var reciprocal = source != target && directions.Contains((target, source));
+            var count = direction.Count();
+            var index = 0;
+            foreach (var edge in direction)
+            {
+                var position = count > 1 ? (float)index / (count - 1) - .5f : 0;
+                _edgeLanes[edge] = reciprocal ? .09f + position * .12f : position * .24f;
+                index++;
+            }
+        }
+    }
+
+    /// <summary>Identifies the visible document or the collapsed folder that owns its connection ports.</summary>
+    private string VisibleEndpoint(string path)
+    {
+        var card = _cards[path];
+        return IsHidden(card) ? card.Folder : path;
+    }
+
+    /// <summary>Fans links along the facing sides, preserving a normal tangent at both ends for directional arrows.</summary>
+    private ConnectionCurve? EdgeGeometry(MapEdge edge, bool useDrawEndpoints = false)
     {
         if (!_cards.TryGetValue(edge.Source, out var source) || !_cards.TryGetValue(edge.Target, out var target) ||
             source.Folder == target.Folder && IsHidden(source))
         {
             return null;
         }
-        var a = Endpoint(source);
-        var b = Endpoint(target);
+        var a = useDrawEndpoints ? source.DrawEndpoint : Endpoint(source);
+        var b = useDrawEndpoints ? target.DrawEndpoint : Endpoint(target);
+        var lane = _edgeLanes.GetValueOrDefault(edge);
         if (source == target)
         {
-            return new(new Vector2(a.End.X, a.Center.Y), new Vector2(a.End.X + 45, a.Origin.Y - 85),
-                new Vector2(a.Origin.X - 45, a.Origin.Y - 85), new Vector2(a.Origin.X, a.Center.Y));
+            var loopStart = new Vector2(a.Center.X + (.20f + lane) * a.Size.X, a.Origin.Y);
+            var loopEnd = new Vector2(a.Center.X - (.20f + lane) * a.Size.X, a.Origin.Y);
+            var lift = new Vector2(0, Math.Clamp(a.Size.Y * .52f, 32, 92) * (1 + lane * 1.75f));
+            return new(loopStart, loopStart - lift, loopEnd - lift, loopEnd);
         }
         var delta = b.Center - a.Center;
         var span = (a.Size + b.Size) / 2;
-        if (Math.Abs(delta.X) / span.X >= Math.Abs(delta.Y) / span.Y)
-        {
-            var right = delta.X >= 0;
-            var start = new Vector2(right ? a.End.X : a.Origin.X, a.Center.Y);
-            var end = new Vector2(right ? b.Origin.X : b.End.X, b.Center.Y);
-            var bend = Math.Max(45, Math.Abs(end.X - start.X) * .45f);
-            var tangency = new Vector2(right ? bend : -bend, 0);
-            return new(start, start + tangency, end - tangency, end);
-        }
-
-        var down = delta.Y >= 0;
-        var top = new Vector2(a.Center.X, down ? a.End.Y : a.Origin.Y);
-        var bottom = new Vector2(b.Center.X, down ? b.Origin.Y : b.End.Y);
-        var verticalBend = Math.Max(45, Math.Abs(bottom.Y - top.Y) * .45f);
-        var verticalTangency = new Vector2(0, down ? verticalBend : -verticalBend);
-        return new(top, top + verticalTangency, bottom - verticalTangency, bottom);
+        var normalized = delta / span;
+        var horizontal = Math.Abs(normalized.X) >= Math.Abs(normalized.Y);
+        var normal = horizontal ? new Vector2(delta.X >= 0 ? 1 : -1, 0) : new Vector2(0, delta.Y >= 0 ? 1 : -1);
+        var side = new Vector2(-normal.Y, normal.X);
+        var slope = Vector2.Dot(normalized, side) / Math.Max(.001f, Vector2.Dot(normalized, normal));
+        var spread = Math.Clamp(slope, -1, 1) * .26f;
+        var start = a.Center + a.Size * (normal * .5f + side * (spread + lane));
+        var end = b.Center + b.Size * (-normal * .5f + side * (-spread + lane));
+        var gap = Vector2.Dot(end - start, normal);
+        var bend = Math.Clamp(Math.Abs(gap) * .44f + Math.Abs(Vector2.Dot(end - start, side)) * .10f, 12, 180);
+        return new(start, start + normal * bend, end - normal * bend, end);
     }
 
     /// <summary>Uses the collapsed island boundary when a link endpoint's card is hidden.</summary>
-    private Bounds Endpoint(Card card) => _islands.TryGetValue(card.Folder, out var island) && island.Collapsed ? AnimatedIsland(island) : Display(card);
+    private Bounds Endpoint(Card card) => _islands.TryGetValue(card.Folder, out var island) && island.Collapsed ? AnimatedIsland(island) : DocumentShape(card);
+
+    /// <summary>Uses full cards at reading zoom and small, stable world-space markers in the overview.</summary>
+    private Bounds DocumentShape(Card card)
+    {
+        var shape = Display(card);
+        if (_scale >= .4f)
+        {
+            return shape;
+        }
+        var radius = Math.Clamp(Math.Min(shape.Size.X, shape.Size.Y) * .11f, 7, 24);
+        return new Bounds(shape.Center - new Vector2(radius), new Vector2(2 * radius));
+    }
 
     /// <summary>Applies visual magnification without changing logical drag, save or minimap coordinates.</summary>
     private Bounds Display(Card card)
@@ -2660,9 +3069,6 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     private int CardLayer(Card card) => card == _dragged ? 50 : card.Document.Path == _selected ? 41 :
         card.Document.Path == _hovered || card.Document.Path == FocusedCard ? 40 : 30 - (int)DepthLevel(card.Document.Path);
 
-    /// <summary>Balances focus dimming and graph depth without hiding out-of-range cards.</summary>
-    private float VisibilityOf(string path) => (IsWithinDistance(path) ? 1 : .35f) * (1 - DepthLevel(path) * .042f);
-
     /// <summary>Retains route members and documents within the current relationship distance.</summary>
     private bool IsWithinDistance(string path)
     {
@@ -2674,10 +3080,15 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         ? _hovered ?? FocusedCard ?? _selected : null;
 
     /// <summary>Derives visible participants of the current relation lens without revisiting the catalog.</summary>
-    private void UpdateRelations()
+    private void UpdateRelations(string? focus)
     {
+        if (focus == _relatedFocus)
+        {
+            return;
+        }
+        _relatedFocus = focus;
         _relatedCards.Clear();
-        if (RelationFocus is not { } focus)
+        if (focus == null)
         {
             return;
         }
@@ -2709,8 +3120,22 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     /// <summary>Bounds the rendered map independently of its current camera.</summary>
     private Bounds GraphBounds() => Bounds.Combine(VisibleCards().Select(card => card.Logical).Concat(_islands.Values.Select(island => island.Bounds))).Expand(24);
 
-    private Bounds? Minimap => ActualWidth >= 500 && ActualHeight >= 280 && (_cards.Count > 0 || _islands.Count > 0)
-        ? new Bounds(Viewport - new Vector2(206, 138), new Vector2(188, 120)) : null;
+    // Interaction and automation use the bounds displayed in the last draw.
+    private Bounds? Minimap { get; set; }
+
+    /// <summary>Shows the minimap for partial views of larger graphs and retains an active keyboard or pointer target.</summary>
+    private Bounds? GetMinimapBounds(bool allVisible)
+    {
+        if (ActualWidth < 500 || ActualHeight < 280 || _cards.Count == 0 && _islands.Count == 0)
+        {
+            return null;
+        }
+        if ((allVisible || _cards.Count <= 4) && _focusTarget != FocusTarget.Minimap && _gesture != Gesture.Minimap)
+        {
+            return null;
+        }
+        return new Bounds(Viewport - new Vector2(172, 112), new Vector2(154, 94));
+    }
 
     /// <summary>Centers the main view on the minimap pointer while retaining the active zoom.</summary>
     private void JumpMinimap(Bounds minimap)
@@ -2788,7 +3213,8 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         var key = (card.Layout.Icon, card.Color);
         if (!_icons.TryGetValue(key, out var rendered))
         {
-            var xml = IconSvg(card.Layout.Icon, card.Color);
+            var tint = _palette.IconColor(card.Color);
+            var xml = IconSvg(card.Layout.Icon, tint);
             CanvasSvgDocument? document = null;
             if (xml != null)
             {
@@ -2801,7 +3227,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
                     // A bad vector must not make the map unreadable on the current device.
                 }
             }
-            rendered = new RenderedIcon(document);
+            rendered = new RenderedIcon(document, tint);
             _icons.Add(key, rendered);
         }
 
@@ -2812,7 +3238,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         }
         else
         {
-            drawing.DrawText(Glyph(card.Layout.Icon), position, Alpha(card.Color, opacity), _iconFormat);
+            drawing.DrawText(Glyph(card.Layout.Icon), position, Alpha(rendered.Tint, opacity), _iconFormat);
         }
     }
 
@@ -2853,22 +3279,31 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     /// <summary>Discards caches whose native handles are tied to the current map device.</summary>
     private void ReleaseDrawingResources()
     {
+        _cardSheen?.Dispose();
+        _cardSheen = null;
+        InvalidateGestureEdges();
         ReleaseText();
         foreach (var entry in _curvePaths.Values)
         {
             entry.Path.Dispose();
         }
         _curvePaths.Clear();
-        foreach (var icon in _icons.Values)
-        {
-            icon.Dispose();
-        }
-        _icons.Clear();
+        ReleaseIcons();
         foreach (var brush in _lights.Values)
         {
             brush.Dispose();
         }
         _lights.Clear();
+    }
+
+    /// <summary>Releases cached SVGs whose device or theme-dependent tint has changed.</summary>
+    private void ReleaseIcons()
+    {
+        foreach (var icon in _icons.Values)
+        {
+            icon.Dispose();
+        }
+        _icons.Clear();
     }
 
     /// <summary>Detaches Win2D resources permanently when the desktop window closes.</summary>
@@ -2879,6 +3314,7 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
             return;
         }
         _disposed = true;
+        _performance?.Flush();
         _effectTimer.Stop();
         _pointerTipTimer.Stop();
         _pointerTipTimer.Tick -= PointerTipReady;
@@ -2886,7 +3322,6 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         _surface.ReleasePointerCaptures();
         ReleaseDrawingResources();
         _titleFormat.Dispose();
-        _overviewTitleFormat.Dispose();
         _detailFormat.Dispose();
         _labelFormat.Dispose();
         _folderCountFormat.Dispose();
@@ -2922,6 +3357,9 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
 
     /// <summary>Retains a finite camera move independently of the saved graph positions.</summary>
     private sealed record CameraTransition(Vector2 StartCenter, Vector2 EndCenter, float StartScale, float EndScale, long Started);
+
+    /// <summary>Retains the cursor anchor and accumulated destination of a discrete wheel gesture.</summary>
+    private readonly record struct WheelTransition(Vector2 Anchor, Vector2 WorldAnchor, float StartScale, float TargetScale, long Started);
 
     /// <summary>Exposes the Win2D viewport as an accessible native pane.</summary>
     private sealed class MapAutomationPeer(WindowsGraphCanvas owner) : FrameworkElementAutomationPeer(owner)
@@ -3001,16 +3439,14 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         /// <summary>Computes the visible part of a painted item in native physical screen coordinates.</summary>
         protected override Rect GetBoundingRectangleCore()
         {
-            if (owner.AutomationTargetBounds(target) is not { } item)
+            if (owner.AutomationTargetBounds(target) is not { } item || owner.VisiblePart(item) is not { } visible)
             {
                 return default;
             }
-            var near = Vector2.Max(item.Origin, new Vector2(0, owner.ToolbarInset));
-            var far = Vector2.Min(item.End, owner.Viewport);
             var rootBounds = parent.GetBoundingRectangle();
             var scale = owner.XamlRoot?.RasterizationScale ?? 1;
-            return far.X <= near.X || far.Y <= near.Y || rootBounds.Width <= 0 || rootBounds.Height <= 0 ? default :
-                new Rect(rootBounds.X + near.X * scale, rootBounds.Y + near.Y * scale, (far.X - near.X) * scale, (far.Y - near.Y) * scale);
+            return rootBounds.Width <= 0 || rootBounds.Height <= 0 ? default :
+                new Rect(rootBounds.X + visible.Origin.X * scale, rootBounds.Y + visible.Origin.Y * scale, visible.Size.X * scale, visible.Size.Y * scale);
         }
 
         /// <summary>Marks items outside the visible canvas, including those behind the toolbar, as offscreen.</summary>
@@ -3078,20 +3514,32 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
                 return float.PositiveInfinity;
             }
             var precisionSquared = precision * precision;
-            if (depth >= 10 || DistanceToSegmentSquared(StartControl, Start, End) <= precisionSquared &&
-                DistanceToSegmentSquared(EndControl, Start, End) <= precisionSquared)
+            if (depth >= 10 || FitsChord(precisionSquared))
             {
                 return DistanceToSegmentSquared(point, Start, End);
             }
+            Split(out var leftCurve, out var rightCurve);
+            var first = leftCurve.DistanceSquaredTo(point, maximumSquared, precision, depth + 1);
+            var second = rightCurve.DistanceSquaredTo(point, Math.Min(first, maximumSquared), precision, depth + 1);
+            return Math.Min(first, second);
+        }
+
+        /// <summary>Bounds the error between this cubic and its endpoint chord by testing the control polygon.</summary>
+        public bool FitsChord(float toleranceSquared) =>
+            DistanceToSegmentSquared(StartControl, Start, End) <= toleranceSquared &&
+            DistanceToSegmentSquared(EndControl, Start, End) <= toleranceSquared;
+
+        /// <summary>Divides the cubic into two exact halves for drawing and pointer hit testing.</summary>
+        public void Split(out ConnectionCurve first, out ConnectionCurve second)
+        {
             var a = Vector2.Lerp(Start, StartControl, .5f);
             var b = Vector2.Lerp(StartControl, EndControl, .5f);
             var c = Vector2.Lerp(EndControl, End, .5f);
             var left = Vector2.Lerp(a, b, .5f);
             var right = Vector2.Lerp(b, c, .5f);
             var middle = Vector2.Lerp(left, right, .5f);
-            var first = new ConnectionCurve(Start, a, left, middle).DistanceSquaredTo(point, maximumSquared, precision, depth + 1);
-            var second = new ConnectionCurve(middle, right, c, End).DistanceSquaredTo(point, Math.Min(first, maximumSquared), precision, depth + 1);
-            return Math.Min(first, second);
+            first = new ConnectionCurve(Start, a, left, middle);
+            second = new ConnectionCurve(middle, right, c, End);
         }
 
         /// <summary>Measures a point against one flattened piece, including degenerate endpoints.</summary>
@@ -3105,11 +3553,12 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     }
 
     /// <summary>Owns the Win2D document and mutable device opacity for one icon tint.</summary>
-    private sealed class RenderedIcon(CanvasSvgDocument? document) : IDisposable
+    private sealed class RenderedIcon(CanvasSvgDocument? document, Color tint) : IDisposable
     {
         private readonly CanvasSvgNamedElement? _root = document?.Root;
         private float _opacity = 1;
         public CanvasSvgDocument? Document { get; } = document;
+        public Color Tint { get; } = tint;
 
         /// <summary>Updates the native opacity only when depth, emphasis or entry animation changed.</summary>
         public void SetOpacity(float value)
@@ -3177,18 +3626,27 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
     /// <summary>Retains transient card bounds and measured text without owning the saved map layout.</summary>
     private sealed class Card(DocumentCard document, MapCardLayout layout)
     {
-        private CanvasTextLayout? _title, _detail;
+        private CanvasTextLayout? _title, _detail, _wheelTitle;
         private CanvasTextFormat? _lastTitleFormat;
-        private float _titleWidth, _titleHeight, _detailWidth, _detailHeight;
+        private float _titleWidth, _titleHeight, _drawnTitleHeight, _detailWidth, _detailHeight, _drawnDetailHeight;
+        private string[]? _previewLines;
+        public string FileName { get; } = System.IO.Path.GetFileName(document.Path);
+        public bool PreviewUsesHeadings { get; private set; }
+        public string[] PreviewLines => _previewLines ??= BuildPreviewLines();
         public DocumentCard Document { get; private set; } = document;
         public MapCardLayout Layout { get; private set; } = layout;
         public string Folder { get; } = WindowsMapModel.FolderOf(document.Path);
         public Bounds Logical { get; set; } = Bounds.From(layout);
+        public Bounds DrawEndpoint { get; set; }
         public Color Color { get; private set; } = ParseColor(layout.Color);
 
         /// <summary>Accepts document and layout data while retaining compatible cached text.</summary>
         public void Update(DocumentCard next, MapCardLayout nextLayout)
         {
+            if (next.Title != Document.Title || next.Headings != Document.Headings || next.Links != Document.Links)
+            {
+                _previewLines = null;
+            }
             if (next.Title != Document.Title || next.Introduction != Document.Introduction)
             {
                 ReleaseText();
@@ -3202,31 +3660,68 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
             Logical = Bounds.From(nextLayout);
         }
 
-        /// <summary>Retains one DirectWrite title shape while its width matches the rendered card.</summary>
-        public void DrawTitle(CanvasDrawingSession drawing, CanvasControl device, CanvasTextFormat format, Vector2 position, Color color, float width, float height)
+        /// <summary>Reuses the shaped title and returns its occupied height so excerpts follow the final visible line.</summary>
+        public float DrawTitle(CanvasDrawingSession drawing, CanvasControl device, CanvasTextFormat format, Vector2 position, Color color, float width, float height)
         {
             if (_title == null || _titleWidth != width || _titleHeight != height || _lastTitleFormat != format)
             {
                 _title?.Dispose();
-                _title = new CanvasTextLayout(device, Document.Title, format, width, height);
+                _title = new CanvasTextLayout(device, Document.Title, format, width, height)
+                {
+                    Options = CanvasDrawTextOptions.Clip,
+                    TrimmingGranularity = CanvasTextTrimmingGranularity.Character,
+                    TrimmingSign = CanvasTrimmingSign.Ellipsis
+                };
                 _titleWidth = width;
                 _titleHeight = height;
+                _drawnTitleHeight = Math.Min(height, (float)_title.LayoutBounds.Height);
                 _lastTitleFormat = format;
             }
             drawing.DrawTextLayout(_title, position, color);
+            return _drawnTitleHeight;
         }
 
-        /// <summary>Uses a single line at rest and a bounded multiline excerpt while focused.</summary>
-        public void DrawDetail(CanvasDrawingSession drawing, CanvasControl device, CanvasTextFormat format, Vector2 position, Color color, float width, float height)
+        /// <summary>Chooses source headings or linked filenames once per revision, disambiguating duplicate filenames by path.</summary>
+        private string[] BuildPreviewLines()
+        {
+            var headings = Document.Headings.Where(heading => !heading.Text.Equals(Document.Title, StringComparison.OrdinalIgnoreCase))
+                .Select(heading => heading.Text).Distinct(StringComparer.Ordinal).Take(3).ToArray();
+            PreviewUsesHeadings = headings.Length > 0;
+            if (PreviewUsesHeadings)
+            {
+                return headings;
+            }
+            var paths = Document.Links.Select(link => link.Path).Where(target => target != Document.Path)
+                .Distinct(StringComparer.Ordinal).Take(3).ToArray();
+            var names = paths.Select(path => System.IO.Path.GetFileName(path)).ToArray();
+            return names.Distinct(StringComparer.OrdinalIgnoreCase).Count() == names.Length ? names : paths;
+        }
+
+        /// <summary>Draws the source excerpt and returns the visible height so subsequent sections follow the actual text.</summary>
+        public float DrawDetail(CanvasDrawingSession drawing, CanvasControl device, CanvasTextFormat format, Vector2 position, Color color, float width, float height)
         {
             if (_detail == null || _detailWidth != width || _detailHeight != height)
             {
                 _detail?.Dispose();
-                _detail = new CanvasTextLayout(device, Document.Introduction, format, width, height);
+                _detail = new CanvasTextLayout(device, Document.Introduction, format, width, height)
+                {
+                    Options = CanvasDrawTextOptions.Clip,
+                    TrimmingGranularity = CanvasTextTrimmingGranularity.Character,
+                    TrimmingSign = CanvasTrimmingSign.Ellipsis
+                };
                 _detailWidth = width;
                 _detailHeight = height;
+                _drawnDetailHeight = Math.Min(height, (float)_detail.LayoutBounds.Height);
             }
             drawing.DrawTextLayout(_detail, position, color);
+            return _drawnDetailHeight;
+        }
+
+        /// <summary>Retains a single screen-sized title through a burst of changing camera transforms.</summary>
+        public void DrawWheelTitle(CanvasDrawingSession drawing, CanvasControl device, CanvasTextFormat format, Vector2 position, Color color)
+        {
+            _wheelTitle ??= new CanvasTextLayout(device, Document.Title, format, WheelTitleWidth, 17);
+            drawing.DrawTextLayout(_wheelTitle, position, color);
         }
 
         /// <summary>Releases cached text when the card data or drawing device changes.</summary>
@@ -3234,7 +3729,8 @@ internal sealed class WindowsGraphCanvas : Grid, IDisposable
         {
             _title?.Dispose();
             _detail?.Dispose();
-            _title = _detail = null;
+            _wheelTitle?.Dispose();
+            _title = _detail = _wheelTitle = null;
         }
     }
 }

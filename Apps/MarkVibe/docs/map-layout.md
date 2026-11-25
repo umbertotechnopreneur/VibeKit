@@ -14,12 +14,15 @@ the root contains `schemaVersion`, `nodes` and optionally `atlas`, with no annot
 Versions 1–3 and unknown fields are rejected without rewriting their original
 files. There is no migration layer for these unreleased formats.
 
-The map uses a pure black canvas in both application themes, with dark tinted
-cards and illuminated connections. Each card has a nearly black base and two
-subtle static radial gradients; the icon and title share one row. The selected card uses the application accent
-for its border and an elevation-16 shadow with 48-pixel blur. Card appearance
-colors remain independent of the selection accent. Annotation editing and its
-note/ink schemas are retired. Their files are not imported or deleted.
+The native canvas, cards and controls follow the application's light or dark
+appearance. Settings offers ten paired color presets and a separate graph font.
+The active preset supplies the canvas, directional links and selection accent.
+Document and folder colors are retained when changing presets. The
+map toolbar shows search, fit and the inspector toggle beside the **Map arrangement**
+and **Map options** flyouts. Layout presets are grouped in the first flyout.
+Filters, saved views, recent pages and editing actions are in the second.
+Enable **Acrylic map surfaces** in Settings to tint and blur the background where
+Windows supports transparency. Theme-matched solid surfaces provide the fallback.
 
 Drag a card to arrange the graph. Connections follow the card while dragging;
 releasing it commits the position. Hover gently enlarges a card; one click selects
@@ -28,11 +31,14 @@ Keyboard users select with Space and open with Enter. Drag the background
 to pan, scroll the mouse wheel to zoom in or out around the pointer, and choose
 **Fit** to frame the graph. Ctrl is not required. Zoom is held steady during an
 active drag so its logical coordinates remain consistent.
+With Windows animations enabled, a wheel detent starts moving the map immediately
+and reaches its requested zoom over 60 ms. Successive detents adjust the same
+destination. Fine wheel deltas and reduced-motion settings apply zoom directly.
 Negative positions are supported. **Alt+arrow** moves a focused card by 20 logical
 pixels; add Shift for 100 pixels. Escape cancels an unfinished drag.
 
 On Windows, Tab moves between native controls, including the graph and the
-selected card's **Read here** button. With the graph focused, **Page Up/Down**
+selected card's **Read here** button at detail zoom. With the graph focused, **Page Up/Down**
 cycles through cards. Add Shift to move through the focused card's links or Ctrl
 to move through folder islands. **R** focuses the resize grip and **M** focuses
 the minimap. **Home** fits the graph.
@@ -40,6 +46,13 @@ the minimap. **Home** fits the graph.
 Hover a connection to illuminate its curve and both endpoint cards. Its invisible
 hit area stays 14 screen pixels wide while zooming. Connection endpoints follow
 card magnification, movement and resizing.
+
+New desktop cards use portrait A4 proportions (210 × 297 logical pixels).
+The header shows the filename, title and a short extract from the document.
+An unresized document appears as a portrait A4 sheet, 210 by 297 logical pixels.
+Its running header identifies the file. The title and first text paragraph are
+followed by section headings or linked filenames when the sheet has room.
+Selection magnifies the sheet uniformly. Saved custom dimensions take precedence.
 
 Use the bottom-right grip to resize a desktop card. A focused grip accepts arrow
 keys in 10-pixel steps, or Shift for 40 pixels; Escape cancels the preview. Width
@@ -68,16 +81,20 @@ from this menu. Catalog entries, retained drafts, map membership and AI collecti
 membership are refreshed after a completed operation. These new actions have been
 compiled but their functional acceptance is reserved for the owner's manual tests.
 
-The toolbar sits inside the black canvas, with search on the same row and a
-localized **Type to search…** watermark. Captions compact before actions scroll
-horizontally on narrow windows; search stays visible. The application view
-selectors above it use rounded tabs with distinct selected and keyboard-focus states.
+The map toolbar wraps within the themed canvas. Search stays visible in the
+compact document list. **Fit** is available on the canvas. The native shell
+keeps Read, Source, Split and Map in a single selector that moves below the file
+commands when the window is narrow.
+
+Opening a document loads its own text first. Other document titles and link
+metadata are indexed on demand for the visible Pages list or map. The graph
+updates incrementally as those results arrive.
 
 The first map opens in **Tree** when no saved layout exists. A valid saved layout
 always keeps its card positions, sizes, colors and icons. Reset returns to the
 initial Tree arrangement; no existing layout is silently rearranged.
 
-Incoming and outgoing links appear in separate dark sections with direction
+Incoming and outgoing links appear in separate themed sections with direction
 arrows, unique-target counts, document icons, readable titles and secondary paths.
 Rows retain document navigation and the local file context menu.
 
@@ -149,18 +166,25 @@ devices retain a scrollable card list and normal scrolling instead of wheel zoom
 
 ### Document atlas
 
-The floating map chrome leaves the black canvas continuous behind its controls.
+The full-width toolbar sits above the canvas. Its directional legend appears
+on the canvas below the commands when the relation lens is active. The default MarkVibe
+palette uses warm paper and sage in light mode and charcoal and olive in dark mode.
 The camera reserves space beneath the toolbar when fitting the graph. Narrow
 devices retain a normal card list and can show the inspector as an overlay.
 The reading panel opens below its row in the compact Windows list when the row
 is available.
 
-Zoom progressively changes card content without editing coordinates: below 40%
-cards show their identifying header, at 40–72% their preview remains, and normal
-detail includes the path and optional advanced statistics. At 105% or more, the
-selected card can show up to three source headings. In the distant overview,
-up to twelve non-overlapping screen-sized labels identify islands and important
-documents; activating a document label selects and centers it through C#.
+Below 40% zoom, documents appear as points. In a dense graph only selected,
+focused, picked or route documents can display a label. At reading zoom each
+document shows its icon, title and excerpt. The selected document can also show
+its path, up to three section headings at 105% or more, or advanced statistics.
+While the wheel moves through a dense graph, card outlines and titles identify
+the visible documents. Titles use a fixed screen size wherever a card has room
+for the label. During wheel zoom, or while dragging the camera at reading zoom,
+background links follow their Béziers using short straight segments with a
+tolerance of 0.75 logical pixels. Highlighted links keep their full curves.
+The full card contents and curves return when the camera comes to rest.
+Changing zoom preserves the saved positions and sizes.
 
 **Folders** retains the existing full-catalog arrangement and adds deterministic
 island colors without replacing custom card colors. Each island has a count and
@@ -169,13 +193,16 @@ coordinates and redirects existing external connections to the island boundary;
 internal connections disappear until expansion. Island counts and frames use the
 complete catalog/layout, even when not all cards fit the 120-card projection.
 
-The exploration follow-up keeps the canvas opaque and card coordinates stable.
-Resting cards use restrained surfaces and one-line excerpts; hover/selection
-reveals more content, with advanced statistics restricted to the active card.
+Each document has a slim outline, a subtle internal gradient and slightly rounded corners. A one- or two-line
+title sets the starting position of the excerpt. Hovering or selecting a document
+reveals additional detail. Advanced statistics appear on the active document.
 
 Selecting a document sends one short impulse along up to 24 adjacent links, from
-source to target. Cyan dashed links enter the focal page; violet solid links
-leave it. The relation lens uses hover/keyboard focus and rests on the selection.
+source to target. Curves attach to the side facing the other document. Reciprocal
+links follow separate paths, each with its own destination arrow. With the relation
+lens on, incoming links use a dashed stroke and outgoing links use a solid stroke
+in the current preset's colors. The lens follows hover or keyboard focus and
+rests on the selection.
 The link button toggles emphasis. Effects finish after about one second, respect
 reduced motion, and cancel when the session is suspended or the page is hidden.
 They introduce no blur, SVG filters or continuous animation loop.
@@ -207,8 +234,9 @@ projection priority are calculated in C# over the complete catalog. Changing a
 lens can change which documents fit the existing display limit; it never moves
 their saved coordinates. Search expands a collapsed target folder before centering.
 
-The document inspector shows the catalog introduction, up to twelve headings,
-bordered icon actions and incoming/outgoing link sections. Both link sections
+Open **Document preview** to see the introduction, reading actions and link counts
+for the selected card. Expand **Outline** for up to twelve headings, **Route**
+for path finding, or **More actions** for document commands. Both link sections
 start collapsed and retain their expansion during inspector refreshes in the
 current session. In Windows, they use the entire indexed catalog and expose
 more rows in batches, independent of the canvas limit. Unavailable local

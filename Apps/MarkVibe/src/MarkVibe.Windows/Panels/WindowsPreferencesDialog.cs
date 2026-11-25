@@ -45,7 +45,7 @@ internal static class WindowsPreferencesDialog
         var appearance = new StackPanel { Spacing = 10, VerticalAlignment = VerticalAlignment.Top };
         form.Choice(appearance, "Application appearance", [new("system", "System"), new("light", "Light"), new("dark", "Dark")],
             value => value.Appearance, (value, next) => value with { Appearance = next });
-        form.Choice(appearance, "Map and workspace colors", GraphThemeCatalog.Options.Select(theme => new Choice(theme.Id, theme.Label)),
+        form.Choice(appearance, "Map colors", GraphThemeCatalog.Options.Select(theme => new Choice(theme.Id, theme.Label)),
             value => value.GraphPalette, (value, next) => value with { GraphPalette = next });
         form.Check(appearance, "Acrylic map surfaces", value => value.Acrylic, (value, next) => value with { Acrylic = next });
         form.Choice(appearance, "Application language", Languages, value => value.Language, (value, next) => value with { Language = next });

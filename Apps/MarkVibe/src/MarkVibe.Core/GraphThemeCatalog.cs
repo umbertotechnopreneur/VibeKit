@@ -6,7 +6,7 @@
  * VBWR E */
 namespace MarkVibe.Core;
 
-/// <summary>Defines packed sRGB colors for the graph and its matching shell accent.</summary>
+/// <summary>Defines packed sRGB colors for the graph canvas, selection and directed links.</summary>
 public sealed record GraphThemeColors(int Canvas, int Accent, int Incoming, int Outgoing);
 
 /// <summary>Defines one persistable color preset with light and dark variants.</summary>

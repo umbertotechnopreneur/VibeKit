@@ -82,9 +82,13 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
     private IReadOnlyList<MapExplorationDocument> _displayedComparison = [];
     private IReadOnlyList<MapExplorationDocument> _displayedPicked = [];
     private IReadOnlyList<MapExplorationDocument> _displayedTrail = [];
-    private readonly ColumnDefinition _splitColumn = new() { Width = new GridLength(6) };
     private readonly ColumnDefinition _inspectorColumn = new() { Width = new GridLength(292) };
-    private readonly Thumb _split = new() { IsTabStop = true };
+    private readonly Thumb _split = new()
+    {
+        Style = (Style)Application.Current.Resources["PaneResizeGripStyle"],
+        HorizontalAlignment = HorizontalAlignment.Left,
+        Margin = new Thickness(-3, 0, 0, 0)
+    };
     private readonly ScrollViewer _inspectorScroll;
     private CancellationToken _workspaceLifetime;
     private WindowsMapModel? _model;
@@ -139,15 +143,13 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
 
         var body = new Grid();
         body.ColumnDefinitions.Add(new ColumnDefinition());
-        body.ColumnDefinitions.Add(_splitColumn);
         body.ColumnDefinitions.Add(_inspectorColumn);
         body.Children.Add(_canvas);
         body.Children.Add(_compact);
         BuildComparison();
         body.Children.Add(_comparison);
         Grid.SetColumn(_split, 1);
-        body.Children.Add(_split);
-        _split.Background = new SolidColorBrush(Color.FromArgb(80, 100, 115, 130));
+        AutomationProperties.SetAutomationId(_split, "MapInspectorGrip");
         AutomationProperties.SetName(_split, "Resize map inspector");
         _split.DragDelta += (_, args) =>
         {
@@ -178,10 +180,11 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
                 args.Handled = true;
             }
         };
-        Grid.SetColumn(_inspectorScroll, 2);
+        Grid.SetColumn(_inspectorScroll, 1);
         body.Children.Add(_inspectorScroll);
         body.Children.Add(_chrome);
         body.Children.Add(_legend);
+        body.Children.Add(_split);
         _toolbarShadow.Receivers.Add(_canvas);
         _toolbarShadow.Receivers.Add(_compact);
         _chrome.PointerEntered += (_, _) => { _toolbarPointerOver = true; UpdateToolbarElevation(); };
@@ -1134,15 +1137,13 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         var dockInspector = showInspector && !compact;
         _inspectorScroll.Visibility = showInspector ? Visibility.Visible : Visibility.Collapsed;
         _inspectorToggle.IsChecked = showInspector;
-        Grid.SetColumn(_inspectorScroll, compact ? 0 : 2);
+        Grid.SetColumn(_inspectorScroll, compact ? 0 : 1);
         _inspectorScroll.HorizontalAlignment = compact ? HorizontalAlignment.Right : HorizontalAlignment.Stretch;
         _inspectorScroll.Width = compact ? Math.Min(_inspectorWidth, Math.Max(0, ActualWidth - 20)) : double.NaN;
         _split.Visibility = dockInspector ? Visibility.Visible : Visibility.Collapsed;
-        var splitterWidth = dockInspector ? 6 : 0;
         var inspectorWidth = dockInspector ? Math.Min(_inspectorWidth, Math.Max(220, ActualWidth * .48)) : 0;
-        _splitColumn.Width = new GridLength(splitterWidth);
         _inspectorColumn.Width = new GridLength(inspectorWidth);
-        var chromeWidth = ActualWidth - splitterWidth - inspectorWidth - _chrome.Margin.Left - _chrome.Margin.Right;
+        var chromeWidth = ActualWidth - inspectorWidth - _chrome.Margin.Left - _chrome.Margin.Right;
         var toolWidth = Math.Max(0, chromeWidth - _chrome.Padding.Left - _chrome.Padding.Right - _chrome.BorderThickness.Left - _chrome.BorderThickness.Right);
         _toolbar.MaxWidth = toolWidth;
         _search.Width = Math.Min(Math.Max(0, toolWidth - 48), Math.Clamp(toolWidth * .32, 120, 220));
@@ -1199,28 +1200,24 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         _arrangements.RequestedTheme = theme;
         _optionsPanel.RequestedTheme = theme;
         _canvas.SetAppearance(palette, MapSurface(palette.Canvas));
+        var panelStyle = (Style)Application.Current.Resources[acrylic ? "AcrylicMapPanelStyle" : "MapPanelStyle"];
+        _chrome.Style = _comparison.Style = panelStyle;
+        _inspectorScroll.Style = (Style)Application.Current.Resources[acrylic ? "AcrylicMapInspectorStyle" : "MapInspectorStyle"];
         if (highContrast)
         {
             var systemColors = new global::Windows.UI.ViewManagement.UISettings();
             var foreground = systemColors.GetColorValue(global::Windows.UI.ViewManagement.UIColorType.Foreground);
-            _chrome.Background = new SolidColorBrush(systemColors.GetColorValue(global::Windows.UI.ViewManagement.UIColorType.Background));
-            _chrome.BorderBrush = new SolidColorBrush(foreground);
             _incomingInk.Color = _outgoingInk.Color = foreground;
             _incomingCaption.Foreground = _outgoingCaption.Foreground = _incomingInk;
         }
         else
         {
-            _chrome.Background = MapSurface(palette.Panel);
-            _chrome.BorderBrush = new SolidColorBrush(palette.Border);
             _incomingInk.Color = palette.IncomingColor;
             _outgoingInk.Color = palette.OutgoingColor;
             _incomingCaption.Foreground = _outgoingCaption.Foreground = new SolidColorBrush(palette.CardText);
         }
         _chrome.Shadow = highContrast ? null : _toolbarShadow;
         UpdateToolbarElevation();
-        _comparison.Background = MapSurface(palette.Panel);
-        _comparison.BorderBrush = new SolidColorBrush(palette.Border);
-        _inspectorScroll.Background = MapSurface(palette.Panel);
         _compact.Background = new SolidColorBrush(palette.Canvas);
     }
 

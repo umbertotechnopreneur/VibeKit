@@ -67,6 +67,7 @@ public sealed partial class DesktopWindow : Window
         var language = CultureInfo.CurrentUICulture.Name;
         SetLanguage(_model.Preferences.Language, language);
         InitializeComponent();
+        ApplyShellMenuIcons();
         WindowsPaperSurface.Attach(ToolbarLayout);
         WindowsPaperSurface.AttachFlyout(ShellMenu);
         WindowsPaperSurface.AttachFlyout(FolderCommandsMenu);
@@ -232,21 +233,11 @@ public sealed partial class DesktopWindow : Window
         UpdateLabels();
     }
 
-    /// <summary>Matches the caption to the shell and gives the Mica toolbar a light wash of the selected map color.</summary>
+    /// <summary>Matches the Windows caption to the Mica shell's current theme.</summary>
     private void ApplyWindowColors()
     {
         var dark = Shell.ActualTheme == ElementTheme.Dark;
         AppWindow.TitleBar.PreferredTheme = dark ? TitleBarTheme.Dark : TitleBarTheme.Light;
-        ApplyShellMenuIcons();
-        var theme = GraphThemeCatalog.Resolve(_model.Preferences.GraphPalette);
-        if (theme.Id == "system" || _accessibility.HighContrast)
-        {
-            ToolbarLayout.Background = null;
-            return;
-        }
-        var accent = (dark ? theme.Dark : theme.Light).Accent;
-        ToolbarLayout.Background = new SolidColorBrush(global::Windows.UI.Color.FromArgb(
-            (byte)(dark ? 24 : 16), (byte)(accent >> 16), (byte)(accent >> 8), (byte)accent));
     }
 
     /// <summary>Updates the shell on its UI thread when Windows changes the contrast setting.</summary>
@@ -286,7 +277,6 @@ public sealed partial class DesktopWindow : Window
         var assistantWidth = dockedAssistant ? Math.Min(layout.AiWidth, width > 0 ? Math.Min(AssistantWidthLimit, width * .47) : 600) : 0;
         Grid.SetColumnSpan(Sidebar, overlay ? WorkArea.ColumnDefinitions.Count : 1);
         SidebarColumn.Width = new GridLength(sidebar);
-        SidebarGripColumn.Width = new GridLength(sidebar > 0 ? 6 : 0);
         SidebarGrip.Visibility = sidebar > 0 ? Visibility.Visible : Visibility.Collapsed;
         var sidebarVisible = sidebar > 0 || overlay;
         Sidebar.Visibility = sidebarVisible ? Visibility.Visible : Visibility.Collapsed;
@@ -294,7 +284,6 @@ public sealed partial class DesktopWindow : Window
         Grid.SetColumn(AiSlot, assistantOverlay ? 0 : WorkArea.ColumnDefinitions.Count - 1);
         Grid.SetColumnSpan(AiSlot, assistantOverlay ? WorkArea.ColumnDefinitions.Count : 1);
         AiColumn.Width = new GridLength(assistantWidth);
-        AiGripColumn.Width = new GridLength(dockedAssistant ? 6 : 0);
         AiGrip.Visibility = dockedAssistant ? Visibility.Visible : Visibility.Collapsed;
         AiSlot.Visibility = assistantOverlay || dockedAssistant ? Visibility.Visible : Visibility.Collapsed;
         AiButton.Text = T(layout.AiOpen ? "Close assistant" : "Open assistant");

@@ -13,6 +13,7 @@
     "bundle:debug": "node scripts/bundle.mjs --debug",
     "test:client": "node --test tests/client/path.test.mjs tests/client/rendering.test.mjs tests/client/workspaces.test.mjs",
     "test:windows": "pwsh -NoProfile -File tests/windows/smoke.ps1",
+    "test:reader-surface": "node tests/client/reader-surface.mjs",
     "test:svg": "node tests/client/svg.mjs"
   },
   "dependencies": {

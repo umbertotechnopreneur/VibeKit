@@ -27,7 +27,7 @@ next controls to move the highlight in the reader or source view.
 | UI font | Native application typeface |
 | Graph font | Independent typeface for graph labels and cards |
 | Document font | Reader and export typeface, with the active document theme as the default |
-| Map and workspace colors | Ten graph palettes, each with light and dark variants, and a matching workspace accent |
+| Map colors | Ten graph palettes with light and dark variants |
 | Acrylic map surfaces | Optional material for the graph, toolbar and inspector |
 | Document presentation and themes | Technical, Editorial or Compact; independent light/dark document and code choices |
 | Hyperlink underline and reading size | Reader/export link decoration and bounded reading scale |
@@ -46,7 +46,8 @@ native gallery. **Apply paper** saves the choice for this workspace. Choose **Th
 background** for a plain reading surface. Contrast themes use the system
 background for legibility.
 
-WinUI applies the light or dark theme to the Mica window. The native graph
+WinUI uses the Windows accent for selections, menu icons and active resize handles.
+The Mica window and map toolbars follow the shell theme. The native graph
 uses the same appearance and respects system motion settings. Acrylic on the
 map is off by default and falls back to solid fills when Windows disables
 transparency. The model sends document and code themes to WebView2. Settings,

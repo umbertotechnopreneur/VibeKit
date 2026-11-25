@@ -58,9 +58,17 @@ public sealed partial class DesktopWindow
     {
         if (_loaded && !_disposed)
         {
+            UpdatePageSearchWatermark();
             UpdateTree();
         }
     }
+
+    /// <summary>Hides the decorative lens while the text field has a caret.</summary>
+    private void PagesSearchFocusChanged(object sender, RoutedEventArgs args) => UpdatePageSearchWatermark();
+
+    /// <summary>Shows the lens only in an empty, unfocused Pages filter.</summary>
+    private void UpdatePageSearchWatermark() => PagesSearchWatermark.Visibility =
+        PagesSearchBox.Text.Length == 0 && PagesSearchBox.FocusState == FocusState.Unfocused ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>Drops the previous workspace query when a new workspace becomes authoritative.</summary>
     private void ResetPageSearch()
@@ -184,9 +192,10 @@ public sealed partial class DesktopWindow
     /// <summary>Localizes the visible Pages filter and its accessible names when the shell language changes.</summary>
     private void UpdatePageSearchLabels()
     {
-        PagesSearchBox.PlaceholderText = T("Search document contents");
-        AutomationProperties.SetName(PagesSearchBox, PagesSearchBox.PlaceholderText);
-        AutomationProperties.SetName(PagesSearchProgress, T("Search document contents"));
+        var label = T("Search document contents");
+        ToolTipService.SetToolTip(PagesSearchBox, label);
+        AutomationProperties.SetName(PagesSearchBox, label);
+        AutomationProperties.SetName(PagesSearchProgress, label);
         UpdatePageSearchStatus();
     }
 }

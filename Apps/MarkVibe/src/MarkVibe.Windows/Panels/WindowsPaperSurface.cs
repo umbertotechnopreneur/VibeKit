@@ -24,10 +24,15 @@ namespace MarkVibe.Windows;
 internal sealed class WindowsPaperSurface
 {
     private const int TilePixels = 256;
+    // Even the strongest texel then changes a flat surface by less than two 8-bit levels.
+    private const float GrainOpacity = .08f;
     private static readonly ConditionalWeakTable<FrameworkElement, WindowsPaperSurface> Surfaces = new();
     private static readonly Lazy<LoadedImageSurface> Grain = new(() =>
         LoadedImageSurface.StartLoadFromUri(new Uri("ms-appx:///app/images/chrome-paper-grain.png")));
     private readonly FrameworkElement _host;
+    private readonly FrameworkElement _material;
+    private readonly DependencyProperty? _backgroundProperty;
+    private long _backgroundSubscription;
     private readonly AccessibilitySettings _contrast = new();
     private readonly UISettings _effects = new();
     private XamlRoot? _root;
@@ -36,9 +41,17 @@ internal sealed class WindowsPaperSurface
     private bool _effectsSubscribed;
 
     /// <summary>Observes system preferences only while this element belongs to a live visual tree.</summary>
-    private WindowsPaperSurface(FrameworkElement host)
+    private WindowsPaperSurface(FrameworkElement host, FrameworkElement material)
     {
         _host = host;
+        _material = material;
+        _backgroundProperty = material switch
+        {
+            Control => Control.BackgroundProperty,
+            Border => Border.BackgroundProperty,
+            Panel => Panel.BackgroundProperty,
+            _ => null
+        };
         host.Loaded += Loaded;
         host.Unloaded += Unloaded;
         host.SizeChanged += SizeChanged;
@@ -46,7 +59,11 @@ internal sealed class WindowsPaperSurface
     }
 
     /// <summary>Attaches once to the actual surface while preserving its native brush and children.</summary>
-    public static void Attach(FrameworkElement host) => Surfaces.GetValue(host, static element => new WindowsPaperSurface(element));
+    public static void Attach(FrameworkElement host) => Attach(host, host);
+
+    /// <summary>Allows a popup's dedicated decoration to observe the material painted by its owning dialog.</summary>
+    private static void Attach(FrameworkElement host, FrameworkElement material) =>
+        Surfaces.GetValue(host, element => new WindowsPaperSurface(element, material));
 
     /// <summary>Owns a decorative layer inside the actual popup template for this presentation of a dialog.</summary>
     internal sealed class DialogLayer : IDisposable
@@ -64,7 +81,7 @@ internal sealed class WindowsPaperSurface
             _content = dialog.Content as FrameworkElement;
             if (_content == null) { return; }
             AutomationProperties.SetAccessibilityView(_overlay, AccessibilityView.Raw);
-            Attach(_overlay);
+            Attach(_overlay, dialog);
             _content.Loaded += ContentLoaded;
             if (_content.IsLoaded) { ResolveLayout(); }
         }
@@ -143,6 +160,10 @@ internal sealed class WindowsPaperSurface
         if (_root != null || _host.XamlRoot is not { } root) { return; }
         _root = root;
         root.Changed += RootChanged;
+        if (_backgroundProperty != null)
+        {
+            _backgroundSubscription = _material.RegisterPropertyChangedCallback(_backgroundProperty, BackgroundChanged);
+        }
         try { _contrast.HighContrastChanged += ContrastChanged; _contrastSubscribed = true; }
         catch (COMException error) when (error.HResult == unchecked((int)0x80070490)) { }
         try { _effects.AdvancedEffectsEnabledChanged += EffectsChanged; _effectsSubscribed = true; }
@@ -153,7 +174,14 @@ internal sealed class WindowsPaperSurface
     /// <summary>Releases composition visuals and system subscriptions when a popup closes or a toolbar unloads.</summary>
     private void Unloaded(object sender, RoutedEventArgs args)
     {
-        if (_root != null) { _root.Changed -= RootChanged; }
+        if (_root != null)
+        {
+            _root.Changed -= RootChanged;
+            if (_backgroundProperty != null)
+            {
+                _material.UnregisterPropertyChangedCallback(_backgroundProperty, _backgroundSubscription);
+            }
+        }
         _root = null;
         if (_contrastSubscribed) { _contrast.HighContrastChanged -= ContrastChanged; _contrastSubscribed = false; }
         if (_effectsSubscribed) { _effects.AdvancedEffectsEnabledChanged -= EffectsChanged; _effectsSubscribed = false; }
@@ -165,6 +193,9 @@ internal sealed class WindowsPaperSurface
 
     /// <summary>Preserves one source pixel per screen pixel when the owner changes monitors.</summary>
     private void RootChanged(XamlRoot sender, XamlRootChangedEventArgs args) => Update();
+
+    /// <summary>Switches grain ownership when the map or a dialog replaces a solid brush with native Acrylic.</summary>
+    private void BackgroundChanged(DependencyObject sender, DependencyProperty property) => Update();
 
     /// <summary>Marshals a system contrast change onto the owning UI thread.</summary>
     private void ContrastChanged(AccessibilitySettings sender, object args) => _host.DispatcherQueue.TryEnqueue(Update);
@@ -191,7 +222,9 @@ internal sealed class WindowsPaperSurface
         }
         var radius = _host switch { Border border => border.CornerRadius.TopLeft, Control control => control.CornerRadius.TopLeft, _ => 0 };
         _drawing.Layer.IsVisible = true;
-        _drawing.Arrange(size, (float)_root.RasterizationScale, (float)radius);
+        var nativeGrain = (_backgroundProperty != null && _material.GetValue(_backgroundProperty) is AcrylicBrush) ||
+            _material is MenuFlyoutPresenter { SystemBackdrop: DesktopAcrylicBackdrop };
+        _drawing.Arrange(size, (float)_root.RasterizationScale, (float)radius, nativeGrain);
     }
 
     /// <summary>Shares one decoded transparent texture across every tile and places the feather along the surface edges.</summary>
@@ -218,6 +251,7 @@ internal sealed class WindowsPaperSurface
             _clip = compositor.CreateRoundedRectangleGeometry();
             Layer.Clip = compositor.CreateGeometricClip(_clip);
             _tiles = compositor.CreateContainerVisual();
+            _tiles.Opacity = GrainOpacity;
             Layer.Children.InsertAtBottom(_tiles);
             _brush = compositor.CreateSurfaceBrush(Grain.Value);
             _brush.Stretch = CompositionStretch.Fill;
@@ -242,8 +276,10 @@ internal sealed class WindowsPaperSurface
         }
 
         /// <summary>Places square tiles in physical pixels and clips the final row and column to the native bounds.</summary>
-        public void Arrange(Vector2 size, float scale, float radius)
+        public void Arrange(Vector2 size, float scale, float radius, bool nativeGrain)
         {
+            // WinUI Acrylic already includes its own noise; the edge visuals are independent of the grain.
+            _tiles.IsVisible = !nativeGrain;
             _clip.CornerRadius = new Vector2(radius);
             if (_size == size && _scale == scale) { return; }
             _size = size;

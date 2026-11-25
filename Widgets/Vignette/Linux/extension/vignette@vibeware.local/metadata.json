@@ -2,8 +2,8 @@
   "uuid": "vignette@vibeware.local",
   "name": "Vignette",
   "description": "Shade or brighten the edges of selected displays with an elliptical gradient.",
-  "version": 2,
-  "version-name": "0.1.1",
+  "version": 3,
+  "version-name": "0.1.2",
   "shell-version": ["50"],
   "settings-schema": "org.gnome.shell.extensions.vibeware-vignette",
   "url": "https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/Vignette"

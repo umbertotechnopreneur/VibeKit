@@ -3,331 +3,243 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using Icon = System.Drawing.Icon;
-using ColorTranslator = System.Drawing.ColorTranslator;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Threading;
+using System.Threading.Tasks;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.Win32;
 using Tools.Widgets;
 using Forms = System.Windows.Forms;
-using Brush = System.Windows.Media.Brush;
-using Brushes = System.Windows.Media.Brushes;
-using Color = System.Windows.Media.Color;
 
 namespace VibeWare.Vignette;
 
-internal static class Program
+public partial class App : Application
 {
     internal static readonly WindowsSignIn SignIn = new("Vignette");
+    private readonly EventWaitHandle activation;
+    private readonly bool startAtSignIn;
+    private Studio? studio;
+    private RegisteredWaitHandle? activationListener;
 
     [STAThread]
     private static void Main()
     {
-        var args = Environment.GetCommandLineArgs();
-        if (args.Contains(WindowsSignIn.RemoveArgument)) { SignIn.Remove(); return; }
+        string[] args = Environment.GetCommandLineArgs();
+        if (args.Contains(WindowsSignIn.RemoveArgument))
+        {
+            SignIn.Remove();
+            return;
+        }
+
         bool startup = args.Contains(WindowsSignIn.StartArgument);
         using var activation = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\VibeWare.Vignette.Activate");
-        using var singleton = new Mutex(false, @"Local\VibeWare.Vignette", out bool created);
-        if (!created) { if (!startup) activation.Set(); return; }
-        SetCurrentProcessExplicitAppUserModelID("biz.umbertogiacobbi.Vignette");
-        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-        var window = new Studio();
-        app.SessionEnding += (_, _) => window.EndSession();
-        var wait = ThreadPool.RegisterWaitForSingleObject(activation, (_, _) => window.Dispatcher.BeginInvoke(window.Reveal), null, -1, false);
+        using var singleton = new Mutex(false, @"Local\VibeWare.Vignette");
+        bool primary;
+        try { primary = singleton.WaitOne(0); }
+        catch (AbandonedMutexException) { primary = true; }
+        if (!primary)
+        {
+            if (!startup) activation.Set();
+            return;
+        }
+
         try
         {
-            if (startup) { new WindowInteropHelper(window).EnsureHandle(); }
-            else window.Reveal();
-            app.Run();
+            SetCurrentProcessExplicitAppUserModelID("biz.umbertogiacobbi.Vignette");
+            WinRT.ComWrappersSupport.InitializeComWrappers();
+            Start(_ =>
+            {
+                var queue = DispatcherQueue.GetForCurrentThread();
+                SynchronizationContext.SetSynchronizationContext(new DispatcherQueueSynchronizationContext(queue));
+                new App(activation, startup);
+            });
         }
-        finally { wait.Unregister(null); }
+        finally { singleton.ReleaseMutex(); }
+    }
+
+    private App(EventWaitHandle activation, bool startAtSignIn)
+    {
+        this.activation = activation;
+        this.startAtSignIn = startAtSignIn;
+        InitializeComponent();
+    }
+
+    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    {
+        if (studio is not null)
+        {
+            studio.Reveal();
+            return;
+        }
+
+        var window = new Studio();
+        studio = window;
+        var dispatcher = window.DispatcherQueue;
+        activationListener = ThreadPool.RegisterWaitForSingleObject(activation, (_, _) =>
+            dispatcher.TryEnqueue(window.Reveal), null, Timeout.Infinite, executeOnlyOnce: false);
+        window.Closed += (_, _) =>
+        {
+            activationListener?.Unregister(null);
+            activationListener = null;
+            studio = null;
+            Exit();
+        };
+        if (!startAtSignIn) window.Reveal();
     }
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern int SetCurrentProcessExplicitAppUserModelID(string id);
 }
 
-internal sealed class Studio : Window
+internal sealed partial class Studio : Window
 {
     private const string Site = "https://umbertogiacobbi.biz";
     private const int Hotkey = 0x5649;
     private const uint WindowShown = 0x8002, WindowReordered = 0x8004, SkipOwnProcess = 2;
-    private static readonly Brush Violet = new SolidColorBrush(Color.FromRgb(114, 84, 169));
+    private const uint WindowSubclassId = 0x56474E;
     private readonly SettingsStore store = new();
     private readonly IReadOnlyList<Pipeline> builtins = SettingsStore.Builtins();
-    private Preferences preferences;
-    private IReadOnlyList<DisplayTarget> displays = [];
     private readonly DesktopOverlay overlay = new();
-    private readonly TextBlock status = Label("Stopped", 14);
-    private readonly TextBlock message = Label("", 13);
-    private readonly TextBlock description = Label("", 13);
-    private readonly CheckBox effect = new() { Content = "Vignette effect", VerticalAlignment = VerticalAlignment.Center };
-    private readonly StackPanel monitorRows = new();
-    private readonly ComboBox pipeline = new() { MinWidth = 310 };
-    private readonly TextBox pipelineName = new() { MaxLength = 80, MinWidth = 260 };
-    private readonly TextBox edgeColor = new() { MaxLength = 7, Width = 86 };
-    private readonly Border swatch = new() { Width = 30, Height = 22, CornerRadius = new CornerRadius(4) };
-    private readonly Slider[] sliders = new Slider[4];
-    private readonly DispatcherTimer renderTimer = new() { Interval = TimeSpan.FromMilliseconds(55) };
-    private readonly DispatcherTimer peerOrderTimer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(16) };
-    private readonly DispatcherTimer saveTimer = new() { Interval = TimeSpan.FromMilliseconds(300) };
-    private readonly DispatcherTimer previewTimer = new() { Interval = TimeSpan.FromSeconds(15) };
+    private readonly DispatcherQueueTimer renderTimer, peerOrderTimer, saveTimer;
     private readonly Forms.NotifyIcon tray = new();
     private readonly Forms.ToolStripMenuItem trayEffect;
     private readonly WinEventCallback winEvent;
-    private Window? about;
-    private Button updatePipeline = null!, removePipeline = null!;
-    private nint handle, orderHook;
-    private bool syncing, closing, hotkeyRegistered, preview, dirty;
+    private readonly SubclassCallback subclass;
+    private readonly nint handle;
+    private Preferences preferences;
+    private IReadOnlyList<DisplayTarget> displays = [];
+    private nint orderHook;
+    private bool syncing, closing, hotkeyRegistered, dirty, quitPending;
     private string? editId;
 
     internal Studio()
     {
         preferences = store.Load();
-        Title = "Vignette";
-        Width = 700; Height = 670; MinWidth = 520; MinHeight = 430;
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        Icon = BitmapFrame.Create(new Uri(Path.Combine(AppContext.BaseDirectory, "Vignette.ico")));
-        var root = new DockPanel { Margin = new Thickness(24) };
-        var header = new StackPanel { Margin = new Thickness(0, 0, 0, 18) };
-        header.Children.Add(Label("Vignette", 30, true));
-        header.Children.Add(Label("Elliptical edge lighting and shading", 14));
-        var commands = Horizontal();
-        effect.Checked += (_, _) => { if (!syncing) SetEffect(true); };
-        effect.Unchecked += (_, _) => { if (!syncing) SetEffect(false); };
-        commands.Children.Add(effect);
-        commands.Children.Add(ButtonFor("Try for 15 seconds", () =>
-        {
-            if (effect.IsChecked == true) return;
-            SetEffect(true);
-            if (effect.IsChecked == true) { preview = true; previewTimer.Start(); Render(); }
-        }));
-        commands.Children.Add(ButtonFor("Stop", () => SetEffect(false)));
-        status.Foreground = Violet;
-        header.Children.Add(commands);
-        header.Children.Add(status);
-        header.Children.Add(message);
-        DockPanel.SetDock(header, Dock.Top);
-        root.Children.Add(header);
-        var pages = new TabControl();
-        pages.Items.Add(Tab("Effect", BuildEffect()));
-        pages.Items.Add(Tab("Pipelines", BuildPipelines()));
-        pages.Items.Add(Tab("Settings", BuildSettings()));
-        pages.Items.Add(Tab("About", BuildAboutPage()));
-        root.Children.Add(pages);
-        Content = root;
-        ApplyTheme();
+        Title = "VibeWare – Vignette";
+        handle = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        string iconPath = Path.Combine(AppContext.BaseDirectory, "Vignette.ico");
+        AppWindow.SetIcon(iconPath);
 
+        renderTimer = DispatcherQueue.CreateTimer();
+        renderTimer.Interval = TimeSpan.FromMilliseconds(33);
+        renderTimer.IsRepeating = false;
+        renderTimer.Tick += (_, _) => Render();
+        saveTimer = DispatcherQueue.CreateTimer();
+        saveTimer.Interval = TimeSpan.FromMilliseconds(300);
+        saveTimer.IsRepeating = false;
+        saveTimer.Tick += (_, _) => Flush();
+        winEvent = OnPeerWindowChanged;
+        peerOrderTimer = DispatcherQueue.CreateTimer();
+        peerOrderTimer.Interval = TimeSpan.FromMilliseconds(16);
+        peerOrderTimer.IsRepeating = false;
+        peerOrderTimer.Tick += (_, _) =>
+        {
+            try { overlay.EnsureAbovePeers(); }
+            catch (Win32Exception error) { SetEffect(false, "Vignette stopped. " + error.Message); }
+        };
+
+        BuildUi();
         var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Preferences", null, (_, _) => { pages.SelectedIndex = 2; Reveal(); });
+        menu.Items.Add("Preferences", null, (_, _) => { ShowSettings(); Reveal(); });
         menu.Items.Add("Open", null, (_, _) => Reveal());
         menu.Items.Add(new Forms.ToolStripSeparator());
-        trayEffect = new Forms.ToolStripMenuItem("Effect", null, (_, _) => SetEffect(effect.IsChecked != true));
+        trayEffect = new Forms.ToolStripMenuItem("Effect", null, (_, _) => SetEffect(!effect.IsOn));
         menu.Items.Add(trayEffect);
         menu.Items.Add("Stop", null, (_, _) => SetEffect(false));
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Quit", null, (_, _) => Quit());
+        menu.Items.Add("Quit", null, async (_, _) => await QuitAsync());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Mini Utilities", null, (_, _) => OpenLink(Site + "/mini-utilities/"));
-        menu.Items.Add("About", null, (_, _) => ShowAbout());
+        menu.Items.Add("About", null, async (_, _) => { Reveal(); await ShowAboutAsync(); });
         tray.Text = "Vignette";
-        tray.Icon = new Icon(Path.Combine(AppContext.BaseDirectory, "Vignette.ico"));
+        tray.Icon = new Icon(iconPath);
         tray.ContextMenuStrip = menu;
         tray.DoubleClick += (_, _) => Reveal();
         tray.Visible = true;
 
-        renderTimer.Tick += (_, _) => { renderTimer.Stop(); Render(); };
-        saveTimer.Tick += (_, _) => { saveTimer.Stop(); Flush(); };
-        previewTimer.Tick += (_, _) => SetEffect(false);
-        winEvent = OnPeerWindowChanged;
-        peerOrderTimer.Tick += (_, _) =>
-        {
-            peerOrderTimer.Stop();
-            try { overlay.EnsureAbovePeers(); }
-            catch (Win32Exception error) { SetEffect(false, "Vignette stopped. " + error.Message); }
-        };
-        SourceInitialized += (_, _) =>
-        {
-            handle = new WindowInteropHelper(this).Handle;
-            HwndSource.FromHwnd(handle).AddHook(Messages);
+        subclass = OnWindowMessage;
+        if (SetWindowSubclass(handle, subclass, WindowSubclassId, 0))
             hotkeyRegistered = RegisterHotKey(handle, Hotkey, 0x4000 | 8 | 4, 0x79);
-            if (!hotkeyRegistered) status.Text = "The emergency shortcut is already in use.";
+        trayEffect.Enabled = hotkeyRegistered;
+        UpdateEmergencyShortcut();
+        status.Text = hotkeyRegistered ? "Vignette effect is not running." : "The emergency shortcut could not be registered.";
+        effect.Toggled += (_, _) => { if (!syncing && !closing) SetEffect(effect.IsOn); };
+        AppWindow.Closing += (_, args) =>
+        {
+            if (closing) return;
+            args.Cancel = true;
+            AppWindow.Hide();
         };
+        Closed += (_, _) => EndSession();
         SystemEvents.DisplaySettingsChanged += DisplaysChanged;
         SystemEvents.SessionSwitch += SessionChanged;
+
         RefreshDisplays();
         RefreshPipelines();
         SyncAppearance();
-        if (store.Warning is { } warning) message.Text = warning;
+        if (store.Warning is { } warning) ShowMessage(warning);
     }
 
-    internal void Reveal() { if (closing) return; Show(); if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal; Activate(); }
-
-    private FrameworkElement BuildEffect()
+    internal void Reveal()
     {
-        var stack = Section();
-        var colorRow = Horizontal();
-        colorRow.Children.Add(Label("Edge color",14,true));
-        colorRow.Children.Add(swatch);
-        edgeColor.ToolTip = "RGB color, such as #000000 for darkening or #FFFFFF for brightening.";
-        edgeColor.LostKeyboardFocus += (_, _) => CommitColor();
-        edgeColor.KeyDown += (_, e) => { if (e.Key == System.Windows.Input.Key.Enter) CommitColor(); };
-        colorRow.Children.Add(edgeColor);
-        colorRow.Children.Add(ButtonFor("Choose color…", () =>
+        if (closing) return;
+        AppWindow.Show();
+        if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter)
+            presenter.Restore();
+        Activate();
+    }
+
+    private void ApplyTheme()
+    {
+        root.RequestedTheme = preferences.Theme switch
         {
-            using var dialog = new Forms.ColorDialog { FullOpen = true,
-                Color = ColorTranslator.FromHtml(preferences.Appearance.Color) };
-            if (dialog.ShowDialog(new DialogOwner(handle)) == Forms.DialogResult.OK)
-                Change(preferences.Appearance with { Color = $"#{dialog.Color.R:X2}{dialog.Color.G:X2}{dialog.Color.B:X2}" });
-        }));
-        stack.Children.Add(colorRow);
-        stack.Children.Add(Label("Dark colors shade the edges. Light colors lift them.", 13));
-        (string Name, double Min, double Max)[] specs =
-            [("Intensity", 0, .85), ("Clear center", .1, .9), ("Falloff width", .08, .9), ("Ellipse aspect", .65, 1.55)];
-        for (int i = 0; i < specs.Length; i++)
+            ThemeMode.Light => ElementTheme.Light,
+            ThemeMode.Dark => ElementTheme.Dark,
+            _ => ElementTheme.Default
+        };
+        if (preferences.UseAcrylic == (SystemBackdrop is not null)) return;
+        root.ClearValue(Panel.BackgroundProperty);
+        try
         {
-            var (name, min, max) = specs[i];
-            var caption = Label(name, 14, true);
-            var slider = new Slider { Minimum = min, Maximum = max, TickFrequency = .01, IsSnapToTickEnabled = true };
-            System.Windows.Automation.AutomationProperties.SetName(slider, name);
-            int position = i;
-            slider.ValueChanged += (_, _) =>
-            {
-                caption.Text = $"{name}  {slider.Value:F2}";
-                if (syncing) return;
-                var a = preferences.Appearance;
-                double value = Math.Round(slider.Value, 2);
-                Change(position switch
-                {
-                    0 => a with { Intensity = value }, 1 => a with { Radius = value },
-                    2 => a with { Softness = value }, _ => a with { Aspect = value }
-                }, sync: false);
-            };
-            sliders[i] = slider;
-            stack.Children.Add(caption);
-            stack.Children.Add(slider);
+            SystemBackdrop = preferences.UseAcrylic ? new DesktopAcrylicBackdrop() : null;
+            if (SystemBackdrop is not null) root.Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
         }
-        return stack;
-    }
-
-    private FrameworkElement BuildPipelines()
-    {
-        var stack = Section();
-        stack.Children.Add(Label("Pipeline", 16, true));
-        pipeline.DisplayMemberPath = "Name";
-        pipeline.SelectionChanged += (_, _) =>
+        catch (COMException)
         {
-            if (syncing || pipeline.SelectedItem is not Pipeline item) return;
-            editId = item.Id;
-            pipelineName.Text = builtins.Contains(item) ? "" : item.Name;
-            Change(item.Appearance);
-        };
-        stack.Children.Add(pipeline);
-        stack.Children.Add(description);
-        stack.Children.Add(Label("Personal pipeline name", 14));
-        stack.Children.Add(pipelineName);
-        var row = Horizontal();
-        row.Children.Add(ButtonFor("Save as", () => EditPipeline(null)));
-        updatePipeline = ButtonFor("Update", () => EditPipeline(editId));
-        removePipeline = ButtonFor("Remove", RemovePipeline);
-        row.Children.Add(updatePipeline);
-        row.Children.Add(removePipeline);
-        stack.Children.Add(row);
-        return stack;
-    }
-
-    private FrameworkElement BuildSettings()
-    {
-        var stack = Section();
-        stack.Children.Add(Label("Monitors", 17, true));
-        stack.Children.Add(monitorRows);
-        var dark = new CheckBox { Content = "Dark theme", IsChecked = preferences.Dark, Margin = new Thickness(0, 10, 0, 8) };
-        dark.Click += (_, _) => { preferences = preferences with { Dark = dark.IsChecked == true }; ApplyTheme(); ScheduleSave(); };
-        stack.Children.Add(dark);
-        var login = Program.SignIn.Read();
-        var startup = new CheckBox { Content = "Start with Windows", IsChecked = login.Enabled, IsEnabled = !login.Blocked,
-            ToolTip = "Open Vignette in the notification area at sign-in. The effect starts off." };
-        startup.Click += (_, _) =>
-        {
-            try { Program.SignIn.SetEnabled(startup.IsChecked == true); }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException) { message.Text = error.Message; }
-            startup.IsChecked = Program.SignIn.Read().Enabled;
-        };
-        stack.Children.Add(startup);
-        stack.Children.Add(Label("Emergency stop · Windows + Shift + F10", 14, true));
-        stack.Children.Add(Label("The gradient is composited over the desktop. It does not read screen pixels.",13));
-        return stack;
-    }
-
-    private FrameworkElement BuildAboutPage()
-    {
-        var page = Section();
-        page.Children.Add(ButtonFor("About Vignette", ShowAbout));
-        page.Children.Add(ButtonFor("Mini Utilities", () => OpenLink(Site + "/mini-utilities/")));
-        return page;
-    }
-
-    private void ShowAbout()
-    {
-        Reveal();
-        if (about is { } existing) { existing.Activate(); return; }
-        var dialog = new Window { Owner = this, Title = "About Vignette", Width = 585, Height = 540,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner, Icon = Icon };
-        about = dialog;
-        var body = Section();
-        var mark = ButtonFor("", () => OpenLink(Site + "/vibeware/manifesto"));
-        mark.Content = new Image { Source = BitmapFrame.Create(new Uri(Path.Combine(AppContext.BaseDirectory, "VibeWare.png"))),
-            Width = 92, Height = 92 };
-        mark.ToolTip = "VibeWare manifesto";
-        mark.HorizontalAlignment = HorizontalAlignment.Center;
-        System.Windows.Automation.AutomationProperties.SetName(mark, "VibeWare manifesto");
-        body.Children.Add(mark);
-        body.Children.Add(Label("Vignette", 28, true));
-        body.Children.Add(Label("VibeWare · Version " + typeof(Studio).Assembly.GetName().Version?.ToString(3),14));
-        body.Children.Add(Label("A film and CRT-inspired vignette for your desktop.",15));
-        body.Children.Add(Label("I’m Umberto Giacobbi. I build playful effects that make the desktop a little more personal.",14));
-        body.Children.Add(Label("Independent software, provided as-is without warranty.",13));
-        var links = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
-        foreach (var (label, url) in new[] { ("Website", Site), ("Source", "https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/Vignette"),
-            ("Terms", Site + "/terms/"), ("Privacy", Site + "/privacy/"), ("MIT license", "https://opensource.org/license/mit") })
-            links.Children.Add(ButtonFor(label, () => OpenLink(url)));
-        body.Children.Add(links);
-        var close = ButtonFor("Close", dialog.Close);
-        close.IsCancel = true;
-        body.Children.Add(close);
-        dialog.Content = new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
-        dialog.Closed += (_, _) => about = null;
-        dialog.ShowDialog();
+            SystemBackdrop = null;
+        }
     }
 
     private void CommitColor()
     {
-        string hex = edgeColor.Text.Trim().ToUpperInvariant();
-        var updated = preferences.Appearance with { Color = hex };
-        if (updated.Valid) Change(updated);
-        else { edgeColor.Text = preferences.Appearance.Color; message.Text = "Enter a color in #RRGGBB format."; }
+        var updated = preferences.Appearance with { Color = ReadEdgeColor() };
+        if (updated.Valid) edgeColor.Text = updated.Color;
+        else { edgeColor.Text = preferences.Appearance.Color; ShowMessage("Enter a color in #RRGGBB format."); }
     }
+
+    private string ReadEdgeColor() => edgeColor.Text.Trim().ToUpperInvariant();
 
     private void Change(Appearance value, bool sync = true)
     {
         if (!value.Valid) return;
+        bool colorChanged = value.Color != preferences.Appearance.Color;
         preferences = preferences with { Appearance = value };
         if (sync) SyncAppearance();
-        else UpdatePipelineSelection();
-        ScheduleSave();
-        if (effect.IsChecked == true)
+        else
         {
-            renderTimer.Stop();
-            renderTimer.Start();
+            if (colorChanged) UpdateSwatch(value.Color);
+            UpdatePipelineSelection();
         }
+        ScheduleSave();
+        // Apply the latest values during a drag without uploading a surface for every input event.
+        if (effect.IsOn && !renderTimer.IsRunning) renderTimer.Start();
     }
 
     private void SyncAppearance()
@@ -338,7 +250,7 @@ internal sealed class Studio : Window
             var value = preferences.Appearance;
             var values = new[] { value.Intensity, value.Radius, value.Softness, value.Aspect };
             edgeColor.Text = value.Color;
-            swatch.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(value.Color));
+            UpdateSwatch(value.Color);
             for (int i=0; i<sliders.Length; i++) sliders[i].Value = values[i];
         }
         finally { syncing = false; }
@@ -352,6 +264,8 @@ internal sealed class Studio : Window
         finally { syncing = false; }
         UpdatePipelineSelection();
     }
+
+    private void UpdateSwatch(string color) => swatch.Background = new SolidColorBrush(ReadColor(color));
 
     private void UpdatePipelineSelection()
     {
@@ -378,22 +292,30 @@ internal sealed class Studio : Window
             RefreshPipelines();
             ScheduleSave();
         }
-        catch (InvalidOperationException error) { message.Text = error.Message; }
+        catch (InvalidOperationException error) { ShowMessage(error.Message); }
     }
 
-    private void RemovePipeline()
+    private async Task RemovePipelineAsync()
     {
         var item = preferences.Personal.FirstOrDefault(p => p.Id == editId);
-        if (item is null || MessageBox.Show(this, $"Remove “{item.Name}”?", "Remove personal pipeline",
-            MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+        if (item is null) return;
+        var dialog = new ContentDialog
+        {
+            Title = "Remove personal preset",
+            Content = $"Remove “{item.Name}”?",
+            PrimaryButtonText = "Remove",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close
+        };
+        if (await ShowStudioDialogAsync(dialog) != ContentDialogResult.Primary) return;
         preferences = preferences with { Personal = preferences.Personal.Where(p => p.Id != item.Id).ToArray() };
         editId = null;
-        pipelineName.Clear();
+        pipelineName.Text = "";
         RefreshPipelines();
         ScheduleSave();
     }
 
-    private void DisplaysChanged(object? sender, EventArgs args) => Dispatcher.BeginInvoke(() =>
+    private void DisplaysChanged(object? sender, EventArgs args) => DispatcherQueue.TryEnqueue(() =>
     {
         if (closing) return;
         SetEffect(false, "Display layout changed. Enable the effect to resume.");
@@ -403,7 +325,7 @@ internal sealed class Studio : Window
     private void SessionChanged(object sender, SessionSwitchEventArgs args)
     {
         if (args.Reason is SessionSwitchReason.SessionLock or SessionSwitchReason.ConsoleDisconnect or SessionSwitchReason.RemoteDisconnect)
-            Dispatcher.BeginInvoke(() => SetEffect(false, "Stopped when the desktop session changed."));
+            DispatcherQueue.TryEnqueue(() => { if (!closing) SetEffect(false, "Stopped when the desktop session changed."); });
     }
 
     private bool Selected(DisplayTarget target) => preferences.Screens is null || preferences.Screens.Any(target.Matches);
@@ -411,29 +333,14 @@ internal sealed class Studio : Window
     private void RefreshDisplays()
     {
         displays = DisplayTarget.GetConnected();
-        monitorRows.Children.Clear();
-        if (displays.Count == 0) monitorRows.Children.Add(Label("No active displays found.", 13));
-        foreach (var target in displays)
-        {
-            var row = new CheckBox { Content = $"{target.Label}  ·  {target.Details}", IsChecked = Selected(target), Margin = new Thickness(0, 5, 0, 5) };
-            row.Click += (_, _) =>
-            {
-                var ids = new HashSet<string>(preferences.Screens ?? displays.SelectMany(d => d.Identifiers).ToArray(), StringComparer.OrdinalIgnoreCase);
-                if (row.IsChecked == true) ids.UnionWith(target.Identifiers);
-                else { ids.ExceptWith(target.Identifiers); ids.Remove(target.Device); }
-                preferences = preferences with { Screens = ids.ToArray() };
-                ScheduleSave();
-                if (effect.IsChecked == true) Render();
-            };
-            monitorRows.Children.Add(row);
-        }
+        RefreshMonitorRows();
     }
 
     private void SetEffect(bool enabled, string? stopReason = null)
     {
         if (enabled && !hotkeyRegistered) { SetEffect(false, "The emergency shortcut is unavailable."); return; }
         syncing = true;
-        try { effect.IsChecked = enabled; trayEffect.Checked = enabled; }
+        try { effect.IsOn = enabled; trayEffect.Checked = enabled; }
         finally { syncing = false; }
         if (enabled)
         {
@@ -442,11 +349,9 @@ internal sealed class Studio : Window
         else
         {
             renderTimer.Stop();
-            previewTimer.Stop();
-            preview = false;
             TrackPeerOrder(false);
             overlay.Dispose();
-            status.Text = stopReason ?? "Stopped";
+            status.Text = stopReason ?? "Vignette effect is not running.";
         }
     }
 
@@ -454,12 +359,12 @@ internal sealed class Studio : Window
     {
         try
         {
-            if (effect.IsChecked != true) return;
+            if (!effect.IsOn) return;
             int count = overlay.Apply(displays.Where(Selected), preferences.Appearance);
             TrackPeerOrder(overlay.HasSurfaces);
             status.Text = count == 0 ? "Select a display for the effect."
                 : !overlay.HasSurfaces ? "The effect is transparent at zero intensity."
-                : $"{(preview ? "Preview" : "Active")} · {count} {(count == 1 ? "display" : "displays")}";
+                : $"Vignette effect is active on {count} {(count == 1 ? "display" : "displays")}.";
         }
         catch (Exception error) when (error is Win32Exception or InvalidOperationException)
         {
@@ -483,52 +388,95 @@ internal sealed class Studio : Window
 
     private void OnPeerWindowChanged(nint hook, uint type, nint window, int objectId, int childId, uint thread, uint tick)
     {
-        if (hook != orderHook || window == 0 || objectId != 0 || childId != 0 || peerOrderTimer.IsEnabled ||
+        if (hook != orderHook || window == 0 || objectId != 0 || childId != 0 || peerOrderTimer.IsRunning ||
             type is not (WindowShown or WindowReordered)) return;
         // A reorder may name the parent of the moved windows instead of a peer.
         if ((type == WindowReordered && window == GetDesktopWindow()) || overlay.IsPeerOnSelectedDisplay(window))
             peerOrderTimer.Start();
     }
 
-    private nint Messages(nint window, int code, nint wp, nint lp, ref bool handled)
+    private nint OnWindowMessage(nint window, uint code, nint wp, nint lp, nuint id, nuint data)
     {
-        if (code == 0x0312 && wp == Hotkey) { SetEffect(false); handled = true; }
-        return 0;
+        const uint hotkeyMessage = 0x0312, endSession = 0x0016, size = 0x0005;
+        if (code == hotkeyMessage && wp == Hotkey)
+        {
+            DispatcherQueue.TryEnqueue(() => { if (!closing) SetEffect(false); });
+            return 0;
+        }
+        if (code == endSession && wp != 0) EndSession();
+        if (code == size && wp == 1)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (!closing && AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized })
+                    AppWindow.Hide();
+            });
+        }
+        return DefSubclassProc(window, code, wp, lp);
     }
 
-    private void ScheduleSave() { if (!store.Writable) return; dirty = true; saveTimer.Stop(); saveTimer.Start(); }
+    private void ScheduleSave()
+    {
+        if (!store.Writable) return;
+        dirty = true;
+        saveTimer.Stop();
+        saveTimer.Start();
+    }
 
     private void Flush()
     {
         if (!dirty) return;
         try { store.Save(preferences); dirty = false; }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { message.Text = "Could not save settings. " + error.Message; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            if (!closing) ShowMessage("Could not save settings. " + error.Message);
+        }
     }
 
-    internal void EndSession()
+    private void EndSession()
     {
         if (closing) return;
         closing = true;
-        Flush();
-        Release();
-    }
-
-    private void Quit()
-    {
-        if (closing) return;
         saveTimer.Stop();
         Flush();
-        if (dirty && MessageBox.Show(this, "Settings could not be saved. Quit anyway?", "Vignette",
-            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+        Release();
+    }
+
+    private async Task QuitAsync()
+    {
+        if (closing || quitPending) return;
+        saveTimer.Stop();
+        Flush();
+        if (dirty)
+        {
+            quitPending = true;
+            try
+            {
+                Reveal();
+                var dialog = new ContentDialog
+                {
+                    Title = "Settings could not be saved",
+                    Content = "Quit without saving your changes?",
+                    PrimaryButtonText = "Quit",
+                    CloseButtonText = "Cancel",
+                    DefaultButton = ContentDialogButton.Close
+                };
+                if (await ShowStudioDialogAsync(dialog) != ContentDialogResult.Primary) return;
+            }
+            finally { quitPending = false; }
+        }
         closing = true;
         Release();
-        Application.Current.Shutdown();
+        Close();
     }
 
     private void Release()
     {
-        SetEffect(false);
+        renderTimer.Stop();
+        TrackPeerOrder(false);
+        overlay.Dispose();
         if (hotkeyRegistered) UnregisterHotKey(handle, Hotkey);
+        RemoveWindowSubclass(handle, subclass, WindowSubclassId);
         SystemEvents.DisplaySettingsChanged -= DisplaysChanged;
         SystemEvents.SessionSwitch -= SessionChanged;
         tray.Visible = false;
@@ -537,51 +485,18 @@ internal sealed class Studio : Window
         tray.Dispose();
     }
 
-    protected override void OnClosing(CancelEventArgs e)
-    {
-        if (!closing) { e.Cancel = true; Hide(); }
-        base.OnClosing(e);
-    }
-
-    private void ApplyTheme()
-    {
-        Background = PreferencesBrush(preferences.Dark, "#19191F", "#F5F2F9");
-        Foreground = PreferencesBrush(preferences.Dark, "#EEEAF4", "#2B2333");
-        Resources[SystemColors.ControlBrushKey] = Background;
-        Resources[SystemColors.ControlTextBrushKey] = Foreground;
-        Resources[SystemColors.WindowBrushKey] = PreferencesBrush(preferences.Dark, "#24242B", "#FFFFFF");
-        Resources[SystemColors.WindowTextBrushKey] = Foreground;
-    }
-
-    private static Brush PreferencesBrush(bool dark, string darkColor, string lightColor) =>
-        SystemParameters.HighContrast ? SystemColors.WindowBrush : new SolidColorBrush((Color)ColorConverter.ConvertFromString(dark ? darkColor : lightColor));
-
-    private static TextBlock Label(string text, double size, bool bold = false) => new()
-    {
-        Text = text, FontSize = size, TextWrapping = TextWrapping.Wrap,
-        Margin = new Thickness(0, 2, 0, 5), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal
-    };
-
-    private static StackPanel Section() => new() { Margin = new Thickness(16) };
-    private static StackPanel Horizontal() => new() { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 6) };
-    private static TabItem Tab(string name, FrameworkElement content) => new()
-    {
-        Header = name, Content = new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
-    };
-
-    private static Button ButtonFor(string text, Action execute)
-    {
-        var button = new Button { Content = text, Margin = new Thickness(4, 0, 4, 5), Padding = new Thickness(12, 5, 12, 5) };
-        button.Click += (_, _) => execute();
-        return button;
-    }
-
     private static void OpenLink(string url)
     {
-        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        using var browser = Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 
-    private sealed class DialogOwner(nint window) : Forms.IWin32Window { public nint Handle { get; } = window; }
+    private delegate nint SubclassCallback(nint window, uint message, nint wp, nint lp, nuint id, nuint data);
+    [DllImport("comctl32.dll")] [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowSubclass(nint window, SubclassCallback callback, nuint id, nuint data);
+    [DllImport("comctl32.dll")] [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool RemoveWindowSubclass(nint window, SubclassCallback callback, nuint id);
+    [DllImport("comctl32.dll")]
+    private static extern nint DefSubclassProc(nint window, uint message, nint wp, nint lp);
     private delegate void WinEventCallback(nint hook, uint evt, nint window, int obj, int child, uint thread, uint time);
     [DllImport("user32.dll")] private static extern bool RegisterHotKey(nint hwnd, int id, uint modifiers, uint key);
     [DllImport("user32.dll")] private static extern bool UnregisterHotKey(nint hwnd, int id);

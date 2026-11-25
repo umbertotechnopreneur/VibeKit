@@ -520,8 +520,12 @@ function Get-WorkTrailPackageConfiguration {
 function Get-WorkTrailPackagePublisher {
     <#
     .SYNOPSIS
-    Reads the publisher identity from the source package manifest.
+    Selects the local development publisher or the publisher in the Store manifest.
     #>
+
+    if ((Get-WorkTrailPackageConfiguration) -eq 'Debug') {
+        return 'CN=Umberto Giacobbi'
+    }
 
     $manifestPath = Join-Path $script:RepositoryRoot 'WorkTrail\Package.appxmanifest'
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
@@ -1128,6 +1132,8 @@ function Invoke-WorkTrailUnpackagedPublish {
     if (-not (Test-Path -LiteralPath (Join-Path $publishDirectory 'WorkTrail.exe') -PathType Leaf)) {
         throw 'Unpackaged publish completed without producing WorkTrail.exe.'
     }
+    $signer = Join-Path $script:RepositoryRoot '../../scripts/packaging/Sign-VibeWareDevelopmentFile.ps1'
+    & $signer -Path (Join-Path $publishDirectory 'WorkTrail.exe') -WhenConfigured
     Write-Host "Portable application files ready: $publishDirectory" -ForegroundColor Green
 }
 
@@ -1137,8 +1143,12 @@ function Resolve-WorkTrailPackageCertificate {
     Resolves the signing certificate required by the selected packaging mode.
     #>
 
+    $publisher = Get-WorkTrailPackagePublisher
     if ([string]::IsNullOrWhiteSpace($PackageCertificateThumbprint)) {
-        $publisher = Get-WorkTrailPackagePublisher
+        if ((Get-WorkTrailPackageConfiguration) -eq 'Debug') {
+            $resolver = Join-Path $script:RepositoryRoot '../../scripts/packaging/Get-VibeWareDevelopmentCertificate.ps1'
+            return (& $resolver -Publisher $publisher)
+        }
         throw "Signed MSIX packaging requires PackageCertificateThumbprint. Its certificate Subject must exactly match the manifest Publisher '$publisher'."
     }
 
@@ -1156,7 +1166,6 @@ function Resolve-WorkTrailPackageCertificate {
         throw "Package certificate '$($certificate.Thumbprint)' is expired."
     }
 
-    $publisher = Get-WorkTrailPackagePublisher
     if ($certificate.Subject -cne $publisher) {
         throw "Package certificate Subject '$($certificate.Subject)' must exactly match the manifest Publisher '$publisher'."
     }
@@ -1213,7 +1222,7 @@ function Assert-WorkTrailPackageIntegrity {
 
         $expectedPublisher = Get-WorkTrailPackagePublisher
         if ($identity.Publisher -cne $expectedPublisher) {
-            throw "MSIX manifest publisher does not match the tracked manifest publisher '$expectedPublisher': $($PackageFile.FullName)"
+            throw "MSIX manifest publisher does not match the packaging publisher '$expectedPublisher': $($PackageFile.FullName)"
         }
 
         $expectedPackageVersion = if ($ReleaseVersion -match '^\d+\.\d+\.\d+\.\d+$') {
@@ -1315,7 +1324,8 @@ function Invoke-WorkTrailDebugMsixInstall {
 
     $packageName = 'UmbertoGiacobbiDotBiz.WorkTrail'
     $expectedVersion = [version]$ReleaseVersion
-    $installed = @(Get-AppxPackage -Name $packageName)
+    $publisher = Get-WorkTrailPackagePublisher
+    $installed = @(Get-AppxPackage -Name $packageName | Where-Object { $_.Publisher -ceq $publisher })
     if ($installed.Count -gt 1) {
         throw 'More than one current-user WorkTrail package was found.'
     }
@@ -1323,19 +1333,9 @@ function Invoke-WorkTrailDebugMsixInstall {
         throw "The installed version is $($installed[0].Version). Choose a higher Debug MSIX version."
     }
 
-    if ([string]::IsNullOrWhiteSpace($PackageCertificateThumbprint)) {
-        $publisher = Get-WorkTrailPackagePublisher
-        $certificates = @(Get-ChildItem Cert:\CurrentUser\My | Where-Object {
-            $_.Subject -ceq $publisher -and $_.HasPrivateKey -and $_.Verify() -and
-            @($_.EnhancedKeyUsageList | Where-Object { $_.ObjectId -eq '1.3.6.1.5.5.7.3.3' }).Count -gt 0
-        })
-        if ($certificates.Count -ne 1) {
-            throw 'Expected one trusted current-user code-signing certificate for WorkTrail; supply -PackageCertificateThumbprint if there are several.'
-        }
-        $script:PackageCertificateThumbprint = $certificates[0].Thumbprint
-    }
     $certificate = Resolve-WorkTrailPackageCertificate
-    if (-not $certificate.Verify() -or
+    $trusted = Test-Path -LiteralPath "Cert:\LocalMachine\TrustedPeople\$($certificate.Thumbprint)"
+    if ((-not $trusted -and -not $certificate.Verify()) -or
         @($certificate.EnhancedKeyUsageList | Where-Object { $_.ObjectId -eq '1.3.6.1.5.5.7.3.3' }).Count -eq 0) {
         throw 'The signing certificate must be trusted and usable for code signing.'
     }
@@ -1363,7 +1363,7 @@ function Invoke-WorkTrailDebugMsixInstall {
         $packageFile = Get-WorkTrailPackageFile
         Add-AppxPackage -Path $packageFile.FullName -ForceUpdateFromAnyVersion -ForceApplicationShutdown -ErrorAction Stop
 
-        $registered = Get-AppxPackage -Name $packageName
+        $registered = Get-AppxPackage -Name $packageName | Where-Object { $_.Publisher -ceq $publisher }
         if ($null -eq $registered -or [version]$registered.Version -ne $expectedVersion -or
             $registered.Status -ne 'Ok' -or $registered.Architecture.ToString() -ine $Platform) {
             throw "The installed WorkTrail package did not report version $expectedVersion, $Platform, and Ok status."
@@ -1647,6 +1647,9 @@ function Invoke-WorkTrailBuildInfo {
     }
 
     $identity.Version = $packageVersion
+    if ((Get-WorkTrailPackageConfiguration) -eq 'Debug') {
+        $identity.Publisher = Get-WorkTrailPackagePublisher
+    }
     $writerSettings = [System.Xml.XmlWriterSettings]::new()
     $writerSettings.Indent = $true
     $writerSettings.Encoding = [System.Text.UTF8Encoding]::new($false)

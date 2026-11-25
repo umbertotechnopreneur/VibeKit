@@ -23,9 +23,9 @@ Builds one signed or explicitly unsigned WorkTrail MSIX package.
 
 .DESCRIPTION
 Uses the shared MeUp packaging contract without sharing implementation files:
-artifacts/msix/<debug|store>/<version>/<architecture>. A signed package requires
-an explicit certificate thumbprint; the delegated build rejects a certificate
-whose subject differs from the tracked MSIX manifest publisher.
+artifacts/msix/<debug|store>/<version>/<architecture>. Signed Debug packages
+default to the shared development certificate. Signed Store packages require
+an explicit certificate thumbprint matching the Store publisher.
 
 .EXAMPLE
 pwsh -NoProfile -File .\scripts\package-msix.ps1 -CertificateThumbprint <thumbprint>
@@ -55,7 +55,7 @@ if ($Unsigned -and -not [string]::IsNullOrWhiteSpace($CertificateThumbprint)) {
     throw 'Unsigned packaging cannot use CertificateThumbprint.'
 }
 
-if (-not $Unsigned -and [string]::IsNullOrWhiteSpace($CertificateThumbprint)) {
+if ($Channel -eq 'Store' -and -not $Unsigned -and [string]::IsNullOrWhiteSpace($CertificateThumbprint)) {
     throw 'Signed MSIX packaging requires CertificateThumbprint. It must identify a certificate whose Subject matches WorkTrail\Package.appxmanifest.'
 }
 
@@ -87,7 +87,7 @@ if (-not [string]::IsNullOrWhiteSpace($Version)) {
 if ($Unsigned) {
     $arguments += '-Unsigned'
 }
-else {
+elseif ($CertificateThumbprint) {
     $arguments += @('-PackageCertificateThumbprint', $CertificateThumbprint)
 }
 

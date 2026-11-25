@@ -9,6 +9,28 @@ import assert from "node:assert/strict";
 import { build } from "esbuild";
 import { fileURLToPath } from "node:url";
 import { validateBundleConfiguration } from "../../scripts/client-inputs.mjs";
+import { findDocument } from "../../client/document-find.js";
+
+test("outline results navigate past the first excerpt page while the compact sidebar covers the document", () => {
+  let selection;
+  const host = {
+    workspaceId: "coast", path: "stations.md",
+    source: Array.from({ length: 41 }, (_, i) => `Station ${i + 1}: lantern visible`).join("\n"),
+    container: { isConnected: true, clientHeight: 0, clientWidth: 0 },
+    textarea: { setSelectionRange(start, end) { selection = [start, end]; } },
+    scrollToLine() {}
+  };
+  const request = { workspaceId: "coast", path: "stations.md", query: "lantern", view: "source", excerpts: true };
+  const first = findDocument([host], request);
+  assert.equal(first.total, 41);
+  assert.equal(first.excerpts.length, 32);
+  const nextPage = findDocument([host], { ...request, index: 33 });
+  assert.equal(nextPage.current, 33);
+  assert.deepEqual(nextPage.excerpts[0], { index: 33, before: "Station 33: ", match: "lantern", after: " visible" });
+  assert.equal(nextPage.excerpts.at(-1).index, 41);
+  assert.equal(selection[0], host.source.indexOf("lantern", host.source.indexOf("Station 33:")));
+  assert.equal(findDocument([host], { ...request, direction: -1 }).current, 32);
+});
 
 test("Release bundle validation rejects Debug output and source maps while retaining optimized Debug builds", () => {
   const optimized = { configuration: "Release", outputs: ["src/MarkVibe.Windows/obj/desktop-js/release/markvibe.js"] };

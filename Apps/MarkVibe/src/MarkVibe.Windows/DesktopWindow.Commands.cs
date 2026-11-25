@@ -51,6 +51,7 @@ public sealed partial class DesktopWindow
         var menu = new MenuFlyout();
         WindowsPaperSurface.AttachFlyout(menu);
         var groups = new Dictionary<string, MenuFlyoutSubItem>(StringComparer.Ordinal);
+        var readingOptionsIndex = -1;
         foreach (var command in descriptors)
         {
             MenuFlyoutItem item = command.Action is "column" or "expandedColumn"
@@ -62,7 +63,12 @@ public sealed partial class DesktopWindow
             item.Click += async (_, _) => await RunAsync(token => ExecuteFileCommandAsync(workspace, target, command.Action, token));
             if (command.Group.Length == 0)
             {
+                if (current != null && command.Action is "find" or "copyPath")
+                {
+                    menu.Items.Add(new MenuFlyoutSeparator());
+                }
                 menu.Items.Add(item);
+                if (command.Action == "find") { readingOptionsIndex = menu.Items.Count; }
             }
             else
             {
@@ -79,11 +85,12 @@ public sealed partial class DesktopWindow
         {
             var appearance = new MenuFlyoutItem { Text = T("Reader appearance"), Icon = MenuIcon("appearance") };
             appearance.Click += async (_, _) => await RunAsync(ReaderAppearanceAsync);
-            menu.Items.Add(appearance);
             var paper = new MenuFlyoutItem { Text = T("Paper"), Icon = MenuIcon("paper") };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(paper, "MenuReaderPaper");
             paper.Click += async (_, _) => await RunAsync(token => ChooseReaderPaperAsync(workspace, token));
-            menu.Items.Add(paper);
+            var index = readingOptionsIndex >= 0 ? readingOptionsIndex : menu.Items.Count;
+            menu.Items.Insert(index, paper);
+            menu.Items.Insert(index + 1, appearance);
         }
         if (!target.IsFolder && WorkspacePath.IsMarkdown(target.Path) && target.Path != workspace.Document?.Path)
         {

@@ -4,10 +4,12 @@
 
 # Latest delivery
 
-WinUI-only Release x64 MSIX **0.1.0.42** was built from current source, installed
-and launched on 2026-11-22. The standalone browser edition is retired. Win2D owns
-the native document graph; WebView2 renders documents and PDF. Distribution uses
-the separately installed .NET Runtime 10.0. Owner GUI acceptance remains pending.
+WinUI 3 Release x64 MSIX **0.1.0.54** was built from source, signed and
+installed on 2026-11-25. The reader has a native gallery with ten paper
+textures. The map uses portrait A4 pages and grouped options. Pages searches
+workspace contents and Outline highlights occurrences in the open document.
+Toolbars and dialogs share a subtle paper finish. Settings retains its size
+when changing tabs. The package requires the shared .NET Runtime 10.0 for x64.
 
 > **File name** `archive.md`<br>
 > **Full path** `E:\vibekit\Apps\MarkVibe\.github\tasks\archive.md`<br>

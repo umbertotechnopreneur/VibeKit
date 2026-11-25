@@ -211,7 +211,8 @@ export function findDocument(views, args) {
   const visible = candidates.filter(host => host.container.isConnected && host.container.clientHeight > 0 && host.container.clientWidth > 0);
   const matchesView = candidate => args.view === "source" ? typeof candidate.source === "string" : !!candidate.article;
   // A compact sidebar temporarily covers both panes. Its results still refer to the mounted document.
-  const host = visible.find(matchesView) ?? visible[0] ?? (args.excerpts && candidates.find(matchesView));
+  const coveredPane = args.excerpts && candidates.find(candidate => candidate.container.isConnected && matchesView(candidate));
+  const host = visible.find(matchesView) ?? visible[0] ?? coveredPane;
   if (!host) {
     return { current: 0, total: 0 };
   }

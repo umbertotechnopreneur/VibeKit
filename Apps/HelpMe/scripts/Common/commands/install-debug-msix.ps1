@@ -35,32 +35,27 @@ if (@($components | Where-Object { $_ -gt 65535 }).Count -gt 0 -or @($components
     throw 'Choose a nonzero four-part MSIX version with each component at most 65535.'
 }
 $packageName = 'UmbertoGiacobbiDotBiz.HelpMe'
-$publisher = 'CN=82BCDD1C-1D59-48A0-9BDF-6352BE319510'
-$installed = @(Get-AppxPackage -Name $packageName)
+$publisher = 'CN=Umberto Giacobbi'
+$repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
+$installed = @(Get-AppxPackage -Name $packageName | Where-Object { $_.Publisher -ceq $publisher })
 if ($installed.Count -gt 1) { throw 'More than one current-user HelpMe package was found.' }
 if ($installed.Count -eq 1 -and [version]$installed[0].Version -ge [version]$Version) {
     throw "The installed version is $($installed[0].Version). Choose a higher Debug MSIX version."
 }
 
 if ([string]::IsNullOrWhiteSpace($CertificateThumbprint)) {
-    $certificates = @(Get-ChildItem Cert:\CurrentUser\My | Where-Object {
-        $_.Subject -ceq $publisher -and $_.HasPrivateKey -and $_.Verify() -and
-        @($_.EnhancedKeyUsageList | Where-Object { $_.ObjectId -eq '1.3.6.1.5.5.7.3.3' }).Count -gt 0
-    })
-    if ($certificates.Count -ne 1) {
-        throw 'Expected one trusted current-user code-signing certificate for HelpMe; supply -CertificateThumbprint if there are several.'
-    }
-    $certificate = $certificates[0]
+    $resolver = Join-Path $repositoryRoot '../../scripts/packaging/Get-VibeWareDevelopmentCertificate.ps1'
+    $certificate = & $resolver -Publisher $publisher
 }
 else {
     $certificate = Get-Item -LiteralPath "Cert:\CurrentUser\My\$CertificateThumbprint" -ErrorAction Stop
 }
-if ($certificate.Subject -cne $publisher -or -not $certificate.HasPrivateKey -or -not $certificate.Verify() -or
+$trusted = Test-Path -LiteralPath "Cert:\LocalMachine\TrustedPeople\$($certificate.Thumbprint)"
+if ($certificate.Subject -cne $publisher -or -not $certificate.HasPrivateKey -or (-not $trusted -and -not $certificate.Verify()) -or
     @($certificate.EnhancedKeyUsageList | Where-Object { $_.ObjectId -eq '1.3.6.1.5.5.7.3.3' }).Count -eq 0) {
     throw 'The signing certificate must be trusted, usable for code signing, and match the HelpMe publisher.'
 }
 
-$repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
 $artifactsRoot = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'artifacts'))
 $repositoryPrefix = $repositoryRoot.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
 if (-not $artifactsRoot.StartsWith($repositoryPrefix, [StringComparison]::OrdinalIgnoreCase)) {
@@ -107,7 +102,7 @@ try {
     }
     Add-AppxPackage -Path $packagePath -ForceUpdateFromAnyVersion -ForceApplicationShutdown -ErrorAction Stop
 
-    $registered = Get-AppxPackage -Name $packageName
+    $registered = Get-AppxPackage -Name $packageName | Where-Object { $_.Publisher -ceq $publisher }
     if ($null -eq $registered -or [version]$registered.Version -ne [version]$Version -or
         $registered.Status -ne 'Ok' -or $registered.Architecture.ToString() -ine $Architecture) {
         throw "The installed HelpMe package did not report version $Version, $Architecture, and Ok status."

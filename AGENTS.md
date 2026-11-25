@@ -1,3 +1,7 @@
+> **File name** `AGENTS.md`<br>
+> **Full path** `E:\vibekit\AGENTS.md`<br>
+> **Path relative to the VibeKit repository root** `AGENTS.md`
+
 # VibeKit agent guidance
 
 - Keep each application self-contained. Read its own `AGENTS.md` before changing it; project guidance may add more specific requirements.
@@ -11,3 +15,11 @@
 - Measure performance and investigate bottlenecks with checks suited to the project and hardware. Where warranted, use resource limits and proactive safeguards, including temporary suspension and recovery after sustained stability; keep thresholds and monitoring proportionate to the task.
 - Give users control of automatic behavior. Respect manual and emergency stops, explain protective actions, and provide useful status or notifications. Never automatically resume after an error when recovery cannot be established as safe.
 - Imported projects retain their existing histories and instructions. Their original CI workflows are reference material until explicitly adapted to the monorepo.
+
+## Local Windows development signing
+
+- Sign local Windows development builds with the [shared VibeWare development certificate](docs/windows-development-signing.md) for `CN=Umberto Giacobbi`. Reuse the imported Desktop kit and follow the established release signing rules.
+
+> **File name** `AGENTS.md`<br>
+> **Full path** `E:\vibekit\AGENTS.md`<br>
+> **Path relative to the VibeKit repository root** `AGENTS.md`

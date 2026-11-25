@@ -93,6 +93,7 @@ public sealed partial class MainWindow
         {
             strip.Children.Clear();
             foreach (var element in visible) strip.Children.Add(element);
+            fitHeight = true;
         }
         foreach (var tile in modules.Select(module => module.Tile).OfType<FlipTile>())
             tile.SetLabelPosition(settings.LabelPosition);
@@ -129,7 +130,6 @@ public sealed partial class MainWindow
         var workArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest)?.WorkArea;
         int maxWidth = workArea is { } display ? Math.Max(1, display.Width - frameWidth) : int.MaxValue;
         int maxHeight = workArea is { } screen ? Math.Max(1, screen.Height - frameHeight) : int.MaxValue;
-        bool panelOpen = settingsPane is not null;
         bool compact = IsCompact;
         var restore = requestedSize;
         bool resizeHeight = fitHeight;
@@ -144,8 +144,6 @@ public sealed partial class MainWindow
         double gaps = Math.Max(0, tiles.Length - 1) * TileSpacing;
         double preferredWidth = tiles.Sum(tile => tile.PreferredWidth);
         int clientWidth = restore?.Width ?? size.Width;
-        if (panelOpen && resizeHeight)
-            clientWidth = Math.Max(clientWidth, (int)Math.Ceiling(640 * dpi));
         double zoom = settings.BigSize && clientWidth >= 375 * dpi ? 1 + LargerWidgetPercent / 100d : 1;
         double minimumWidth = compact
             ? Math.Max(MinimumWidth, (plainChrome + gaps + Math.Max(tiles.Length * FlipTile.MinimumWidth, preferredWidth * .6)) * zoom)
@@ -189,12 +187,7 @@ public sealed partial class MainWindow
         layout.Height = Math.Max(stripHeight, railHeight) + insets;
         layoutView.Width = width * zoom;
         layoutView.Height = layout.Height * zoom;
-        double previewHeight = panelOpen
-            ? Math.Max((railHeight + insets) * zoom, Math.Min(Math.Min(240, maxHeight / (3 * dpi)), layoutView.Height))
-            : layoutView.Height;
-        root.RowDefinitions[0].Height = panelOpen ? new(previewHeight) : new(1, GridUnitType.Star);
-        root.RowDefinitions[1].Height = panelOpen ? new(1, GridUnitType.Star) : new(0);
-        int minHeight = Math.Min(maxHeight, (int)Math.Ceiling((panelOpen ? previewHeight + 124 : (railHeight + insets) * zoom) * dpi));
+        int minHeight = Math.Min(maxHeight, (int)Math.Ceiling((railHeight + insets) * zoom * dpi));
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
             if (presenter.PreferredMinimumWidth != minimum + frameWidth)
@@ -203,7 +196,7 @@ public sealed partial class MainWindow
                 presenter.PreferredMinimumHeight = minHeight + frameHeight;
         }
         int desiredHeight = resizeHeight
-            ? Math.Min(maxHeight, Math.Max(restore?.Height ?? 0, (int)Math.Ceiling((previewHeight + (panelOpen ? 450 : 0)) * dpi)))
+            ? Math.Min(maxHeight, Math.Max(restore?.Height ?? 0, (int)Math.Ceiling(layoutView.Height * dpi)))
             : size.Height;
         desiredHeight = Math.Max(minHeight, desiredHeight);
         var position = AppWindow.Position;
@@ -248,12 +241,9 @@ public sealed partial class MainWindow
         double dpi = root.XamlRoot.RasterizationScale;
         int width = (int)Math.Round(root.ActualWidth * dpi), height = (int)Math.Round(root.ActualHeight * dpi);
         var caption = new List<RectInt32> { new(0, 0, width, height) };
-        var controls = actions.Children.OfType<FrameworkElement>()
-            .Concat(strip.Children.OfType<FrameworkElement>()).Append(signalHousing);
+        var controls = strip.Children.OfType<FrameworkElement>().Append(actions).Append(signalHousing);
         if (brands.Visibility == Visibility.Visible)
             controls = controls.Concat([appWebsiteButton, manifestoButton]);
-        if (settingsPane is not null)
-            controls = controls.Append(settingsPane);
         foreach (var control in controls)
         {
             if (control.Visibility != Visibility.Visible) continue;

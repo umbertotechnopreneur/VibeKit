@@ -70,9 +70,21 @@ internal sealed record Pipeline(string Id, string Name, string? Description, str
     }
 }
 
-internal sealed record Preferences(Appearance Appearance, string[]? Screens, Pipeline[] Personal, bool Dark)
+internal enum ThemeMode { System, Light, Dark }
+
+internal sealed record Preferences(Appearance Appearance, string[]? Screens, Pipeline[] Personal,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Dark = false,
+    bool UseAcrylic = false,
+    [property: JsonPropertyName("theme"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull),
+        JsonConverter(typeof(JsonStringEnumConverter<ThemeMode>))] ThemeMode? ThemeOverride = null)
 {
-    internal static Preferences Default => new(Appearance.Default, null, [], false);
+    internal static Preferences Default => new(Appearance.Default, null, []);
+
+    internal ThemeMode Theme => ThemeOverride is { } mode && Enum.IsDefined(mode)
+        ? mode
+        : Dark ? ThemeMode.Dark : ThemeMode.System;
+
+    internal Preferences WithTheme(ThemeMode mode) => this with { ThemeOverride = mode, Dark = false };
 }
 
 internal sealed class SettingsStore

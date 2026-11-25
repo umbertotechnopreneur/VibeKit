@@ -68,6 +68,10 @@ $binary = Join-Path $root "target/$Target/release/ulanzi-dock-vibeware$extension
 Copy-Item -LiteralPath $binary -Destination $package
 if ($isWindowsPackage) {
     Copy-Item -LiteralPath (Join-Path $root "target/$Target/release/ulanzi-dock-launcher.exe") -Destination $package
+    if ($IsWindows) {
+        $signer = Join-Path $root '../../scripts/packaging/Sign-VibeWareDevelopmentFile.ps1'
+        & $signer -Path @((Join-Path $package 'ulanzi-dock-vibeware.exe'), (Join-Path $package 'ulanzi-dock-launcher.exe')) -WhenConfigured
+    }
 }
 Copy-Item -LiteralPath (Join-Path $root 'README.md'), (Join-Path $root 'LICENSE') -Destination $package
 Copy-Item -LiteralPath (Join-Path $root 'docs/ARTWORK.md'), (Join-Path $root 'docs/THIRD-PARTY.md'), (Join-Path $root 'docs/RELEASING.md'), (Join-Path $root 'docs/INSTALLATION.md'), (Join-Path $root 'docs/PLATFORMS.md'), (Join-Path $root 'docs/README.md'), (Join-Path $root 'docs/BRANDING.md'), (Join-Path $root 'docs/DEVELOPMENT.md'), (Join-Path $root 'docs/ulanzi-dock-vibeware-guide-v2.pdf'), (Join-Path $root 'docs/obs-creator-quick-start.pdf') -Destination "$package/docs"

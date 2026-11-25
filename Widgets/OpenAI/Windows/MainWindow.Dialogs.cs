@@ -56,6 +56,8 @@ public sealed partial class MainWindow
         host.Content=surface;activeDialog=host;
         host.AppWindow.Closing+=(_,e)=>{if(!dismissing){e.Cancel=true;Complete(ContentDialogResult.None);loaded.TrySetResult();}};
         nint owner=WinRT.Interop.WindowNative.GetWindowHandle(this);
+        var preferences = settingsWindow;
+        nint preferencesHandle = preferences is null ? 0 : WinRT.Interop.WindowNative.GetWindowHandle(preferences);
         try
         {
             host.AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory,"Branding","app-icon.ico"));
@@ -77,12 +79,14 @@ public sealed partial class MainWindow
             host.Activate();await loaded.Task;
             if(result.Task.IsCompleted)return await result.Task;
             EnableWindow(owner,false);
+            if (preferencesHandle != 0 && settingsWindow == preferences) EnableWindow(preferencesHandle, false);
             if(Microsoft.UI.Xaml.Input.FocusManager.FindFirstFocusableElement(content) is Control first)first.Focus(FocusState.Programmatic);
             if(!about)Diagnostics.Record("window.preferences","Flat acrylic utility window opened; switchers=False; owned=True.");
             return await result.Task;
         }
         finally
         {
+            if (preferencesHandle != 0 && settingsWindow == preferences) EnableWindow(preferencesHandle, true);
             EnableWindow(owner,true);activeDialog=null;dismissing=true;host.Close();dialogGate.Release();
             if(!closed)Activate();
         }

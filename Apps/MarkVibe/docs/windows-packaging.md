@@ -44,9 +44,10 @@ Use PowerShell 7, existing Node >=22.12, a stable .NET 10 SDK >=10.0.402 and Win
 
 Each invocation writes the distribution under `artifacts/<build-id>/` and keeps
 staging under `artifacts/.work/<build-id>/`. The build ID includes configuration,
-version and a unique suffix. Private signing files live under the application's
-ignored `obj/packaging-signing/` directory. Existing build outputs are available
-for manual cleanup.
+version and a unique suffix. Existing build outputs are available for manual
+cleanup. Signed builds use the [shared Windows development certificate](../../../docs/windows-development-signing.md).
+The Windows account signs from `CurrentUser\My`. The distribution includes
+the public certificate.
 
 `packaging/windows/version.json` stores the last successful four-part version.
 Default packaging increments its final component, across both configurations.
@@ -64,7 +65,7 @@ certificate and installation helper for signed builds, README,
 `BUILD-INFO.json` and `SHA256SUMS.txt`. No tests, installation, branch/worktree creation,
 commit or publication are performed by this script. For local Release x64 delivery,
 the owner has authorized closing MarkVibe, discarding unsaved in-app work,
-trusting the generated MarkVibe certificate in LocalMachine/TrustedPeople and
+trusting the development certificate in `LocalMachine\TrustedPeople` and
 installing/replacing the Release package without another confirmation. Remove an
 old Debug installation when replacing it. Launch the
 installed app afterward. This does not authorize deleting source documents or
@@ -74,17 +75,21 @@ Run tests only when the owner explicitly requests them for the current task.
 ## Install the development bundle
 
 Keep the bundle, `MarkVibe-Development.cer` and installation helper together.
-Open PowerShell **as administrator** in that directory and run:
+Open PowerShell **as administrator** the first time this certificate is used on
+the machine, then run the helper from that directory.
 
 ```powershell
 ./Install-MarkVibe.ps1 -TrustDevelopmentCertificate
 ```
 
-This explicitly trusts the supplied certificate in LocalMachine/TrustedPeople and
-installs the bundle for the current Windows user. Open MarkVibe from Start.
-The bundle chooses x64 or ARM64. Once the certificate is trusted, double-clicking
-the bundle is another installation route. Each build gets a fresh development
-certificate; trust the CER supplied with that build. The private key is not distributed.
+The helper trusts the public certificate in `LocalMachine\TrustedPeople` if
+needed and installs the bundle for the current Windows user. Open MarkVibe from
+Start. The bundle chooses x64 or ARM64. After the first trust step, run the
+same command from a regular PowerShell session or double-click the bundle.
+
+MSIX projects can share the certificate when their manifest `Publisher`
+matches its subject. Each project keeps its own package name. Import the
+portable signing kit on a new PC to reuse the same certificate.
 See Microsoft's [MSIX signing and certificate trust guidance](https://learn.microsoft.com/en-us/windows/msix/package/sign-msix-package-guide).
 
 ## Markdown file association
@@ -167,7 +172,8 @@ minimum in the MSIX manifest.
 ## GitHub and Microsoft Store
 
 The manual `windows-packages.yml` workflow accepts configuration and four-part
-version, builds both architectures on one Windows runner, and uploads `artifacts/*`.
+version, builds unsigned packages for both architectures on one Windows runner,
+and uploads `artifacts/*`.
 It contains no test or automatic-release step. Branch/worktree creation and publishing
 remain separate, explicitly authorized operations.
 

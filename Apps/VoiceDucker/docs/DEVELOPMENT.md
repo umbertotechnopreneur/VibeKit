@@ -1,3 +1,7 @@
+> **File name** DEVELOPMENT.md<br>
+> **Full path** `E:\vibekit\Apps\VoiceDucker\docs\DEVELOPMENT.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/VoiceDucker/docs/DEVELOPMENT.md`
+
 # Build and debug VoiceDucker
 
 In a VibeKit checkout, run the commands below from `Apps/VoiceDucker`.
@@ -169,11 +173,11 @@ that an older process has already forgotten.
 
 ## Install a local MSIX
 
-Use a trusted code-signing certificate with a private key and subject `CN=VibeWare`
-in `Cert:\CurrentUser\My`. Replace `<thumbprint>` with its thumbprint:
+Import the [shared VibeWare development certificate](../../../docs/windows-development-signing.md).
+The local package uses publisher `CN=Umberto Giacobbi` and selects the registered certificate.
 
 ```powershell
-pwsh -NoProfile -File scripts/package-msix.ps1 -Architecture x64 -Configuration Debug -CertificateThumbprint <thumbprint> -Install
+pwsh -NoProfile -File scripts/package-msix.ps1 -Architecture x64 -Configuration Debug -Install
 ```
 
 This builds Debug, stops the running app and installs the MSIX. Omit
@@ -225,3 +229,7 @@ explicitly exits its message loop after closing, including when worker shutdown
 times out; a timeout never certifies that playback was restored. There is no
 separate callback process. These events describe Windows session volume; an
 app's internal DSP gain may not change that volume.
+
+> **File name** DEVELOPMENT.md<br>
+> **Full path** `E:\vibekit\Apps\VoiceDucker\docs\DEVELOPMENT.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/VoiceDucker/docs/DEVELOPMENT.md`

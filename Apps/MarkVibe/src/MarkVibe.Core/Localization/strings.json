@@ -10,6 +10,9 @@
     "ja"
   ],
   "strings": {
+    "Your Markdown workspace": ["Il tuo spazio Markdown","Votre espace Markdown","Không gian Markdown của bạn","你的 Markdown 工作区","你嘅 Markdown 工作區","Ruang kerja Markdown Anda","내 Markdown 작업 공간","Markdown の作業スペース"],
+    "Browse folder": ["Sfoglia cartella","Parcourir un dossier","Duyệt thư mục","浏览文件夹","瀏覽資料夾","Telusuri folder","폴더 찾아보기","フォルダーを参照"],
+    "Explore documents and subfolders": ["Esplora documenti e sottocartelle","Explorez les documents et les sous-dossiers","Khám phá tài liệu và thư mục con","浏览文档和子文件夹","瀏覽文件同子資料夾","Jelajahi dokumen dan subfolder","문서와 하위 폴더 둘러보기","文書とサブフォルダーを表示"],
     "Paper": ["Carta","Papier","Giấy","纸张","紙張","Kertas","종이","用紙"],
     "Theme background": ["Sfondo del tema","Fond du thème","Nền của chủ đề","主题背景","佈景主題背景","Latar tema","테마 배경","テーマの背景"],
     "Apply paper": ["Applica carta","Appliquer le papier","Áp dụng giấy","应用纸张","套用紙張","Terapkan kertas","종이 적용","用紙を適用"],
@@ -1182,16 +1185,6 @@
       "폴더 다시 열기",
       "フォルダーを再度開く"
     ],
-    "Explore sample workspace": [
-      "Esplora esempi",
-      "Explorer les exemples",
-      "Khám phá tài liệu mẫu",
-      "浏览示例",
-      "瀏覽範例",
-      "Jelajahi contoh",
-      "예제 둘러보기",
-      "サンプルを見る"
-    ],
     "Choose missing file": [
       "Scegli file mancante",
       "Choisir le fichier manquant",
@@ -2227,26 +2220,6 @@
       "문서가 아름답게 연결됩니다",
       "文書を美しくつなぐ"
     ],
-    "Choose a file or explore the sample workspace": [
-      "Scegli un file o esplora gli esempi",
-      "Choisissez un fichier ou explorez les exemples",
-      "Chọn tệp hoặc khám phá tài liệu mẫu",
-      "选择文件或浏览示例",
-      "揀檔案或者瀏覽範例",
-      "Pilih berkas atau jelajahi contoh",
-      "파일을 선택하거나 예제를 둘러보세요",
-      "ファイルを選ぶか、サンプルを見てください"
-    ],
-    "Sample workspace": [
-      "Workspace di esempio",
-      "Espace d’exemple",
-      "Không gian mẫu",
-      "示例工作区",
-      "範例工作區",
-      "Ruang kerja contoh",
-      "예제 작업 공간",
-      "サンプルワークスペース"
-    ],
     "Explore a few connected pages": [
       "Esplora alcune pagine collegate",
       "Explorez quelques pages liées",
@@ -2326,16 +2299,6 @@
       "Paket impor · pilih ulang untuk memuat ulang",
       "가져온 묶음 · 다시 선택하여 새로 고침",
       "インポートした文書パック · 選び直して更新"
-    ],
-    "Sample workspace · explore freely": [
-      "Workspace di esempio · esplora liberamente",
-      "Espace d’exemple · explorez librement",
-      "Không gian mẫu · tự do khám phá",
-      "示例工作区 · 自由浏览",
-      "範例工作區 · 自由瀏覽",
-      "Ruang kerja contoh · jelajahi dengan bebas",
-      "예제 작업 공간 · 자유롭게 둘러보기",
-      "サンプルワークスペース · 自由に見る"
     ],
     "Opening your workspace…": [
       "Apertura workspace…",
@@ -3776,7 +3739,6 @@
     "Add linked pages and images to this workspace": "Add related files",
     "Reload documents from the current folder": "Refresh folder",
     "Reopen a previously connected folder": "Reopen folder",
-    "Explore the built-in sample documents": "Explore sample workspace",
     "Close About MarkVibe": "Close",
     "Open the MarkVibe repository on GitHub": "GitHub repository",
     "Read the MIT license": "MIT license",

@@ -14,6 +14,10 @@ License: MIT - see LICENSE
 
 VBWR E -->
 
+> **File name** INSTALLATION.md<br>
+> **Full path** `E:\vibekit\Apps\UlanziDeck\docs\INSTALLATION.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/UlanziDeck/docs/INSTALLATION.md`
+
 # Install and set up UlanziDeck
 
 ## Use the Windows installer
@@ -65,10 +69,11 @@ With automatic switching on, OBS must be the app in front to select its page. Ha
 
 First follow [development setup](DEVELOPMENT.md). You also need Python 3.10 or newer and the Windows SDK tools `makeappx.exe` and `signtool.exe`.
 
-The script uses your existing signing certificate. Its private key must be in `Cert:\CurrentUser\My`, its public certificate trusted in `Cert:\CurrentUser\Root`, and its expiry at least 30 days away. The script does not create or trust certificates.
+Import the [shared VibeWare development certificate](../../../docs/windows-development-signing.md) first.
+The script selects the registered certificate with publisher `CN=Umberto Giacobbi`.
 
 ```powershell
-pwsh -NoProfile -File scripts/ulanzi.ps1 -Command msix -Configuration Debug -PublisherSubject 'CN=Your Local Publisher'
+pwsh -NoProfile -File scripts/ulanzi.ps1 -Command msix -Configuration Debug
 ```
 
 It builds both programs from current source, creates fresh package settings, includes licenses and signs an x64 MSIX in `artifacts/msix/`. The version comes from `Cargo.toml`. `-Configuration Release` makes an optimized build; the original `build-msix.ps1` command still defaults to Release when given parameters.
@@ -88,3 +93,7 @@ When started through the Windows launcher, each run writes a local log in the
 dock button events. Share only the relevant excerpt when reporting a problem;
 the header includes your local settings path. USB write completion alone does
 not prove that the device screen changed.
+
+> **File name** INSTALLATION.md<br>
+> **Full path** `E:\vibekit\Apps\UlanziDeck\docs\INSTALLATION.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/UlanziDeck/docs/INSTALLATION.md`

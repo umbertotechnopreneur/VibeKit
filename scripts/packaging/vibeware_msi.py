@@ -12,6 +12,10 @@ NETFX = "http://wixtoolset.org/schemas/v4/wxs/netfx"
 CONTACT = "https://umbertogiacobbi.biz/contacts/"
 RUNTIME_FILES = ("coreclr.dll", "hostfxr.dll", "hostpolicy.dll", "System.Private.CoreLib.dll")
 ARCHITECTURES = {"x64": "X64", "arm64": "A64"}
+RUNTIMES = {
+    "core": ("Microsoft.NETCore.App", "Microsoft .NET Runtime"),
+    "desktop": ("Microsoft.WindowsDesktop.App", "Microsoft .NET Desktop Runtime"),
+}
 
 
 def write_setup_icon(logo, output):
@@ -34,17 +38,19 @@ def write_setup_icon(logo, output):
     raise ValueError(f"No valid 64-pixel frame in {logo}")
 
 
-def read_runtime(payload, executable, architecture):
+def read_runtime(payload, executable, architecture, runtime_type="core"):
     """Read the minimum compatible shared .NET 10 runtime from the publish output."""
     app = payload / executable
     options = json.loads(app.with_suffix(".runtimeconfig.json").read_text(encoding="utf-8"))["runtimeOptions"]
-    framework = options.get("framework", {})
-    version = framework.get("version", "")
-    if (options.get("tfm") != "net10.0" or framework.get("name") != "Microsoft.NETCore.App"
+    framework_name, runtime_name = RUNTIMES[runtime_type]
+    frameworks = options.get("frameworks", [options.get("framework", {})])
+    version = next((framework.get("version", "") for framework in frameworks
+                    if framework.get("name") == framework_name), "")
+    if (options.get("tfm") != "net10.0"
             or not re.fullmatch(r"10\.0\.[0-9]+", version) or options.get("includedFrameworks")
             or options.get("rollForward", "Minor") not in ("Minor", "LatestPatch")
             or options.get("applyPatches", True) is not True):
-        raise ValueError(f"{app.name} MSI requires a framework-dependent Microsoft .NET Runtime 10.0 publish.")
+        raise ValueError(f"{app.name} MSI requires a framework-dependent {runtime_name} 10.0 publish.")
 
     for file in RUNTIME_FILES:
         if (app.parent / file).exists():
@@ -55,15 +61,16 @@ def read_runtime(payload, executable, architecture):
     return version
 
 
-def add_installer_ui(root, *, payload, executable, output, home_url, logo, architecture="x64"):
+def add_installer_ui(root, *, payload, executable, output, home_url, logo, architecture="x64", runtime_type="core"):
     """Add common native dialogs, metadata and the WiX 5 NetFx check to one package."""
     package = root.find(WIX + "Package")
-    version = read_runtime(Path(payload), executable, architecture)
+    version = read_runtime(Path(payload), executable, architecture, runtime_type)
+    _, runtime_name = RUNTIMES[runtime_type]
     scope = "Per-machine installation" if package.get("Scope") == "perMachine" else "Per-user installation"
     display_version = "10.0" if version == "10.0.0" else version
     properties = {
         "VibeWareInstallScope": scope,
-        "VibeWareRuntimeDescription": f"Microsoft .NET Runtime {display_version} ({architecture})",
+        "VibeWareRuntimeDescription": f"{runtime_name} {display_version} ({architecture})",
         "ARPURLINFOABOUT": home_url,
         "ARPHELPLINK": CONTACT,
     }
@@ -76,7 +83,7 @@ def add_installer_ui(root, *, payload, executable, output, home_url, logo, archi
     ET.register_namespace("", WIX[1:-1])
     ET.register_namespace("netfx", NETFX)
     ET.SubElement(package, f"{{{NETFX}}}DotNetCompatibilityCheck",
-                  Property="VibeWareDotNetResult", Platform=architecture, RuntimeType="core",
+                  Property="VibeWareDotNetResult", Platform=architecture, RuntimeType=runtime_type,
                   RollForward="latestPatch", Version=version)
     action = f"override Wix4NetFxDotNetCompatibilityCheck_{ARCHITECTURES[architecture]}"
     for name, condition in (("InstallUISequence", "UILevel = 5 AND NOT Installed"),

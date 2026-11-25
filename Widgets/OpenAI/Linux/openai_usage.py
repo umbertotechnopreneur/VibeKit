@@ -29,7 +29,7 @@ sys.excepthook = report_unhandled
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, GdkPixbuf, GLib, Gtk, Pango, PangoCairo, Gio
+from gi.repository import Adw, Gdk, GLib, Gtk, Pango, PangoCairo, Gio
 from tray import StatusTray
 import cairo
 
@@ -99,13 +99,6 @@ window.micro {
     box-shadow: inset 0 0 3px alpha(#bc683d, .12);
 }
 window.micro:backdrop { border-color: transparent; box-shadow: none; }
-window.micro.settings-open { background: transparent; border-color: transparent; box-shadow: none; }
-.settings-open .widget-preview, .settings-panel {
-    background: @window_bg_color;
-    color: @window_fg_color;
-    border-radius: 20px;
-    box-shadow: inset 0 0 0 1px alpha(@window_fg_color, .18);
-}
 .micro .flip-caption { font-size: 12px; opacity: .85; }
 .micro.big .flip-caption { font-size: 14px; }
 .micro separator.metric-divider { background-color: alpha(@window_fg_color, .26); min-width: 1px; }
@@ -188,19 +181,20 @@ class SlotLayout:
     rows: int
     row_height: int
 
-    @property
-    def start(self):
-        return (self.width - self.columns * self.pitch) / 2
-
 
 class FlipTile(LabeledDisplay):
     DEFAULT_SHADOW = CreaseShadow(5, (52/255, 10/255, 13/255, .44), (24/255, 6/255, 7/255))
     CHARACTER_ADVANCE = .62
+    CHARACTER_PADDING = 3
     VALUE_FONT_SIZE = 20
     MINIMUM_WIDTH = 30
     FACE_PADDING = 12
     INFO_WIDTH = 22
     VERTICAL_PADDING = 2
+    FLAP_TONES = (
+        (0, 45, 46, 49), (.08, 37, 38, 41), (.14, 67, 68, 72), (.48, 56, 57, 61),
+        (.52, 45, 46, 50), (.82, 47, 48, 52), (.88, 29, 30, 33), (.93, 48, 49, 53), (1, 29, 30, 33),
+    )
 
     def __init__(self, name, caption, width, *, info=False, wrap_value=False, worn=False,
                  sizing_text=None, crease_shadow=DEFAULT_SHADOW, digit_delay=(300, 1000), compact_accent=False):
@@ -211,7 +205,6 @@ class FlipTile(LabeledDisplay):
         super().__init__(caption, display)
         self.face = face
         self.name = name
-        self.base_width = width
         self.wrap_value = wrap_value
         self.sizing_text = sizing_text
         self.crease_shadow = crease_shadow
@@ -220,21 +213,23 @@ class FlipTile(LabeledDisplay):
             raise ValueError("Digit delays must be an ascending range in milliseconds.")
         self.digit_delay = digit_delay
         noise = random.Random(name)
-        self.grain = [(noise.random(), noise.random(), noise.random()) for _ in range(150)] if worn else ()
+        self.grain = [(noise.random(), noise.random(), noise.random()) for _ in range(150)]
+        self.worn = worn
         self.progress = None
         self.scale = 1
-        self.available_width = width
         self.info = None
         if info:
             self.info = Gtk.Label(label="ⓘ")
             self.info.add_css_class("dim")
             display.append(self.info)
+        pitch = self.VALUE_FONT_SIZE * self.CHARACTER_ADVANCE + 2 * self.CHARACTER_PADDING
+        self.base_width = max(width, math.ceil(self.face_insets() + len(sizing_text or "") * pitch))
+        self.available_width = self.base_width
         self.value = "—"
         self.accent = None
         self.ink = (1, 1, 1)
         self.layout = None
         self.characters = []
-        self.line_spans = []
         self.digit_flips = {}
         self.ticking = False
         self.face.set_draw_func(self.draw)
@@ -247,11 +242,17 @@ class FlipTile(LabeledDisplay):
     def face_insets(self):
         return self.FACE_PADDING + (self.INFO_WIDTH if self.info is not None else 0)
 
-    def font_limit(self, available, value):
-        return max(1, available - self.face_insets()) / (self.CHARACTER_ADVANCE * self.text_columns(value))
+    def effective_padding(self, pitch, scale):
+        # In a very narrow tile, leave at least half of each slot for the glyph.
+        return min(self.CHARACTER_PADDING * scale, pitch / 4)
 
-    def width_for_font(self, font_size):
-        text_width = font_size * self.CHARACTER_ADVANCE * self.text_columns(self.value)
+    def font_limit(self, available, value, scale):
+        pitch = max(1, available - self.face_insets()) / self.text_columns(value)
+        return (pitch - 2 * self.effective_padding(pitch, scale)) / self.CHARACTER_ADVANCE
+
+    def width_for_font(self, font_size, scale):
+        pitch = font_size * self.CHARACTER_ADVANCE + 2 * self.CHARACTER_PADDING * scale
+        text_width = pitch * self.text_columns(self.value)
         return max(self.MINIMUM_WIDTH, math.ceil(text_width + self.face_insets()))
 
     def resize(self, scale, available=None, font_size=None):
@@ -276,10 +277,12 @@ class FlipTile(LabeledDisplay):
     def update_slots(self, value, animate, flaps, duration):
         width = self.available_width - (self.INFO_WIDTH if self.info is not None else 0)
         space = max(1, width - self.FACE_PADDING)
-        minimum = 1 if self.wrap_value else max(1, len(value), len(self.sizing_text or ""))
-        font_size = min(self.font_size, self.font_limit(self.available_width, value))
-        pitch = font_size * self.CHARACTER_ADVANCE
-        columns = max(minimum, math.floor(space / pitch + .00001))
+        minimum = self.text_columns(value)
+        font_size = min(self.font_size, self.font_limit(self.available_width, value, self.scale))
+        desired_pitch = font_size * self.CHARACTER_ADVANCE + 2 * self.effective_padding(space / minimum, self.scale)
+        columns = max(minimum, math.floor(space / desired_pitch + .00001))
+        # Distribute the remaining width across complete flaps, including blanks.
+        pitch = space / columns
         lines = tuple(self.wrap(value, columns)) if self.wrap_value else (value,)
         row_height = round(26 * self.scale) + 2 * self.VERTICAL_PADDING
         layout = SlotLayout(width, font_size, pitch, columns, len(lines), row_height)
@@ -294,10 +297,8 @@ class FlipTile(LabeledDisplay):
             self.face.set_content_width(width)
             self.face.set_content_height(layout.row_height * layout.rows)
 
-        self.line_spans = []
         for row, line in enumerate(lines):
             first = (columns - len(line)) // 2
-            self.line_spans.append((first, first + len(line)))
             for column in range(columns):
                 index = column - first
                 target = line[index] if 0 <= index < len(line) else " "
@@ -367,20 +368,39 @@ class FlipTile(LabeledDisplay):
         font.set_absolute_size(layout.font_size * Pango.SCALE)
         glyph = PangoCairo.create_layout(cr)
         glyph.set_font_description(font)
+        glyph.set_text("0", -1)
+        digit_ink, _ = glyph.get_extents()
+        text_top = layout.row_height / 2 - (digit_ink.y + digit_ink.height / 2) / Pango.SCALE
+        flap = cairo.LinearGradient(0, 0, 0, layout.row_height)
+        for offset, r, g, b in self.FLAP_TONES:
+            flap.add_color_stop_rgb(offset, r / 255, g / 255, b / 255)
+        flap_width = layout.columns * layout.pitch
+        left = (width - flap_width) / 2
+        for row in range(layout.rows):
+            cr.save()
+            cr.translate(0, row * layout.row_height)
+            cr.set_source(flap)
+            cr.rectangle(left, 1, flap_width, layout.row_height - 2)
+            cr.fill()
+            cr.restore()
+        self.draw_grain(cr, width, height)
         now = time.monotonic()
-        for row, (first, end) in enumerate(self.line_spans):
+        for row in range(layout.rows):
             y = row * layout.row_height
             for column in range(layout.columns):
-                x = layout.start + column * layout.pitch
+                x = left + column * layout.pitch
                 slot = row * layout.columns + column
                 char = self.characters[slot]
                 flip = self.digit_flips.get(slot)
                 if flip and flip.start < now < flip.start + flip.duration:
-                    self.draw_flip(cr, glyph, char, flip, now, x, y)
+                    self.draw_flip(cr, glyph, char, flip, now, x, y, y + text_top, flap)
                 else:
-                    self.draw_character(cr, glyph, self.visible_character(slot, now), x, y)
-                if first <= column < end - 1:
-                    cr.set_source_rgba(.02, .016, .016, .9)
+                    self.draw_character(cr, glyph, self.visible_character(slot, now), x, y + text_top)
+                cr.set_source_rgba(100 / 255, 102 / 255, 106 / 255, .75)
+                cr.rectangle(x + 1, y + 4, max(0, layout.pitch - 3), 1)
+                cr.fill()
+                if column < layout.columns - 1:
+                    cr.set_source_rgba(0, 0, 0, .5)
                     cr.rectangle(x + layout.pitch - 1, y + 4, 1, layout.row_height - 8)
                     cr.fill()
             self.draw_seam(cr, width, y, layout.row_height)
@@ -390,22 +410,21 @@ class FlipTile(LabeledDisplay):
         if char == " ":
             return
         glyph.set_text(char, -1)
-        text_width, text_height = glyph.get_size()
-        cr.move_to(x + (self.layout.pitch - text_width / Pango.SCALE) / 2,
-                   y + (self.layout.row_height - text_height / Pango.SCALE) / 2)
+        ink, _ = glyph.get_extents()
+        cr.move_to(x + self.layout.pitch / 2 - (ink.x + ink.width / 2) / Pango.SCALE, y)
         cr.set_source_rgb(*self.ink)
         PangoCairo.show_layout(cr, glyph)
 
-    def draw_flip(self, cr, glyph, char, flip, now, x, y):
+    def draw_flip(self, cr, glyph, char, flip, now, x, y, text_y, flap):
         phase = (now - flip.start) / flip.duration
-        self.draw_half(cr, glyph, char, x, y, True, 1)
-        self.draw_half(cr, glyph, flip.before, x, y, False, 1)
+        self.draw_half(cr, glyph, char, x, y, text_y, True, 1, flap)
+        self.draw_half(cr, glyph, flip.before, x, y, text_y, False, 1, flap)
         if phase < .5:
-            self.draw_half(cr, glyph, flip.before, x, y, True, math.cos(phase * math.pi))
+            self.draw_half(cr, glyph, flip.before, x, y, text_y, True, math.cos(phase * math.pi), flap)
         else:
-            self.draw_half(cr, glyph, char, x, y, False, math.sin((phase - .5) * math.pi))
+            self.draw_half(cr, glyph, char, x, y, text_y, False, math.sin((phase - .5) * math.pi), flap)
 
-    def draw_half(self, cr, glyph, char, x, y, top, scale):
+    def draw_half(self, cr, glyph, char, x, y, text_y, top, scale, flap):
         height = self.layout.row_height / 2
         center = y + height
         cr.save()
@@ -414,11 +433,11 @@ class FlipTile(LabeledDisplay):
         cr.translate(0, center)
         cr.scale(1, max(.001, scale))
         cr.translate(0, -center)
-        shade = .12 if top else .06
-        cr.set_source_rgb(shade, shade, shade)
-        cr.rectangle(x, y if top else center, self.layout.pitch, height)
+        cr.translate(0, y)
+        cr.set_source(flap)
+        cr.rectangle(x, 0 if top else height, self.layout.pitch, height)
         cr.fill()
-        self.draw_character(cr, glyph, char, x, y)
+        self.draw_character(cr, glyph, char, x, text_y - y)
         cr.restore()
 
     def draw_face(self, cr, width, height):
@@ -430,23 +449,24 @@ class FlipTile(LabeledDisplay):
                               (radius, radius, math.pi, 3*math.pi/2)):
             cr.arc(cx, cy, radius, a, b)
         cr.close_path()
-        edge = .02
+        edge = 20 / 255, 21 / 255, 23 / 255
         gradient = cairo.LinearGradient(0, 0, 0, height)
-        gradient.add_color_stop_rgb(0, .15, .15, .15)
-        gradient.add_color_stop_rgb(1, .05, .05, .05)
+        gradient.add_color_stop_rgb(0, 45 / 255, 46 / 255, 49 / 255)
+        gradient.add_color_stop_rgb(1, 29 / 255, 30 / 255, 33 / 255)
         cr.set_source(gradient)
         cr.fill_preserve()
-        cr.set_source_rgb(edge, edge, edge)
+        cr.set_source_rgb(*edge)
         cr.set_line_width(2)
         cr.stroke()
-        if self.grain:
-            for shade, opacity in ((0, .24), (1, .12)):
-                cr.set_source_rgba(shade, shade, shade, opacity)
-                for x, y, tone in self.grain:
-                    if int(tone * 2) == shade:
-                        cr.rectangle(4 + x * (width - 8), 3 + y * (height - 6), .4 + tone, .7)
-                cr.fill()
         cr.restore()
+
+    def draw_grain(self, cr, width, height):
+        for shade, opacity in ((0, .24 if self.worn else .18), (1, .12 if self.worn else .09)):
+            cr.set_source_rgba(shade, shade, shade, opacity)
+            for x, y, tone in self.grain:
+                if int(tone * 2) == shade:
+                    cr.rectangle(4 + x * (width - 8), 3 + y * (height - 6), .4 + tone, .7)
+            cr.fill()
 
     def draw_seam(self, cr, width, y, height):
         cr.save()
@@ -461,7 +481,8 @@ class FlipTile(LabeledDisplay):
             cr.set_source(gradient)
             cr.rectangle(2, center - spread, width - 4, spread * 2)
             cr.fill()
-        cr.set_source_rgb(*(shadow.line if shadow else (.02, .02, .02)))
+        line = shadow.line if shadow else (.02, .02, .02)
+        cr.set_source_rgba(*line, .85)
         cr.set_line_width(1.5)
         cr.move_to(2, center)
         cr.line_to(width - 2, center)
@@ -583,52 +604,78 @@ def wrap_box(spacing=8, center=False):
 
 
 class TrafficSignal(Gtk.Box):
-    LIGHTS = ((1, .26, .19), (1, .76, .16), (.27, .91, .38))
+    LIGHTS = ((1, 67 / 255, 48 / 255), (1, 195 / 255, 54 / 255), (68 / 255, 232 / 255, 94 / 255))
+    LENS_CENTERS = (.242, .506, .769)
 
     def __init__(self):
         super().__init__(valign=Gtk.Align.CENTER)
         self.set_size_request(44, 128)
-        self.glow = Gtk.DrawingArea(can_target=False)
-        overlay = Gtk.Overlay(hexpand=True, vexpand=True)
-        self.signal_pictures = Gtk.Overlay(can_target=False)
-        self.signal_pictures.set_child(Gtk.Box())
-        overlay.set_child(self.signal_pictures)
-        self.append(overlay)
-        self.glow.set_draw_func(self.draw_glow)
-        self.layers = []
-        for color in ("green", "amber", "red"):
-            source = GdkPixbuf.Pixbuf.new_from_file_at_scale(str(ROOT / f"Branding/signal-{color}.png"), -1, 384, True)
-            picture = Gtk.Picture(paintable=Gdk.Texture.new_for_pixbuf(source), can_shrink=True, can_target=False)
-            self.signal_pictures.add_overlay(picture)
-            self.layers.append(picture)
-        overlay.add_overlay(self.glow)
+        self.picture = self.load_picture()
+        self.face = Gtk.DrawingArea(can_target=False, hexpand=True, vexpand=True)
+        self.face.set_draw_func(self.draw)
+        self.append(self.face)
         self.weights = (1, 0, 0)
+        self.flicker = 1
         self.last_remaining = None
         self.next_flicker = time.monotonic() + 300
-        self.apply_weights(self.weights)
         self.set_opacity(.35)
+
+    @staticmethod
+    def load_picture():
+        source = cairo.ImageSurface.create_from_png(str(ROOT / "Branding/signal-graphite.png"))
+        # Keep a 3× raster for the 128px widget instead of holding the master artwork in memory.
+        scale = 384 / source.get_height()
+        picture = cairo.ImageSurface(cairo.FORMAT_ARGB32, round(source.get_width() * scale), 384)
+        context = cairo.Context(picture)
+        context.scale(scale, scale)
+        context.set_source_surface(source)
+        context.get_source().set_filter(cairo.FILTER_BEST)
+        context.paint()
+        return picture
 
     def apply_weights(self, weights):
         self.weights = weights
-        for layer, level in zip(self.layers, weights):
-            layer.set_opacity(level)
-        self.glow.queue_draw()
+        self.face.queue_draw()
 
-    def draw_glow(self, area, cr, width, height):
+    def draw(self, area, cr, width, height):
+        if not width or not height:
+            return
+        asset_width = self.picture.get_width()
+        asset_height = self.picture.get_height()
+        scale = min(width / asset_width, height / asset_height)
+        fitted_width, fitted_height = asset_width * scale, asset_height * scale
+        left, top = (width - fitted_width) / 2, (height - fitted_height) / 2
+        cr.save()
+        cr.translate(left, top)
+        cr.scale(scale, scale)
+        cr.set_source_surface(self.picture)
+        cr.paint()
+        cr.restore()
+
+        if self.last_remaining is None:
+            return
         _, amber, red = self.weights
         strengths = (red, amber * (1 - red), (1 - amber) * (1 - red))
-        for i, (color, power) in enumerate(zip(self.LIGHTS, strengths)):
-            if not power or self.last_remaining is None:
+        for lens, color, power in zip(self.LENS_CENTERS, self.LIGHTS, strengths):
+            if not power:
                 continue
-            x, y, radius = width / 2, height * (.20 + i * .29), width * .70
-            glow = cairo.RadialGradient(x, y, 0, x, y, radius)
-            power = math.sqrt(power)
-            glow.add_color_stop_rgba(0, *color, .67 * power)
-            glow.add_color_stop_rgba(.33, *color, .49 * power)
-            glow.add_color_stop_rgba(.55, *color, .29 * power)
-            glow.add_color_stop_rgba(1, *color, 0)
-            cr.set_source(glow)
+            x, y = width / 2, top + fitted_height * lens
+            power = math.sqrt(power) * self.flicker
+            bloom = cairo.RadialGradient(x, y, 0, x, y, fitted_width * .64)
+            for stop, alpha in ((0, .40), (.32, .29), (.58, .12), (1, 0)):
+                bloom.add_color_stop_rgba(stop, *color, alpha * power)
+            cr.set_source(bloom)
             cr.paint()
+
+            # Screen lights the lens without covering its etched texture.
+            light = cairo.RadialGradient(x, y, 0, x, y, fitted_width * .37)
+            for stop, alpha in ((0, 225 / 255), (.55, .72), (.84, .40), (1, 0)):
+                light.add_color_stop_rgba(stop, *color, alpha * power)
+            cr.save()
+            cr.set_operator(cairo.OPERATOR_SCREEN)
+            cr.set_source(light)
+            cr.paint()
+            cr.restore()
 
     def update(self, remaining, detail, animate):
         self.set_tooltip_text(detail)
@@ -663,10 +710,11 @@ class TrafficSignal(Gtk.Box):
 
         def tick(*_):
             if self.last_remaining is None:
-                self.signal_pictures.set_opacity(1)
+                self.flicker = 1
                 return False
             elapsed = min(1, (time.monotonic() - now) / .28)
-            self.signal_pictures.set_opacity(1 - .09 * math.sin(2 * math.pi * elapsed) ** 2 * (1 - elapsed))
+            self.flicker = 1 - .09 * math.sin(2 * math.pi * elapsed) ** 2 * (1 - elapsed)
+            self.face.queue_draw()
             return elapsed < 1
 
         self.add_tick_callback(tick)
@@ -685,8 +733,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.clock_cycle_start = None
         self.settings = {}
         self.settings_ready = False
-        self.settings_panel = None
-        self.settings_window_size = None
+        self.settings_window = None
         self.settings_status_label = None
         self.settings_save_source = 0
         self.backend = invoke
@@ -778,7 +825,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.details_button.set_active(True)
         actions.append(self.pin)
         self.connect("map", self.on_window_mapped)
-        for icon,title,callback in [("emblem-system-symbolic","Settings",self.toggle_settings),
+        for icon,title,callback in [("emblem-system-symbolic","Settings",self.show_settings),
                                     ("help-about-symbolic","About OpenAI Usage",self.show_about)]:
             button=Gtk.Button(icon_name=icon,tooltip_text=title)
             button.add_css_class("icon-action")
@@ -830,7 +877,6 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         drag = Gtk.GestureClick(button=Gdk.BUTTON_PRIMARY)
         drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         drag.connect("pressed", self.begin_move)
-        surface.add_css_class("widget-preview")
         surface.set_vexpand(True)
         self.window_content = box(6)
         self.window_content.append(surface)
@@ -989,33 +1035,26 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
     def build_details(self):
         self.detail_tiles = (
             FlipTile("5-hour allowance", "5-hour allowance", 112),
-            FlipTile("5-hour auto reset in", "5-hour reset in", 125),
+            FlipTile("5-hour auto reset in", "5-hour reset in", 125, sizing_text="00h 00m"),
             FlipTile("Weekly allowance", "Weekly allowance", 118),
-            FlipTile("Weekly auto reset", "Weekly auto reset", 152),
+            FlipTile("Weekly auto reset", "Weekly auto reset", 152, sizing_text="00/00 00:00"),
             FlipTile("Run-out estimate", "Run-out estimate", 158),
-            FlipTile("Selected auto reset in", "Auto reset in", 132),
-            FlipTile("Will the quota last?", "Will the quota last?", 442, wrap_value=True),
+            FlipTile("Selected auto reset in", "Auto reset in", 132, sizing_text="00d 00h"),
+            FlipTile("Will the quota last?", "Will the quota last?", 442,
+                     wrap_value=True, sizing_text="EXPECTED TO LAST UNTIL RESET"),
         )
 
     def details_toggled(self, button):
         surface = self.get_surface()
         restore = self.expanded_size if button.get_active() else None
         if not button.get_active() and surface is not None:
-            self.expanded_size = self.settings_window_size or (surface.get_width(), surface.get_height())
+            self.expanded_size = (surface.get_width(), surface.get_height())
         elif button.get_active():
             self.expanded_size = None
         self.apply_size()
-        if self.settings_panel is None:
-            self.queue_fit_height(restore)
-        elif restore:
-            self.settings_window_size = restore
-        elif not button.get_active() and self.settings_window_size is not None:
-            self.settings_window_size = (self.settings_window_size[0], 0)
+        self.queue_fit_height(restore)
 
     def details_key_pressed(self, _, key, *_args):
-        if key == Gdk.KEY_Escape and self.settings_panel is not None:
-            self.hide_settings()
-            return True
         if key == Gdk.KEY_Escape and self.details_button.get_active():
             self.details_button.set_active(False)
             return True
@@ -1260,9 +1299,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         scale = 1 + LARGER_WIDGET_PERCENT / 100 if big else 1
         (self.add_css_class if big else self.remove_css_class)("big")
         opacity = self.settings.get("windowOpacityPercent", 100) / 100
-        settings_open = self.settings_panel is not None
-        self.set_opacity(1 if settings_open else opacity)
-        self.widget_preview.set_opacity(opacity if settings_open else 1)
+        self.set_opacity(opacity)
         tiles = list(WrapLayout.children(self.strip))
         preferred = {tile: round(tile.base_width * scale) for tile in tiles}
 
@@ -1313,17 +1350,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         vertical_insets = self.body.get_margin_top() + self.body.get_margin_bottom() + 2
         # Keep the controls and both logos in view even when a resized window needs scrolling.
         height = max(strip_height, rail_height) + vertical_insets
-        if settings_open:
-            surface = self.get_surface()
-            monitor = self.get_display().get_monitor_at_surface(surface) if surface else None
-            preview_cap = min(240, monitor.get_geometry().height // 3) if monitor else 240
-            preview = max(rail_height + vertical_insets, min(height, preview_cap))
-            self.widget_preview.set_size_request(-1, preview - 2)
-            self.set_size_request(minimum, preview + 124)
-            height = preview + 450
-        else:
-            self.widget_preview.set_size_request(-1, -1)
-            self.set_size_request(minimum, rail_height + vertical_insets)
+        self.set_size_request(minimum, rail_height + vertical_insets)
         return max(width, minimum), height
 
     @staticmethod
@@ -1332,14 +1359,14 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         # distributing spare space towards the preferred widths.
         low, high = 0, FlipTile.VALUE_FONT_SIZE * scale
         for tile, width in preferred.items():
-            high = min(high, tile.font_limit(width, tile.value))
+            high = min(high, tile.font_limit(width, tile.value, scale))
         for _ in range(8):
             size = (low + high) / 2
-            if sum(min(preferred[tile], tile.width_for_font(size)) for tile in preferred) <= available:
+            if sum(min(preferred[tile], tile.width_for_font(size, scale)) for tile in preferred) <= available:
                 low = size
             else:
                 high = size
-        widths = {tile: min(width, tile.width_for_font(low)) for tile, width in preferred.items()}
+        widths = {tile: min(width, tile.width_for_font(low, scale)) for tile, width in preferred.items()}
         used = sum(widths.values())
         flexible = sum(preferred.values()) - used
         fraction = max(0, min(1, (available - used) / flexible)) if flexible else 0
@@ -1349,12 +1376,12 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
     def fit_tile_fonts(scale, widths):
         font_size = FlipTile.VALUE_FONT_SIZE * scale
         for tile, width in widths.items():
-            font_size = min(font_size, tile.font_limit(width, tile.value))
+            font_size = min(font_size, tile.font_limit(width, tile.value, scale))
         for tile, width in widths.items():
             tile.resize(scale, width, font_size)
 
     def fit_initial_size(self):
-        if self.settings_panel is None and not self.initial_fit_done and self.settings_ready and self.get_mapped():
+        if not self.initial_fit_done and self.settings_ready and self.get_mapped():
             self.initial_fit_done = True
             self.queue_fit_height()
 
@@ -1363,7 +1390,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
             GLib.source_remove(self.fit_source)
             self.fit_source = 0
 
-    def queue_fit_height(self, restore=None, minimum_width=0):
+    def queue_fit_height(self, restore=None):
         self.cancel_fit_height()
 
         def fit():
@@ -1372,7 +1399,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
             if self.closed or not self.get_mapped() or surface is None:
                 return False
             width = restore[0] if restore else surface.get_width()
-            width, height = self.fit_layout(max(width, minimum_width))
+            width, height = self.fit_layout(width)
             if restore:
                 height = max(height, restore[1])
             monitor = self.get_display().get_monitor_at_surface(surface)
@@ -1508,8 +1535,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         if edge is None:
             target = widget.pick(x, y, Gtk.PickFlags.DEFAULT)
             while target is not None:
-                if (target is self.settings_panel
-                        or isinstance(target, (Gtk.Button, Gtk.MenuButton, Gtk.Scrollbar))):
+                if isinstance(target, (Gtk.Button, Gtk.MenuButton, Gtk.Scrollbar)):
                     gesture.set_state(Gtk.EventSequenceState.DENIED)
                     return
                 target = target.get_parent()
@@ -1554,11 +1580,13 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
                 if result == "exit":
                     self.exit_application()
                 elif result == "tray" and self.tray is not None and self.tray.available:
+                    self.hide_settings()
                     self.set_visible(False)
             dialog.connect("response", response)
             self.close_dialog = dialog
             dialog.present()
             return True
+        self.hide_settings()
         if self.saving or self.saved_settings_revision != self.settings_revision:
             self.exit_pending = True
             self.problem.set_visible(True)

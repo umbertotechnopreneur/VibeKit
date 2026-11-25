@@ -121,10 +121,19 @@ private:
         auto data = Data();
         data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
         data.uCallbackMessage = CallbackMessage;
-        data.hIcon = reinterpret_cast<HICON>(SendMessageW(owner, WM_GETICON, ICON_SMALL2, 0));
+        // The published executable carries the same multi-size icon as the app window.
+        wchar_t executable[32768];
+        const auto length = GetModuleFileNameW(nullptr, executable, ARRAYSIZE(executable));
+        HICON applicationIcon{};
+        if (length && length < ARRAYSIZE(executable))
+            ExtractIconExW(executable, 0, nullptr, &applicationIcon, 1);
+        data.hIcon = applicationIcon;
+        if (!data.hIcon) data.hIcon = reinterpret_cast<HICON>(SendMessageW(owner, WM_GETICON, ICON_SMALL, 0));
+        if (!data.hIcon) data.hIcon = reinterpret_cast<HICON>(SendMessageW(owner, WM_GETICON, ICON_SMALL2, 0));
         if (!data.hIcon) data.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
         wcscpy_s(data.szTip, L"Retro Terminal");
         visible = Shell_NotifyIconW(NIM_ADD, &data) != FALSE;
+        if (applicationIcon) DestroyIcon(applicationIcon);
         if (visible) {
             data.uVersion = NOTIFYICON_VERSION_4;
             versionFour = Shell_NotifyIconW(NIM_SETVERSION, &data) != FALSE;

@@ -87,6 +87,8 @@ try {
     }
     $compiledVersion = (Get-Item -LiteralPath (Join-Path $windowsPayload 'OpenAIUsage.Windows.dll')).VersionInfo.FileVersion
     if ($compiledVersion -ne "$appVersion.0") { throw "Stale Windows binary: $compiledVersion, expected $appVersion.0" }
+    $developmentSigner = Join-Path $projectRoot '../../scripts/packaging/Sign-VibeWareDevelopmentFile.ps1'
+    & $developmentSigner -Path (Join-Path $windowsPayload 'OpenAIUsage.Windows.exe') -WhenConfigured
     $wxs = Join-Path $payloadRoot 'OpenAIUsage.wxs'
     & python 'Packaging/package.py' wix $windowsPayload $wxs
     if ($LASTEXITCODE -ne 0) { throw 'WiX source generation failed.' }
@@ -96,6 +98,7 @@ try {
     & dotnet (Join-Path $toolRoot 'wix/tools/net6.0/any/wix.dll') build $wxs -arch x64 -o $msi -pdbtype none `
         -intermediatefolder (Join-Path $payloadRoot 'wix-intermediate') -ext $uiExtension -ext $netfxExtension
     if ($LASTEXITCODE -ne 0) { throw 'Windows installer compilation or validation failed.' }
+    & $developmentSigner -Path $msi -WhenConfigured
     & (Join-Path $PSScriptRoot 'Verify-WindowsRequirement.ps1') -PackagePath $msi
     $deb = Join-Path $installerRoot "openai-usage_$appVersion-1_amd64.deb"
     & python 'Packaging/package.py' deb $linuxPayload $deb

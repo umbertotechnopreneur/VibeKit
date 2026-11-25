@@ -1,3 +1,7 @@
+> **File name** `AGENTS.md`<br>
+> **Full path** `E:\vibekit\Apps\WorkTrail\AGENTS.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/WorkTrail/AGENTS.md`
+
 # WorkTrail repository instructions
 
 These instructions apply to every change in this repository.
@@ -82,3 +86,11 @@ dotnet build .\WorkTrail\WorkTrail.csproj -c Debug-Unpackaged -p:Platform=x64 -p
 - Project-authored code and documentation use the canonical MIT License in `LICENSE` unless a file says otherwise; do not add commercial-use or distribution restrictions.
 - The WorkTrail name, logos, icons, and project-authored brand art are outside the MIT grant; follow `TRADEMARKS.md` and asset provenance records.
 - Preserve third-party licenses and attribution in `THIRD_PARTY_NOTICES.md` and adjacent notices.
+
+## Local Windows development signing
+
+- Sign local Windows development builds with the [shared VibeWare development certificate](../../docs/windows-development-signing.md) for `CN=Umberto Giacobbi`. Reuse the imported Desktop kit and follow the established release signing rules.
+
+> **File name** `AGENTS.md`<br>
+> **Full path** `E:\vibekit\Apps\WorkTrail\AGENTS.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/WorkTrail/AGENTS.md`

@@ -33,6 +33,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $folder 'docs/releases') | 
 Copy-Item -LiteralPath (Join-Path $root 'docs/releases/0.2.0.md') -Destination (Join-Path $folder 'docs/releases')
 $zip = Join-Path $root "artifacts/VoiceDucker-$Runtime.zip"
 if (Test-Path -LiteralPath $zip) { throw "Refusing to overwrite an existing package: $zip" }
+& (Join-Path $root '../../scripts/packaging/Sign-VibeWareDevelopmentFile.ps1') -Path (Join-Path $folder 'VoiceDucker.exe') -WhenConfigured
 Compress-Archive -Path (Join-Path $folder '*') -DestinationPath $zip
 $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
 "$hash  $([System.IO.Path]::GetFileName($zip))" | Set-Content -LiteralPath "$zip.sha256" -Encoding ascii

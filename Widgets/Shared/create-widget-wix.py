@@ -122,11 +122,10 @@ if __name__ == "__main__":
                        app_id=f"biz.umbertogiacobbi.{identifier}", minimum_build=22000,
                        requirement=f"{name} requires 64-bit Windows 11 or newer.", description=description)
     root = ET.parse(args.output).getroot()
-    # Vignette ships its own .NET Desktop runtime and needs no download dialog.
-    if args.widget != "vignette":
-        add_installer_ui(root, payload=args.payload, executable=exe, output=args.output,
-                         home_url=f"https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/{folder}",
-                         logo=repository / "Widgets" / folder / logo)
+    add_installer_ui(root, payload=args.payload, executable=exe, output=args.output,
+                     home_url=f"https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/{folder}",
+                     logo=repository / "Widgets" / folder / logo,
+                     runtime_type="desktop" if args.widget == "vignette" else "core")
     ET.indent(root)
     ET.ElementTree(root).write(args.output, encoding="utf-8", xml_declaration=True)
     print(f"Files in installer: {count}")

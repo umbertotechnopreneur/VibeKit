@@ -77,10 +77,20 @@ jobs:
               raise SystemExit('The tag does not match the Windows package version.')
           if not installer.stat().st_size or not package.stat().st_size:
               raise SystemExit('Both distribution packages must be non-empty.')
+          notes = 'Windows x64 per-user MSI and Debian package.'
+          if widget == 'vignette':
+              notes = (
+                  'Windows x64 per-user MSI and Debian package for GNOME Shell 50.\n\n'
+                  'Vignette for Windows has a single-column settings layout, live desktop adjustments, '
+                  'an optional Acrylic background, and a matching notification-area icon.\n\n'
+                  'You can use the framework-dependent MSI immediately if Microsoft .NET Desktop Runtime '
+                  '10.0 (x64) is already installed. Otherwise, install it separately from '
+                  '[Microsoft](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).'
+              )
           subprocess.run(
               ['gh', 'release', 'create', tag, str(installer), str(package),
                '--verify-tag', '--title', f'{names[widget]} {version}',
-               '--notes', 'Windows x64 per-user MSI and Debian package.'],
+               '--notes', notes],
               check=True,
           )
           PY

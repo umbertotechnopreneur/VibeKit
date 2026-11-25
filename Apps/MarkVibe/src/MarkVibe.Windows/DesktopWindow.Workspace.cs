@@ -96,20 +96,19 @@ public sealed partial class DesktopWindow
             _navigation?.Cancel();
             await CapturePositionAsync(token);
             SetStatus("Opening folder…");
-            var readOnly = SampleDirectoryEquals(directory);
             if (_documentEnvironment == null && requested != null && WorkspacePath.IsMarkdown(requested))
             {
                 _ = PrepareDocumentEnvironmentAsync();
             }
             var presented = false;
             Exception? renderingError = null;
-            await _model.OpenAsync(directory, requested, visit, readOnly, PresentAsync, token);
+            await _model.OpenAsync(directory, requested, visit, PresentAsync, token);
             if (!presented)
             {
                 await PresentAsync();
             }
             CatalogChanged();
-            await RememberAsync(token);
+            await _model.RememberAsync(token);
             if (renderingError != null)
             {
                 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(renderingError).Throw();
@@ -179,7 +178,7 @@ public sealed partial class DesktopWindow
             }
             UpdateCurrentDocument();
             await RenderCurrentAsync(visit != null || previewPosition != null, operation);
-            await RememberAsync(operation);
+            await _model.RememberAsync(operation);
             SetStatus(_model.Document?.Path ?? "");
         }
         finally
@@ -230,7 +229,7 @@ public sealed partial class DesktopWindow
             }
             UpdateCurrentDocument();
             await RenderCurrentAsync(true, token);
-            await RememberAsync(token);
+            await _model.RememberAsync(token);
             SetStatus("Folder refreshed.");
         }
         finally { _changingWorkspace = false; }
@@ -239,7 +238,7 @@ public sealed partial class DesktopWindow
     /// <summary>Opens a workspace's containing folder after the user selects that navigation command.</summary>
     private async void OpenParent(object sender, RoutedEventArgs args) => await RunAsync(async token =>
     {
-        if (_model.Workspace is { Info.Capabilities.CanOpenParent: true } workspace && !IsSample(workspace) &&
+        if (_model.Workspace is { Info.Capabilities.CanOpenParent: true } workspace &&
             Directory.GetParent(_model.Files.Root(workspace.Info.Id)) is { } parent)
         {
             await OpenLocationAsync(parent.FullName, "folder", true, token);
@@ -254,17 +253,6 @@ public sealed partial class DesktopWindow
             await SwitchWorkspaceAsync(session.Root, session.Entry?.Path, session.Entry, token);
         }
     });
-
-    /// <summary>Opens the installed sample as a read-only workspace.</summary>
-    private async void OpenSample(object sender, RoutedEventArgs args) => await RunAsync(async token =>
-        await SwitchWorkspaceAsync(Path.Combine(_options.AssetsDirectory, "demo"), "README.md", null, token));
-
-    /// <summary>Identifies the bundled sample directory without relying on its title.</summary>
-    private bool SampleDirectoryEquals(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path))
-        .Equals(Path.GetFullPath(Path.Combine(_options.AssetsDirectory, "demo")), StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>Indicates when native file mutations should be unavailable.</summary>
-    private bool IsSample(DesktopWorkspace workspace) => SampleDirectoryEquals(_model.Files.Root(workspace.Info.Id));
 
     /// <summary>Displays native recent file and folder menus using remembered model entries.</summary>
     private void ShowRecent(object sender, RoutedEventArgs args)
@@ -289,9 +277,10 @@ public sealed partial class DesktopWindow
                 menu.Items.Add(submenu);
             }
         }
-        var sample = new MenuFlyoutItem { Text = T("Open sample workspace"), Icon = MenuIcon("sample"), IsEnabled = SampleButton.Visibility == Visibility.Visible };
-        sample.Click += OpenSample;
-        menu.Items.Add(sample);
+        if (menu.Items.Count == 0)
+        {
+            menu.Items.Add(new MenuFlyoutItem { Text = T("No recent locations yet."), IsEnabled = false });
+        }
         WindowsUiFont.ApplyTo(menu);
         menu.ShowAt(ShellMenuButton);
     }
@@ -686,10 +675,6 @@ public sealed partial class DesktopWindow
         }
         return null;
     }
-
-    /// <summary>Writes the current native session unless it points at the installed read-only sample.</summary>
-    private Task RememberAsync(CancellationToken token) =>
-        _model.Workspace is { } workspace && IsSample(workspace) ? Task.CompletedTask : _model.RememberAsync(token);
 
     /// <summary>Prompts for an externally changed current file without overwriting a local draft.</summary>
     private void HandleDiskChange(DocumentDiskChange change) => _ = RunAsync(async token =>

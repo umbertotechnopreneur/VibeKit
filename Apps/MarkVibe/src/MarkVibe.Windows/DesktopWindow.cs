@@ -67,6 +67,7 @@ public sealed partial class DesktopWindow : Window
         var language = CultureInfo.CurrentUICulture.Name;
         SetLanguage(_model.Preferences.Language, language);
         InitializeComponent();
+        AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "MarkVibe.ico"));
         ApplyShellMenuIcons();
         WindowsPaperSurface.Attach(ToolbarLayout);
         WindowsPaperSurface.AttachFlyout(ShellMenu);
@@ -130,8 +131,6 @@ public sealed partial class DesktopWindow : Window
         {
             EnsureAssistantPanel();
         }
-        var sample = Path.Combine(_options.AssetsDirectory, "demo");
-        SampleButton.Visibility = Directory.Exists(sample) ? Visibility.Visible : Visibility.Collapsed;
         if (_options.Document is { } requested)
         {
             await RunAsync(token => OpenLocationAsync(requested, "files", false, token));
@@ -264,13 +263,15 @@ public sealed partial class DesktopWindow : Window
         Grid.SetColumn(Header, wrapToolbar ? 1 : 2);
         Grid.SetColumnSpan(Header, wrapToolbar ? 2 : 1);
         Header.DefaultLabelPosition = width >= 1000 ? CommandBarDefaultLabelPosition.Right : CommandBarDefaultLabelPosition.Collapsed;
+        var showNavigation = !ShowsWelcome;
         var compact = width > 0 && width < CompactSidebarBreakpoint;
-        if (compact != _compactSidebar)
+        if (compact != _compactSidebar || !showNavigation)
         {
             _compactSidebar = compact;
             _compactSidebarOpen = false;
         }
-        var sidebar = !compact && layout.SidebarOpen ? Math.Min(layout.SidebarWidth, SidebarWidthLimit) : 0;
+        SidebarToggle.Visibility = showNavigation ? Visibility.Visible : Visibility.Collapsed;
+        var sidebar = showNavigation && !compact && layout.SidebarOpen ? Math.Min(layout.SidebarWidth, SidebarWidthLimit) : 0;
         var overlay = compact && _compactSidebarOpen;
         var assistantOverlay = compact && layout.AiOpen && !overlay;
         var dockedAssistant = !compact && layout.AiOpen;
@@ -302,6 +303,9 @@ public sealed partial class DesktopWindow : Window
             UpdateTree();
         }
     }
+
+    /// <summary>Indicates that the open-file and open-folder actions occupy the document area.</summary>
+    private bool ShowsWelcome => _model.Document == null && _model.View != "map";
 
     /// <summary>Bounds the sidebar consistently while dragging, restoring or resizing by keyboard.</summary>
     private double SidebarWidthLimit => Shell.ActualWidth > 0 ? Math.Clamp(Shell.ActualWidth * .42, 180, 520) : 520;
@@ -351,8 +355,15 @@ public sealed partial class DesktopWindow : Window
         AutomationProperties.SetName(OutlineNext, T("Next match"));
         Hint(OutlinePrevious, "Previous match", "Shift+F3");
         Hint(OutlineNext, "Next match", "F3");
+        WelcomeTitle.Text = T("Your Markdown workspace");
+        WelcomeFileLabel.Text = T("Open file");
+        WelcomeFolderLabel.Text = T("Browse folder");
+        WelcomeFolderDetail.Text = T("Explore documents and subfolders");
+        AutomationProperties.SetName(WelcomeOpenFile, WelcomeFileLabel.Text);
+        AutomationProperties.SetName(WelcomeOpenFolder, WelcomeFolderLabel.Text);
+        Hint(WelcomeOpenFile, "Open file", "Ctrl+O");
+        Hint(WelcomeOpenFolder, "Browse folder", "Ctrl+Shift+O");
         ResumeButton.Content = T("Reopen last workspace");
-        SampleButton.Content = T("Open sample workspace");
         PreviewCloseButton.Label = T("Close");
         PreviewOpenButton.Label = T("Open document");
         PreviewBackButton.Label = T("Back");
@@ -380,7 +391,6 @@ public sealed partial class DesktopWindow : Window
         Hint(FolderCommandsButton, "Folder commands");
         Hint(GoUpFolderMenuItem, "Go up one folder");
         Hint(RefreshFolderMenuItem, "Refresh folder");
-        Hint(SampleButton, "Open sample workspace");
         Hint(ResumeButton, "Reopen last workspace");
         Hint(FindPreviousButton, "Previous match", "Shift+F3");
         Hint(FindNextButton, "Next match", "F3");
@@ -406,11 +416,11 @@ public sealed partial class DesktopWindow : Window
         var view = _model.View;
         var hasDocument = document != null;
         RefreshOutlineSearch();
-        WorkspaceName.Text = workspace?.Info.Name ?? T("No workspace");
+        WorkspaceName.Text = workspace?.Info.Name ?? string.Empty;
         ToolTipService.SetToolTip(WorkspaceName, WorkspaceName.Text);
         WorkspaceNamesWarning.Visibility = workspace?.Info.SkippedNames == true ? Visibility.Visible : Visibility.Collapsed;
         Title = hasDocument ? document!.Title + " — MarkVibe" : "MarkVibe";
-        GoUpFolderMenuItem.IsEnabled = workspace is { Info.Capabilities.CanOpenParent: true } && !IsSample(workspace);
+        GoUpFolderMenuItem.IsEnabled = workspace is { Info.Capabilities.CanOpenParent: true };
         RefreshFolderMenuItem.IsEnabled = workspace != null;
         FolderCommandsButton.IsEnabled = GoUpFolderMenuItem.IsEnabled || RefreshFolderMenuItem.IsEnabled;
         ReadButton.IsEnabled = hasDocument;
@@ -431,7 +441,6 @@ public sealed partial class DesktopWindow : Window
         DocumentToolbar.Visibility = hasDocument || MapButton.IsEnabled ? Visibility.Visible : Visibility.Collapsed;
         BackButton.IsEnabled = _model.History.CanBack || (_model.History.Current != null && !hasDocument);
         ForwardButton.IsEnabled = _model.History.CanForward;
-        Welcome.Visibility = hasDocument || view == "map" ? Visibility.Collapsed : Visibility.Visible;
         ReaderSlot.Visibility = hasDocument || _reader != null ? Visibility.Visible : Visibility.Collapsed;
         ReaderSlot.Opacity = view == "map" ? 0 : 1;
         ReaderSlot.IsHitTestVisible = view != "map";
@@ -446,6 +455,12 @@ public sealed partial class DesktopWindow : Window
         if (view != "map")
         {
             _map?.SuspendInteractions();
+        }
+        var welcomeVisibility = ShowsWelcome ? Visibility.Visible : Visibility.Collapsed;
+        if (Welcome.Visibility != welcomeVisibility)
+        {
+            Welcome.Visibility = welcomeVisibility;
+            ApplyGeometry();
         }
     }
 
@@ -531,7 +546,7 @@ public sealed partial class DesktopWindow : Window
             if (await ConfirmLeaveWorkspaceAsync(token))
             {
                 await CapturePositionAsync(token);
-                await RememberAsync(token);
+                await _model.RememberAsync(token);
                 _closeApproved = true;
                 Close();
             }

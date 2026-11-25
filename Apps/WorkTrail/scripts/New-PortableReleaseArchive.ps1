@@ -19,7 +19,7 @@
 
 <#
 .SYNOPSIS
-Creates an unsigned portable ZIP from a framework-dependent publish.
+Creates a portable ZIP from a framework-dependent publish.
 .DESCRIPTION
 Consumes Release-Unpackaged output. Does not build, install, sign, or change trust.
 Application data continues to use the normal Windows user profile.
@@ -167,7 +167,14 @@ foreach ($binary in @('WorkTrail.exe')) {
     Assert-PortableArchitecture -FileName $binary
 }
 
-$archiveName = "WorkTrail-$Version-$Platform-portable-unsigned.zip"
+$signing = 'unsigned'
+if ($IsWindows) {
+    $signature = Get-AuthenticodeSignature -LiteralPath (Join-Path $publishRoot 'WorkTrail.exe')
+    if ($signature.SignerCertificate) {
+        $signing = 'signed'
+    }
+}
+$archiveName = "WorkTrail-$Version-$Platform-portable-$signing.zip"
 $zipPath = Join-Path $outputRoot $archiveName
 $utf8 = [Text.UTF8Encoding]::new($false)
 $hashLines = [Collections.Generic.List[string]]::new()
@@ -179,21 +186,25 @@ $release = [ordered]@{
     platform = $Platform
     runtimeIdentifier = $buildInfo.runtimeIdentifier
     configuration = $buildInfo.configuration
-    signing = 'unsigned'
+    signing = $signing
     entryPoint = 'WorkTrail.exe'
     gitCommit = $buildInfo.gitCommit
     gitDirty = $buildInfo.gitDirty
 }
+$signatureNote = if ($signing -eq 'signed') {
+    'Windows checks the embedded Authenticode signature on WorkTrail.exe.'
+} else {
+    'This unsigned build may trigger Windows security prompts. Follow the applicable policy for unsigned software.'
+}
 $instructions = @"
-WorkTrail $Version - $Platform - PORTABLE UNSIGNED BUILD
+WorkTrail $Version - $Platform - PORTABLE $($signing.ToUpperInvariant()) BUILD
 
 Extract the entire ZIP into a folder and run WorkTrail.exe from that folder.
 Keep all DLLs, resources, and subfolders beside the executable; do not copy only the EXE.
 Use the archive matching your Windows architecture ($Platform).
 Basic startup needs no MSIX installation, administrator access, or certificate import.
 No CLI alias is registered.
-This unsigned prerelease preparation artifact may trigger Windows security prompts.
-Follow your organization's policy for unsigned software; do not disable security checks.
+$signatureNote
 
 The .NET and Windows App SDK runtimes are included.
 

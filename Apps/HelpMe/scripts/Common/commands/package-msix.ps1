@@ -44,6 +44,12 @@ $ErrorActionPreference = 'Stop'
 $bundledSkillFiles = @(Get-BundledSkillFiles)
 if (-not $IsWindows) { throw 'MSIX packaging and certificate-store signing require Windows.' }
 if ($Channel -eq 'Store' -and $env:GITHUB_ACTIONS -ne 'true') { throw 'Store MSIX packages are built only in GitHub Actions.' }
+$repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
+$packagePublisher = if ($Channel -eq 'Debug') { 'CN=Umberto Giacobbi' } else { 'CN=82BCDD1C-1D59-48A0-9BDF-6352BE319510' }
+if ($Channel -eq 'Debug' -and -not $Unsigned -and -not $CertificateThumbprint) {
+    $resolver = Join-Path $repositoryRoot '../../scripts/packaging/Get-VibeWareDevelopmentCertificate.ps1'
+    $CertificateThumbprint = (& $resolver -Publisher $packagePublisher).Thumbprint
+}
 if ($Unsigned -and -not [string]::IsNullOrWhiteSpace($CertificateThumbprint)) {
     throw 'Unsigned packaging cannot use CertificateThumbprint.'
 }
@@ -55,11 +61,9 @@ if ($Unsigned -and $null -ne $TimestampServer) {
 }
 # Store packages are unsigned submission artifacts; signed Debug packages are for local testing.
 
-$repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
 $artifactsRoot = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'artifacts'))
 $publishRoot = [IO.Path]::TrimEndingDirectorySeparator([IO.Path]::GetFullPath($PublishDirectory, $repositoryRoot))
 $packageName = 'UmbertoGiacobbiDotBiz.HelpMe'
-$packagePublisher = 'CN=82BCDD1C-1D59-48A0-9BDF-6352BE319510'
 $packagePublisherDisplayName = 'UmbertoGiacobbiDotBiz'
 
 function Assert-NoReparseAncestor {
@@ -235,7 +239,7 @@ if (-not $Unsigned) {
         ForEach-Object { $_.EnhancedKeyUsages } | Where-Object { $_.Value -eq '1.3.6.1.5.5.7.3.3' })
     if ($codeSigning.Count -eq 0) { throw 'The selected certificate must include the Code Signing enhanced key usage.' }
     if (-not [string]::Equals($certificate.Subject, $packagePublisher, [StringComparison]::Ordinal)) {
-        throw "The signing certificate subject must match the Store package publisher '$packagePublisher'."
+        throw "The signing certificate subject must match the package publisher '$packagePublisher'."
     }
     if ($null -ne $TimestampServer -and (-not $TimestampServer.IsAbsoluteUri -or $TimestampServer.Scheme -ne 'https' `
             -or $TimestampServer.UserInfo -or $TimestampServer.Query -or $TimestampServer.Fragment)) {

@@ -15,12 +15,13 @@ public sealed partial class MainWindow
     private bool detailsOpen;
     private bool IsCompact => !detailsOpen;
     private readonly FlipTile fiveHour = new("5-hour allowance", 112, 20, SecondaryText, showAccent: true);
-    private readonly FlipTile fiveReset = new("5-hour auto reset in", 125, 20, SecondaryText, label: "5-hour reset in");
+    private readonly FlipTile fiveReset = new("5-hour auto reset in", 125, 20, SecondaryText, label: "5-hour reset in", sizingCharacters: 7);
     private readonly FlipTile weekly = new("Weekly allowance", 118, 20, SecondaryText, showAccent: true);
-    private readonly FlipTile weeklyReset = new("Weekly auto reset", 152, 20, SecondaryText);
+    private readonly FlipTile weeklyReset = new("Weekly auto reset", 152, 20, SecondaryText, sizingCharacters: 11);
     private readonly FlipTile detailsEstimate = new("Run-out estimate", 158, 20, SecondaryText);
-    private readonly FlipTile timeToReset = new("Selected auto reset in", 132, 20, SecondaryText, label: "Auto reset in");
-    private readonly FlipTile forecastMessage = new("Will the quota last?", 442, 20, SecondaryText, wrapValue: true);
+    private readonly FlipTile timeToReset = new("Selected auto reset in", 132, 20, SecondaryText, label: "Auto reset in", sizingCharacters: 7);
+    private readonly FlipTile forecastMessage = new("Will the quota last?", 442, 20, SecondaryText,
+        wrapValue: true, sizingCharacters: "EXPECTED TO LAST UNTIL RESET".Length);
 
     private static UIElement DetailsIcon()
     {
@@ -35,13 +36,8 @@ public sealed partial class MainWindow
         if (open != detailsOpen)
         {
             if (!open)
-                expandedSize = settingsRestoreSize ?? AppWindow.ClientSize;
-            if (settingsPane is null)
-                RequestWidgetFit(open ? expandedSize : null);
-            else if (open && expandedSize is { } normal)
-                settingsRestoreSize = normal;
-            else if (!open && settingsRestoreSize is { } previous)
-                settingsRestoreSize = new(previous.Width, 0);
+                expandedSize = AppWindow.ClientSize;
+            RequestWidgetFit(open ? expandedSize : null);
             if (open)
                 expandedSize = null;
         }

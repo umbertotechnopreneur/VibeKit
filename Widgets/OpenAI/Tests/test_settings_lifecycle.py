@@ -29,14 +29,14 @@ class SettingsLifecycleChecks(unittest.TestCase):
         helper = next(node for node in coordinator.body if isinstance(node, ast.ClassDef) and node.name == "SettingsUiMixin")
         window.body += helper.body
         methods = [node for node in window.body if isinstance(node, ast.FunctionDef) and node.name in
-                   ("save_async", "on_close", "exit_application", "settings_loaded", "set_settings_error")]
+                   ("save_async", "on_close", "exit_application", "hide_settings", "settings_loaded", "set_settings_error")]
         environment = {"threading": SimpleNamespace(Thread=Worker), "invoke": invoke,
                        "GLib": SimpleNamespace(idle_add=self.callbacks.append, source_remove=lambda _: None),
                        "log_event": lambda *_: None}
         exec(compile(ast.Module(body=methods, type_ignores=[]), str(__file__), "exec"), environment)
         self.window = SimpleNamespace(saving=False, backend=invoke, settings_save_source=0, settings={"bigSize": True}, settings_revision=1,
                                       saved_settings_revision=0, closed=False, exit_pending=False,
-                                      settings_ready=False, settings_error=None, settings_status_label=None,
+                                      settings_ready=False, settings_error=None, settings_status_label=None, settings_window=None,
                                       allow_close=False, tray=None, sound_process=None, clock_id=1, refresh_id=2,
                                       problem=SimpleNamespace(set_visible=lambda _: None, set_tooltip_text=lambda _: None),
                                       present=lambda: None, refresh=lambda: None)
@@ -64,7 +64,14 @@ class SettingsLifecycleChecks(unittest.TestCase):
         self.assertEqual(window.saved_settings_revision, 2)
 
     def test_dirty_exit_starts_a_save_and_waits(self):
+        def close_settings():
+            self.window.settings_window = None
+            self.window.save_async()
+
+        self.window.settings_window = SimpleNamespace(close=close_settings)
         self.window.exit_application()
+        self.assertIsNone(self.window.settings_window)
+        self.assertEqual(len(self.workers), 1)
         self.assertFalse(self.window.closed)
         self.complete_write()
         self.assertTrue(self.window.closed)

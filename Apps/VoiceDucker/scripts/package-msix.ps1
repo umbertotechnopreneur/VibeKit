@@ -37,10 +37,6 @@ if ($Store) {
 }
 
 if ($Install -and $Unsigned) { throw 'An unsigned package cannot be installed by this script.' }
-if (-not $Unsigned -and [string]::IsNullOrWhiteSpace($CertificateThumbprint)) {
-    throw 'A signing certificate thumbprint is required for a signed MSIX.'
-}
-
 $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $project = Join-Path $root 'VoiceDucker.csproj'
 $manifest = [xml](Get-Content -LiteralPath (Join-Path $root 'Package.appxmanifest') -Raw)
@@ -64,6 +60,10 @@ if (-not $packageDirectory.StartsWith($repositoryPrefix, [StringComparison]::Ord
 }
 
 if (-not $Unsigned) {
+    if ([string]::IsNullOrWhiteSpace($CertificateThumbprint)) {
+        $resolver = Join-Path $root '../../scripts/packaging/Get-VibeWareDevelopmentCertificate.ps1'
+        $CertificateThumbprint = (& $resolver -Publisher $publisher).Thumbprint
+    }
     $thumbprint = $CertificateThumbprint.Replace(' ', '').ToUpperInvariant()
     $certificate = Get-ChildItem Cert:\CurrentUser\My |
         Where-Object { $_.Thumbprint -eq $thumbprint -and $_.HasPrivateKey } |
@@ -144,7 +144,7 @@ finally { $archive.Dispose() }
 Write-Host "$Configuration MSIX ready: $($package.FullName)"
 if ($Install) {
     $signature = Get-AuthenticodeSignature -LiteralPath $package.FullName
-    if ($signature.Status -ne 'Valid') {
+    if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Thumbprint -ne $certificate.Thumbprint) {
         throw "MSIX signature is not trusted and valid: $($signature.Status)."
     }
     Add-AppxPackage -Path $package.FullName -ForceApplicationShutdown -ErrorAction Stop

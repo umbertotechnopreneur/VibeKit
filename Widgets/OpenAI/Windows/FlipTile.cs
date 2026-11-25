@@ -17,25 +17,42 @@ public sealed class FlipTile : Grid
     private const double FaceHeight = 30;
     internal const double MinimumWidth = 30;
     private const double CharacterAdvance = .61;
+    private const double CharacterPadding = 3;
+    private const double FaceInsets = 14;
     private static readonly CreaseShadow DefaultShadow = new(5,
         ColorHelper.FromArgb(112, 52, 10, 13), ColorHelper.FromArgb(255, 24, 6, 7));
     private static readonly DigitDelay DefaultDelay = new(300, 1000);
     private static readonly FontFamily NumberFont = new("Consolas");
     private static readonly SolidColorBrush Ink = new(Colors.FloralWhite);
-    private static readonly SolidColorBrush Seam = new(Colors.Black);
-    private static readonly SolidColorBrush Divider = new(ColorHelper.FromArgb(230, 5, 4, 4));
+    private static readonly SolidColorBrush FaceRim = new(ColorHelper.FromArgb(255, 20, 21, 23));
+    private static readonly SolidColorBrush Divider = new(ColorHelper.FromArgb(128, 0, 0, 0));
     private static readonly SolidColorBrush Hinge = new(ColorHelper.FromArgb(255, 114, 116, 119));
+    private static readonly SolidColorBrush FlapLip = new(ColorHelper.FromArgb(192, 100, 102, 106));
     private static readonly LinearGradientBrush FaceGradient = new()
     {
         StartPoint = new(0, 0), EndPoint = new(0, 1),
         GradientStops =
         {
-            new() { Color = ColorHelper.FromArgb(255, 35, 35, 35), Offset = 0 },
-            new() { Color = ColorHelper.FromArgb(255, 10, 10, 10), Offset = 1 }
+            new() { Color = ColorHelper.FromArgb(255, 45, 46, 49), Offset = 0 },
+            new() { Color = ColorHelper.FromArgb(255, 29, 30, 33), Offset = 1 }
         }
     };
-    private static readonly SolidColorBrush UpperFace = new(ColorHelper.FromArgb(255, 30, 30, 30));
-    private static readonly SolidColorBrush LowerFace = new(ColorHelper.FromArgb(255, 15, 15, 15));
+    private static readonly LinearGradientBrush FlapGradient = new()
+    {
+        StartPoint = new(0, 0), EndPoint = new(0, 1),
+        GradientStops =
+        {
+            new() { Color = ColorHelper.FromArgb(255, 45, 46, 49), Offset = 0 },
+            new() { Color = ColorHelper.FromArgb(255, 37, 38, 41), Offset = .08 },
+            new() { Color = ColorHelper.FromArgb(255, 67, 68, 72), Offset = .14 },
+            new() { Color = ColorHelper.FromArgb(255, 56, 57, 61), Offset = .48 },
+            new() { Color = ColorHelper.FromArgb(255, 45, 46, 50), Offset = .52 },
+            new() { Color = ColorHelper.FromArgb(255, 47, 48, 52), Offset = .82 },
+            new() { Color = ColorHelper.FromArgb(255, 29, 30, 33), Offset = .88 },
+            new() { Color = ColorHelper.FromArgb(255, 48, 49, 53), Offset = .93 },
+            new() { Color = ColorHelper.FromArgb(255, 29, 30, 33), Offset = 1 }
+        }
+    };
     private readonly string field;
     private double fittedFontSize;
     private readonly double preferredWidth;
@@ -56,14 +73,13 @@ public sealed class FlipTile : Grid
 
     private readonly record struct Layout(double Width, double Font, double Pitch, int Columns, int Rows)
     {
-        public double Start => (Width - Columns * Pitch) / 2;
+        public double SlotOrigin => (Width - Columns * Pitch) / 2;
     }
 
-    private sealed class Slot(Grid face, TextBlock glyph, Rectangle divider)
+    private sealed class Slot(Grid face, TextBlock glyph)
     {
         public Grid Face { get; } = face;
         public TextBlock Glyph { get; } = glyph;
-        public Rectangle Divider { get; } = divider;
         public char Value { get; set; } = ' ';
         public char Before { get; set; }
         public long Midpoint { get; set; }
@@ -78,7 +94,7 @@ public sealed class FlipTile : Grid
     {
         this.field = field;
         fittedFontSize = fontSize;
-        preferredWidth = width;
+        preferredWidth = Math.Max(width, Math.Ceiling(FaceInsets + sizingCharacters * FullPitch(fontSize)));
         this.wrapValue = wrapValue;
         this.sizingCharacters = sizingCharacters;
         this.digitDelay = digitDelay ?? DefaultDelay;
@@ -101,18 +117,15 @@ public sealed class FlipTile : Grid
                 }
             };
         }
-        Width = width;
+        Width = preferredWidth;
         VerticalAlignment = VerticalAlignment.Center;
         RowDefinitions.Add(new());
         RowDefinitions.Add(new());
         caption = CreateCaption(label ?? field, captionBrush);
         var surface = new Grid { Background = FaceGradient };
         surface.Children.Add(plate);
-        if (worn)
-        {
-            surface.Children.Add(GrainLayer(41, Colors.Black, .28));
-            surface.Children.Add(GrainLayer(67, Colors.White, .13));
-        }
+        surface.Children.Add(GrainLayer(41, Colors.Black, worn ? .28 : .18));
+        surface.Children.Add(GrainLayer(67, Colors.White, worn ? .13 : .09));
         if (showAccent)
         {
             double thickness = compactAccent ? 1 : 3;
@@ -120,7 +133,7 @@ public sealed class FlipTile : Grid
                 HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Bottom };
             surface.Children.Add(accentBar);
         }
-        face = new Border { Child = surface, Height = FaceHeight, CornerRadius = new(6), BorderThickness = new(1), BorderBrush = Seam };
+        face = new Border { Child = surface, Height = FaceHeight, CornerRadius = new(6), BorderThickness = new(1), BorderBrush = FaceRim };
         Children.Add(caption);
         Children.Add(face);
         SetLabelPosition("above");
@@ -161,12 +174,21 @@ public sealed class FlipTile : Grid
 
     private int TextColumns(string value) => wrapValue ? 1 : Math.Max(1, Math.Max(value.Length, sizingCharacters));
 
+    private static double FullPitch(double font) => font * CharacterAdvance + 2 * CharacterPadding;
+
+    private static double EffectivePadding(double pitch) =>
+        // In a very narrow tile, leave at least half of each slot for the glyph.
+        Math.Min(CharacterPadding, pitch / 4);
+
     internal double FontLimit(double available) => FontLimit(available, current);
-    private double FontLimit(double available, string value) =>
-        Math.Max(1, available - 14) / (CharacterAdvance * TextColumns(value));
+    private double FontLimit(double available, string value)
+    {
+        double pitch = Math.Max(1, available - FaceInsets) / TextColumns(value);
+        return (pitch - 2 * EffectivePadding(pitch)) / CharacterAdvance;
+    }
 
     internal double WidthForFont(double size) =>
-        Math.Max(MinimumWidth, Math.Ceiling(14 + size * CharacterAdvance * TextColumns(current)));
+        Math.Max(MinimumWidth, Math.Ceiling(FaceInsets + FullPitch(size) * TextColumns(current)));
 
     public void FitWidth(double available, double fontSize)
     {
@@ -245,11 +267,14 @@ public sealed class FlipTile : Grid
     private void UpdateSlots(string value, bool animate, IReadOnlyList<Flap>? flaps, int milliseconds)
     {
         double width = Width - 2;
-        double space = Math.Max(1, width - 12);
+        double space = Math.Max(1, Width - FaceInsets);
         int minimumColumns = TextColumns(value);
+        double maxPitch = space / minimumColumns;
         double size = Math.Min(fittedFontSize, FontLimit(Width, value));
-        double pitch = size * CharacterAdvance;
-        int columns = Math.Max(minimumColumns, (int)Math.Floor(space / pitch + .00001));
+        double targetPitch = size * CharacterAdvance + 2 * EffectivePadding(maxPitch);
+        int columns = Math.Max(minimumColumns, (int)Math.Floor(space / targetPitch + .00001));
+        // Any extra width is shared by the flaps, leaving only the housing at the sides.
+        double pitch = space / columns;
         string[] lines = wrapValue ? Wrap(value, columns).ToArray() : [value];
         var next = new Layout(width, size, pitch, columns, lines.Length);
         long now = Environment.TickCount64;
@@ -266,8 +291,8 @@ public sealed class FlipTile : Grid
             {
                 var slot = slots[row * columns + column];
                 int index = column - start;
-                char target = index >= 0 && index < line.Length ? line[index] : ' ';
-                slot.Divider.Visibility = index >= 0 && index + 1 < line.Length ? Visibility.Visible : Visibility.Collapsed;
+                bool occupied = index >= 0 && index < line.Length;
+                char target = occupied ? line[index] : ' ';
                 if (!rebuild && slot.Value == target) continue;
 
                 int previousColumn = column + (previousColumns - columns) / 2;
@@ -282,7 +307,7 @@ public sealed class FlipTile : Grid
                 if (!animate || before == target) continue;
 
                 int duration = milliseconds;
-                if (index >= 0 && flaps is not null)
+                if (occupied && flaps is not null)
                     foreach (var flap in flaps)
                         if (index >= flap.Start && index < flap.Start + flap.Length)
                         {
@@ -324,20 +349,28 @@ public sealed class FlipTile : Grid
                 var divider = new Rectangle
                 {
                     Width = 1, Height = FaceHeight - 8, Fill = Divider,
-                    HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center
+                    HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center,
+                    Visibility = column + 1 < layout.Columns ? Visibility.Visible : Visibility.Collapsed
+                };
+                var topEdge = new Rectangle
+                {
+                    Height = 1, Margin = new(1, 3, 2, 0), Fill = FlapLip,
+                    VerticalAlignment = VerticalAlignment.Top
                 };
                 var cell = new Grid
                 {
                     Width = layout.Pitch, Height = FaceHeight,
+                    Background = FlapGradient,
                     Clip = new RectangleGeometry { Rect = new(0, 0, layout.Pitch, FaceHeight) },
-                    Children = { glyph, divider }
+                    Children = { glyph, divider, topEdge }
                 };
-                Place(cell, layout.Start + column * layout.Pitch, y);
-                slots.Add(new(cell, glyph, divider));
+                Place(cell, layout.SlotOrigin + column * layout.Pitch, y);
+                slots.Add(new(cell, glyph));
             }
             if (shadowBrush is not null)
                 Place(new Rectangle { Width = layout.Width, Height = shadowSpread * 2, Fill = shadowBrush }, 0, y + FaceHeight / 2 - shadowSpread);
-            Place(new Rectangle { Width = layout.Width, Height = 1.5, Fill = creaseBrush }, 0, y + FaceHeight / 2 - .75);
+            Place(new Rectangle { Width = layout.Width, Height = 1.5, Fill = creaseBrush, Opacity = .85 },
+                0, y + FaceHeight / 2 - .75);
             foreach (double x in new[] { 0d, layout.Width - 3 })
                 Place(new Rectangle { Width = 3, Height = 9, Fill = Hinge }, x, y + FaceHeight / 2 - 4.5);
         }
@@ -404,7 +437,7 @@ public sealed class FlipTile : Grid
         var content = new Grid
         {
             Width = layout.Pitch, Height = FaceHeight, VerticalAlignment = VerticalAlignment.Top,
-            Background = top ? UpperFace : LowerFace,
+            Background = FlapGradient,
             RenderTransform = new TranslateTransform { Y = top ? 0 : -FaceHeight / 2 },
             Children = { TileText(value) }
         };
@@ -424,6 +457,9 @@ public sealed class FlipTile : Grid
         Foreground = ink,
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
-        FontFamily = NumberFont
+        FontFamily = NumberFont,
+        OpticalMarginAlignment = OpticalMarginAlignment.TrimSideBearings,
+        // Center Consolas' ink on the hinge while keeping a common baseline for punctuation.
+        RenderTransform = new TranslateTransform { X = layout.Font / 20, Y = -layout.Font / 8 }
     };
 }

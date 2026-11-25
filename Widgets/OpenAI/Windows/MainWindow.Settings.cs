@@ -1,45 +1,28 @@
+using Microsoft.UI;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Automation;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using Windows.ApplicationModel;
-using global::Windows.Graphics;
 
 namespace OpenAIUsage.Windows;
 
 public sealed partial class MainWindow
 {
-    private FrameworkElement? settingsPane;
-    private SizeInt32? settingsRestoreSize;
+    private Window? settingsWindow;
+    private TextBlock? settingsStatus;
 
-    private void ApplyWidgetOpacity(int percent)
-    {
-        ApplyOpacity(settingsPane is null ? percent : 100);
-        viewport.Opacity = settingsPane is null ? 1 : percent / 100d;
-    }
+    private void CloseSettings() => settingsWindow?.Close();
 
-    private async Task HideSettingsAsync()
+    private void ApplySettingsTheme(Window window, Panel surface)
     {
-        if (settingsPane is null) return;
-        root.Children.Remove(settingsPane);
-        settingsPane = null;
-        settingsStatus = null;
-        var restore = settingsRestoreSize;
-        settingsRestoreSize = null;
-        RequestWidgetFit(restore);
-        try
-        {
-            ApplyWidgetOpacity(settings.WindowOpacityPercent);
-            if (!exitPending && !closed)
-                await settingsWriter.FlushAsync();
-        }
-        catch (Exception failure) when (failure is IOException or System.ComponentModel.Win32Exception)
-        {
-            settingsError = failure.Message;
-            Tick();
-        }
-        QueueLayout();
+        surface.RequestedTheme = root.RequestedTheme;
+        surface.Background = root.Background;
+        var titleBar = window.AppWindow.TitleBar;
+        titleBar.ButtonForegroundColor = PrimaryText.Color;
+        titleBar.ButtonInactiveForegroundColor = SecondaryText.Color;
     }
 
     private void UpdateSettingsStatus()
@@ -56,12 +39,14 @@ public sealed partial class MainWindow
         edit(next);
         next.Validate();
         if (next.WindowOpacityPercent != previous.WindowOpacityPercent)
-            ApplyWidgetOpacity(next.WindowOpacityPercent);
+            ApplyOpacity(next.WindowOpacityPercent);
 
         settings = next;
         settingsWriter.Queue(next);
         ApplyTaskbarVisibility();
         ApplyTopmost();
+        if (next.BigSize != previous.BigSize || next.LabelPosition != previous.LabelPosition)
+            fitHeight = true;
         ApplySize();
         CheckAlerts();
         if (next.CodexPath != previous.CodexPath || next.TimeZoneId != previous.TimeZoneId)
@@ -168,8 +153,15 @@ public sealed partial class MainWindow
     private async Task ShowSettingsAsync()
     {
         if (exitPending || closed) return;
+        if (activeDialog is null && settingsWindow is { } existing)
+        {
+            existing.Activate();
+            SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(existing));
+            return;
+        }
         ShowWindow();
-        if (settingsPane is not null || activeDialog is not null) return;
+        if (activeDialog is not null) return;
+        var window = new Window { Title = "OpenAI Usage · Settings" };
         var executable = new TextBox { Text = settings.CodexPath, MinWidth = 124, MaxWidth = 220 };
         var timezone = new ComboBox { MinWidth = 124, MaxWidth = 240,
             ItemsSource = TimeZoneInfo.GetSystemTimeZones(), DisplayMemberPath = "DisplayName", SelectedValuePath = "Id",
@@ -205,7 +197,7 @@ public sealed partial class MainWindow
         pathError.Foreground = WarningText;
         pathError.Visibility = Visibility.Collapsed;
 
-        var content = new StackPanel { Spacing = 4, MaxWidth = 640 };
+        var content = new StackPanel { Spacing = 6, Padding = new(0, 4, 12, 8) };
         var sections = new List<Expander>();
 
         StackPanel Section(string title, string subtitle, string icon)
@@ -243,6 +235,7 @@ public sealed partial class MainWindow
         appearance.Children.Add(SettingsRow("Enable usage details", enableDetailsBar));
         appearance.Children.Add(SettingsRow($"Larger widget (+{LargerWidgetPercent}%)", bigSize));
         appearance.Children.Add(SettingsRow("Window opacity", opacity));
+        sections[0].IsExpanded = true;
 
         var fields = Section("Widget fields", "Choose what the widget shows and in which order", "\uE8FD");
         fields.Children.Add(Text("Drag to reorder. Use the switches to show or hide fields. Details appear in normal mode when usage details are enabled.", 12));
@@ -264,14 +257,14 @@ public sealed partial class MainWindow
         var desktop = Section("Desktop", "Taskbar visibility and startup", "\uE7F8");
         desktop.Children.Add(SettingsRow("Show in taskbar", taskbar));
 
-        var footer = new StackPanel { Spacing = 4, Margin = new(24, 0, 24, 16) };
+        var feedback = new StackPanel { Spacing = 4 };
         var error = Text("", 12);
         error.Foreground = WarningText;
         error.Visibility = Visibility.Collapsed;
-        footer.Children.Add(error);
+        feedback.Children.Add(error);
         var saveStatus = Text("", 12);
         saveStatus.Foreground = WarningText;
-        footer.Children.Add(saveStatus);
+        feedback.Children.Add(saveStatus);
         settingsStatus = saveStatus;
         UpdateSettingsStatus();
         void Apply(Action<WidgetSettings> edit)
@@ -334,41 +327,69 @@ public sealed partial class MainWindow
         BindCheck(alert5, (next, value) => next.Alert5 = value);
         BindCheck(alertSound, (next, value) => next.AlertSound = value);
         fields.Children.Add(BuildModuleList(Apply));
-        footer.Children.Add(Text("Changes are saved automatically.", 12));
-        var header = new Grid { Margin = new(24, 0, 24, 0), ColumnSpacing = 8 };
-        header.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
-        header.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
-        var title = Text("Settings", 16, true);
-        title.VerticalAlignment = VerticalAlignment.Center;
-        header.Children.Add(title);
-        var done = new Button { Content = "Done" };
-        done.Click += async (_, _) => await HideSettingsAsync();
-        Grid.SetColumn(done, 1);
-        header.Children.Add(done);
-        var pane = new Grid { Padding = new(0, 12, 0, 0), RowSpacing = 6 };
-        pane.RowDefinitions.Add(new() { Height = GridLength.Auto });
-        pane.RowDefinitions.Add(new() { Height = new(1, GridUnitType.Star) });
-        pane.RowDefinitions.Add(new() { Height = GridLength.Auto });
-        pane.Children.Add(header);
+        var surface = new Grid { RowSpacing = 8 };
+        surface.RowDefinitions.Add(new() { Height = new(44) });
+        surface.RowDefinitions.Add(new() { Height = new(1, GridUnitType.Star) });
+        surface.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        var titleBar = new Grid { Padding = new(24, 0, 0, 0) };
+        var heading = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
+        heading.Children.Add(Logo(22));
+        heading.Children.Add(Text(window.Title, 15, true));
+        titleBar.Children.Add(heading);
+        surface.Children.Add(titleBar);
+
         var scroll = new ScrollViewer
         {
-            Content = content, Margin = new(24, 8, 24, 0),
+            Content = content, Margin = new(24, 0, 16, 0),
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto
         };
         Grid.SetRow(scroll, 1);
-        pane.Children.Add(scroll);
-        Grid.SetRow(footer, 2);
-        pane.Children.Add(footer);
-        var panel = new Border { Child = pane, Margin = new(0, 6, 0, 0), CornerRadius = new(12),
-            Background = SettingsPanelFill };
-        Grid.SetRow(panel, 1);
-        settingsRestoreSize = AppWindow.ClientSize;
-        settingsPane = panel;
-        root.Children.Add(panel);
-        try { ApplyWidgetOpacity(settings.WindowOpacityPercent); }
-        catch (System.ComponentModel.Win32Exception failure) { Diagnostics.Record("window.opacity.failed", failure.Message); }
-        RequestWidgetFit();
+        surface.Children.Add(scroll);
+
+        var done = new Button { Content = "Done", HorizontalAlignment = HorizontalAlignment.Right, MinWidth = 88 };
+        done.Click += (_, _) => window.Close();
+        feedback.Children.Add(done);
+        feedback.Margin = new(24, 0, 24, 16);
+        Grid.SetRow(feedback, 2);
+        surface.Children.Add(feedback);
+        surface.KeyDown += (_, args) =>
+        {
+            if (args.Key != global::Windows.System.VirtualKey.Escape || args.Handled) return;
+            args.Handled = true;
+            window.Close();
+        };
+
+        window.Content = surface;
+        if (WidgetAcrylicBackdrop.IsSupported) window.SystemBackdrop = new WidgetAcrylicBackdrop();
+        window.ExtendsContentIntoTitleBar = true;
+        window.SetTitleBar(titleBar);
+        window.AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Branding", "app-icon.ico"));
+        window.AppWindow.IsShownInSwitchers = false;
+        window.AppWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
+        window.AppWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
+        ApplySettingsTheme(window, surface);
+        if (window.AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            presenter.IsMinimizable = false;
+            presenter.IsMaximizable = false;
+            presenter.IsResizable = false;
+        }
+        const int ownerIndex = -8;
+        SetWindowLongPtr(WinRT.Interop.WindowNative.GetWindowHandle(window), ownerIndex, WinRT.Interop.WindowNative.GetWindowHandle(this));
+        double dpi = root.XamlRoot?.RasterizationScale ?? 1;
+        var area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest).WorkArea;
+        int width = Math.Min((int)Math.Round(540 * dpi), (int)(area.Width * .94));
+        int height = Math.Min((int)Math.Round(720 * dpi), (int)(area.Height * .94));
+        window.AppWindow.MoveAndResize(new(area.X + (area.Width - width) / 2, area.Y + (area.Height - height) / 2, width, height));
+        settingsWindow = window;
+        window.Closed += (_, _) =>
+        {
+            settingsWindow = null;
+            settingsStatus = null;
+        };
+        window.Activate();
         await AddStartupPreferenceAsync(desktop);
     }
 

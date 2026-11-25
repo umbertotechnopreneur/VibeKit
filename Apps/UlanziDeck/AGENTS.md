@@ -1,3 +1,7 @@
+> **File name** `AGENTS.md`<br>
+> **Full path** `E:\vibekit\Apps\UlanziDeck\AGENTS.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/UlanziDeck/AGENTS.md`
+
 <!-- VBWR B
 
 Project: UlanziDeck
@@ -48,3 +52,11 @@ VBWR E -->
 - Page checkboxes save each page's enabled flag without deleting shortcuts. With detection off, enabled pages work without inactive overlays or automatic switching.
 - Inject only configured shortcuts, after a D200H consumer-interface button release. Never capture global keyboard input.
 - Keep the Rust controller portable. Windows x64 and ARM64 are the first distribution targets; report builds and physical checks separately.
+
+## Local Windows development signing
+
+- Sign local Windows development builds with the [shared VibeWare development certificate](../../docs/windows-development-signing.md) for `CN=Umberto Giacobbi`. Reuse the imported Desktop kit and follow the established release signing rules.
+
+> **File name** `AGENTS.md`<br>
+> **Full path** `E:\vibekit\Apps\UlanziDeck\AGENTS.md`<br>
+> **Path relative to the VibeKit repository root** `Apps/UlanziDeck/AGENTS.md`

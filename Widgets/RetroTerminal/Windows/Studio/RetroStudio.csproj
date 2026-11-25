@@ -19,5 +19,9 @@
     <Compile Include="../../../Shared/DisplayTargetPicker.cs" Link="DisplayTargetPicker.cs" />
     <Compile Include="../../../Shared/WindowsSignIn.cs" Link="WindowsSignIn.cs" />
   </ItemGroup>
-  <ItemGroup><Content Include="../../Linux/extension/retro-terminal@vibeware.local/VibeWare.png" Link="Assets/VibeWare.png" CopyToOutputDirectory="PreserveNewest" /><Content Include="../../Linux/extension/retro-terminal@vibeware.local/VibeWare-LICENSE.txt" Link="Assets/VibeWare-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup>
+    <Content Include="RetroTerminal.ico" Link="Assets/RetroTerminal.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../Linux/extension/retro-terminal@vibeware.local/VibeWare.png" Link="Assets/VibeWare.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../Linux/extension/retro-terminal@vibeware.local/VibeWare-LICENSE.txt" Link="Assets/VibeWare-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

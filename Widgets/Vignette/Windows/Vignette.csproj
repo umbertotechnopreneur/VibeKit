@@ -26,7 +26,6 @@
     <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.6.5" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" PrivateAssets="all" />
     <Using Include="System" />
-    <Page Remove="ToggleSwitch.xaml" />
     <Compile Include="../../Shared/DisplayTarget.cs" Link="DisplayTarget.cs" />
     <Compile Include="../../Shared/EffectStudioLayout.cs" Link="EffectStudioLayout.cs" />
     <Compile Include="../../Shared/WidgetAbout.cs" Link="WidgetAbout.cs" />

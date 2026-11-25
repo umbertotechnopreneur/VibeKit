@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Security;
+using Microsoft.UI;
 using Microsoft.Win32;
 using System.Text;
 using Microsoft.UI.Windowing;
@@ -8,6 +10,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Media;
 using Serilog;
 using Tools.Widgets;
 using Windows.UI;
@@ -67,6 +70,8 @@ internal sealed class MainWindow : Window
         var initialTheme = ReadPreference("WindowTheme", 0, 0, 2);
         ApplyTheme(initialTheme);
         Initialize(this, root, "Retro Terminal", "CRT color, texture and motion for your desktop.");
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "RetroTerminal.ico");
+        if (File.Exists(iconPath)) AppWindow.SetIcon(iconPath);
         var owner = WinRT.Interop.WindowNative.GetWindowHandle(this);
         engine=Native.RetroCreate(owner);
         if(engine==0) throw new InvalidOperationException("Retro Terminal could not initialize safely.");
@@ -180,6 +185,14 @@ internal sealed class MainWindow : Window
             ApplyTheme(theme.SelectedIndex);
             SavePreference("WindowTheme", theme.SelectedIndex);
         };
+        const string acrylicPreference = "UseAcrylic";
+        var acrylic = new ToggleSwitch { IsOn = ReadPreference(acrylicPreference, 0, 0, 1) == 1 };
+        ApplyBackdrop(acrylic.IsOn);
+        acrylic.Toggled += (_, _) =>
+        {
+            ApplyBackdrop(acrylic.IsOn);
+            SavePreference(acrylicPreference, acrylic.IsOn ? 1 : 0);
+        };
         var startup = new ToggleSwitch();
         var startupStatus = SettingsHint("");
         bool syncingStartup = false;
@@ -235,7 +248,8 @@ internal sealed class MainWindow : Window
         };
         settings.Children.Add(RowGroup("Display & appearance",
             PreferenceRow("Effect", "Enable or disable the retro terminal effect.", effectSwitch),
-            PreferenceRow("Theme", "App theme.", theme)));
+            PreferenceRow("Theme", "App theme.", theme),
+            PreferenceRow("Acrylic background", "Use a translucent background for this window.", acrylic)));
         settings.Children.Add(displayPicker);
 
         const string animationPreference = "AnimationFps", capturePreference = "CaptureFps";
@@ -404,6 +418,21 @@ internal sealed class MainWindow : Window
         2 => ElementTheme.Dark,
         _ => ElementTheme.Default
     };
+
+    private void ApplyBackdrop(bool acrylic)
+    {
+        root.ClearValue(Grid.BackgroundProperty);
+        try
+        {
+            SystemBackdrop = acrylic ? new DesktopAcrylicBackdrop() : null;
+            if (SystemBackdrop is not null) root.Background = new SolidColorBrush(Colors.Transparent);
+        }
+        catch (COMException)
+        {
+            // Keep the themed solid surface if the graphics session cannot create acrylic.
+            SystemBackdrop = null;
+        }
+    }
 
     private void SavePreference(string name, object value)
     {

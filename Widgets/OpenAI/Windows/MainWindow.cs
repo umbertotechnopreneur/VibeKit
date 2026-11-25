@@ -3,6 +3,7 @@ using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System.ComponentModel;
@@ -23,14 +24,12 @@ public sealed partial class MainWindow : Window
     private const string ManifestoUrl = "https://umbertogiacobbi.biz/vibeware/manifesto";
     private static readonly int[] WindowOpacityOptions = [25, 50, 75, 100];
     private static readonly SolidColorBrush PrimaryText = new(), SecondaryText = new(), WarningText = new(), CloseText = new();
-    private static readonly SolidColorBrush SettingsPanelFill = new();
     private static readonly FontFamily MetricFont = new("Cascadia Mono, Consolas");
     private readonly Storage storage=new();
     private WidgetSettings settings;
     private readonly SettingsSaveQueue settingsWriter;
     private string? settingsError;
     private bool exitPending;
-    private TextBlock? settingsStatus;
     private WidgetState state=new();
     private readonly Grid root=new() { Background=new SolidColorBrush(Colors.Transparent) };
     private readonly Button connectionError=Button("\uE7BA","Connection settings");
@@ -66,7 +65,7 @@ public sealed partial class MainWindow : Window
             if (error is not null)
             {
                 Diagnostics.Record("settings.failed", error.Message);
-                tray?.NotifyError("Could not save settings. Open Preferences to retry.");
+                tray?.NotifyError("Could not save settings. Changes are active for this session.");
             }
         });
         if (!WindowOpacityOptions.Contains(settings.WindowOpacityPercent))
@@ -91,28 +90,25 @@ public sealed partial class MainWindow : Window
         detailsButton.Click += (_, _) => SetDetailsOpen(!detailsOpen);
 
         var preferences = Button("\uE713", "Settings");
-        preferences.Click += async (_, _) =>
-        {
-            if (settingsPane is null) await ShowSettingsAsync();
-            else await HideSettingsAsync();
-        };
+        preferences.Click += async (_, _) => await ShowSettingsAsync();
         AddAction(preferences);
         var about = Button("\uE946", "About OpenAI Usage");
         about.Click += async (_, _) => await ShowAboutAsync();
         AddAction(about);
         AddAction(detailsButton);
         var close = Button("\uE8BB", "Close", CloseText);
-        if (close.Content is FontIcon closeIcon) closeIcon.FontSize = 22;
         close.Click += (_, _) => Close();
         AddAction(close);
 
-        void AddAction(Control control)
+        void AddAction(Button control)
         {
             control.Width = control.Height = 28;
             control.MinWidth = control.MinHeight = 0;
             control.Padding = new(0);
             control.HorizontalContentAlignment = HorizontalAlignment.Center;
             control.VerticalContentAlignment = VerticalAlignment.Center;
+            if (control.Content is UIElement icon) icon.IsHitTestVisible = false;
+            ToolTipService.SetPlacement(control, PlacementMode.Bottom);
             actions.Children.Add(control);
         }
 
@@ -120,23 +116,13 @@ public sealed partial class MainWindow : Window
         SetDetailsOpen(detailsOpen);
         root.Children.Add(WarmAccent(.24, .72, .32, 28, 248, 112, 42));
         root.Children.Add(WarmAccent(.68, .25, .28, 23, 233, 65, 68));
-        root.RowDefinitions.Add(new() { Height = new(1, GridUnitType.Star) });
-        root.RowDefinitions.Add(new() { Height = new(0) });
         root.Children.Add(viewport);
-        root.KeyDown += async (_, args) =>
+        root.KeyDown += (_, args) =>
         {
-            if (args.Key != global::Windows.System.VirtualKey.Escape) return;
-            if (settingsPane is not null)
-            {
-                args.Handled = true;
-                await HideSettingsAsync();
-            }
-            else if (detailsOpen)
-            {
-                args.Handled = true;
-                SetDetailsOpen(false);
-                detailsButton.Focus(FocusState.Programmatic);
-            }
+            if (args.Key != global::Windows.System.VirtualKey.Escape || !detailsOpen) return;
+            args.Handled = true;
+            SetDetailsOpen(false);
+            detailsButton.Focus(FocusState.Programmatic);
         };
         Content=root;
         root.SizeChanged += (_, _) => QueueLayout();
@@ -150,7 +136,7 @@ public sealed partial class MainWindow : Window
             int workWidth = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest).WorkArea.Width;
             AppWindow.ResizeClient(new(Math.Min(workWidth - 16, (int)(1240 * dpi)), AppWindow.ClientSize.Height));
             ApplySize();
-            try { ApplyWidgetOpacity(settings.WindowOpacityPercent); }
+            try { ApplyOpacity(settings.WindowOpacityPercent); }
             catch (Win32Exception error) { Diagnostics.Record("window.opacity.failed", error.Message); }
             try { tray=new TrayIcon(Path.Combine(AppContext.BaseDirectory,"Branding","app-icon.ico"),ShowWindow,
                 ()=>{ShowWindow();_=ShowAboutAsync();},()=>{ShowWindow();_=ShowSettingsAsync();},
@@ -162,7 +148,7 @@ public sealed partial class MainWindow : Window
             QueueLayout();
         };
         AppWindow.Closing+=AskToClose;
-        Closed+=(_,_)=>{closed=true;activeDialog?.Close();tray?.Dispose();clock.Stop();refresh.Stop();resetClock.StopAnimation();StopSignalTransition();lifetime.Cancel();systemSettings.ColorValuesChanged-=ThemeChanged;};
+        Closed+=(_,_)=>{closed=true;CloseSettings();activeDialog?.Close();tray?.Dispose();clock.Stop();refresh.Stop();resetClock.StopAnimation();StopSignalTransition();lifetime.Cancel();systemSettings.ColorValuesChanged-=ThemeChanged;};
     }
 
     private void Tick()
@@ -173,7 +159,10 @@ public sealed partial class MainWindow : Window
             connectionError.Visibility = connectionVisibility;
             QueueLayout();
         }
-        ToolTipService.SetToolTip(connectionError, settingsError ?? state.Status);
+        string warning = settingsError ?? state.Status;
+        if (string.IsNullOrWhiteSpace(warning)) warning = "Connection settings";
+        if (ToolTipService.GetToolTip(connectionError) as string != warning)
+            ToolTipService.SetToolTip(connectionError, warning);
         var now = DateTimeOffset.UtcNow;
         long? seconds = state.ResetsAt is { } reset ? Math.Max(0, reset - now.ToUnixTimeSeconds()) : null;
         UpdateResetClock(seconds);
@@ -245,6 +234,7 @@ public sealed partial class MainWindow : Window
         if (exitPending) return;
         exitPending = true;
         root.IsHitTestVisible = false;
+        CloseSettings();
         activeDialog?.Close();
         try
         {
@@ -299,7 +289,11 @@ public sealed partial class MainWindow : Window
                 Text(tray?.IsAvailable==true?"Keep monitoring in the notification area, or exit the app.":"The notification area is unavailable. You can exit or keep the widget open.",15),
                 closeButtonText:"Cancel",primaryButtonText:"Hide to tray",secondaryButtonText:"Exit",isPrimaryEnabled:tray?.IsAvailable==true,width:500,height:280);
             if(choice==ContentDialogResult.Secondary)ExitApplication();
-            else if(choice==ContentDialogResult.Primary && tray?.IsAvailable==true)AppWindow.Hide();
+            else if (choice == ContentDialogResult.Primary && tray?.IsAvailable == true)
+            {
+                CloseSettings();
+                AppWindow.Hide();
+            }
         }
         catch(Exception error){Diagnostics.Record("close.prompt.failed",error.Message);}
         finally{closingPrompt=false;}
@@ -316,7 +310,8 @@ public sealed partial class MainWindow : Window
         SecondaryText.Color=dark?ColorHelper.FromArgb(255,194,205,221):ColorHelper.FromArgb(255,69,87,111);
         WarningText.Color=dark?ColorHelper.FromArgb(255,255,203,107):ColorHelper.FromArgb(255,148,82,0);
         CloseText.Color = Rgb(dark ? 0xFF6C78u : 0xB62036u);
-        SettingsPanelFill.Color = Rgb(dark ? 0x182029u : 0xF5F9FCu);
+        if (settingsWindow is { Content: Panel settingsSurface } preferences)
+            ApplySettingsTheme(preferences, settingsSurface);
         if(activeDialog is { ExtendsContentIntoTitleBar: true, Content: FrameworkElement dialogRoot })
         {
             dialogRoot.RequestedTheme=root.RequestedTheme;

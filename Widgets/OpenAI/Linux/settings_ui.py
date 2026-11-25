@@ -205,28 +205,18 @@ class SettingsUiMixin:
 
         return listing
 
-    def toggle_settings(self):
-        if self.settings_panel is None:
-            self.show_settings()
-        else:
-            self.hide_settings()
-
     def hide_settings(self, *_):
-        if self.settings_panel is None:
-            return
-        panel, restore = self.settings_panel, self.settings_window_size
-        self.settings_panel = self.settings_window_size = self.settings_status_label = None
-        self.window_content.remove(panel)
-        self.remove_css_class("settings-open")
-        self.widget_preview.set_vexpand(True)
-        self.fit_layout(self.layout_width)
-        self.queue_fit_height(restore)
-        self.save_async()
+        if self.settings_window is not None:
+            self.settings_window.close()
 
     def show_settings(self, *_):
-        self.present()
-        if self.settings_panel is not None:
+        if self.closed or self.exit_pending:
             return
+        if self.settings_window is not None:
+            self.settings_window.present()
+            return
+        if not self.get_visible():
+            self.present()
         if not self.settings_ready:
             self.problem.set_visible(True)
             self.problem.set_tooltip_text("Settings are not available yet; retry after the account reader starts.")
@@ -340,40 +330,44 @@ class SettingsUiMixin:
             taskbar.set_subtitle("The Wayland compositor controls taskbar visibility.")
         self.add_startup_preference(desktop)
 
-        content = Adw.Clamp(child=group, maximum_size=640, tightening_threshold=480)
-        for setter in (content.set_margin_start, content.set_margin_end, content.set_margin_top, content.set_margin_bottom):
+        for setter in (group.set_margin_start, group.set_margin_end, group.set_margin_top, group.set_margin_bottom):
             setter(16)
-        scroll = Gtk.ScrolledWindow(child=content, hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True)
-        surface = self.settings_panel = box(0)
-        surface.add_css_class("settings-panel")
-        surface.set_vexpand(True)
-        heading = box(8, True)
-        heading.set_margin_start(24)
-        heading.set_margin_end(24)
-        heading.set_margin_top(12)
-        title = text("Settings", "heading")
-        title.set_hexpand(True)
+        scroll = Gtk.ScrolledWindow(child=group, hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True)
+        monitor = self.get_display().get_monitor_at_surface(self.get_surface()) if self.get_surface() else None
+        height = min(720, monitor.get_geometry().height - 48) if monitor else 720
+        window = Gtk.Window(application=self.get_application(), transient_for=self, destroy_with_parent=True,
+                            modal=False, resizable=False, title="OpenAI Usage · Settings",
+                            default_width=540, default_height=max(1, height))
+        header = Gtk.HeaderBar(show_title_buttons=False)
         done = Gtk.Button(label="Done")
         done.connect("clicked", self.hide_settings)
-        heading.append(title)
-        heading.append(done)
-        surface.append(heading)
+        header.pack_end(done)
+        window.set_titlebar(header)
+        surface = box(0)
         surface.append(scroll)
-        footer = box(4)
-        for setter in (footer.set_margin_start, footer.set_margin_end):
-            setter(24)
-        footer.set_margin_bottom(16)
         self.settings_status_label = text("", "warning")
+        self.settings_status_label.set_margin_start(16)
+        self.settings_status_label.set_margin_end(16)
+        self.settings_status_label.set_margin_bottom(16)
         self.set_settings_error(self.settings_error)
-        footer.append(self.settings_status_label)
-        footer.append(text("Changes are saved automatically.", "dim"))
-        surface.append(footer)
-        window_surface = self.get_surface()
-        self.initial_fit_done = True
-        self.settings_window_size = (window_surface.get_width(), window_surface.get_height())
-        monitor = self.get_display().get_monitor_at_surface(window_surface)
-        width = min(640, monitor.get_geometry().width - 32) if monitor else 640
-        self.add_css_class("settings-open")
-        self.widget_preview.set_vexpand(False)
-        self.window_content.append(surface)
-        self.queue_fit_height(minimum_width=width)
+        surface.append(self.settings_status_label)
+        window.set_child(surface)
+
+        def on_close(dialog):
+            if self.settings_window is dialog:
+                self.settings_window = self.settings_status_label = None
+                self.save_async()
+            return False
+
+        def key_pressed(_, key, *_args):
+            if key != Gdk.KEY_Escape:
+                return False
+            self.hide_settings()
+            return True
+
+        keys = Gtk.EventControllerKey()
+        keys.connect("key-pressed", key_pressed)
+        window.add_controller(keys)
+        window.connect("close-request", on_close)
+        self.settings_window = window
+        window.present()

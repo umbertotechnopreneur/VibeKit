@@ -10,65 +10,65 @@ namespace OpenAIUsage.Windows;
 
 public sealed partial class MainWindow
 {
+    private const double SignalWidth = 44;
+    private const double SignalHeight = 3 * SignalWidth;
+    // Lens positions in the transparent graphite artwork, in green-to-red order.
+    private static readonly double[] LensCenters = [.769, .506, .242];
+    private static readonly uint[] LensColors = [0x44E85E, 0xFFC336, 0xFF4330];
     private readonly Grid signalHousing = new()
     {
-        Width = 44, Height = 128, Margin = new(0, 0, TileSpacing, 0),
-        VerticalAlignment = VerticalAlignment.Top
+        Width = SignalWidth, Height = 128, Margin = new(0, 0, TileSpacing, 0),
+        VerticalAlignment = VerticalAlignment.Center
     };
-    private readonly Grid signalPictures = new();
-    private readonly Image[] signalLayers = [SignalLayer("green"), SignalLayer("amber"), SignalLayer("red")];
-    private readonly Border[] glows = [SignalGlow(0x44E85E), SignalGlow(0xFFC336), SignalGlow(0xFF4330)];
+    private readonly Canvas signalIllumination = new() { IsHitTestVisible = false };
+    private readonly Grid[] lenses = new Grid[3];
     private string? displayedSignal;
     private double? displayedAllowance;
+    private bool signalInitialized;
     private Storyboard? signalTransition;
     private Storyboard? signalFlicker;
     private long nextFlicker = Environment.TickCount64 + 300_000;
 
-    private static Image SignalLayer(string color) => new()
+    private static Image SignalArtwork() => new()
     {
-        Opacity = 0,
         Stretch = Stretch.Uniform,
-        Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Branding", $"signal-{color}.png")))
+        IsHitTestVisible = false,
+        Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Branding", "signal-graphite.png")))
         {
             DecodePixelHeight = 384
         }
     };
 
-    private static Border SignalGlow(uint tint)
+    private static Border SignalGlow(uint tint, double diameter, (double Offset, byte Alpha)[] stops)
     {
         var color = Rgb(tint);
+        var brush = new RadialGradientBrush();
+        foreach (var (offset, alpha) in stops)
+            brush.GradientStops.Add(new() { Color = ColorHelper.FromArgb(alpha, color.R, color.G, color.B), Offset = offset });
         return new Border
         {
-            Width = 30, Height = 29, Opacity = 0, IsHitTestVisible = false,
+            Width = diameter, Height = diameter, IsHitTestVisible = false,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-            RenderTransformOrigin = new(.5, .5),
-            RenderTransform = new ScaleTransform { ScaleX = 1.95, ScaleY = 1.8 },
-            Background = new RadialGradientBrush
-            {
-                GradientStops =
-                {
-                    new() { Color = ColorHelper.FromArgb(170, color.R, color.G, color.B), Offset = 0 },
-                    new() { Color = ColorHelper.FromArgb(125, color.R, color.G, color.B), Offset = .33 },
-                    new() { Color = ColorHelper.FromArgb(74, color.R, color.G, color.B), Offset = .55 },
-                    new() { Color = ColorHelper.FromArgb(0, color.R, color.G, color.B), Offset = 1 }
-                }
-            }
+            Background = brush
         };
     }
 
     private void BuildSignal()
     {
-        var glowLayout = new Grid { IsHitTestVisible = false };
-        for (int i = 0; i < glows.Length; i++)
+        double auraDiameter = SignalWidth * 1.28;
+        for (int i = 0; i < lenses.Length; i++)
         {
-            glowLayout.RowDefinitions.Add(new() { Height = new(1, GridUnitType.Star) });
-            Grid.SetRow(glows[i], 2 - i);
-            glowLayout.Children.Add(glows[i]);
+            var light = new Grid { Width = auraDiameter, Height = auraDiameter, Opacity = 0 };
+            light.Children.Add(SignalGlow(LensColors[i], auraDiameter, [(0, 102), (.32, 74), (.58, 31), (1, 0)]));
+            light.Children.Add(SignalGlow(LensColors[i], SignalWidth * .74, [(0, 225), (.55, 184), (.84, 102), (1, 0)]));
+            Canvas.SetLeft(light, (SignalWidth - auraDiameter) / 2);
+            Canvas.SetTop(light, SignalHeight * LensCenters[i] - auraDiameter / 2);
+            signalIllumination.Children.Add(light);
+            lenses[i] = light;
         }
-        foreach (var layer in signalLayers) signalPictures.Children.Add(layer);
-        signalHousing.Children.Add(signalPictures);
-        signalHousing.Children.Add(glowLayout);
+        var scene = new Grid { Width = SignalWidth, Height = SignalHeight, Children = { SignalArtwork(), signalIllumination } };
+        signalHousing.Children.Add(new Viewbox { Child = scene, Stretch = Stretch.Uniform });
         UpdateSignal(null, false, null);
     }
 
@@ -85,21 +85,19 @@ public sealed partial class MainWindow
             ToolTipService.SetToolTip(signalHousing, description);
             AutomationProperties.SetName(signalHousing, description);
         }
-        if (displayedAllowance == allowance && signalLayers[0].Opacity != 0) return;
+        if (signalInitialized && displayedAllowance == allowance) return;
 
+        signalInitialized = true;
         displayedAllowance = allowance;
         signalHousing.Opacity = allowance.HasValue ? 1 : .35;
         double remaining = Math.Clamp(allowance.GetValueOrDefault(100), 0, 100);
-        // Source-over blend of the two adjacent states. The housing stays opaque.
-        double[] next = [1, Math.Clamp((100 - remaining) / 50, 0, 1), Math.Clamp((50 - remaining) / 50, 0, 1)];
-        double[] glowWeights = [(1 - next[1]) * (1 - next[2]), next[1] * (1 - next[2]), next[2]];
+        double amber = Math.Clamp((100 - remaining) / 50, 0, 1);
+        double red = Math.Clamp((50 - remaining) / 50, 0, 1);
+        double[] glowWeights = [(1 - amber) * (1 - red), amber * (1 - red), red];
         StopSignalTransition();
         var transition = new Storyboard();
-        for (int i = 0; i < signalLayers.Length; i++)
-        {
-            Blend(signalLayers[i], next[i]);
-            Blend(glows[i], allowance.HasValue ? Math.Sqrt(glowWeights[i]) : 0);
-        }
+        for (int i = 0; i < lenses.Length; i++)
+            Blend(lenses[i], allowance.HasValue ? Math.Sqrt(glowWeights[i]) : 0);
         if (transition.Children.Count == 0) return;
         signalTransition = transition;
         transition.Completed += (_, _) => { if (signalTransition == transition) signalTransition = null; };
@@ -130,7 +128,7 @@ public sealed partial class MainWindow
         var animation = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.Stop };
         foreach (var (ms, opacity) in new[] { (0, 1d), (45, .93), (115, 1d), (185, .96), (280, 1d) })
             animation.KeyFrames.Add(new LinearDoubleKeyFrame { KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(ms)), Value = opacity });
-        Storyboard.SetTarget(animation, signalPictures);
+        Storyboard.SetTarget(animation, signalIllumination);
         Storyboard.SetTargetProperty(animation, nameof(UIElement.Opacity));
         signalFlicker?.Stop();
         signalFlicker = new();

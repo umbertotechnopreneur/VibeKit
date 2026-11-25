@@ -191,13 +191,14 @@ def poll():
             assert len(dings) == 3
             view.show_settings()
             stage = 1.5
-        elif (stage == 1.5 and not view.fit_source and view.settings_panel.get_height() > 200
+        elif (stage == 1.5 and not view.fit_source and view.settings_window.get_height() > 200
               and view.widget_preview.get_mapped()):
-            assert view.settings_panel.get_root() is view
-            assert view.widget_preview.get_next_sibling() is view.settings_panel
-            assert view.settings_panel.get_allocation().y >= view.widget_preview.get_height()
-            assert view.settings_panel.get_height() > 200
-            controls = tuple(descendants(view.settings_panel))
+            dialog = view.settings_window
+            assert dialog.get_transient_for() is view
+            assert not dialog.get_modal() and not dialog.get_resizable()
+            assert dialog.get_default_size()[0] == 540 and view.get_width() == size
+            assert view.widget_preview.get_next_sibling() is None
+            controls = tuple(descendants(dialog.get_child())) + tuple(descendants(dialog.get_titlebar()))
             sections = {control.get_title(): control for control in controls if isinstance(control, widget.Adw.ExpanderRow)}
             assert list(sections) == ["Appearance", "Widget fields", "Alerts", "Codex connection", "Desktop"]
             assert not any(section.get_expanded() for section in sections.values())
@@ -249,7 +250,7 @@ def poll():
             done = next(control for control in controls if isinstance(control, widget.Gtk.Button)
                         and control.get_label() == "Done")
             done.emit("clicked")
-            assert view.settings_panel is None
+            assert view.settings_window is None
             stage = 2
         elif stage == 2 and view.saved_settings_revision == view.settings_revision and not view.fit_source:
             assert stored["labelPosition"] == "hidden"

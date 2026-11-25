@@ -45,14 +45,16 @@ def poll():
         if phase == 0 and window is not None and window.settings_ready:
             assert window.settings_error == message
             window.show_settings()
-            dialog = window.settings_panel
+            dialog = window.settings_window
             assert dialog is not None and dialog.get_visible()
             window.show_settings()
-            assert window.settings_panel is dialog
+            assert window.settings_window is dialog
             controls = list(descendants(dialog))
             assert any(isinstance(control, widget.Gtk.Label) and control.get_text() == message for control in controls)
-            assert any(isinstance(control, widget.Gtk.Label) and control.get_text() == "Changes are saved automatically."
+            assert any(isinstance(control, widget.Gtk.Button) and control.get_label() == "Done"
                        for control in controls)
+            assert not any(isinstance(control, widget.Gtk.Label) and control.get_text() == "Changes are saved automatically."
+                           for control in controls)
             assert not any(isinstance(control, widget.Gtk.Button) and control.get_label() in ("Save settings", "Close")
                            for control in controls)
             fields = next(control for control in controls if isinstance(control, widget.Adw.ExpanderRow)
@@ -66,7 +68,7 @@ def poll():
             phase = 1
         elif phase == 1 and saved and not window.saving:
             assert window.settings_error is None
-            assert window.settings_panel.get_visible()
+            assert window.settings_window.get_visible()
             window.hide_settings()
             window.exit_application()
             phase = 2
@@ -81,4 +83,4 @@ widget.GLib.timeout_add(50, poll)
 result = app.run(["openai-usage-settings-recovery-check"])
 assert failure is None, str(failure)
 assert result == 0 and phase == 2 and saved[-1]["timeZoneId"] == "UTC" and saved[-1]["showCredits"] is False
-print("PASS native GTK recovery message, reusable settings panel and autosave while preferences remain open")
+print("PASS native GTK recovery message, reusable settings window and autosave while preferences remain open")

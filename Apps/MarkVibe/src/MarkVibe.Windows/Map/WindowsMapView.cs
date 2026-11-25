@@ -29,54 +29,81 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
 {
     private readonly WindowsGraphCanvas _canvas = new();
     private readonly bool _touchOnly = new TouchCapabilities().TouchPresent > 0 && new MouseCapabilities().MousePresent == 0;
-    private readonly StackPanel _toolbar = new() { Orientation = Orientation.Horizontal, Spacing = 5 };
-    private readonly StackPanel _tools = new() { Orientation = Orientation.Horizontal, Spacing = 5 };
+    private readonly CommandBar _toolbar = new()
+    {
+        DefaultLabelPosition = CommandBarDefaultLabelPosition.Right,
+        OverflowButtonVisibility = CommandBarOverflowButtonVisibility.Auto,
+        IsDynamicOverflowEnabled = true,
+        HorizontalAlignment = HorizontalAlignment.Left,
+        VerticalContentAlignment = VerticalAlignment.Center,
+        Background = new SolidColorBrush(Colors.Transparent),
+        Padding = new Thickness(0)
+    };
+    private readonly AppBarButton _fitButton = new() { Icon = new SymbolIcon(Symbol.FullScreen), DynamicOverflowOrder = 4 };
+    private readonly AppBarButton _arrangeButton = new() { Icon = new SymbolIcon(Symbol.Sort), DynamicOverflowOrder = 2 };
+    private readonly AppBarButton _optionsButton = new() { Icon = new SymbolIcon(Symbol.Setting), DynamicOverflowOrder = 1 };
+    private readonly AppBarToggleButton _inspectorToggle = new() { Icon = new FontIcon { Glyph = "\uE946" }, DynamicOverflowOrder = 3 };
+    private readonly StackPanel _legend = new()
+    {
+        Orientation = Orientation.Horizontal,
+        Spacing = 14,
+        HorizontalAlignment = HorizontalAlignment.Left,
+        VerticalAlignment = VerticalAlignment.Top,
+        Visibility = Visibility.Collapsed,
+        IsHitTestVisible = false
+    };
+    private readonly TextBlock _incomingCaption = new() { FontSize = 12 };
+    private readonly TextBlock _outgoingCaption = new() { FontSize = 12 };
+    private readonly SolidColorBrush _incomingInk = new();
+    private readonly SolidColorBrush _outgoingInk = new();
+    private readonly ThemeShadow _toolbarShadow = new();
+    private bool _toolbarPointerOver;
+    private bool _toolbarFocused;
+    private bool _highContrast;
+    private readonly NativeWrapPanel _arrangements = new() { Spacing = 6 };
     private readonly StackPanel _picked = new() { Orientation = Orientation.Horizontal, Spacing = 5 };
-    private readonly StackPanel _trail = new() { Orientation = Orientation.Horizontal, Spacing = 5 };
-    private readonly StackPanel _compactActions = new() { Orientation = Orientation.Horizontal, Spacing = 5, Visibility = Visibility.Collapsed };
+    private readonly ScrollViewer _pickedScroll;
     private readonly StackPanel _inspector = new() { Spacing = 7, Margin = new Thickness(12) };
-    private readonly Border _chrome = new() { Margin = new Thickness(10), Padding = new Thickness(8), CornerRadius = new CornerRadius(10), VerticalAlignment = VerticalAlignment.Top };
+    private readonly Border _chrome = new()
+    {
+        Padding = new Thickness(12, 2, 12, 2),
+        HorizontalAlignment = HorizontalAlignment.Stretch,
+        VerticalAlignment = VerticalAlignment.Top
+    };
     private readonly HashSet<string> _referencePaths = new(StringComparer.Ordinal);
     private readonly AutoSuggestBox _search = new() { Width = 220, TextMemberPath = "Title", QueryIcon = new SymbolIcon(Symbol.Find) };
     private readonly TextBlock _searchFeedback = new() { Visibility = Visibility.Collapsed, HorizontalAlignment = HorizontalAlignment.Right };
-    private readonly ComboBox _distance = new() { Header = "Distance", ItemsSource = new[] { "All documents", "1 link", "2 links", "3 links" }, Width = 140 };
-    private static readonly string[] AttentionModes = ["all", "attention", "missing", "isolated", "changed"];
-    private readonly ComboBox _attention = new() { Header = "Attention", Width = 155 };
-    private readonly ComboBox _views = new() { Header = "Saved views", DisplayMemberPath = "Name", Width = 145 };
-    private readonly TextBox _viewName = new() { Header = "View name", MaxLength = 64, Width = 160 };
-    private readonly ToggleButton _depth = new() { Content = "Depth", IsChecked = true };
-    private readonly ToggleButton _advanced = new() { Content = "Advanced" };
-    private readonly ToggleButton _lens = new() { Content = "Emphasize links" };
-    private readonly ToggleButton _picking = new() { Content = "Select several" };
-    private readonly ToggleButton _focus = new() { Content = "Focus on this page" };
     private readonly ToggleButton _folders = new() { Content = "Folders" };
-    private readonly ToggleButton _inspectorToggle = new() { Content = "Document preview" };
-    private readonly ToggleButton _referenceButton = new();
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis };
-    private readonly TextBlock _summary = new() { TextWrapping = TextWrapping.Wrap };
     private readonly ListView _compact = new() { IsItemClickEnabled = true, Visibility = Visibility.Collapsed };
     private readonly Border _comparison = new() { Visibility = Visibility.Collapsed, Margin = new Thickness(10), Padding = new Thickness(12), CornerRadius = new CornerRadius(8) };
     private readonly StackPanel _comparisonDocuments = new() { Orientation = Orientation.Horizontal, Spacing = 12 };
     private Button? _comparisonClose;
-    private Button _restoreView = null!;
-    private Button _deleteView = null!;
-    private Button _saveLayout = null!;
-    private Button _discardLayout = null!;
     private IReadOnlyList<MapExplorationDocument> _displayedComparison = [];
     private IReadOnlyList<MapExplorationDocument> _displayedPicked = [];
     private IReadOnlyList<MapExplorationDocument> _displayedTrail = [];
-    private readonly ColumnDefinition _splitColumn = new() { Width = new GridLength(6) };
     private readonly ColumnDefinition _inspectorColumn = new() { Width = new GridLength(292) };
-    private readonly Thumb _split = new() { IsTabStop = true };
+    private readonly Thumb _split = new()
+    {
+        Style = (Style)Application.Current.Resources["PaneResizeGripStyle"],
+        HorizontalAlignment = HorizontalAlignment.Left,
+        Margin = new Thickness(-3, 0, 0, 0)
+    };
     private readonly ScrollViewer _inspectorScroll;
     private CancellationToken _workspaceLifetime;
     private WindowsMapModel? _model;
     private bool _refreshing;
     private bool _reloading;
-    private bool _details = true;
+    private bool _details;
     private bool _compactDetails;
     private bool _incomingOpen;
     private bool _outgoingOpen;
+    private bool _outlineOpen;
+    private bool _routeOpen;
+    private bool _actionsOpen;
+    private bool _acrylic;
+    private string _graphFont = "system";
+    private WindowsMapPalette _palette = WindowsMapPalette.Dark;
     private double _inspectorWidth = 292;
     private int _loadGeneration;
     private MapSnapshot? _inspectorSnapshot;
@@ -98,40 +125,31 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
     /// <summary>Creates native map chrome and routes every graph gesture to an application model command.</summary>
     public WindowsMapView()
     {
-        var root = new Grid { RequestedTheme = ElementTheme.Dark, Background = new SolidColorBrush(Colors.Black) };
-        var chrome = new StackPanel { Spacing = 5 };
-        var primary = new Grid { ColumnSpacing = 6 };
-        primary.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        primary.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        primary.Children.Add(ScrollRow(_toolbar));
-        Grid.SetColumn(_search, 1);
-        primary.Children.Add(_search);
-        chrome.Children.Add(primary);
+        var root = new Grid();
+        var chrome = new StackPanel { Spacing = 3 };
+        chrome.Children.Add(_toolbar);
         chrome.Children.Add(_searchFeedback);
-        chrome.Children.Add(ScrollRow(_tools));
-        chrome.Children.Add(ScrollRow(_picked));
-        chrome.Children.Add(ScrollRow(_trail));
-        chrome.Children.Add(ScrollRow(_compactActions));
+        _pickedScroll = ScrollRow(_picked);
+        _pickedScroll.Visibility = Visibility.Collapsed;
+        chrome.Children.Add(_pickedScroll);
         chrome.Children.Add(_status);
         _status.Visibility = Visibility.Collapsed;
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
         _chrome.Child = chrome;
-        _chrome.Background = MapAcrylic();
-        _chrome.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 46, 59, 78));
-        _chrome.BorderThickness = new Thickness(1);
+        WindowsPaperSurface.Attach(_chrome);
+        _chrome.BorderThickness = new Thickness(0, 0, 0, 1);
+        _chrome.Loaded += (_, _) => UpdateChromeInset();
         _chrome.SizeChanged += (_, _) => UpdateChromeInset();
 
         var body = new Grid();
         body.ColumnDefinitions.Add(new ColumnDefinition());
-        body.ColumnDefinitions.Add(_splitColumn);
         body.ColumnDefinitions.Add(_inspectorColumn);
         body.Children.Add(_canvas);
         body.Children.Add(_compact);
         BuildComparison();
         body.Children.Add(_comparison);
         Grid.SetColumn(_split, 1);
-        body.Children.Add(_split);
-        _split.Background = new SolidColorBrush(Color.FromArgb(80, 100, 115, 130));
+        AutomationProperties.SetAutomationId(_split, "MapInspectorGrip");
         AutomationProperties.SetName(_split, "Resize map inspector");
         _split.DragDelta += (_, args) =>
         {
@@ -150,7 +168,7 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         _inspectorScroll = new ScrollViewer
         {
             Content = _inspector,
-            Background = new SolidColorBrush(Color.FromArgb(255, 8, 10, 14)),
+            Visibility = Visibility.Collapsed,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto
         };
         _inspectorScroll.KeyDown += (_, args) =>
@@ -162,12 +180,27 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
                 args.Handled = true;
             }
         };
-        Grid.SetColumn(_inspectorScroll, 2);
+        Grid.SetColumn(_inspectorScroll, 1);
         body.Children.Add(_inspectorScroll);
         body.Children.Add(_chrome);
+        body.Children.Add(_legend);
+        body.Children.Add(_split);
+        _toolbarShadow.Receivers.Add(_canvas);
+        _toolbarShadow.Receivers.Add(_compact);
+        _chrome.PointerEntered += (_, _) => { _toolbarPointerOver = true; UpdateToolbarElevation(); };
+        _chrome.PointerExited += (_, _) => { _toolbarPointerOver = false; UpdateToolbarElevation(); };
+        _chrome.GotFocus += (_, _) => { _toolbarFocused = true; UpdateToolbarElevation(); };
+        _chrome.LostFocus += (_, _) => { _toolbarFocused = false; UpdateToolbarElevation(); };
         root.Children.Add(body);
         Content = root;
         SizeChanged += (_, _) => UpdateViewport();
+        _canvas.SizeChanged += (_, args) =>
+        {
+            if (_details && args.NewSize.Width < args.PreviousSize.Width && _canvas.Visibility == Visibility.Visible)
+            {
+                _canvas.KeepSelectionVisible(args.PreviousSize, args.NewSize);
+            }
+        };
         Unloaded += (_, _) => SuspendInteractions();
         RegisterPropertyChangedCallback(VisibilityProperty, (_, _) =>
         {
@@ -179,6 +212,7 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         ConfigureCompactList();
 
         BuildToolbar();
+        SetAppearance(ActualTheme == ElementTheme.Dark, acrylic: false);
         ApplyLanguage();
         UiStrings.Changed += ApplyLanguage;
         _canvas.Selected += path => Select(path, false);
@@ -226,8 +260,8 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         }
         var generation = ++_loadGeneration;
         var model = new WindowsMapModel(files, workspace, catalog);
-        model.SetDepth(_depth.IsChecked == true);
-        model.SetAdvanced(_advanced.IsChecked == true);
+        model.SetDepth(_depth.IsOn);
+        model.SetAdvanced(_advanced.IsOn);
         model.SeedTrail(visitedPaths);
         await model.ReloadAsync(selectedPath, token);
         token.ThrowIfCancellationRequested();
@@ -237,7 +271,7 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         }
         _workspaceLifetime = token;
         _model = model;
-        _incomingOpen = _outgoingOpen = false;
+        _incomingOpen = _outgoingOpen = _outlineOpen = _routeOpen = _actionsOpen = false;
         ClearSearch();
         RenderModel();
         _canvas.Fit();
@@ -262,6 +296,7 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         _canvas.SetReferencePaths([]);
         _loadGeneration++;
         _model = null;
+        UpdateLegendVisibility();
         _canvas.Clear();
         _compact.ItemsSource = null;
         _inspector.Children.Clear();
@@ -269,7 +304,7 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         _inspectorPresentation = default;
         _picked.Children.Clear();
         _trail.Children.Clear();
-        _picked.Visibility = _trail.Visibility = Visibility.Collapsed;
+        _pickedScroll.Visibility = _trailSection.Visibility = Visibility.Collapsed;
         _comparison.Visibility = Visibility.Collapsed;
         _displayedComparison = _displayedPicked = _displayedTrail = [];
         ClearSearch();
@@ -289,7 +324,7 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         {
             return true;
         }
-        var choice = await new ContentDialog
+        var choice = await WindowsDialogs.ShowAsync(new ContentDialog
         {
             XamlRoot = XamlRoot,
             Title = "Unsaved map layout",
@@ -298,42 +333,41 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
             SecondaryButtonText = "Discard",
             CloseButtonText = "Stay here",
             DefaultButton = ContentDialogButton.Close
-        }.ShowAsync();
+        });
         return choice == ContentDialogResult.Secondary || choice == ContentDialogResult.Primary && await SaveCopyAsync(model);
     }
 
     /// <summary>Populates native arrangement, exploration, search and viewpoint controls in keyboard order.</summary>
     private void BuildToolbar()
     {
+        _toolbar.Content = _search;
+        _search.VerticalAlignment = VerticalAlignment.Center;
+        AutomationProperties.SetAutomationId(_toolbar, "MapToolbar");
+        AutomationProperties.SetAutomationId(_search, "MapSearch");
+        AutomationProperties.SetAutomationId(_fitButton, "Fit");
+        AutomationProperties.SetAutomationId(_arrangeButton, "MapArrange");
+        AutomationProperties.SetAutomationId(_optionsButton, "MapOptions");
+        AutomationProperties.SetAutomationId(_inspectorToggle, "MapDetails");
+        AutomationProperties.SetAutomationId(_legend, "MapRelationLegend");
+        _toolbar.PrimaryCommands.Add(_fitButton);
+        _toolbar.PrimaryCommands.Add(_arrangeButton);
+        _toolbar.PrimaryCommands.Add(_optionsButton);
+        _toolbar.PrimaryCommands.Add(_inspectorToggle);
+        _fitButton.Click += (_, _) => _canvas.Fit();
+        _arrangeButton.Flyout = MapMenu(_arrangements);
+        _optionsButton.Flyout = BuildMapOptions();
+        WindowsPaperSurface.AttachFlyout(_arrangeButton.Flyout);
+        WindowsPaperSurface.AttachFlyout(_optionsButton.Flyout);
+        _inspectorToggle.Click += (_, _) => ToggleInspector();
+        _legend.Children.Add(CreateLegendKey(_incomingCaption, _incomingInk, incoming: true));
+        _legend.Children.Add(CreateLegendKey(_outgoingCaption, _outgoingInk, incoming: false));
+
         foreach (var preset in new[] { "Star", "Circle", "Grid", "Tree" })
         {
-            _toolbar.Children.Add(ButtonFor(preset, () => Arrange(preset.ToLowerInvariant())));
+            _arrangements.Children.Add(ButtonFor(preset, () => Arrange(preset.ToLowerInvariant())));
         }
-        _toolbar.Children.Add(_folders);
+        _arrangements.Children.Add(_folders);
         _folders.Click += (_, _) => Arrange("folders");
-        _toolbar.Children.Add(UseToolbarIcon(ButtonFor("Fit", _canvas.Fit), Symbol.ViewAll));
-        _toolbar.Children.Add(_focus);
-        _focus.Click += (_, _) => Change(model => model.SetDistance((model.Atlas.FocusDepth + 1) % 4));
-        _toolbar.Children.Add(_depth);
-        _toolbar.Children.Add(_advanced);
-        _toolbar.Children.Add(UseToolbarIcon(_inspectorToggle, Symbol.Read));
-        _inspectorToggle.Click += (_, _) => ToggleInspector();
-        _toolbar.Children.Add(UseToolbarIcon(ButtonFor("Reset all", ResetAsync), Symbol.Refresh));
-        _saveLayout = UseToolbarIcon(ButtonFor("Save layout", () => WithModelAsync(model => SaveQuietlyAsync(model, force: true))), Symbol.Save);
-        _toolbar.Children.Add(_saveLayout);
-        _toolbar.Children.Add(UseToolbarIcon(ButtonFor("Download layout", () => WithModelAsync(async model => { await SaveCopyAsync(model); })), Symbol.Download));
-        _discardLayout = UseToolbarIcon(ButtonFor("Discard changes", ReloadAsync), Symbol.Cancel);
-        _toolbar.Children.Add(_discardLayout);
-        _toolbar.Children.Add(_referenceButton);
-        _referenceButton.Click += (_, _) =>
-        {
-            if (_model is { SelectedPath.Length: > 0 } model) { ToggleAiContext?.Invoke(model.SelectedPath); }
-        };
-        _depth.Click += (_, _) => Change(model => model.SetDepth(_depth.IsChecked == true));
-        _advanced.Click += (_, _) => Change(model => model.SetAdvanced(_advanced.IsChecked == true));
-        _lens.Click += (_, _) => Change(model => model.SetLens(_lens.IsChecked == true));
-        _picking.Click += (_, _) => Change(model => model.SetPicking(_picking.IsChecked == true));
-
         _search.ItemTemplate = (DataTemplate)XamlReader.Load("""
             <DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
                 <StackPanel Spacing="2" AutomationProperties.Name="{Binding Path}" ToolTipService.ToolTip="{Binding Path}">
@@ -375,53 +409,6 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
             }
         };
 
-        _tools.Children.Add(_distance);
-        _tools.Children.Add(_attention);
-        _tools.Children.Add(_viewName);
-        _tools.Children.Add(ButtonFor("Save view", SaveCurrentView));
-        _viewName.KeyDown += (_, args) =>
-        {
-            if (args.Key == VirtualKey.Enter)
-            {
-                SaveCurrentView();
-                args.Handled = true;
-            }
-        };
-        _tools.Children.Add(_views);
-        _restoreView = ButtonFor("Restore view", () =>
-        {
-            if (_views.SelectedItem is MapViewpoint view)
-            {
-                Change(model => _canvas.SetCamera(model.RestoreView(view)));
-            }
-        });
-        _deleteView = ButtonFor("Delete saved view", () =>
-        {
-            if (_views.SelectedItem is MapViewpoint view)
-            {
-                Change(model => model.DeleteView(view));
-            }
-        });
-        _tools.Children.Add(_restoreView);
-        _tools.Children.Add(_deleteView);
-        _views.SelectionChanged += (_, _) => UpdateViewCommands();
-        UpdateViewCommands();
-        _tools.Children.Add(_lens);
-        _tools.Children.Add(_picking);
-        _tools.Children.Add(_summary);
-        _distance.SelectionChanged += (_, _) => Change(model => model.SetDistance(_distance.SelectedIndex));
-        _attention.SelectionChanged += (_, _) =>
-        {
-            if (_attention.SelectedIndex >= 0)
-            {
-                var mode = AttentionModes[_attention.SelectedIndex];
-                Change(model => model.SetAttention(mode));
-            }
-        };
-        foreach (var control in _tools.Children.OfType<Control>())
-        {
-            control.VerticalAlignment = VerticalAlignment.Bottom;
-        }
     }
 
     /// <summary>Applies an arrangement and animates the measured viewport into the resulting layout.</summary>
@@ -480,7 +467,7 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         _displayedComparison = _displayedPicked = _displayedTrail = [];
         try
         {
-            foreach (var button in _toolbar.Children.Concat(_tools.Children).Concat(_compactActions.Children).OfType<Button>())
+            foreach (var button in _arrangements.Children.OfType<Button>())
             {
                 if (button.Tag is string label)
                 {
@@ -491,33 +478,25 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
                     SetCommandHint(button, CommandHint(label));
                 }
             }
-            _search.PlaceholderText = T("Type to search…");
+            _search.PlaceholderText = T("Find a document");
+            AutomationProperties.SetName(_toolbar, T("Map toolbar"));
+            _fitButton.Label = T("Fit map");
+            _arrangeButton.Label = T("Arrange");
+            _optionsButton.Label = T("Map options");
+            _inspectorToggle.Label = T("Details");
+            SetToolbarHint(_fitButton, _fitButton.Label, "Fit document map");
+            SetToolbarHint(_arrangeButton, _arrangeButton.Label, "Map arrangement");
+            SetToolbarHint(_optionsButton, _optionsButton.Label, "Map options");
+            SetToolbarHint(_inspectorToggle, _inspectorToggle.Label, "Document preview");
+            _incomingCaption.Text = T("Incoming");
+            _outgoingCaption.Text = T("Outgoing");
             _searchFeedback.Text = T("No matching documents");
-            AutomationProperties.SetName(_search, T("Find a document"));
             AutomationProperties.SetName(_split, T("Resize document preview"));
-            _depth.Content = T("Depth");
-            _advanced.Content = T("Advanced view");
-            _lens.Content = T("Relation lens");
-            _picking.Content = T("Select documents");
-            _focus.Content = T("Focus on this page");
             _folders.Content = T("Folders");
-            SetCommandHint(_depth, "Show connection depth");
-            SetCommandHint(_advanced, "Show file size, estimated tokens, characters and words");
-            SetCommandHint(_lens, "Relation lens");
-            SetCommandHint(_picking, "Select documents");
-            SetCommandHint(_focus, "Focus on this page");
             SetCommandHint(_folders, "Group by folder");
-            SetCommandHint(_inspectorToggle, "Document preview");
             SetCommandHint(_split, "Resize document preview");
-            SetCommandHint(_search, "Find a document");
-            SetCommandHint(_distance, "Distance");
-            SetCommandHint(_attention, "Attention highlights");
-            _distance.Header = T("Distance");
-            _distance.ItemsSource = new[] { T("All documents"), T("1 link away"), T("2 links away"), T("3 links away") };
-            _attention.Header = T("Attention highlights");
-            _attention.ItemsSource = new[] { T("Off"), T("Needs attention"), T("Missing links"), T("Isolated documents"), T("Changed this session") };
-            _views.Header = T("Saved views");
-            _viewName.Header = T("View name");
+            SetToolbarHint(_search, _search.PlaceholderText, "Find a document");
+            LocalizeMapOptions();
         }
         finally
         {
@@ -575,18 +554,16 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         try
         {
             var stats = model.Exploration;
-            _depth.IsChecked = model.Depth;
-            _advanced.IsChecked = model.Advanced;
-            _lens.IsChecked = stats.LensEnabled;
-            _picking.IsChecked = stats.SelectionEnabled;
-            _focus.IsChecked = model.Atlas.FocusDepth > 0;
+            _depth.IsOn = model.Depth;
+            _advanced.IsOn = model.Advanced;
+            _lens.IsOn = stats.LensEnabled;
+            UpdateLegendVisibility();
+            _picking.IsOn = stats.SelectionEnabled;
             _folders.IsChecked = model.Atlas.FolderGroups;
-            var selectedInContext = _referencePaths.Contains(model.SelectedPath);
             var referenceLabel = ReferenceLabel(model.SelectedPath);
-            _referenceButton.Content = T(referenceLabel);
-            _referenceButton.IsChecked = selectedInContext;
+            _referenceCaption.Text = T(referenceLabel);
             _referenceButton.IsEnabled = model.SelectedPath.Length > 0;
-            SetCommandHint(_referenceButton, referenceLabel);
+            SetToolbarHint(_referenceButton, T(referenceLabel), referenceLabel);
             _distance.SelectedIndex = model.Atlas.FocusDepth;
             _attention.SelectedIndex = Math.Max(0, Array.IndexOf(AttentionModes, stats.AttentionMode));
             var views = model.Atlas.Views ?? [];
@@ -599,26 +576,20 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
                 UpdateViewCommands();
             }
             var snapshot = model.Snapshot;
-            _summary.Text = $"{snapshot.Nodes.Count:N0} of {snapshot.TotalDocuments:N0} documents  ·  {snapshot.Edges.Count:N0} links" +
-                (stats.IndexComplete ? "" : "  ·  Index incomplete") +
-                (stats.AttentionMode == "all" ? "" : $"  ·  {stats.AttentionCount:N0} flagged");
+            var culture = System.Globalization.CultureInfo.GetCultureInfo(UiStrings.Language);
+            _summary.Text = T("{0} of {1} documents · {2} links", snapshot.Nodes.Count.ToString("N0", culture),
+                snapshot.TotalDocuments.ToString("N0", culture), snapshot.Edges.Count.ToString("N0", culture)) +
+                (stats.IndexComplete ? "" : " · " + T("Index incomplete")) +
+                (stats.AttentionMode == "all" ? "" : " · " + T("{0} flagged", stats.AttentionCount.ToString("N0", culture)));
             if (!ReferenceEquals(_compact.ItemsSource, model.Cards))
             {
                 _compact.ItemsSource = model.Cards;
             }
             _compact.SelectedItem = model.Document(model.SelectedPath);
-            _compactActions.Visibility = _compact.Visibility == Visibility.Visible && model.SelectedPath.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
             _canvas.Show(model, animateArrangement);
             RenderShelves(stats);
             RenderComparison(stats);
-            var cardStyle = model.Layout.Nodes.GetValueOrDefault(model.SelectedPath);
-            var inspectorPresentation = (model.SelectedPath, cardStyle?.Color, cardStyle?.Icon, model.Advanced, model.Layout.Atlas);
-            if (!ReferenceEquals(_inspectorSnapshot, snapshot) || _inspectorPresentation != inspectorPresentation)
-            {
-                RenderInspector(model);
-                _inspectorSnapshot = snapshot;
-                _inspectorPresentation = inspectorPresentation;
-            }
+            UpdateInspector(model);
             PresentStatus(model.Message);
             UpdateLayoutCommands(model);
         }
@@ -635,7 +606,7 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         {
             _displayedPicked = stats.Picked;
             _picked.Children.Clear();
-            _picked.Visibility = stats.Picked.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            _pickedScroll.Visibility = stats.Picked.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             if (stats.Picked.Count > 0)
             {
                 _picked.Children.Add(Label(T("{0} selected", stats.Picked.Count)));
@@ -659,14 +630,31 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         }
         _displayedTrail = stats.Trail;
         _trail.Children.Clear();
-        _trail.Visibility = stats.Trail.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (stats.Trail.Count > 0)
+        _trailSection.Visibility = stats.Trail.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var document in stats.Trail)
         {
-            _trail.Children.Add(Label(T("Recent pages")));
-            foreach (var document in stats.Trail)
-            {
-                _trail.Children.Add(ButtonFor(document.Title, () => Select(document.Path, true), localized: false));
-            }
+            var command = ButtonFor(document.Title, () => Select(document.Path, true), localized: false);
+            StyleMapAction(command, Symbol.Document, Label(document.Title));
+            AutomationProperties.SetName(command, document.Title);
+            ToolTipService.SetToolTip(command, document.Path);
+            _trail.Children.Add(command);
+        }
+    }
+
+    /// <summary>Refreshes the visible inspector only when its data or presentation changed.</summary>
+    private void UpdateInspector(WindowsMapModel model)
+    {
+        if (_inspectorScroll.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+        var cardStyle = model.Layout.Nodes.GetValueOrDefault(model.SelectedPath);
+        var presentation = (model.SelectedPath, cardStyle?.Color, cardStyle?.Icon, model.Advanced, model.Layout.Atlas);
+        if (!ReferenceEquals(_inspectorSnapshot, model.Snapshot) || _inspectorPresentation != presentation)
+        {
+            RenderInspector(model);
+            _inspectorSnapshot = model.Snapshot;
+            _inspectorPresentation = presentation;
         }
     }
 
@@ -679,26 +667,23 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
             _inspector.Children.Add(Label("No documents in this map"));
             return;
         }
-        _inspector.Children.Add(Title(card.Title));
-        _inspector.Children.Add(Label(card.Path));
+        var heading = Label(card.Title, 20);
+        heading.FontWeight = FontWeights.Light;
+        AutomationProperties.SetHeadingLevel(heading, AutomationHeadingLevel.Level2);
+        _inspector.Children.Add(heading);
+        _inspector.Children.Add(Label(card.Path, 13));
         if (card.Introduction.Length > 0)
         {
             _inspector.Children.Add(Label(card.Introduction));
         }
         if (model.Advanced)
         {
-            _inspector.Children.Add(Label(WindowsGraphCanvas.Statistics(card.Statistics)));
+            _inspector.Children.Add(Label(WindowsGraphCanvas.Statistics(card.Statistics), 12));
         }
-        _inspector.Children.Add(ButtonFor("Open document", () => OpenDocument?.Invoke(card.Path, "")));
-        _inspector.Children.Add(ButtonFor("Read here", () => PreviewDocument?.Invoke(card.Path, "")));
-        _inspector.Children.Add(ButtonFor(ReferenceLabel(card.Path), () => ToggleAiContext?.Invoke(card.Path)));
-        var actions = ButtonFor("Card actions", () => ShowCardMenu(card.Path, _inspectorScroll));
-        _inspector.Children.Add(actions);
-
-        foreach (var heading in card.Headings.Take(12))
-        {
-            _inspector.Children.Add(ButtonFor(heading.Text, () => OpenFromInspector(card.Path, heading.Id), localized: false));
-        }
+        var primary = new NativeWrapPanel { Spacing = 8, Margin = new Thickness(0, 3, 0, 5) };
+        primary.Children.Add(InspectorButton("Open document", () => OpenDocument?.Invoke(card.Path, "")));
+        primary.Children.Add(InspectorButton("Read here", () => PreviewDocument?.Invoke(card.Path, "")));
+        _inspector.Children.Add(primary);
 
         var map = model.Snapshot;
         var relations = model.DocumentRelations(card.Path);
@@ -707,22 +692,17 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         _inspector.Children.Add(LinkSection("Links to this page", true, incoming));
         _inspector.Children.Add(LinkSection("Links from this page", false, outgoing));
 
-        _inspector.Children.Add(ButtonFor("Set route start", () => Change(state => state.StartRoute())));
-        if (model.RouteStart.Length > 0)
+        var headings = card.Headings.Take(12).ToArray();
+        if (headings.Length > 0)
         {
-            _inspector.Children.Add(Label(T("Route start: {0}", model.RouteStart)));
-            _inspector.Children.Add(ButtonFor("Find route to this document", () => Change(state => state.FinishRoute())));
-            _inspector.Children.Add(ButtonFor("Clear route", () => Change(state => state.ClearRoute())));
+            var caption = T("Outline") + " · " + headings.Length.ToString(System.Globalization.CultureInfo.CurrentCulture);
+            _inspector.Children.Add(InspectorSection(caption, BuildOutline, _outlineOpen, open => _outlineOpen = open));
         }
-        if (map.RouteMessage.Length > 0)
-        {
-            _inspector.Children.Add(Label(T(map.RouteMessage, Math.Max(0, (map.Route?.Count ?? 1) - 1))));
-            _inspector.Children.Add(Label(T("Connections in either direction")));
-            foreach (var path in map.Route ?? [])
-            {
-                _inspector.Children.Add(LinkRow(model.Document(path)?.Title ?? path, path, "", incoming: false, center: true));
-            }
-        }
+
+        var start = model.RouteStart.Length > 0 ? T("Route start: {0}", model.RouteStart) : null;
+        var result = map.RouteMessage.Length > 0 ? T(map.RouteMessage, Math.Max(0, (map.Route?.Count ?? 1) - 1)) : null;
+        _inspector.Children.Add(InspectorSection(T("Route"), BuildRoute, _routeOpen, open => _routeOpen = open, result ?? start));
+        _inspector.Children.Add(InspectorSection(T("More actions"), BuildActions, _actionsOpen, open => _actionsOpen = open));
 
         if (model.Atlas.FolderGroups && map.Folders is { Count: > 0 })
         {
@@ -735,6 +715,96 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
             }
             _inspector.Children.Add(Section("Folder islands", folders, false));
         }
+
+        /// <summary>Shows the selected page's bounded heading list with the existing reader and preview behavior.</summary>
+        StackPanel BuildOutline()
+        {
+            var rows = new StackPanel { Spacing = 4 };
+            foreach (var heading in headings)
+            {
+                var row = InspectorButton(heading.Text, () => OpenFromInspector(card.Path, heading.Id), localized: false);
+                row.HorizontalAlignment = HorizontalAlignment.Stretch;
+                row.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+                rows.Children.Add(row);
+            }
+            return rows;
+        }
+
+        /// <summary>Creates route commands and clickable steps only when the route section is expanded.</summary>
+        StackPanel BuildRoute()
+        {
+            var panel = new StackPanel { Spacing = 5 };
+            if (result != null && start != null)
+            {
+                panel.Children.Add(Label(start));
+            }
+            var commands = new NativeWrapPanel { Spacing = 6 };
+            commands.Children.Add(InspectorButton("Set route start", () => Change(state => state.StartRoute())));
+            if (start != null)
+            {
+                commands.Children.Add(InspectorButton("Find route to this document", () => Change(state => state.FinishRoute())));
+                commands.Children.Add(InspectorButton("Clear route", () => Change(state => state.ClearRoute())));
+            }
+            panel.Children.Add(commands);
+            if (result != null)
+            {
+                panel.Children.Add(Label(T("Connections in either direction")));
+                foreach (var path in map.Route ?? [])
+                {
+                    panel.Children.Add(LinkRow(model.Document(path)?.Title ?? path, path, "", incoming: false, center: true));
+                }
+            }
+            return panel;
+        }
+
+        /// <summary>Exposes card appearance and the current AI context action for the selected document.</summary>
+        StackPanel BuildActions()
+        {
+            var panel = new StackPanel { Spacing = 4 };
+            panel.Children.Add(InspectorButton("Customize card", () => ShowCardMenu(card.Path, _inspectorScroll)));
+            panel.Children.Add(InspectorButton(ReferenceLabel(card.Path), () => ToggleAiContext?.Invoke(card.Path)));
+            return panel;
+        }
+    }
+
+    /// <summary>Shows a native disclosure with an optional summary that remains visible when collapsed.</summary>
+    private static Expander InspectorSection(string title, Func<FrameworkElement> buildContent, bool expanded,
+        Action<bool> expansionChanged, string? summary = null)
+    {
+        var header = new StackPanel { Spacing = 2 };
+        header.Children.Add(Label(title));
+        if (summary != null)
+        {
+            header.Children.Add(Label(summary, 12));
+        }
+        var section = new Expander
+        {
+            Header = header,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch
+        };
+        AutomationProperties.SetName(section, summary == null ? title : title + " · " + summary);
+        section.Expanding += (_, _) =>
+        {
+            section.Content ??= buildContent();
+            expansionChanged(true);
+        };
+        section.Collapsed += (_, _) => expansionChanged(false);
+        if (expanded)
+        {
+            section.Content = buildContent();
+            section.IsExpanded = true;
+        }
+        return section;
+    }
+
+    /// <summary>Creates a keyboard-focusable command whose native caption wraps in the narrow inspector.</summary>
+    private static Button InspectorButton(string label, Action action, bool localized = true)
+    {
+        var caption = localized ? T(label) : label;
+        var button = ButtonFor(caption, action, caption, localized: false);
+        button.Content = Label(caption);
+        return button;
     }
 
     /// <summary>Displays direction and known link counts, creating rows only when the section is expanded.</summary>
@@ -743,7 +813,7 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         var count = links.Count.ToString(System.Globalization.CultureInfo.CurrentCulture);
         var section = new Expander
         {
-            Header = (incoming ? "← " : "→ ") + T(title) + " · " + count,
+            Header = Label((incoming ? "← " : "→ ") + T(title) + " · " + count),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch
         };
@@ -821,7 +891,7 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         var text = new StackPanel { Spacing = 3 };
         text.Children.Add(Label(title));
         var reference = path + (anchor.Length > 0 ? "#" + anchor : "");
-        text.Children.Add(new TextBlock { Text = reference, FontFamily = new FontFamily("Consolas"), FontSize = 10, TextTrimming = TextTrimming.CharacterEllipsis });
+        text.Children.Add(new TextBlock { Text = reference, FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis });
         var content = new Grid { ColumnSpacing = 8 };
         content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         content.ColumnDefinitions.Add(new ColumnDefinition());
@@ -887,8 +957,6 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         var scroll = new ScrollViewer { Content = _comparisonDocuments, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         Grid.SetRow(scroll, 1);
         panel.Children.Add(scroll);
-        _comparison.Background = new SolidColorBrush(Color.FromArgb(252, 16, 20, 27));
-        _comparison.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 52, 65, 83));
         _comparison.BorderThickness = new Thickness(1);
         _comparison.Child = panel;
         _comparison.KeyDown += (_, args) =>
@@ -1051,49 +1119,167 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         }
     }
 
-    /// <summary>Switches to normal list scrolling in narrow windows and bounds the wide inspector width.</summary>
+    /// <summary>Switches to list scrolling in narrow windows and sizes the search and inspector to the viewport.</summary>
     private void UpdateViewport()
     {
         var compact = _touchOnly || ActualWidth < 640;
-        _search.Width = Math.Clamp(ActualWidth * .27, 120, 220);
+        var menuWidth = Math.Clamp(ActualWidth - 56, 220, 420);
+        SizeMapOptions();
+        _arrangements.Width = Math.Min(320, menuWidth);
         if (compact && _canvas.Visibility == Visibility.Visible)
         {
             SuspendInteractions();
         }
         _compact.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
         _canvas.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        _compactActions.Visibility = compact && _model is { SelectedPath.Length: > 0 } ? Visibility.Visible : Visibility.Collapsed;
+        _fitButton.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         var showInspector = compact ? _compactDetails : _details;
         var dockInspector = showInspector && !compact;
         _inspectorScroll.Visibility = showInspector ? Visibility.Visible : Visibility.Collapsed;
         _inspectorToggle.IsChecked = showInspector;
-        Grid.SetColumn(_inspectorScroll, compact ? 0 : 2);
+        Grid.SetColumn(_inspectorScroll, compact ? 0 : 1);
         _inspectorScroll.HorizontalAlignment = compact ? HorizontalAlignment.Right : HorizontalAlignment.Stretch;
         _inspectorScroll.Width = compact ? Math.Min(_inspectorWidth, Math.Max(0, ActualWidth - 20)) : double.NaN;
         _split.Visibility = dockInspector ? Visibility.Visible : Visibility.Collapsed;
-        _splitColumn.Width = new GridLength(dockInspector ? 6 : 0);
-        _inspectorColumn.Width = new GridLength(dockInspector ? Math.Min(_inspectorWidth, Math.Max(220, ActualWidth * .48)) : 0);
+        var inspectorWidth = dockInspector ? Math.Min(_inspectorWidth, Math.Max(220, ActualWidth * .48)) : 0;
+        _inspectorColumn.Width = new GridLength(inspectorWidth);
+        var chromeWidth = ActualWidth - inspectorWidth - _chrome.Margin.Left - _chrome.Margin.Right;
+        var toolWidth = Math.Max(0, chromeWidth - _chrome.Padding.Left - _chrome.Padding.Right - _chrome.BorderThickness.Left - _chrome.BorderThickness.Right);
+        _toolbar.MaxWidth = toolWidth;
+        _search.Width = Math.Min(Math.Max(0, toolWidth - 48), Math.Clamp(toolWidth * .32, 120, 220));
+        UpdateLegendVisibility();
+        if (showInspector && _model is { } model)
+        {
+            UpdateInspector(model);
+        }
         UpdateChromeInset();
     }
 
-    /// <summary>Reserves the floating toolbar's measured area without interrupting the black drawing surface.</summary>
+    /// <summary>Places the transparent legend over the graph and reserves only the toolbar strip for layout and input.</summary>
     private void UpdateChromeInset()
     {
         var inset = PreviewTop;
-        _canvas.SetToolbarInset(inset);
+        var covered = _chrome.IsLoaded && _canvas.IsLoaded && _canvas.Visibility == Visibility.Visible
+            ? _chrome.TransformToVisual(_canvas).TransformBounds(new Rect(0, 0, _chrome.ActualWidth, _chrome.ActualHeight))
+            : default;
+        _canvas.SetToolbarArea(inset, covered);
+        _legend.Margin = new Thickness(16, inset + 6, 0, 0);
         _compact.Margin = new Thickness(0, inset, 0, 0);
         _inspectorScroll.Margin = _compact.Visibility == Visibility.Visible ? new Thickness(0, inset, 10, 10) : new Thickness(0);
         _comparison.Margin = new Thickness(10, inset, 10, 10);
         PreviewPlacementChanged?.Invoke();
     }
 
-    /// <summary>Shares the graph's acrylic brush and a dark fallback for settings that suppress transparency.</summary>
-    private static AcrylicBrush MapAcrylic() => new()
+    /// <summary>Applies the selected palette, material and independent graph font without changing the map.</summary>
+    public void SetAppearance(bool dark, bool acrylic, string graphPalette = "system", string graphFont = "system")
     {
-        TintColor = Color.FromArgb(255, 13, 19, 28),
-        TintOpacity = .86,
-        FallbackColor = Color.FromArgb(255, 17, 24, 34)
+        var family = UiFontCatalog.Normalize(graphFont);
+        if (_graphFont != family)
+        {
+            _graphFont = family;
+            _canvas.SetGraphFont(family);
+            if (family == "system")
+            {
+                _compact.ClearValue(Control.FontFamilyProperty);
+            }
+            else
+            {
+                _compact.FontFamily = new FontFamily(family);
+            }
+        }
+        var palette = WindowsMapPalette.Resolve(graphPalette, dark);
+        var highContrast = new global::Windows.UI.ViewManagement.AccessibilitySettings().HighContrast;
+        if (ReferenceEquals(_palette, palette) && _acrylic == acrylic && _highContrast == highContrast && _chrome.Background != null)
+        {
+            return;
+        }
+        _palette = palette;
+        _acrylic = acrylic;
+        _highContrast = highContrast;
+        var theme = dark ? ElementTheme.Dark : ElementTheme.Light;
+        _arrangements.RequestedTheme = theme;
+        _optionsPanel.RequestedTheme = theme;
+        _canvas.SetAppearance(palette, MapSurface(palette.Canvas));
+        var panelStyle = (Style)Application.Current.Resources[acrylic ? "AcrylicMapPanelStyle" : "MapPanelStyle"];
+        _chrome.Style = _comparison.Style = panelStyle;
+        _inspectorScroll.Style = (Style)Application.Current.Resources[acrylic ? "AcrylicMapInspectorStyle" : "MapInspectorStyle"];
+        if (highContrast)
+        {
+            var systemColors = new global::Windows.UI.ViewManagement.UISettings();
+            var foreground = systemColors.GetColorValue(global::Windows.UI.ViewManagement.UIColorType.Foreground);
+            _incomingInk.Color = _outgoingInk.Color = foreground;
+            _incomingCaption.Foreground = _outgoingCaption.Foreground = _incomingInk;
+        }
+        else
+        {
+            _incomingInk.Color = palette.IncomingColor;
+            _outgoingInk.Color = palette.OutgoingColor;
+            _incomingCaption.Foreground = _outgoingCaption.Foreground = new SolidColorBrush(palette.CardText);
+        }
+        _chrome.Shadow = highContrast ? null : _toolbarShadow;
+        UpdateToolbarElevation();
+        _compact.Background = new SolidColorBrush(palette.Canvas);
+    }
+
+    /// <summary>Provides graph material with a matching opaque fallback when transparency is unavailable.</summary>
+    private Brush MapSurface(Color color) => _acrylic
+        ? new AcrylicBrush { TintColor = color, TintOpacity = .78, FallbackColor = color }
+        : new SolidColorBrush(color);
+
+    /// <summary>Groups secondary graph commands in a native, scrollable flyout.</summary>
+    private static Flyout MapMenu(FrameworkElement content) => new()
+    {
+        Content = new ScrollViewer
+        {
+            Content = content,
+            MaxHeight = 460,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        }
     };
+
+    /// <summary>Draws one direction key with the same stroke convention used for the selected document's edges.</summary>
+    private static StackPanel CreateLegendKey(TextBlock caption, Brush ink, bool incoming)
+    {
+        var geometry = incoming
+            ? "M2,6 H7 M10,6 H14 M17,6 H22 M6,2 L2,6 L6,10"
+            : "M2,6 H22 M18,2 L22,6 L18,10";
+        var marker = (Microsoft.UI.Xaml.Shapes.Path)XamlReader.Load($"""
+            <Path xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                  Data="{geometry}" Width="24" Height="12" StrokeThickness="1.6"
+                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+            """);
+        marker.Stroke = ink;
+        marker.IsHitTestVisible = false;
+        AutomationProperties.SetAccessibilityView(marker, AccessibilityView.Raw);
+        var key = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+        key.Children.Add(marker);
+        key.Children.Add(caption);
+        return key;
+    }
+
+    /// <summary>Shows the relation key only when the graph can display links to a selected document.</summary>
+    private void UpdateLegendVisibility()
+    {
+        var visible = _canvas.Visibility == Visibility.Visible && _lens.IsOn
+            && _model is { SelectedPath.Length: > 0, Snapshot.Edges.Count: > 0 };
+        _legend.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Raises the toolbar's native shadow for pointer and keyboard interaction without changing layout.</summary>
+    private void UpdateToolbarElevation()
+    {
+        var elevation = _toolbarPointerOver || _toolbarFocused ? 10 : 3;
+        _chrome.Translation = new System.Numerics.Vector3(0, 0, _highContrast ? 0 : elevation);
+    }
+
+    /// <summary>Pairs a localized visible command name with native hover and screen-reader help.</summary>
+    private static void SetToolbarHint(FrameworkElement element, string caption, string help)
+    {
+        var description = T(help);
+        AutomationProperties.SetName(element, caption);
+        AutomationProperties.SetHelpText(element, description);
+        ToolTipService.SetToolTip(element, description);
+    }
 
     /// <summary>Uses the same membership label for toolbar, inspector and card menu actions.</summary>
     private string ReferenceLabel(string path) => _referencePaths.Contains(path) ? "Remove from AI context" : "Add selected document to AI context";
@@ -1106,7 +1292,6 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
         "Grid" => "Arrange in a grid",
         "Tree" => "Arrange as a tree",
         "Folders" => "Group by folder",
-        "Fit" => "Fit document map",
         _ => label
     };
 
@@ -1115,15 +1300,6 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
     {
         ToolTipService.SetToolTip(element, T(label));
         AutomationProperties.SetName(element, T(label));
-    }
-
-    /// <summary>Uses an icon for a compact command whose translated name remains available to automation and tooltips.</summary>
-    private static TButton UseToolbarIcon<TButton>(TButton button, Symbol symbol) where TButton : ButtonBase
-    {
-        button.Content = new SymbolIcon(symbol);
-        button.MinWidth = 34;
-        button.Padding = new Thickness(7, 4, 7, 4);
-        return button;
     }
 
     /// <summary>Invokes an asynchronous native action for the current map while handling UI-bound failures.</summary>
@@ -1136,12 +1312,13 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
     }
 
     /// <summary>Prompts for an explicit destructive graph action using the owning window's XAML root.</summary>
-    private async Task<bool> ConfirmAsync(string title, string message, string command) => await new ContentDialog
+    private async Task<bool> ConfirmAsync(string title, string message, string command) => await WindowsDialogs.ShowAsync(new ContentDialog
     {
-        XamlRoot = XamlRoot, Title = title, Content = message, PrimaryButtonText = command, CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close
-    }.ShowAsync() == ContentDialogResult.Primary;
+        XamlRoot = XamlRoot, Title = T(title), Content = T(message), PrimaryButtonText = T(command),
+        CloseButtonText = T("Cancel"), DefaultButton = ContentDialogButton.Close
+    }) == ContentDialogResult.Primary;
 
-    /// <summary>Returns a native horizontally scrollable toolbar row.</summary>
+    /// <summary>Allows long, optional action lists to scroll without widening the map.</summary>
     private static ScrollViewer ScrollRow(StackPanel row) => new()
     {
         Content = row, HorizontalScrollMode = ScrollMode.Enabled, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
@@ -1152,6 +1329,7 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
     private static Button ButtonFor(string label, Action action, string? automationName = null, bool localized = true)
     {
         var button = new Button { Content = localized ? T(label) : label, Tag = localized ? label : null, VerticalAlignment = VerticalAlignment.Center };
+        ToolTipService.SetToolTip(button, automationName ?? (localized ? T(CommandHint(label)) : label));
         if (automationName != null)
         {
             AutomationProperties.SetName(button, automationName);
@@ -1164,6 +1342,7 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
     private Button ButtonFor(string label, Func<Task> action)
     {
         var button = new Button { Content = T(label), Tag = label, VerticalAlignment = VerticalAlignment.Center };
+        SetCommandHint(button, CommandHint(label));
         button.Click += async (_, _) =>
         {
             try
@@ -1186,17 +1365,22 @@ internal sealed partial class WindowsMapView : UserControl, IDisposable
     private static MenuFlyoutItem MenuItem(string label, Action action)
     {
         var item = new MenuFlyoutItem { Text = T(label) };
+        ToolTipService.SetToolTip(item, item.Text);
         item.Click += (_, _) => action();
         return item;
     }
 
     /// <summary>Creates a wrapping native label for document metadata and status.</summary>
-    private static TextBlock Label(string text) => new() { Text = text, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+    private static TextBlock Label(string text, double size = 14) => new()
+    {
+        Text = text, FontSize = size, FontWeight = FontWeights.Normal,
+        TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center
+    };
 
     /// <summary>Creates a native section heading.</summary>
     private static TextBlock Title(string text) => new() { Text = text, FontSize = 17, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
 
-    /// <summary>Creates a keyboard-accessible native disclosure for inspector content.</summary>
+    /// <summary>Creates a keyboard-accessible native disclosure for secondary controls.</summary>
     private static Expander Section(string title, FrameworkElement content, bool expanded) => new()
     {
         Header = title, Content = content, IsExpanded = expanded, HorizontalAlignment = HorizontalAlignment.Stretch

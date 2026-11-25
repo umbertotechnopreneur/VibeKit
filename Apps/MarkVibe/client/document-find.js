@@ -209,8 +209,10 @@ export function findDocument(views, args) {
     return { current: 0, total: 0 };
   }
   const visible = candidates.filter(host => host.container.isConnected && host.container.clientHeight > 0 && host.container.clientWidth > 0);
-  const host = visible.find(candidate => args.view === "source" ? typeof candidate.source === "string" : !!candidate.article)
-    ?? visible[0];
+  const matchesView = candidate => args.view === "source" ? typeof candidate.source === "string" : !!candidate.article;
+  // A compact sidebar temporarily covers both panes. Its results still refer to the mounted document.
+  const coveredPane = args.excerpts && candidates.find(candidate => candidate.container.isConnected && matchesView(candidate));
+  const host = visible.find(matchesView) ?? visible[0] ?? coveredPane;
   if (!host) {
     return { current: 0, total: 0 };
   }
@@ -238,7 +240,9 @@ export function findDocument(views, args) {
   if (!total) {
     return { current: 0, total: 0 };
   }
-  if (search.current < 0) {
+  if (Number.isInteger(args.index) && args.index >= 1 && args.index <= total) {
+    search.current = args.index - 1;
+  } else if (search.current < 0) {
     search.current = args.direction < 0 ? total - 1 : 0;
   } else if (args.direction) {
     search.current = (search.current + (args.direction < 0 ? -1 : 1) + total) % total;
@@ -247,5 +251,22 @@ export function findDocument(views, args) {
     start: search.matches[search.current * 2],
     end: search.matches[search.current * 2 + 1]
   });
-  return { current: search.current + 1, total };
+  const result = { current: search.current + 1, total };
+  if (args.excerpts) {
+    // Keep the native list small even when a single letter occurs thousands of times.
+    const first = Math.floor(search.current / 32) * 32;
+    result.excerpts = [];
+    for (let i = first; i < Math.min(first + 32, total); i++) {
+      const start = search.matches[i * 2];
+      const end = search.matches[i * 2 + 1];
+      const prefix = search.text.slice(Math.max(0, start - 32), start);
+      const nextBreak = search.text.slice(end, end + 52).indexOf("\n");
+      result.excerpts.push({
+        index: i + 1, before: prefix.slice(prefix.lastIndexOf("\n") + 1),
+        match: search.text.slice(start, Math.min(end, start + 80)),
+        after: search.text.slice(end, end + (nextBreak < 0 ? 52 : nextBreak))
+      });
+    }
+  }
+  return result;
 }

@@ -11,6 +11,7 @@ import { fileContextTarget, fileSelection } from "./file-context.js";
 import { setLanguage } from "./i18n.js";
 import { MarkdownHost } from "./markdown.js";
 import { checkCancelled, nextFrame, WorkspaceError } from "./path.js";
+import { loadReaderThemeAssets } from "./themes.js";
 import { registerNativeWorkspace, releaseWorkspace } from "./workspaces.js";
 
 const channel = window.chrome.webview;
@@ -31,6 +32,30 @@ let previewMedia;
 let focusedView = "read";
 let synchronizing = false;
 let positionTimer;
+let appearanceRevision = 0;
+const forcedColors = matchMedia("(forced-colors: active)");
+
+/** Find the resolved opaque surface, including the lightweight source fallback and system contrast colors. */
+function surfaceColor(element) {
+  for (let current = element; current; current = current.parentElement || current.getRootNode()?.host) {
+    const rgb = /^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/u.exec(getComputedStyle(current).backgroundColor);
+    if (rgb) return (Number(rgb[1]) << 16) | (Number(rgb[2]) << 8) | Number(rgb[3]);
+  }
+  return null;
+}
+
+/** Carry the installed renderer's actual materials into the narrow native page margin below its viewport. */
+function publishReaderMaterial() {
+  if (!reader || readerPane.hidden || !rendered) return;
+  const editor = source?.root.querySelector(".monaco-editor-background") || source?.content;
+  emit({
+    type: "reader-material",
+    readerColor: surfaceColor(reader.body),
+    sourceColor: surfaceColor(editor),
+    paper: forcedColors.matches ? "none" : reader.container.dataset.paper || "none",
+    dark: document.documentElement.dataset.theme === "dark"
+  });
+}
 
 /** Send a renderer gesture to the native UI with the owning document's identity. */
 function emit(event) {
@@ -66,11 +91,21 @@ function release(info) {
 }
 
 /** Hold visual context across theme and layout updates for an already rendered document. */
-async function applyAppearance({ preferences, layout, dark }, restorePosition = true) {
-  const html = document.documentElement;
-  const theme = dark ? "dark" : "light";
-  const readerPosition = restorePosition && !readerPane.hidden && reader?.model ? reader.capture() : null;
+async function applyAppearance({ preferences, layout, dark }, restorePosition = true, signal) {
+  const revision = ++appearanceRevision;
   const active = rendered;
+  const theme = dark ? "dark" : "light";
+  await Promise.all([
+    setLanguage(preferences.language),
+    readerPane.hidden ? undefined : loadReaderThemeAssets(preferences, theme)
+  ]);
+  checkCancelled(signal);
+  if (revision !== appearanceRevision || active !== rendered) {
+    return;
+  }
+
+  const html = document.documentElement;
+  const readerPosition = restorePosition && !readerPane.hidden && reader?.model ? reader.capture() : null;
   html.dataset.theme = theme;
   html.dataset.documentStyle = preferences.documentStyle;
   html.dataset.acrylic = preferences.acrylic ? "true" : "false";
@@ -83,13 +118,21 @@ async function applyAppearance({ preferences, layout, dark }, restorePosition = 
     html.style.setProperty("--ui-monospace", `"${preferences.uiFont}"`);
   }
   surface.style.setProperty("--source-width", `${layout.sourceRatio * 100}%`);
-  setLanguage(preferences.language);
   for (const host of mountedHosts()) {
     host.container.dataset.theme = theme;
     host.container.dataset.documentStyle = preferences.documentStyle;
     host.container.dataset.acrylic = html.dataset.acrylic;
   }
   if (reader) {
+    const paper = preferences.paper;
+    if (typeof paper === "string" && paper !== "none" && /^[a-z]+$/.test(paper)) {
+      reader.container.dataset.paper = paper;
+      const tile = new URL(`images/paper-${paper}-${theme}.png`, document.baseURI);
+      reader.container.style.setProperty("--reader-paper", `url("${tile.href}")`);
+    } else {
+      delete reader.container.dataset.paper;
+      reader.container.style.removeProperty("--reader-paper");
+    }
     reader.preferences = preferences;
     reader.setExpanded(layout.readerExpanded);
     if (restorePosition && !readerPane.hidden) {
@@ -97,7 +140,7 @@ async function applyAppearance({ preferences, layout, dark }, restorePosition = 
     }
   }
   await source?.theme();
-  if (readerPosition && active === rendered) {
+  if (readerPosition && revision === appearanceRevision && active === rendered) {
     reader.restore(readerPosition);
   }
 }
@@ -179,7 +222,8 @@ function outlineSourceLine(model, anchor) {
   }
   let line = 1;
   for (let index = 0; index < offset; index++) {
-    if (model.source[index] === "\n") {
+    const character = model.source[index];
+    if (character === "\n" || (character === "\r" && model.source[index + 1] !== "\n")) {
       line++;
     }
   }
@@ -208,14 +252,12 @@ async function render(args, signal) {
   readerPane.hidden = view === "source";
   sourcePane.hidden = view === "read";
   surface.dataset.view = view;
-  const panes = await Promise.all([
+  const [nextReader, nextSource] = await Promise.all([
     readerPane.hidden ? null : getReader(),
-    sourcePane.hidden ? null : getSource(signal)
+    sourcePane.hidden ? null : getSource(signal),
+    applyAppearance(args, false, signal)
   ]);
   checkCancelled(signal);
-  await applyAppearance(args, false);
-  checkCancelled(signal);
-  const [nextReader, nextSource] = panes;
   const sourceLine = position?.sourceLine || (nextSource &&
     (model.headings.find(heading => heading.id === anchor)?.line ?? outlineSourceLine(model, anchor)));
   if (nextReader && deferMedia && !previewMedia) {
@@ -242,6 +284,7 @@ async function render(args, signal) {
   }
   await nextFrame();
   checkCancelled(signal);
+  publishReaderMaterial();
   return true;
 }
 
@@ -330,7 +373,8 @@ async function execute(operation, args, controller) {
       resetView();
       return true;
     case "appearance.apply":
-      await applyAppearance(args);
+      await applyAppearance(args, true, signal);
+      publishReaderMaterial();
       return true;
     case "layout.split":
       if (Number.isFinite(args.ratio)) {
@@ -394,6 +438,7 @@ function close() {
 }
 
 readerPane.addEventListener("focusin", () => { focusedView = "read"; });
+forcedColors.addEventListener("change", publishReaderMaterial);
 sourcePane.addEventListener("focusin", () => { focusedView = "source"; });
 window.addEventListener("keydown", event => {
   if (!rendered?.deferMedia || event.defaultPrevented) {

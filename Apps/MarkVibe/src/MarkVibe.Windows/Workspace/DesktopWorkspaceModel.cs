@@ -4,6 +4,7 @@
  * Human guidance: keep file data, history and revisions out of the WinUI views
  * Copyright (c) 2026 Umberto Giacobbi | License: MIT (see LICENSE)
  * VBWR E */
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using MarkVibe.Core;
@@ -22,6 +23,8 @@ internal sealed class DesktopWorkspace(LocalWorkspaceProvider provider)
     public MarkdownModel? Document { get; set; }
     public string DiskFingerprint { get; set; } = "";
     public bool InventoryReady { get; set; }
+    /// <summary>Invalidates content searches on refresh or revision independently of background metadata indexing.</summary>
+    public long ContentRevision { get; set; }
     public IReadOnlyList<string> Visits => _visits;
 
     /// <summary>Retains the bounded sequence of real document visits for the graph trail.</summary>
@@ -45,6 +48,7 @@ internal sealed class DesktopWorkspaceModel : IDisposable
     private static readonly HashSet<string> ImageTypes = new(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg" };
     private readonly MarkdownParser _parser = new();
     private readonly string _settingsPath;
+    private readonly Lazy<RecentLocations> _recent;
     private readonly SemaphoreSlim _saveGate = new(1, 1);
     private readonly Dictionary<string, ReaderAppearance> _folderAppearance = new(StringComparer.Ordinal);
     private CancellationTokenSource? _indexCancellation;
@@ -53,7 +57,7 @@ internal sealed class DesktopWorkspaceModel : IDisposable
     private readonly List<DesktopPreview> _previews = [];
 
     public NativeFiles Files { get; }
-    public RecentLocations Recent { get; }
+    public RecentLocations Recent => _recent.Value;
     public NavigationHistory History { get; } = new();
     public DesktopWorkspace? Workspace { get; private set; }
     public Preferences Preferences { get; private set; } = new();
@@ -75,14 +79,14 @@ internal sealed class DesktopWorkspaceModel : IDisposable
     public DesktopWorkspaceModel(string dataDirectory)
     {
         Files = new NativeFiles(dataDirectory);
-        Recent = new RecentLocations(dataDirectory);
+        _recent = new(() => new RecentLocations(dataDirectory));
         _settingsPath = Path.Combine(dataDirectory, "desktop-settings.json");
         try
         {
             if (File.Exists(_settingsPath) && new FileInfo(_settingsPath).Length <= 262144)
             {
                 var saved = Wire.Decode<Settings>(File.ReadAllText(_settingsPath));
-                Preferences = saved.Preferences?.Validated() ?? new();
+                Preferences = MarkVibe.Core.Preferences.RestoreGlobal(saved.Preferences);
                 Layout = saved.Layout?.Validated() ?? new();
                 foreach (var pair in (saved.FolderAppearance ?? []).Take(64))
                 {
@@ -120,7 +124,6 @@ internal sealed class DesktopWorkspaceModel : IDisposable
             token.ThrowIfCancellationRequested();
             workspace.Catalog.CompleteInitialEnumeration(fullInventory.Result);
             workspace.InventoryReady = true;
-            StartIndex();
             return;
         }
         var inventory = await workspace.Provider.EnumerateAsync(token);
@@ -135,7 +138,6 @@ internal sealed class DesktopWorkspaceModel : IDisposable
         }
         workspace.InventoryReady = true;
         await ActivateWorkspaceAsync(workspace, path, restore, token);
-        StartIndex();
     }
 
     /// <summary>Commits the new workspace only after a bounded, successful first document read.</summary>
@@ -185,6 +187,7 @@ internal sealed class DesktopWorkspaceModel : IDisposable
         token.ThrowIfCancellationRequested();
         workspace.Catalog.Seed(inventory);
         workspace.InventoryReady = true;
+        workspace.ContentRevision++;
         var available = workspace.Catalog.Cards.Select(card => card.Path).ToHashSet(StringComparer.Ordinal);
         foreach (var reference in workspace.References.Paths.Where(path => !available.Contains(path)))
         {
@@ -195,7 +198,6 @@ internal sealed class DesktopWorkspaceModel : IDisposable
             workspace.Document = null;
             workspace.DiskFingerprint = "";
         }
-        StartIndex();
     }
 
     /// <summary>Accepts a fresh on-disk revision only after the document was successfully read and parsed.</summary>
@@ -218,6 +220,7 @@ internal sealed class DesktopWorkspaceModel : IDisposable
         workspace.Catalog.ReloadFromDisk(reloaded);
         workspace.Document = reloaded;
         workspace.DiskFingerprint = reloaded.Fingerprint;
+        workspace.ContentRevision++;
         CatalogChanged?.Invoke();
     }
 
@@ -231,6 +234,7 @@ internal sealed class DesktopWorkspaceModel : IDisposable
         var revised = _parser.Parse(expected.Path, source);
         workspace.Catalog.ApplyRevision(expected, revised, action);
         workspace.Document = revised;
+        workspace.ContentRevision++;
         CatalogChanged?.Invoke();
     }
 
@@ -420,10 +424,10 @@ internal sealed class DesktopWorkspaceModel : IDisposable
         }
     }
 
-    /// <summary>Starts the catalog's bounded incremental metadata pass on its owning dispatcher.</summary>
-    private void StartIndex()
+    /// <summary>Reads metadata once per inventory when the visible Pages tree or map needs other documents.</summary>
+    public void EnsureCatalogIndex()
     {
-        if (Workspace is not { } workspace)
+        if (Workspace is not { InventoryReady: true } workspace || _indexCancellation != null)
         {
             return;
         }
@@ -434,22 +438,31 @@ internal sealed class DesktopWorkspaceModel : IDisposable
     /// <summary>Publishes bounded progress notifications while rejecting obsolete workspace results.</summary>
     private async Task IndexAsync(DesktopWorkspace workspace, CancellationToken token)
     {
-        var measuredAt = MapPerformanceProbe.Enabled ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
+        var lastPublication = Stopwatch.GetTimestamp();
+        var measuredAt = MapPerformanceProbe.Enabled ? lastPublication : 0;
         try
         {
             await workspace.Catalog.IndexAsync(workspace.Provider, (done, count) =>
             {
-                if (!token.IsCancellationRequested && Workspace == workspace && (done == count || done % 20 == 0))
+                var now = Stopwatch.GetTimestamp();
+                if (done < count && !token.IsCancellationRequested && Workspace == workspace &&
+                    Stopwatch.GetElapsedTime(lastPublication, now) >= TimeSpan.FromMilliseconds(250))
                 {
+                    lastPublication = now;
                     CatalogChanged?.Invoke();
                 }
             }, token);
+            // Completion and a budget-limited partial index both need a final projection.
+            if (!token.IsCancellationRequested && Workspace == workspace)
+            {
+                CatalogChanged?.Invoke();
+            }
             if (measuredAt != 0)
             {
                 DesktopLog.Write("info", "workspace.performance", new
                 {
-                    elapsedMs = System.Diagnostics.Stopwatch.GetElapsedTime(measuredAt).TotalMilliseconds,
-                    documents = workspace.Catalog.Cards.Count,
+                    elapsedMs = Stopwatch.GetElapsedTime(measuredAt).TotalMilliseconds,
+                    documents = workspace.Catalog.DocumentCount,
                     indexed = workspace.Catalog.IndexedCount,
                     complete = workspace.Catalog.IndexComplete
                 });

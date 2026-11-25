@@ -23,7 +23,8 @@ namespace MarkVibe.Core;
 public static class UiStrings
 {
     private sealed record Catalog(string[] Languages, Dictionary<string, string[]> Strings, Dictionary<string, string> Aliases);
-    private static readonly Catalog Messages = Load();
+    private static readonly Lazy<Catalog> Translations = new(Load);
+    private static Catalog Messages => Translations.Value;
     public static readonly string[] LanguageCodes = ["en", "it", "fr", "vi", "zh-CN", "yue-HK", "id", "ko", "ja"];
     public static string Language { get; private set; } = "en";
 
@@ -77,6 +78,10 @@ public static class UiStrings
     /// <summary>Translate a key or alias and format its optional arguments using invariant culture.</summary>
     public static string T(string key, params object? [] values)
     {
+        if (Language == "en")
+        {
+            return values.Length == 0 ? key : string.Format(CultureInfo.InvariantCulture, key, values);
+        }
         var originalKey = key;
         if (Messages.Aliases.TryGetValue(key, out var alias))
         {

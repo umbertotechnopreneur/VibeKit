@@ -98,6 +98,8 @@ public sealed class DocumentCatalog(MarkdownParser parser)
         }
     }
     public IReadOnlyCollection<DocumentSession> Sessions => _sessions.Values;
+    /// <summary>Reports inventory size without creating the sorted metadata projection.</summary>
+    public int DocumentCount => _cards.Count;
     public List<string> Warnings { get; } = new();
     public bool IndexComplete { get; private set; }
     /// <summary>Indicates that all catalog documents supplied current link metadata in a completed indexing pass.</summary>

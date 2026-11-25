@@ -170,7 +170,7 @@ public sealed class MarkdownParser
         }
 
         title = Truncate(title, 160);
-        var introduction = document.Descendants<ParagraphBlock>().Select(p => PlainInline(p.Inline)).FirstOrDefault(p => p.Length > 20) ?? "Open this page to explore its contents.";
+        var introduction = DocumentIntroduction(document);
         var blocks = new List<SourceBlock>();
         var blockIds = new Dictionary<string, int>(StringComparer.Ordinal);
         using var writer = new BoundedHtmlWriter();
@@ -230,7 +230,7 @@ public sealed class MarkdownParser
 
         var html = writer.ToString();
 
-        return new(path, title, Truncate(introduction, 240), source, html, Fingerprint(source), headings, blocks, links, source.Count(c => c == '\n') + 1)
+        return new(path, title, introduction, source, html, Fingerprint(source), headings, blocks, links, source.Count(c => c == '\n') + 1)
         {
             Elements = elements
         };
@@ -374,6 +374,45 @@ public sealed class MarkdownParser
         }
 
         return null;
+    }
+
+    /// <summary>Finds a real prose excerpt, leaving link indexes and empty documents free to show their own structure.</summary>
+    private static string DocumentIntroduction(MarkdownDocument document)
+    {
+        foreach (var paragraph in document.Descendants<ParagraphBlock>())
+        {
+            if (paragraph.Inline is not { } inline || !ContainsProse(inline))
+            {
+                continue;
+            }
+            var text = PlainInline(inline);
+            // A paragraph of repeated fill characters has no readable excerpt.
+            if (text.Length > 32 && text.AsSpan().IndexOfAnyExcept(text[0]) < 0)
+            {
+                continue;
+            }
+            return Truncate(text, 240);
+        }
+        return "";
+    }
+
+    /// <summary>Recognizes text outside a link or image label, including emphasis and inline code.</summary>
+    private static bool ContainsProse(ContainerInline inline)
+    {
+        foreach (var child in inline)
+        {
+            switch (child)
+            {
+                case LinkInline:
+                    break;
+                case LiteralInline literal when literal.Content.ToString().Any(char.IsLetterOrDigit):
+                case CodeInline code when !string.IsNullOrWhiteSpace(code.Content):
+                    return true;
+                case ContainerInline nested when ContainsProse(nested):
+                    return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>Collects visible inline text without retaining Markdown syntax or HTML.</summary>

@@ -22,12 +22,12 @@ namespace MarkVibe.Windows;
 /// <summary>Routes explicit AI requests while keeping API credentials and CLI authentication inside Windows.</summary>
 internal sealed class AiConnectionService
 {
-    private readonly CodexCliClient _codex;
+    private readonly Lazy<CodexCliClient> _codex;
 
     /// <summary>Places temporary CLI protocol files under this installation's existing application profile.</summary>
     public AiConnectionService(string profileDirectory)
     {
-        _codex = new CodexCliClient(profileDirectory);
+        _codex = new(() => new CodexCliClient(profileDirectory));
     }
 
     /// <summary>Reports local configuration only; neither provider performs a remote connection test here.</summary>
@@ -36,10 +36,16 @@ internal sealed class AiConnectionService
         cancellationToken.ThrowIfCancellationRequested();
         if (provider == AiProviders.CodexCli)
         {
-            return _codex.StatusAsync(cancellationToken);
+            return _codex.Value.StatusAsync(cancellationToken);
         }
 
         RequireApiProvider(provider);
+        return Task.FromResult(OpenAiStatus());
+    }
+
+    /// <summary>Reports native key storage without constructing a connection or making a request.</summary>
+    public static AiConnectionStatus OpenAiStatus()
+    {
         var status = OpenAiKeySettings.Status();
         string message;
         if (!status.StorageAvailable)
@@ -55,7 +61,7 @@ internal sealed class AiConnectionService
             message = "Enter an API key and use Test to validate and save it.";
         }
 
-        return Task.FromResult(new AiConnectionStatus(provider, status.Configured, status.StorageAvailable, message));
+        return new(AiProviders.ApiKey, status.Configured, status.StorageAvailable, message);
     }
 
     /// <summary>Tests the provider; a candidate API key replaces the saved key only after successful validation.</summary>
@@ -65,20 +71,12 @@ internal sealed class AiConnectionService
         {
             if (provider == AiProviders.CodexCli)
             {
-                return await _codex.TestAsync(cancellationToken);
+                return await _codex.Value.TestAsync(cancellationToken);
             }
 
             RequireApiProvider(provider);
-            if (string.IsNullOrWhiteSpace(apiKey))
-            {
-                await MarkdownAiClient.ModelsAsync(cancellationToken);
-            }
-            else
-            {
-                await OpenAiKeySettings.ValidateAndSaveAsync(apiKey, cancellationToken);
-            }
-
-            return new(true, "OpenAI accepted the API key and returned its model list.");
+            await OpenAiKeySettings.ProbeAsync(apiKey, OpenAiKeyRules.DiagnosticPrompt, cancellationToken);
+            return new(true, "OpenAI returned a test reply.");
         }
         catch (WorkspaceException error)
         {
@@ -92,7 +90,7 @@ internal sealed class AiConnectionService
     {
         if (provider == AiProviders.CodexCli)
         {
-            return _codex.ModelsAsync(cancellationToken);
+            return _codex.Value.ModelsAsync(cancellationToken);
         }
 
         RequireApiProvider(provider);
@@ -104,7 +102,7 @@ internal sealed class AiConnectionService
     {
         if (provider == AiProviders.CodexCli)
         {
-            return _codex.PrepareAsync(request, cancellationToken);
+            return _codex.Value.PrepareAsync(request, cancellationToken);
         }
 
         RequireApiProvider(provider);
@@ -116,7 +114,7 @@ internal sealed class AiConnectionService
     {
         if (provider == AiProviders.CodexCli)
         {
-            return _codex.EditAsync(request, cancellationToken);
+            return _codex.Value.EditAsync(request, cancellationToken);
         }
 
         RequireApiProvider(provider);

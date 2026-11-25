@@ -6,6 +6,7 @@
  * VBWR E */
 using System.Reflection;
 using MarkVibe.Core;
+using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
@@ -16,6 +17,7 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.ApplicationModel;
 using Windows.Storage;
+using Windows.System;
 using Windows.UI.ViewManagement;
 using static MarkVibe.Core.UiStrings;
 
@@ -33,12 +35,16 @@ internal static class WindowsPublication
     public const string License = Repository + "/blob/main/LICENSE";
 
     /// <summary>Creates a native hyperlink whose destination can open only on activation.</summary>
-    public static HyperlinkButton Link(string label, string url) => new()
+    public static HyperlinkButton Link(string label, string url)
     {
-        Content = T(label),
-        NavigateUri = new Uri(url),
-        Padding = new Thickness(8, 4, 8, 4)
-    };
+        var text = T(label);
+        var link = new HyperlinkButton
+        {
+            Content = text, NavigateUri = new Uri(url), Padding = new Thickness(8, 4, 8, 4)
+        };
+        ToolTipService.SetToolTip(link, text);
+        return link;
+    }
 
     /// <summary>Displays the running packaged version, or the executable's version during development.</summary>
     public static string Version()
@@ -60,10 +66,12 @@ internal static class WindowsPublication
 /// <summary>Provides persistent footer space with links revealed on pointer or keyboard use.</summary>
 internal sealed class WindowsFooter : UserControl
 {
+    private const int LinkCount = 5;
     private readonly DispatcherTimer _idle = new() { Interval = TimeSpan.FromSeconds(30) };
-    private readonly NativeWrapPanel _links = new() { HorizontalAlignment = HorizontalAlignment.Center };
+    private readonly Grid _links = new() { ColumnSpacing = 4, RowSpacing = 2, HorizontalAlignment = HorizontalAlignment.Center };
     private Storyboard? _fade;
     private bool _pointerInside;
+    private int _linksPerRow;
 
     /// <summary>Lets the application shell coordinate About with its other dialogs.</summary>
     public event Action? AboutRequested;
@@ -74,6 +82,7 @@ internal sealed class WindowsFooter : UserControl
         var surface = new Grid { Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent) };
         surface.Children.Add(_links);
         Content = surface;
+        FitWidth(double.PositiveInfinity);
         Populate();
 
         Loaded += OnLoaded;
@@ -85,17 +94,61 @@ internal sealed class WindowsFooter : UserControl
         _idle.Tick += FadeAfterIdle;
     }
 
+    /// <summary>Reserves native auto-sized rows from the shell's available footer width.</summary>
+    public void FitWidth(double width)
+    {
+        var columns = width switch
+        {
+            >= 520 => 5,
+            >= 360 => 3,
+            >= 265 => 2,
+            _ => 1
+        };
+        if (_linksPerRow == columns)
+        {
+            return;
+        }
+
+        _linksPerRow = columns;
+        _links.ColumnDefinitions.Clear();
+        for (var index = 0; index < columns; index++)
+        {
+            _links.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        }
+        _links.RowDefinitions.Clear();
+        var rows = (LinkCount + columns - 1) / columns;
+        for (var index = 0; index < rows; index++)
+        {
+            _links.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        }
+        PlaceLinks();
+    }
+
     /// <summary>Displays translated captions and leaves every link independently keyboard-accessible.</summary>
     private void Populate()
     {
         _links.Children.Clear();
         var about = new HyperlinkButton { Content = T("About MarkVibe"), Padding = new Thickness(8, 4, 8, 4) };
+        ToolTipService.SetToolTip(about, T("About MarkVibe"));
         about.Click += (_, _) => AboutRequested?.Invoke();
         _links.Children.Add(about);
         _links.Children.Add(WindowsPublication.Link("Terms", WindowsPublication.Terms));
         _links.Children.Add(WindowsPublication.Link("Privacy", WindowsPublication.Privacy));
         _links.Children.Add(WindowsPublication.Link("VibeWare", WindowsPublication.Initiative));
         _links.Children.Add(WindowsPublication.Link("Manifesto", WindowsPublication.Manifesto));
+        PlaceLinks();
+        WindowsUiFont.ApplyTo(_links);
+    }
+
+    /// <summary>Places links in reading and tab order without rebuilding controls during resize.</summary>
+    private void PlaceLinks()
+    {
+        for (var index = 0; index < _links.Children.Count; index++)
+        {
+            var link = (HyperlinkButton)_links.Children[index];
+            Grid.SetRow(link, index / _linksPerRow);
+            Grid.SetColumn(link, index % _linksPerRow);
+        }
     }
 
     /// <summary>Subscribes for localization only as long as the footer is on screen.</summary>
@@ -209,12 +262,15 @@ internal static class WindowsAboutDialog
 
         var title = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Center };
         title.Children.Add(icon);
-        title.Children.Add(new TextBlock { Text = "MarkVibe", FontSize = 28, VerticalAlignment = VerticalAlignment.Center });
-        var contents = new StackPanel { Spacing = 10 };
+        title.Children.Add(new TextBlock
+        {
+            Text = "MarkVibe", FontSize = 28, FontWeight = FontWeights.Light, VerticalAlignment = VerticalAlignment.Center
+        });
+        var contents = new StackPanel { Spacing = 10, Margin = new Thickness(12, 0, 12, 0) };
         contents.Children.Add(title);
         contents.Children.Add(Copy(T("Version") + " " + WindowsPublication.Version(), 13));
-        contents.Children.Add(Copy(T("I built MarkVibe to read local Markdown, explore links between documents, and make the workspace my own."), 15));
-        contents.Children.Add(Copy(T("I created this software with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security."), 13));
+        contents.Children.Add(Copy(T("I built MarkVibe to read local Markdown, explore links between documents, and make the workspace my own."), 14));
+        contents.Children.Add(Copy(T("I created this software with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security."), 14));
         contents.Children.Add(Copy("Umberto Giacobbi", 14));
         contents.Children.Add(badgeLink);
         contents.Children.Add(Copy("Human intent, AI execution, and plenty of tokens", 13));
@@ -232,23 +288,52 @@ internal static class WindowsAboutDialog
             AddDiagnostics(contents, emailDiagnostics);
         }
 
+        var scroll = WindowsDialogs.Scroll(contents);
+        AutomationProperties.SetName(scroll, T("About MarkVibe"));
         var dialog = new ContentDialog
         {
             XamlRoot = root,
-            Title = T("About MarkVibe"),
-            Content = new ScrollViewer { Content = contents, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = Math.Max(180, root.Size.Height - 200) },
+            Content = scroll,
             CloseButtonText = T("Close"),
             DefaultButton = ContentDialogButton.Close
         };
+        WindowsDialogs.SetTitle(dialog, T("About MarkVibe"));
+        dialog.PreviewKeyDown += (_, args) => ScrollAboutOnPageKey(scroll, args);
         dialog.Opened += async (_, _) => await Task.WhenAll(LoadImageAsync(icon, "favicon.svg", svg: true), LoadImageAsync(badge, "images/vibeware-logo.png", svg: false));
-        await dialog.ShowAsync();
+        await WindowsDialogs.ShowScrollableAsync(dialog, scroll, 620);
+    }
+
+    /// <summary>Scrolls the About body from the keyboard while focus stays on its current control.</summary>
+    private static void ScrollAboutOnPageKey(ScrollViewer scroll, KeyRoutedEventArgs args)
+    {
+        var current = scroll.VerticalOffset;
+        var limit = scroll.ScrollableHeight;
+        double? offset = args.Key switch
+        {
+            VirtualKey.PageUp => current - scroll.ViewportHeight,
+            VirtualKey.PageDown => current + scroll.ViewportHeight,
+            VirtualKey.Home => 0,
+            VirtualKey.End => limit,
+            _ => null
+        };
+        if (offset is double requested)
+        {
+            var target = Math.Clamp(requested, 0, limit);
+            if (target != current)
+            {
+                args.Handled = scroll.ChangeView(null, target, null, disableAnimation: true);
+            }
+        }
     }
 
     /// <summary>Creates an exactly proportioned local image within the publication dialog.</summary>
     private static Image CreateImage(double size) => new() { Width = size, Height = size, Stretch = Stretch.Uniform, IsHitTestVisible = false };
 
     /// <summary>Renders a line of About content with wrapping enabled for narrow windows.</summary>
-    private static TextBlock Copy(string text, double size) => new() { Text = text, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, FontSize = size };
+    private static TextBlock Copy(string text, double size) => new()
+    {
+        Text = text, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, FontSize = size, FontWeight = FontWeights.Normal
+    };
 
     /// <summary>Loads the original staged logo or product icon only when About is opened.</summary>
     private static async Task LoadImageAsync(Image target, string relative, bool svg)

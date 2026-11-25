@@ -16,22 +16,27 @@
  *
  * VBWR E */
 
-import catalog from "../src/MarkVibe.Core/Localization/strings.json";
-
 let language = "en";
 let nativeLanguage = "";
+let catalog;
+let catalogPromise;
+let languageRevision = 0;
 
 /** Remember the native host language before browser locale negotiation. */
 export function setSystemLanguage(value) {
   nativeLanguage = value || "";
 }
 
-/** Resolve supported locales, keeping Cantonese distinct from Mandarin. */
-export function resolveLanguage(preference = "system") {
-  const candidates = preference === "system"
+/** Order explicit or host and browser language preferences before loading translations. */
+function languageCandidates(preference) {
+  return (preference === "system"
     ? [nativeLanguage, ...(navigator.languages || []), navigator.language]
-    : [preference];
-  for (const candidate of candidates.filter(Boolean)) {
+    : [preference]).filter(Boolean);
+}
+
+/** Resolve supported locales, keeping Cantonese distinct from Mandarin. */
+function resolveLanguage(candidates) {
+  for (const candidate of candidates) {
     const locale = candidate.toLowerCase();
     if (locale.startsWith("yue") || ["zh-hk", "zh-mo"].includes(locale)) {
       return "yue-HK";
@@ -41,17 +46,26 @@ export function resolveLanguage(preference = "system") {
     }
 
     const neutralLanguage = locale.split("-")[0];
-    if (["en", ...catalog.languages].includes(neutralLanguage)) {
+    if (neutralLanguage === "en" || catalog?.languages.includes(neutralLanguage)) {
       return neutralLanguage;
     }
   }
   return "en";
 }
 
-/** Update document language and notify DOM hosts only when it changes. */
-export function setLanguage(preference) {
+/** Load translations only for a non-English candidate and apply only the latest language request. */
+export async function setLanguage(preference = "system") {
+  const revision = ++languageRevision;
+  const candidates = languageCandidates(preference);
+  if (candidates.length && candidates[0].toLowerCase().split("-")[0] !== "en" && !catalog) {
+    catalogPromise ??= import("../src/MarkVibe.Core/Localization/strings.json").then(module => module.default);
+    catalog = await catalogPromise;
+  }
+  if (revision !== languageRevision) {
+    return language;
+  }
   const previousLanguage = language;
-  language = resolveLanguage(preference);
+  language = resolveLanguage(candidates);
   document.documentElement.lang = language;
   if (previousLanguage !== language) {
     window.dispatchEvent(new CustomEvent("markvibe-language-changed"));
@@ -62,8 +76,8 @@ export function setLanguage(preference) {
 /** Translate catalog aliases and numbered placeholders, retaining missing keys. */
 export function t(key, ...values) {
   const originalKey = key;
-  key = catalog.aliases?.[key] || key;
-  const languageIndex = catalog.languages.indexOf(language);
+  key = catalog?.aliases?.[key] || key;
+  const languageIndex = catalog?.languages.indexOf(language) ?? -1;
   const text = languageIndex >= 0
     ? catalog.strings[key]?.[languageIndex] ?? originalKey
     : originalKey;

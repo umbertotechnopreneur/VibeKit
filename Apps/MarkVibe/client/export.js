@@ -21,7 +21,7 @@ import { readExportImage } from "./workspaces.js";
 import { WorkspaceError, checkCancelled, limits, resourceUrl } from "./path.js";
 import { nativeCall } from "./native.js";
 import { t } from "./i18n.js";
-import { resolveReaderTheme, decorateThemeArticle } from "./themes.js";
+import { resolveReaderTheme, decorateThemeArticle, loadReaderThemeAssets } from "./themes.js";
 
 const maximumBytes = 32 * 1048576;
 const svgNamespace = "http://www.w3.org/2000/svg";
@@ -77,7 +77,10 @@ async function prepareDocument(model, workspaceId, preferences, signal, expandDe
   checkCancelled(signal);
   const output = document.implementation.createHTMLDocument(model.title);
   output.documentElement.lang = document.documentElement.lang || "en";
-  const theme = resolveReaderTheme(preferences, document.documentElement.dataset.theme);
+  const mode = document.documentElement.dataset.theme;
+  await loadReaderThemeAssets(preferences, mode);
+  checkCancelled(signal);
+  const theme = resolveReaderTheme(preferences, mode);
   output.body.classList.add("reader");
   output.documentElement.dataset.documentStyle = ["technical", "editorial", "compact"].includes(preferences.documentStyle) ? preferences.documentStyle : "technical";
   const charset = output.createElement("meta");

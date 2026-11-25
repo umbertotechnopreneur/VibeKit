@@ -16,7 +16,6 @@
  *
  * VBWR E */
 
-import catalog from "../src/MarkVibe.Core/Presentation/themes.json";
 import previewAtomLight from "./themes/preview/atom-light.css.txt";
 import previewGithubLight from "./themes/preview/github-light.css.txt";
 import previewGothic from "./themes/preview/gothic.css.txt";
@@ -100,4 +99,4 @@ export const codeStyles = {
   "xonokai": codeXonokai
 };
 
-export { catalog };
+export { default as themeNotices } from "../THIRD-PARTY-NOTICES.txt";

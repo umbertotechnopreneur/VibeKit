@@ -5,15 +5,19 @@
  * Copyright (c) 2026 Umberto Giacobbi | License: MIT (see LICENSE)
  * VBWR E */
 using System.Diagnostics;
+using System.Numerics;
 
 namespace MarkVibe.Windows;
 
 /// <summary>Collects bounded UI-thread draw timings only for explicitly opted-in local performance runs.</summary>
 internal sealed class MapPerformanceProbe
 {
-    private const int Capacity = 128;
+    private const int Capacity = 32;
     private readonly double[] _draw = new double[Capacity];
     private readonly double[] _interval = new double[Capacity];
+    private readonly float[] _scales = new float[Capacity];
+    private readonly float[] _translationX = new float[Capacity];
+    private readonly float[] _translationY = new float[Capacity];
     private int _count;
     private string _stage = "";
     private long _previous;
@@ -27,8 +31,12 @@ internal sealed class MapPerformanceProbe
     /// <summary>Returns no collector and allocates no sample buffers during ordinary application use.</summary>
     internal static MapPerformanceProbe? Create() => Enabled ? new() : null;
 
+    /// <summary>Excludes the idle time between separate gestures from callback intervals.</summary>
+    internal void ResetInterval() => _previous = 0;
+
     /// <summary>Records one completed draw; intervals describe callbacks during a gesture, not GPU presentation or FPS.</summary>
-    internal void Record(string stage, long started, long allocatedBefore, int nodes, int edges)
+    internal void Record(string stage, long started, long allocatedBefore, int nodes, int edges,
+        float scale, Vector2 translation)
     {
         var finished = Stopwatch.GetTimestamp();
         var allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
@@ -41,6 +49,9 @@ internal sealed class MapPerformanceProbe
         _nodes = nodes;
         _edges = edges;
         _draw[_count] = Stopwatch.GetElapsedTime(started, finished).TotalMilliseconds;
+        _scales[_count] = scale;
+        _translationX[_count] = translation.X;
+        _translationY[_count] = translation.Y;
         _interval[_count] = _previous == 0 ? 0 : Stopwatch.GetElapsedTime(_previous, started).TotalMilliseconds;
         _previous = started;
         _allocated += allocated;
@@ -65,6 +76,9 @@ internal sealed class MapPerformanceProbe
             edges = _edges,
             drawMs = _draw[.._count],
             intervalMs = _interval[.._count],
+            scale = _scales[.._count],
+            translationX = _translationX[.._count],
+            translationY = _translationY[.._count],
             allocatedBytes = _allocated
         });
         _count = 0;

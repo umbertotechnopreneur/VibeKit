@@ -26,6 +26,7 @@ internal sealed partial class DocumentWebView : IDisposable
     private static readonly TimeSpan StartupTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan ActionTimeout = TimeSpan.FromMinutes(5);
     private readonly DesktopOptions _options;
+    private readonly Func<Task<CoreWebView2Environment>> _getEnvironment;
     private readonly CancellationTokenSource _lifetime;
     private readonly CancellationToken _lifetimeToken;
     private readonly string _capability = Guid.NewGuid().ToString("N");
@@ -39,12 +40,16 @@ internal sealed partial class DocumentWebView : IDisposable
     private bool _disposed;
 
     /// <summary>Creates the visual container without starting WebView2 or reading disk assets.</summary>
-    public DocumentWebView(DesktopOptions options, CancellationToken lifetime)
+    public DocumentWebView(DesktopOptions options, Func<Task<CoreWebView2Environment>> getEnvironment, CancellationToken lifetime)
     {
         _options = options;
+        _getEnvironment = getEnvironment;
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(lifetime);
         _lifetimeToken = _lifetime.Token;
+        View.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        View.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         View.Children.Add(Control);
+        InitializePaperMargin();
         AutomationProperties.SetName(Control, "Markdown document");
     }
 
@@ -52,7 +57,7 @@ internal sealed partial class DocumentWebView : IDisposable
     public Grid View { get; } = new();
 
     /// <summary>The visible control used to anchor native document context popups.</summary>
-    public WebView2 Control { get; } = new();
+    public WebView2 Control { get; } = new() { DefaultBackgroundColor = Microsoft.UI.Colors.Transparent };
 
     /// <summary>Handles file and export requests delegated to the current native workspace.</summary>
     public Func<string, JsonElement, CancellationToken, Task<object?>>? HandleNativeRequest { get; set; }
@@ -80,6 +85,7 @@ internal sealed partial class DocumentWebView : IDisposable
         string anchor, ReadingPosition? position, ShellLayout layout, bool dark, CancellationToken token = default, bool deferMedia = false)
     {
         var snapshot = view == "read" ? document with { Source = "" } : document;
+        SetPaperMargin(view, layout.SourceRatio);
         return CallAsync("view.render", new { workspace, document = snapshot, view, preferences, anchor, position, layout, dark, deferMedia }, token);
     }
 
@@ -118,6 +124,19 @@ internal sealed partial class DocumentWebView : IDisposable
         }
     }
 
+    /// <summary>Starts the window's private WebView environment, shared by reader, previews and printing.</summary>
+    internal static async Task<CoreWebView2Environment> CreateEnvironmentAsync(DesktopOptions options)
+    {
+        var arguments = "--no-first-run";
+        if (options.DebugPort != 0)
+        {
+            arguments += " --remote-debugging-address=127.0.0.1 --remote-debugging-port=" + options.DebugPort;
+        }
+        var userData = Path.Combine(options.DataDirectory, "WebView2.WinUI");
+        return await CoreWebView2Environment.CreateWithOptionsAsync(null, userData,
+            new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = arguments });
+    }
+
     /// <summary>Loads only the bundled document page in a separate profile with explicit navigation and permissions.</summary>
     private async Task InitializeAsync()
     {
@@ -125,15 +144,7 @@ internal sealed partial class DocumentWebView : IDisposable
         {
             throw new IOException("The bundled document renderer is missing. Rebuild MarkVibe.");
         }
-
-        var arguments = "--no-first-run";
-        if (_options.DebugPort != 0)
-        {
-            arguments += " --remote-debugging-address=127.0.0.1 --remote-debugging-port=" + _options.DebugPort;
-        }
-        var userData = Path.Combine(_options.DataDirectory, "WebView2.WinUI");
-        _environment = await CoreWebView2Environment.CreateWithOptionsAsync(null, userData,
-            new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = arguments });
+        _environment = await _getEnvironment();
         _lifetimeToken.ThrowIfCancellationRequested();
         await Control.EnsureCoreWebView2Async(_environment);
         _lifetimeToken.ThrowIfCancellationRequested();
@@ -228,7 +239,8 @@ internal sealed partial class DocumentWebView : IDisposable
                     CompleteRendererCall(message);
                     break;
                 case "event" when message.TryGetProperty("event", out var rendererEvent) && rendererEvent.ValueKind == JsonValueKind.Object:
-                    EventReceived?.Invoke(rendererEvent.Clone());
+                    if (Text(rendererEvent, "type") == "reader-material") { await ApplyPaperMaterialAsync(rendererEvent); }
+                    else { EventReceived?.Invoke(rendererEvent.Clone()); }
                     break;
                 default:
                     await RouteNativeRequestAsync(message);
@@ -375,6 +387,8 @@ internal sealed partial class DocumentWebView : IDisposable
             return;
         }
         _disposed = true;
+        _paperEdge.SizeChanged -= PaperEdgeSizeChanged;
+        Control.SizeChanged -= PaperEdgeSizeChanged;
         _lifetime.Cancel();
         _print?.Close();
         Control.Close();

@@ -26,6 +26,7 @@ VBWR E -->
     <WindowsSdkPackageVersion>10.0.19041.57</WindowsSdkPackageVersion>
     <OutputType>WinExe</OutputType>
     <UseWinUI>true</UseWinUI>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <EnableMsixTooling>false</EnableMsixTooling>
@@ -58,6 +59,7 @@ VBWR E -->
     <None Update="Rendering/web/css/content.css" Link="Rendering/web/css/content.css" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/css/content.css" />
     <None Update="Rendering/web/favicon.svg" Link="Rendering/web/favicon.svg" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/favicon.svg" />
     <None Update="Rendering/web/images/*" Link="Rendering/web/images/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/images/%(Filename)%(Extension)" />
+    <Content Update="Rendering/web/images/*.png" Link="app/images/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/images/%(Filename)%(Extension)" />
     <None Update="Rendering/web/icons/appbar/*" Link="Rendering/web/icons/appbar/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/icons/appbar/%(Filename)%(Extension)" />
     <None Update="Rendering/web/demo/**/*" Link="Rendering/web/demo/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="app/demo/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>

@@ -4,13 +4,33 @@
  * Human guidance: reserve the web surface for Markdown and Monaco
  * Copyright (c) 2026 Umberto Giacobbi | License: MIT (see LICENSE)
  * VBWR E */
-:root { color-scheme: light; background: #fff; }
-:root[data-theme="dark"] { color-scheme: dark; background: #181b20; }
+:root {
+  color-scheme: light;
+  --panel: #fff;
+  --text: #20283a;
+  --muted: #596579;
+  --line: #dde2ea;
+  --accent: #525ce8;
+  --accent-soft: #eceefe;
+  --code: #f3f5fa;
+  background: transparent;
+  color: var(--text);
+}
+:root[data-theme="dark"] {
+  --panel: #191d23;
+  --text: #edf0f5;
+  --muted: #afb5c1;
+  --line: #30353f;
+  --accent: #a894f9;
+  --accent-soft: #252333;
+  --code: #14171c;
+}
 html, body, #surface { margin: 0; width: 100%; height: 100%; overflow: hidden; }
 #surface { display: grid; grid-template-columns: minmax(0, 1fr); }
+:root[data-theme="dark"] #surface { color-scheme: dark; }
 #surface[data-view="split"] { grid-template-columns: minmax(0, var(--source-width, 50%)) minmax(0, 1fr); }
 #source, #reader { position: relative; min-width: 0; min-height: 0; }
 #source { grid-row: 1; grid-column: 1; }
 #reader { grid-row: 1; grid-column: 1; }
-#surface[data-view="split"] #reader { grid-column: 2; border-inline-start: 1px solid #80808060; }
+#surface[data-view="split"] #reader { grid-column: 2; }
 [hidden] { display: none !important; }

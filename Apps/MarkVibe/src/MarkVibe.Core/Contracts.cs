@@ -113,7 +113,7 @@ public sealed record Preferences(
     bool SimpleSource = false,
     bool RememberLastDocument = true,
     string Language = "system",
-    bool Acrylic = true,
+    bool Acrylic = false,
     string LightDocumentTheme = "markvibe",
     string DarkDocumentTheme = "markvibe",
     string LightCodeTheme = "auto",
@@ -121,9 +121,21 @@ public sealed record Preferences(
     string UiFont = "system",
     string AiProvider = AiProviders.ApiKey,
     bool UnderlineLinks = true,
-    string DocumentFont = "system"
+    string DocumentFont = "system",
+    string GraphFont = "system",
+    string GraphPalette = "system",
+    string Paper = ReaderPaper.Default
 )
 {
+    /// <summary>Loads the global settings file; the previous global "none" was written automatically before a paper was chosen.</summary>
+    public static Preferences RestoreGlobal(Preferences? stored)
+    {
+        if (stored == null) { return new(); }
+        // The paper picker writes explicit choices to ReaderAppearance for the workspace, never to this global field.
+        var preferences = stored.Paper == ReaderPaper.ThemeBackground ? stored with { Paper = ReaderPaper.Default } : stored;
+        return preferences.Validated();
+    }
+
     /// <summary>Returns preferences with supported choices and bounded zoom while retaining the existing defaults.</summary>
     public Preferences Validated() => this with
     {
@@ -137,6 +149,9 @@ public sealed record Preferences(
         DarkCodeTheme = ReaderThemes.CodeId(DarkCodeTheme, "dark"),
         UiFont = UiFontCatalog.Normalize(UiFont),
         DocumentFont = UiFontCatalog.Normalize(DocumentFont),
+        Paper = ReaderPaper.Normalize(Paper),
+        GraphFont = UiFontCatalog.Normalize(GraphFont),
+        GraphPalette = GraphThemeCatalog.Normalize(GraphPalette),
         AiProvider = AiProviders.Normalize(AiProvider)
     };
 }
@@ -148,7 +163,8 @@ public sealed record ReaderAppearance(
     string LightCodeTheme,
     string DarkCodeTheme,
     bool UnderlineLinks,
-    string DocumentFont
+    string DocumentFont,
+    string? Paper = null
 )
 {
     /// <summary>Captures a folder's effective reader choices without copying unrelated global settings.</summary>
@@ -158,7 +174,8 @@ public sealed record ReaderAppearance(
         preferences.LightCodeTheme,
         preferences.DarkCodeTheme,
         preferences.UnderlineLinks,
-        preferences.DocumentFont);
+        preferences.DocumentFont,
+        preferences.Paper);
 
     /// <summary>Applies folder choices while retaining the global language, shell appearance and provider.</summary>
     public Preferences ApplyTo(Preferences preferences) => (preferences with
@@ -168,7 +185,8 @@ public sealed record ReaderAppearance(
         LightCodeTheme = LightCodeTheme,
         DarkCodeTheme = DarkCodeTheme,
         UnderlineLinks = UnderlineLinks,
-        DocumentFont = DocumentFont
+        DocumentFont = DocumentFont,
+        Paper = Paper ?? preferences.Paper
     }).Validated();
 }
 

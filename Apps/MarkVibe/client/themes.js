@@ -18,12 +18,13 @@
  *
  * VBWR E */
 
-import { catalog, previewStyles, codeStyles } from "./theme-assets.js";
+import catalog from "../src/MarkVibe.Core/Presentation/themes.json";
 import monospaceFamilies from "../src/MarkVibe.Core/Presentation/ui-fonts.json";
-import themeNotices from "../THIRD-PARTY-NOTICES.txt";
 
 export const readerThemeCatalog = catalog;
 const compiled = new Map();
+let assets;
+let assetsPromise;
 // The repeated class outranks the host's Technical/Editorial/Compact rules
 // without changing its viewport width, responsive padding or source anchors.
 const documentScope = ".markdown.mv-document-theme.mv-document-theme.mv-document-theme";
@@ -123,7 +124,7 @@ function compileCss(kind, themeId) {
     return compiled.get(cacheKey);
   }
 
-  const sourceStyles = (kind === "document" ? previewStyles : codeStyles)[themeId];
+  const sourceStyles = (kind === "document" ? assets?.previewStyles : assets?.codeStyles)?.[themeId];
   if (!sourceStyles) {
     return "";
   }
@@ -136,17 +137,32 @@ function compileCss(kind, themeId) {
   return css;
 }
 
-/** Resolve independent mode preferences into the same reader and export styles. */
-export function resolveReaderTheme(preferences = {}, mode = "light") {
-  mode = mode === "dark" ? "dark" : "light";
+/** Share the chosen CSS identifiers between the live reader, exports and asset preparation. */
+function themeSelection(preferences, mode) {
   const documentTheme = findTheme("document", preferences[mode + "DocumentTheme"], mode, "markvibe");
   const selectedCode = findTheme("code", preferences[mode + "CodeTheme"], mode, "auto");
   const codeId = selectedCode.id === "auto" ? documentTheme.codeTheme : selectedCode.id;
+  return { documentTheme, codeId };
+}
+
+/** Load optional styles and their notices only when a selected theme uses them. */
+export function loadReaderThemeAssets(preferences = {}, mode = "light") {
+  const { documentTheme, codeId } = themeSelection(preferences, mode === "dark" ? "dark" : "light");
+  if (assets || documentTheme.id === "markvibe" && codeId === "auto") {
+    return;
+  }
+  return assetsPromise ??= import("./theme-assets.js").then(module => { assets = module; });
+}
+
+/** Resolve independent mode preferences into the same reader and export styles. */
+export function resolveReaderTheme(preferences = {}, mode = "light") {
+  mode = mode === "dark" ? "dark" : "light";
+  const { documentTheme, codeId } = themeSelection(preferences, mode);
   const palette = documentTheme.palette || null;
   const documentCss = documentTheme.id === "markvibe" ? "" : compileCss("document", documentTheme.id);
   const codeCss = codeId === "auto" ? "" : compileCss("code", codeId);
   const notices = documentCss || codeCss
-    ? "/*!\n" + themeNotices.replaceAll("*/", "* /") + "\n*/"
+    ? "/*!\n" + assets.themeNotices.replaceAll("*/", "* /") + "\n*/"
     : "";
   const resetTokens = codeCss
     ? `${codeScope} pre>code{color:inherit;background:transparent;font-family:inherit}`

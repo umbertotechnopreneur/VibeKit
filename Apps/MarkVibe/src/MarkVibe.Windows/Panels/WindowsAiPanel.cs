@@ -5,6 +5,7 @@
  * Copyright (c) 2026 Umberto Giacobbi | License: MIT (see LICENSE)
  * VBWR E */
 using MarkVibe.Core;
+using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
@@ -42,12 +43,18 @@ internal sealed class WindowsAiPanel : UserControl
     private readonly Button _redo = ButtonFor("Redo");
     private readonly Button _save = ButtonFor("Save a copy");
     private readonly Button _restore = ButtonFor("Restore original Markdown");
-    private readonly Button _close = ButtonFor("Close assistant");
+    private readonly Button _close = new()
+    {
+        Content = new SymbolIcon(Symbol.Cancel), MinWidth = 36, MinHeight = 36, Padding = new Thickness(6),
+        HorizontalAlignment = HorizontalAlignment.Right
+    };
     private readonly Button _addCurrentReference = ButtonFor("Add current document");
     private readonly Button _wholeDocument = ButtonFor("Use whole document");
     private readonly Button _clearReferences = ButtonFor("Clear references");
     private readonly StackPanel _references = new() { Spacing = 3 };
     private readonly ContentControl _referenceItems = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
+    private readonly NativeWrapPanel _modelControls;
+    private readonly NativeWrapPanel _revisionActions;
     private IReadOnlyList<WindowsAiReferenceRow> _presentedReferences = [];
     private bool _rendering;
 
@@ -82,12 +89,18 @@ internal sealed class WindowsAiPanel : UserControl
     public WindowsAiPanel(WindowsAiSession session)
     {
         _session = session;
+        _modelControls = Actions(_model, _effort);
+        _revisionActions = Actions(_undo, _redo, _save, _restore);
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
+        AutomationProperties.SetAutomationId(_close, "AssistantCloseButton");
+        AutomationProperties.SetName(_close, T("Close assistant"));
+        WindowsDialogs.SetButtonDescription(_close, T("Close assistant"));
         Content = Layout();
         Loaded += (_, _) =>
         {
             _session.Changed += Render;
             Render();
+            WindowsUiFont.ApplyTo(this);
         };
         Unloaded += (_, _) => _session.Changed -= Render;
 
@@ -133,20 +146,34 @@ internal sealed class WindowsAiPanel : UserControl
         };
     }
 
-    /// <summary>Places response, editing controls, references and usage in one resizable native panel.</summary>
-    private ScrollViewer Layout()
+    /// <summary>Reserves the title and Close action while the assistant controls scroll.</summary>
+    private Grid Layout()
     {
-        var panel = new StackPanel { Spacing = 8, Margin = new Thickness(12) };
-        panel.Children.Add(Actions(Label("AI Assistant", 18), _close));
+        var root = new Grid { Padding = new Thickness(12), RowSpacing = 10 };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition());
+        var header = new Grid { ColumnSpacing = 8 };
+        header.ColumnDefinitions.Add(new ColumnDefinition());
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var title = Label("AI Assistant", 20);
+        title.FontWeight = FontWeights.Light;
+        title.VerticalAlignment = VerticalAlignment.Center;
+        AutomationProperties.SetHeadingLevel(title, AutomationHeadingLevel.Level2);
+        header.Children.Add(title);
+        Grid.SetColumn(_close, 1);
+        header.Children.Add(_close);
+        root.Children.Add(header);
+
+        var panel = new StackPanel { Spacing = 8, Margin = new Thickness(0, 0, 10, 0) };
         panel.Children.Add(_target);
         panel.Children.Add(Actions(_check, _settings, _wholeDocument));
         panel.Children.Add(_response);
-        panel.Children.Add(Actions(_preview));
+        panel.Children.Add(_preview);
         panel.Children.Add(_prompt);
-        panel.Children.Add(Actions(_model, _effort));
+        panel.Children.Add(_modelControls);
         panel.Children.Add(Actions(_send, _cancel, _waiting));
         panel.Children.Add(_status);
-        panel.Children.Add(Actions(_undo, _redo, _save, _restore));
+        panel.Children.Add(_revisionActions);
 
         var collection = new StackPanel { Spacing = 4 };
         collection.Children.Add(Label("Add Markdown files from the workspace or map.", 12));
@@ -155,8 +182,15 @@ internal sealed class WindowsAiPanel : UserControl
         collection.Children.Add(Actions(_addCurrentReference, _clearReferences));
         panel.Children.Add(new Expander { Header = T("Reference documents"), Content = collection, HorizontalAlignment = HorizontalAlignment.Stretch });
         panel.Children.Add(new Expander { Header = T("Token usage"), Content = _usage, HorizontalAlignment = HorizontalAlignment.Stretch });
-        return new ScrollViewer { Content = panel, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        var scroll = WindowsDialogs.Scroll(panel);
+        scroll.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        Grid.SetRow(scroll, 1);
+        root.Children.Add(scroll);
+        return root;
     }
+
+    /// <summary>Provides a visible keyboard target after the full-width compact pane opens.</summary>
+    public void FocusClose() => _close.Focus(FocusState.Programmatic);
 
     /// <summary>Applies an immutable snapshot while suppressing callbacks from programmatic control updates.</summary>
     private void Render()
@@ -167,7 +201,9 @@ internal sealed class WindowsAiPanel : UserControl
         {
             _target.Text = T(state.Target);
             _status.Text = T(state.Status);
+            _status.Visibility = _status.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
             _prompt.IsEnabled = state.HasTarget && !state.Busy;
+            _modelControls.Visibility = state.Models.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             _model.IsEnabled = state.Models.Count > 0 && !state.Busy && !state.Checking;
             _effort.IsEnabled = state.HasTarget && !state.Busy;
             _check.IsEnabled = !state.Busy && !state.Checking;
@@ -180,6 +216,13 @@ internal sealed class WindowsAiPanel : UserControl
             _redo.IsEnabled = state.CanRedo;
             _save.IsEnabled = state.CanSave;
             _restore.IsEnabled = state.CanSave;
+            if (!state.Busy)
+            {
+                _undo.Visibility = state.CanUndo ? Visibility.Visible : Visibility.Collapsed;
+                _redo.Visibility = state.CanRedo ? Visibility.Visible : Visibility.Collapsed;
+                _save.Visibility = _restore.Visibility = state.CanSave ? Visibility.Visible : Visibility.Collapsed;
+                _revisionActions.Visibility = state.CanUndo || state.CanRedo || state.CanSave ? Visibility.Visible : Visibility.Collapsed;
+            }
             _addCurrentReference.IsEnabled = state.HasTarget && !state.Busy && !state.References.Any(item => item.IsTarget);
             _wholeDocument.Visibility = state.HasSelection ? Visibility.Visible : Visibility.Collapsed;
             _wholeDocument.IsEnabled = !state.Busy;
@@ -231,7 +274,9 @@ internal sealed class WindowsAiPanel : UserControl
             AutomationProperties.SetName(remove, T("Remove") + " " + row.Path);
             remove.Click += (_, _) => _session.RemoveReference(row.Path);
             var details = row.IsTarget ? T("Current document") : row.Missing ? T("Unavailable") : row.Tokens is int count ? T("{0} estimated tokens", count) : "";
-            _references.Children.Add(Actions(open, Label(details, 11), remove));
+            var actions = Actions(open, Label(details, 11), remove);
+            WindowsUiFont.ApplyTo(actions);
+            _references.Children.Add(actions);
         }
     }
 
@@ -258,15 +303,24 @@ internal sealed class WindowsAiPanel : UserControl
     }
 
     /// <summary>Creates an action with a translated native accessibility name.</summary>
-    private static Button ButtonFor(string label) => new() { Content = T(label) };
+    private static Button ButtonFor(string label)
+    {
+        var text = T(label);
+        var button = new Button { Content = text };
+        ToolTipService.SetToolTip(button, text);
+        return button;
+    }
 
     /// <summary>Creates a readable label whose text can wrap at the current panel width.</summary>
-    private static TextBlock Label(string value, double size) => new() { Text = T(value), FontSize = size, TextWrapping = TextWrapping.Wrap };
+    private static TextBlock Label(string value, double size) => new()
+    {
+        Text = T(value), FontSize = size, FontWeight = FontWeights.Normal, TextWrapping = TextWrapping.Wrap
+    };
 
     /// <summary>Wraps related actions without replacing native input and focus behavior.</summary>
     private static NativeWrapPanel Actions(params UIElement[] controls)
     {
-        var panel = new NativeWrapPanel();
+        var panel = new NativeWrapPanel { Spacing = 8 };
         foreach (var control in controls)
         {
             panel.Children.Add(control);

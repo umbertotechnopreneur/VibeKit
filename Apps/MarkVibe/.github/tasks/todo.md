@@ -4,12 +4,7 @@
 
 # Active work
 
-- [ ] Resume synthetic large-folder performance measurements in the owner's VM.
-  The opt-in `MARKVIBE_MAP_PERFORMANCE=1` probes are preliminary and require a
-  fresh Release build. Compare indexing, draw callback timing, allocations,
-  process memory and zoom/pan separately; do not equate UI callbacks with presented FPS.
-- [ ] Fix the navigation sidebar displaying `TreeViewNode` type names instead of
-  document captions, then capture and inspect the native graph at overview and detail zoom.
+- [ ] Verify keyboard resizing of the AI pane and map inspector.
 - [ ] Owner acceptance of the WinUI 3 desktop: reader and Monaco commands, Split
   scrolling/resizing, native context menus, graph responsiveness and navigation,
   map persistence, folder refresh, AI revisions, dialogs, file associations and

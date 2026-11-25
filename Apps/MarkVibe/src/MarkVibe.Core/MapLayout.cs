@@ -63,17 +63,18 @@ public static class MapLayoutCodec
     public const int MaximumBytes = 1024 * 1024;
     public const int MaximumNodes = Limits.Entries;
     public const double MaximumCoordinate = 100000;
-    public const int CardWidth = 260, CardHeight = 166, ColumnStep = 288, RowStep = 194;
+    // Unresized pages have the proportions of a portrait A4 sheet. Saved custom sizes use their own bounds.
+    public const int CardWidth = 210, CardHeight = 297, ColumnStep = CardWidth + 28, RowStep = CardHeight + 28;
     public const int MinimumCardWidth = 180, MinimumCardHeight = 120;
     public const int MaximumCardWidth = 780, MaximumCardHeight = 600;
-    public const string DefaultColor = "#0085ff", DefaultIcon = "file";
+    public const string DefaultColor = "#5b557f", DefaultIcon = "file";
     public static IReadOnlyList<MapColor> Colors { get; } = [
-        new("#5b557f", "Slate"),
+        new(DefaultColor, "Slate"),
         new("#ff4141", "Red"),
         new("#ff7020", "Orange"),
         new("#ffc400", "Amber"),
         new("#00bd55", "Green"),
-        new(DefaultColor, "Blue"),
+        new("#0085ff", "Blue"),
         new("#914bff", "Purple"),
         new("#ff59ad", "Pink"),
         new("#748094", "Gray"),

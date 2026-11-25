@@ -77,7 +77,10 @@ public sealed class ReaderPresentationState
 }
 
 /// <summary>Reports the one-based selected match and total matches returned by a document renderer.</summary>
-public sealed record DocumentFindResult(int Current, int Total);
+public sealed record DocumentFindResult(int Current, int Total, DocumentFindExcerpt[]? Excerpts = null);
+
+/// <summary>A bounded excerpt around one match, indexed from one in the displayed document.</summary>
+public sealed record DocumentFindExcerpt(int Index, string Before, string Match, string After);
 
 /// <summary>Reports folder appearance and whether its persistence operation succeeded.</summary>
 public sealed record ReaderAppearanceResult(ReaderAppearance? Appearance, bool Persisted);

@@ -18,10 +18,37 @@
  *
  * VBWR E */
 using MarkVibe.Core;
+using MarkVibe.Windows;
 using System.Text;
 
 var checks = new (string Name, Func<Task> Run)[]
 {
+    ("shell, graph and Markdown typography persist independently with safe defaults", () =>
+    {
+        var legacy = Wire.Decode<Preferences>("""{"uiFont":"Consolas","documentFont":"Courier New"}""").Validated();
+        Equal("Consolas", legacy.UiFont);
+        Equal("Courier New", legacy.DocumentFont);
+        Equal("system", legacy.GraphFont);
+        Equal("system", legacy.GraphPalette);
+
+        var selected = legacy with { GraphFont = "cascadia mono", GraphPalette = "EMBER" };
+        var saved = Wire.Decode<Preferences>(Wire.Encode(selected)).Validated();
+        Equal("Consolas", saved.UiFont);
+        Equal("Courier New", saved.DocumentFont);
+        Equal("Cascadia Mono", saved.GraphFont);
+        Equal("ember", saved.GraphPalette);
+
+        var folder = ReaderAppearance.From(saved with { DocumentFont = "Lucida Console" }).ApplyTo(saved);
+        Equal("Lucida Console", folder.DocumentFont);
+        Equal(saved.UiFont, folder.UiFont);
+        Equal(saved.GraphFont, folder.GraphFont);
+        Equal(saved.GraphPalette, folder.GraphPalette);
+
+        var invalid = (saved with { GraphFont = "missing-family", GraphPalette = "missing-palette" }).Validated();
+        Equal("system", invalid.GraphFont);
+        Equal("system", invalid.GraphPalette);
+        return Task.CompletedTask;
+    }),
     ("catalog snapshots remain sorted, read-only and stable across later revisions", async () =>
     {
         var documents = new Dictionary<string, string> { ["z.md"] = "# Last", ["a.md"] = "# First" };
@@ -217,6 +244,27 @@ var checks = new (string Name, Func<Task> Run)[]
         var blocks = parser.Parse("blocks.md", repeated).Blocks;
         Equal(Limits.Blocks, blocks.Count);
         Equal(blocks[0].Id + "-2047", blocks[^1].Id);
+    })),
+    ("native outline retains full heading text, hierarchy and source targets with mixed line endings", Sync(() =>
+    {
+        const string heading = "How to compare measurement windows across all coastal field stations when observations span the early morning, late afternoon and next reporting interval";
+        var source = "# Overview\r\n\r\n### **" + heading + "**\r\r###### Deep section\n\n### Deep section";
+        var document = new MarkdownParser().Parse("outline.md", source);
+        var root = DesktopNavigation.Outline(document).Single();
+        var section = root.Children[0];
+        var nested = section.Children.Single();
+        var sibling = root.Children[1];
+
+        Equal(heading, section.Label);
+        True(section.Tooltip.Contains(heading, StringComparison.Ordinal));
+        Equal(3, section.Target!.HeadingLevel);
+        Equal(6, nested.Target!.HeadingLevel);
+        Equal(3d, section.Target.Position.SourceLine);
+        Equal(5d, nested.Target.Position.SourceLine);
+        Equal(7d, sibling.Target!.Position.SourceLine);
+        Equal("deep-section", nested.Target.HeadingId);
+        Equal("deep-section-1", sibling.Target.HeadingId);
+        True(document.Html.Contains($"data-element-id=\"{nested.Target.ElementId}\"", StringComparison.Ordinal));
     })),
     ("inline count and emitted HTML each have a document budget", Sync(() =>
     {
@@ -469,6 +517,10 @@ var checks = new (string Name, Func<Task> Run)[]
         True(!collection.Remove("0.md"));
         True(collection.Add("replacement.md"));
     })),
+    ("OpenAI diagnostic uses one bounded POST and saves a candidate only after a real reply", OpenAiProbeChecks.SuccessAsync),
+    ("OpenAI diagnostic rejects incomplete or unsafe output and maps status codes", OpenAiProbeChecks.RepliesAsync),
+    ("OpenAI diagnostic sanitizes local and network failures without retries", OpenAiProbeChecks.FailuresAsync),
+    ("OpenAI diagnostic cancellation suppresses candidate persistence", OpenAiProbeChecks.CancellationAsync),
     ("AI reference validation rejects duplicate, unsafe and oversized source before transport", Sync(() =>
     {
         var request = new MarkdownAiRequest(MarkdownAi.DefaultModel, "low", "Review this selection", "# Target", "selection");

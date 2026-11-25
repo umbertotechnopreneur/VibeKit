@@ -25,8 +25,15 @@ internal sealed record DesktopNavigationItem(string Label, string Path, string T
 internal static class DesktopNavigation
 {
     /// <summary>Groups catalog paths into a hierarchy with folders preceding documents.</summary>
-    public static IReadOnlyList<DesktopNavigationItem> Pages(DocumentCatalog? catalog) =>
-        Group(catalog?.Cards ?? [], "");
+    public static IReadOnlyList<DesktopNavigationItem> Pages(IReadOnlyList<DocumentCard> cards) => Group(cards, "");
+
+    /// <summary>Projects one file row independently of neighboring metadata and folder membership.</summary>
+    public static DesktopNavigationItem Page(DocumentCard card)
+    {
+        var label = card.Path[(card.Path.LastIndexOf('/') + 1)..];
+        var title = string.IsNullOrWhiteSpace(card.Title) ? label : card.Title;
+        return new(label, card.Path, title, "file", title + "\n" + card.Path, []);
+    }
 
     /// <summary>Groups parsed content under its surrounding headings without interpreting the rendered HTML.</summary>
     public static IReadOnlyList<DesktopNavigationItem> Outline(MarkdownModel? document)
@@ -49,7 +56,9 @@ internal static class DesktopNavigation
             }
             while (sourceOffset < element.SourceStart && sourceOffset < document.Source.Length)
             {
-                if (document.Source[sourceOffset++] == '\n')
+                var character = document.Source[sourceOffset++];
+                if (character == '\n' || (character == '\r' &&
+                    (sourceOffset == document.Source.Length || document.Source[sourceOffset] != '\n')))
                 {
                     sourceLine++;
                 }
@@ -62,13 +71,14 @@ internal static class DesktopNavigation
             }
 
             var kind = headingLevel > 0 ? $"H{headingLevel}" : T(OutlineKind(element.Kind));
-            var full = OutlineCaption(element, heading, kind);
-            var caption = full.Length > 120 ? full[..117] + "…" : full;
+            var caption = OutlineCaption(element, heading, kind);
             var children = new List<DesktopNavigationItem>();
+            var line = heading?.Line ?? sourceLine;
             var target = new DesktopOutlineTarget(element.Id, heading?.Id ?? "", headingLevel,
-                new ReadingPosition(element.BlockId, 0, sourceLine), document.Fingerprint);
+                new ReadingPosition(element.BlockId, 0, line), document.Fingerprint);
             var siblings = stack.TryPeek(out var current) ? current.Children : roots;
-            siblings.Add(new(caption, document.Path, document.Title, icon, kind + " · " + full, children, target));
+            var tooltip = kind + " · " + T("Source line {0}", line) + "\n" + caption;
+            siblings.Add(new(caption, document.Path, document.Title, icon, tooltip, children, target));
             if (headingLevel > 0)
             {
                 stack.Push((headingLevel, children));
@@ -117,8 +127,7 @@ internal static class DesktopNavigation
             var slash = relative.IndexOf('/');
             if (slash < 0)
             {
-                var title = string.IsNullOrWhiteSpace(card.Title) ? relative : card.Title;
-                documents.Add(new(relative, card.Path, title, "file", title + "\n" + card.Path, []));
+                documents.Add(Page(card));
                 continue;
             }
             var directory = relative[..slash];

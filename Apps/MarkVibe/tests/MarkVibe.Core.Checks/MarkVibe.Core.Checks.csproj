@@ -19,4 +19,6 @@ VBWR E -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework></PropertyGroup>
   <ItemGroup><ProjectReference Include="../../src/MarkVibe.Core/MarkVibe.Core.csproj" /></ItemGroup>
+  <ItemGroup><Compile Include="../../src/MarkVibe.Windows/Workspace/DesktopNavigation.cs" Link="DesktopNavigation.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../src/MarkVibe.Windows/OpenAiKeySettings.cs" Link="OpenAiKeySettings.cs" /></ItemGroup>
 </Project>

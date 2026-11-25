@@ -19,6 +19,7 @@
  * License: MIT (see LICENSE)
  *
  * VBWR E */
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -65,17 +66,25 @@ public static class AtomicFile
 public sealed class NativeFiles
 {
     private const int MaximumDirectoryDepth = 16;
-    private readonly Dictionary<string, string> _roots = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, string> _roots = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _writes = new(1, 1);
     private readonly string _sessionFile;
-    public NativeSession? Session { get; private set; }
+    private Lazy<NativeSession?> _session;
+    /// <summary>Reads a remembered workspace only when an actual resume is requested.</summary>
+    public NativeSession? Session => _session.Value;
 
     private static readonly UTF8Encoding Utf8 = new(false, true);
-    /// <summary>Initializes session storage and restores only valid remembered local workspace metadata.</summary>
+    /// <summary>Initializes session storage without touching a previously opened document volume.</summary>
     public NativeFiles(string dataDirectory)
     {
         Directory.CreateDirectory(dataDirectory);
         _sessionFile = Path.Combine(dataDirectory, "session.json");
+        _session = new Lazy<NativeSession?>(ReadSession);
+    }
+
+    /// <summary>Restores valid local workspace metadata on first use.</summary>
+    private NativeSession? ReadSession()
+    {
         try
         {
             if (File.Exists(_sessionFile) && new FileInfo(_sessionFile).Length < 20000)
@@ -88,15 +97,16 @@ public sealed class NativeFiles
                         loaded.Entry.WorkspaceId == Id(loaded.Root) &&
                         WorkspacePath.Normalize(loaded.Entry.Path, true) == loaded.Entry.Path)
                     {
-                        Session = loaded;
+                        return loaded;
                     }
                 }
             }
         }
-        catch (Exception error)when (error is IOException or UnauthorizedAccessException or JsonException or WorkspaceException or ArgumentException or InvalidDataException)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or WorkspaceException or ArgumentException or InvalidDataException)
         {
-            Session = null;
+            return null;
         }
+        return null;
     }
 
     /// <summary>Registers a local documentation root after rejecting unsupported paths and reparse points.</summary>
@@ -314,7 +324,7 @@ public sealed class NativeFiles
         {
             if (!enabled)
             {
-                Session = null;
+                _session = new Lazy<NativeSession?>((NativeSession?)null);
                 if (File.Exists(_sessionFile))
                 {
                     File.Delete(_sessionFile);
@@ -329,8 +339,9 @@ public sealed class NativeFiles
             }
 
             _ = Resolve(entry.WorkspaceId, entry.Path);
-            Session = new(root, entry);
-            await AtomicFile.WriteTextAsync(_sessionFile, Wire.Encode(Session), token);
+            var session = new NativeSession(root, entry);
+            await AtomicFile.WriteTextAsync(_sessionFile, Wire.Encode(session), token);
+            _session = new Lazy<NativeSession?>(session);
         }
         finally
         {

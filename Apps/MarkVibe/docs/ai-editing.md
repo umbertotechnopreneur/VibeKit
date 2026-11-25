@@ -38,10 +38,12 @@ or Ultra reasoning option. Enter submits; Shift+Enter inserts a line break.
 ## Choose and test a connection
 
 **OpenAI API key** is the default and works in the Windows desktop.
-Its Test button checks authenticated model-list access. Entering a new key tests
-and saves it only after success; leaving the field empty tests the saved key.
-Failure leaves the previous key intact. This does not prove generation quota or
-access to every model and sends no document content.
+Its Test button sends one short diagnostic prompt to the Responses API using
+`gpt-4.1-mini`. The dialog shows the assistant's reply or a connection error.
+The request sends no document content, sets `store: false`, and can consume a
+small amount of API usage. A completed, nonempty reply validates generation for
+the test model. Entering a new key saves it after a successful reply. Leaving the
+field empty tests the saved key. A failed or cancelled test keeps the previous key.
 
 **Codex CLI** uses the installed Windows `codex` executable and its existing login.
 MarkVibe does not install it, sign in for you or copy its credentials. The CLI

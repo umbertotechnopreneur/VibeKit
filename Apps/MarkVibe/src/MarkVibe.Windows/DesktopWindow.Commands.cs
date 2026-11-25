@@ -394,8 +394,26 @@ public sealed partial class DesktopWindow
         }
     }
 
-    /// <summary>Shows native product information and legal links.</summary>
-    private async void ShowAbout(object sender, RoutedEventArgs args) => await RunAsync(AboutAsync);
+    /// <summary>Lets the menu release its popup and keyboard focus before opening About.</summary>
+    private void ShowAbout(object sender, RoutedEventArgs args)
+    {
+        if (ShellMenu.IsOpen)
+        {
+            ShellMenu.Closed += OpenAfterMenuClosed;
+            ShellMenu.Hide();
+        }
+        else
+        {
+            DispatcherQueue.TryEnqueue(() => _ = RunAsync(AboutAsync));
+        }
+
+        /// <summary>Handles only the closure belonging to this activation.</summary>
+        void OpenAfterMenuClosed(object? menu, object closedArgs)
+        {
+            ShellMenu.Closed -= OpenAfterMenuClosed;
+            DispatcherQueue.TryEnqueue(() => _ = RunAsync(AboutAsync));
+        }
+    }
 
     /// <summary>Opens About without sharing diagnostics until its explicit button is selected.</summary>
     private Task AboutAsync(CancellationToken token) => ShowDialogAsync(() => WindowsAboutDialog.ShowAsync(Shell.XamlRoot,

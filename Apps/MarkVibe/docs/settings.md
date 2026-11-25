@@ -14,7 +14,7 @@ fonts, Acrylic and language. Document groups reading, workspace and file
 association settings. AI groups providers and connection tests. Appearance and
 Document use two columns when there is room and a single scrolling column in a
 narrow window. All three tabs use the same viewport at a given window size.
-Save feedback, Reset and Close stay outside the scrolling content.
+Save errors, Reset and Close stay outside the scrolling content.
 
 The sidebar has two searches. Pages searches the Markdown contents of the
 workspace, shows progress and keeps matching files in their folder hierarchy.
@@ -31,14 +31,15 @@ next controls to move the highlight in the reader or source view.
 | Acrylic map surfaces | Optional material for the graph, toolbar and inspector |
 | Document presentation and themes | Technical, Editorial or Compact; independent light/dark document and code choices |
 | Hyperlink underline and reading size | Reader/export link decoration and bounded reading scale |
-| Lightweight source | Read-only fallback instead of Monaco |
-| Remember last workspace | Local root, document, anchor and source-based reading position |
+| Show source as plain text | Read and copy Markdown without syntax highlighting |
+| Reopen the last document | Open the last workspace and document at the previous reading position |
 | AI provider | Explicit API-key or Windows Codex CLI selection, without automatic fallback |
 
 Folder reader choices can override the global document font and other reader
 appearance settings without writing into the source folder. The font catalog
 is `src/MarkVibe.Core/Presentation/ui-fonts.json`. Windows offers its installed
-families without downloading fonts.
+families, including supported Nerd Font Mono variants. Each font name appears
+in its own typeface in the list and in the selected field.
 
 The Markdown reader starts with **Ivory** paper, with a darker version for dark mode.
 Choose **Paper** from the document context menu to preview ten textures in the

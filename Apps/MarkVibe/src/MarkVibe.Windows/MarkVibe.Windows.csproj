@@ -97,6 +97,10 @@ VBWR E -->
         <RelativePath>DesktopWindow.xbf</RelativePath>
         <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       </ResolvedFileToPublish>
+      <ResolvedFileToPublish Include="$(TargetDir)AboutView.xbf">
+        <RelativePath>AboutView.xbf</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
     </ItemGroup>
   </Target>
 </Project>

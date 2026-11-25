@@ -79,8 +79,13 @@ try {
     Invoke-FixtureUi @('wait-for', 'SplitGrip', '--gone', '--timeout', '10000')
     Invoke-FixtureUi @('wait-for', 'Document map', '--class-name', 'WindowsGraphCanvas', '--gone', '--timeout', '10000')
     Write-Host 'PASS native Read, Source, Split and Map display their selected surfaces'
+    Invoke-FixtureUi @('invoke', 'ShellMenuButton')
+    Invoke-FixtureUi @('invoke', 'AboutButton', '--action', 'invoke')
+    Invoke-FixtureUi @('wait-for', 'VersionLabel', '--type', 'Text', '--timeout', '10000')
+    Invoke-FixtureUi @('invoke', 'Close', '--type', 'Button', '--class-name', 'Button', '--action', 'invoke')
+    Invoke-FixtureUi @('wait-for', 'VersionLabel', '--type', 'Text', '--gone', '--timeout', '10000')
     Invoke-FixtureUi @('invoke', 'About MarkVibe', '--type', 'Hyperlink', '--action', 'invoke')
-    Invoke-FixtureUi @('wait-for', 'About MarkVibe', '--type', 'Text', '--timeout', '10000')
+    Invoke-FixtureUi @('wait-for', 'VersionLabel', '--type', 'Text', '--timeout', '10000')
     Invoke-FixtureUi @('invoke', 'Close', '--type', 'Button', '--class-name', 'Button', '--action', 'invoke')
     Invoke-FixtureUi @('wait-for', 'Close', '--type', 'Button', '--class-name', 'Button', '--gone', '--timeout', '10000')
     Write-Host 'PASS native About dialog opens and closes'

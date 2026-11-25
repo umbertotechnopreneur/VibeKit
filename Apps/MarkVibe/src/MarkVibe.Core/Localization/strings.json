@@ -38,10 +38,10 @@
     "OpenAI API quota is exhausted. Check billing and project limits.": ["Quota API OpenAI esaurita. Controlla la fatturazione e i limiti del progetto.","Quota API OpenAI épuisé. Vérifiez la facturation et les limites du projet.","Đã hết hạn mức API OpenAI. Hãy kiểm tra thanh toán và giới hạn dự án.","OpenAI API 配额已用尽。请检查账单及项目限额。","OpenAI API 配額已用盡。請檢查帳單同專案限額。","Kuota API OpenAI habis. Periksa tagihan dan batas proyek.","OpenAI API 할당량을 소진했습니다. 결제 및 프로젝트 한도를 확인하세요.","OpenAI API の利用枠を使い切りました。請求とプロジェクトの上限を確認してください。"],
     "The OpenAI key could not be read. Open Settings and validate it again.": ["Impossibile leggere la chiave OpenAI. Inseriscila e verificala di nuovo nelle Impostazioni.","Impossible de lire la clé OpenAI. Validez-la à nouveau dans les paramètres.","Không thể đọc khóa OpenAI. Hãy xác thực lại trong Cài đặt.","无法读取 OpenAI 密钥。请在设置中重新验证。","無法讀取 OpenAI 金鑰。請喺設定重新驗證。","Kunci OpenAI tidak dapat dibaca. Validasikan kembali di Pengaturan.","OpenAI 키를 읽지 못했습니다. 설정에서 다시 검증하세요.","OpenAI キーを読み取れません。設定でもう一度確認してください。"],
     "The connection test could not be completed.": ["Impossibile completare la prova di connessione.","Le test de connexion n’a pas pu aboutir.","Không thể hoàn tất kiểm tra kết nối.","无法完成连接测试。","無法完成連線測試。","Uji koneksi tidak dapat diselesaikan.","연결 테스트를 완료하지 못했습니다.","接続テストを完了できませんでした。"],
-    "Source and preview": ["Sorgente e anteprima affiancati","Source et aperçu côte à côte","Mã nguồn và bản xem trước cạnh nhau","并排显示源码和预览","並排顯示原始碼同預覽","Sumber dan pratinjau berdampingan","소스와 미리 보기 나란히 표시","ソースとプレビューを並べて表示"],
+    "Source and preview": ["Mostra il codice accanto all’anteprima","Source et aperçu côte à côte","Mã nguồn và bản xem trước cạnh nhau","并排显示源码和预览","並排顯示原始碼同預覽","Sumber dan pratinjau berdampingan","소스와 미리 보기 나란히 표시","ソースとプレビューを並べて表示"],
     "Document map": ["Mappa dei documenti","Carte des documents","Bản đồ tài liệu","文档关系图","文件關係圖","Peta dokumen","문서 지도","ドキュメントマップ"],
     "Read Markdown": ["Leggi il documento Markdown","Lire le document Markdown","Đọc tài liệu Markdown","阅读 Markdown 文档","閱讀 Markdown 文件","Baca dokumen Markdown","Markdown 문서 읽기","Markdown 文書を読む"],
-    "Show Markdown source": ["Mostra il sorgente Markdown","Afficher la source Markdown","Hiện mã nguồn Markdown","显示 Markdown 源码","顯示 Markdown 原始碼","Tampilkan sumber Markdown","Markdown 소스 표시","Markdown ソースを表示"],
+    "Show Markdown source": ["Mostra il codice sorgente Markdown","Afficher la source Markdown","Hiện mã nguồn Markdown","显示 Markdown 源码","顯示 Markdown 原始碼","Tampilkan sumber Markdown","Markdown 소스 표시","Markdown ソースを表示"],
     "Map toolbar": ["Barra degli strumenti della mappa", "Barre d’outils de la carte", "Thanh công cụ bản đồ", "地图工具栏", "地圖工具列", "Bilah alat peta", "지도 도구 모음", "マップのツールバー"],
     "{0} of {1} documents · {2} links": ["{0} di {1} documenti · {2} collegamenti", "{0} documents sur {1} · {2} liens", "{0} trên {1} tài liệu · {2} liên kết", "{0}/{1} 个文档 · {2} 个链接", "{0}/{1} 份文件 · {2} 個連結", "{0} dari {1} dokumen · {2} tautan", "문서 {1}개 중 {0}개 · 링크 {2}개", "全 {1} 文書中 {0} 文書 · リンク {2} 件"],
     "Index incomplete": ["Indicizzazione incompleta", "Indexation incomplète", "Chưa lập chỉ mục xong", "索引未完成", "索引未完成", "Pengindeksan belum selesai", "색인 미완료", "索引作成中"],
@@ -64,7 +64,7 @@
     "More commands": ["Altri comandi","Autres commandes","Lệnh khác","更多命令","更多命令","Perintah lainnya","기타 명령","その他のコマンド"],
     "Open assistant": ["Apri assistente IA","Ouvrir l’assistant IA","Mở trợ lý AI","打开 AI 助手","開啟 AI 助理","Buka asisten AI","AI 도우미 열기","AI アシスタントを開く"],
     "Close assistant": ["Chiudi assistente IA","Fermer l’assistant IA","Đóng trợ lý AI","关闭 AI 助手","關閉 AI 助理","Tutup asisten AI","AI 도우미 닫기","AI アシスタントを閉じる"],
-    "Go to source here": ["Vai al sorgente qui","Aller à la source ici","Đến mã nguồn tại đây","转到此处的源代码","跳到呢度嘅原始碼","Buka sumber di sini","이 위치의 소스로 이동","この位置のソースへ移動"],
+    "Go to source here": ["Vai a questo punto nel codice","Aller à la source ici","Đến mã nguồn tại đây","转到此处的源代码","跳到呢度嘅原始碼","Buka sumber di sini","이 위치의 소스로 이동","この位置のソースへ移動"],
     "Copy link to section": ["Copia collegamento alla sezione","Copier le lien vers la section","Sao chép liên kết đến mục","复制章节链接","複製章節連結","Salin tautan ke bagian","섹션 링크 복사","セクションへのリンクをコピー"],
     "Copy table": ["Copia tabella","Copier le tableau","Sao chép bảng","复制表格","複製表格","Salin tabel","표 복사","表をコピー"],
     "For Excel": ["Per Excel","Pour Excel","Dành cho Excel","用于 Excel","供 Excel 使用","Untuk Excel","Excel용","Excel 用"],
@@ -117,7 +117,7 @@
     "Underline hyperlinks": ["Sottolinea collegamenti","Souligner les liens","Gạch chân liên kết","为超链接添加下划线","為連結加底線","Garis bawahi tautan","하이퍼링크 밑줄","リンクに下線を付ける"],
     "DOCUMENT FONT": ["Font del documento","Police du document","Phông chữ tài liệu","文档字体","文件字型","Font dokumen","문서 글꼴","文書のフォント"],
     "Theme font": ["Font del tema","Police du thème","Phông chữ của giao diện","主题字体","主題字型","Font tema","테마 글꼴","テーマのフォント"],
-    "These reading choices are saved for this folder.": ["Queste scelte di lettura vengono salvate per questa cartella.","Ces choix de lecture sont enregistrés pour ce dossier.","Các lựa chọn đọc này được lưu cho thư mục này.","这些阅读选项将为此文件夹保存。","呢啲閱讀設定會為呢個資料夾儲存。","Pilihan bacaan ini disimpan untuk folder ini.","이 읽기 설정은 이 폴더에 저장됩니다.","この読書設定はこのフォルダーに保存されます。"],
+    "These reading settings apply only to this folder.": ["Queste impostazioni di lettura valgono solo per questa cartella.","Ces réglages de lecture concernent uniquement ce dossier.","Các tùy chọn đọc này chỉ áp dụng cho thư mục này.","这些阅读设置仅适用于此文件夹。","呢啲閱讀設定只適用於呢個資料夾。","Pengaturan baca ini hanya berlaku untuk folder ini.","이 읽기 설정은 이 폴더에만 적용됩니다.","これらの閲覧設定はこのフォルダーにのみ適用されます。"],
     "Use global reading defaults": ["Usa i valori globali di lettura","Utiliser les réglages de lecture globaux","Dùng cài đặt đọc mặc định chung","使用全局阅读默认设置","使用全域閱讀預設設定","Gunakan pengaturan bacaan global","전체 읽기 기본값 사용","全体の読書既定値を使う"],
     "Folder appearance": ["Aspetto della cartella","Apparence du dossier","Giao diện thư mục","文件夹外观","資料夾外觀","Tampilan folder","폴더 모양","フォルダーの外観"],
     "Reader appearance": ["Aspetto di lettura","Apparence de lecture","Giao diện đọc","阅读外观","閱讀外觀","Tampilan pembaca","읽기 모양","閲覧の外観"],
@@ -247,9 +247,9 @@
     "Detail": ["Dettaglio","Détail","Chi tiết","详细","詳細","Detail","상세","詳細"],
     "Document connections": ["Collegamenti tra documenti","Liens entre documents","Liên kết tài liệu","文档连接","文件連結","Hubungan dokumen","문서 연결","ドキュメントの接続"],
     "Map overview. Click to navigate; use arrow keys to pan and Home to fit.": ["Panoramica della mappa. Clicca per spostarti; usa le frecce per scorrere e Home per inquadrare tutto.","Vue d’ensemble de la carte. Cliquez pour naviguer ; utilisez les flèches et Début pour tout cadrer.","Tổng quan bản đồ. Nhấp để di chuyển; dùng phím mũi tên để dịch chuyển và Home để xem toàn bộ.","地图概览。单击导航；使用方向键平移，Home 键适应视图。","地圖總覽。按一下導覽；用方向鍵移動，Home 鍵顯示全圖。","Ikhtisar peta. Klik untuk menavigasi; gunakan tombol panah untuk menggeser dan Home untuk menyesuaikan.","지도 개요입니다. 클릭하여 이동하고, 화살표 키로 이동하며 Home으로 전체를 표시합니다.","マップの全体表示。クリックで移動、矢印キーでパン、Homeキーで全体を表示します。"],
-    "Source line {0}": ["Riga sorgente {0}","Ligne source {0}","Dòng nguồn {0}","源文件第 {0} 行","原始檔第 {0} 行","Baris sumber {0}","소스 {0}행","ソースの{0}行目"],
-    "Source excerpt unavailable": ["Estratto sorgente non disponibile","Extrait source indisponible","Không có trích đoạn nguồn","源文件摘录不可用","原始檔摘錄無法使用","Kutipan sumber tidak tersedia","소스 발췌를 사용할 수 없습니다","ソースの抜粋を取得できません"],
-    "Connection from {0} to {1}. Source line {2}. {3}": ["Collegamento da {0} a {1}. Riga sorgente {2}. {3}","Lien de {0} vers {1}. Ligne source {2}. {3}","Liên kết từ {0} đến {1}. Dòng nguồn {2}. {3}","从 {0} 到 {1} 的连接。源文件第 {2} 行。{3}","由 {0} 到 {1} 嘅連結。原始檔第 {2} 行。{3}","Hubungan dari {0} ke {1}. Baris sumber {2}. {3}","{0}에서 {1}로 연결됩니다. 소스 {2}행. {3}","{0}から{1}への接続。ソースの{2}行目。{3}"],
+    "Source line {0}": ["Riga {0} del codice","Ligne source {0}","Dòng nguồn {0}","源文件第 {0} 行","原始檔第 {0} 行","Baris sumber {0}","소스 {0}행","ソースの{0}行目"],
+    "Source excerpt unavailable": ["Estratto del codice non disponibile","Extrait source indisponible","Không có trích đoạn nguồn","源文件摘录不可用","原始檔摘錄無法使用","Kutipan sumber tidak tersedia","소스 발췌를 사용할 수 없습니다","ソースの抜粋を取得できません"],
+    "Connection from {0} to {1}. Source line {2}. {3}": ["Collegamento da {0} a {1}. Riga {2} del codice. {3}","Lien de {0} vers {1}. Ligne source {2}. {3}","Liên kết từ {0} đến {1}. Dòng nguồn {2}. {3}","从 {0} 到 {1} 的连接。源文件第 {2} 行。{3}","由 {0} 到 {1} 嘅連結。原始檔第 {2} 行。{3}","Hubungan dari {0} ke {1}. Baris sumber {2}. {3}","{0}에서 {1}로 연결됩니다. 소스 {2}행. {3}","{0}から{1}への接続。ソースの{2}行目。{3}"],
     "Show in File Explorer": ["Mostra in Esplora file","Afficher dans l’Explorateur","Hiện trong File Explorer","在文件资源管理器中显示","喺檔案總管顯示","Tampilkan di File Explorer","파일 탐색기에 표시","エクスプローラーで表示"],
     "Open in terminal": ["Apri nel terminale","Ouvrir dans le terminal","Mở trong terminal","在终端中打开","喺終端機開啟","Buka di terminal","터미널에서 열기","ターミナルで開く"],
     "Open in browser": ["Apri nel browser","Ouvrir dans le navigateur","Mở trong trình duyệt","在浏览器中打开","喺瀏覽器開啟","Buka di browser","브라우저에서 열기","ブラウザーで開く"],
@@ -385,7 +385,7 @@
     "Input shares are estimates. After a reply, API input and output totals are exact; reasoning is included in output.": ["Le parti dell'input sono stime. Dopo la risposta, i totali input e output API sono esatti; il ragionamento è incluso nell'output.","Les parts d'entrée sont estimées. Après la réponse, les totaux API sont exacts ; le raisonnement fait partie de la sortie.","Các phần đầu vào là ước tính. Sau phản hồi, tổng API là chính xác; suy luận nằm trong đầu ra.","输入各部分为估计值。回复后的 API 输入和输出总数准确；推理包含在输出中。","輸入各部分為估算。回覆後 API 輸入及輸出總數準確；推理包含在輸出內。","Bagian input adalah perkiraan. Setelah respons, total API akurat; penalaran termasuk keluaran.","입력 비율은 추정값입니다. 응답 후 API 입력과 출력 총량은 정확하며 추론은 출력에 포함됩니다.","入力の内訳は推定です。応答後の API 入出力合計は正確で、推論は出力に含まれます。"],
     "Preparing preview…": ["Preparazione dell'anteprima…","Préparation de l'aperçu…","Đang chuẩn bị xem trước…","正在准备预览…","正在準備預覽…","Menyiapkan pratinjau…","미리 보기 준비 중…","プレビューを準備中…"],
     "No supported text models are available for this key. Check its model permissions in Settings.": ["Nessun modello di testo supportato disponibile per questa chiave. Controlla i permessi del modello nelle Impostazioni.","Aucun modèle texte pris en charge pour cette clé. Vérifiez les permissions dans les paramètres.","Khóa này không có mô hình văn bản được hỗ trợ. Kiểm tra quyền mô hình trong Cài đặt.","此密钥没有可用的受支持文本模型。请在设置中检查模型权限。","此金鑰沒有可用的受支援文字模型。請在設定中檢查模型權限。","Tidak ada model teks yang didukung untuk kunci ini. Periksa izin model di Pengaturan.","이 키에 지원되는 텍스트 모델이 없습니다. 설정에서 모델 권한을 확인하세요.","このキーでは対応するテキストモデルを利用できません。設定でモデルの権限を確認してください。"],
-    "Select this text in Source view so its Markdown range can be replaced precisely.": ["Seleziona il testo nella vista Sorgente per sostituire con precisione il suo intervallo Markdown.","Sélectionnez ce texte dans la vue Source pour remplacer précisément son intervalle Markdown.","Chọn văn bản trong chế độ Nguồn để thay chính xác phạm vi Markdown.","请在源码视图中选择文字，以精确替换 Markdown 范围。","請在原始碼檢視選取文字，以精確取代 Markdown 範圍。","Pilih teks di tampilan Sumber agar rentang Markdown diganti dengan tepat.","Markdown 범위를 정확히 교체하려면 소스 보기에서 텍스트를 선택하세요.","Markdown の範囲を正確に置換するにはソース表示でテキストを選択してください。"],
+    "Select this text in Source view so its Markdown range can be replaced precisely.": ["Seleziona il testo nella vista Codice per indicare il passaggio Markdown da sostituire.","Sélectionnez ce texte dans la vue Source pour remplacer précisément son intervalle Markdown.","Chọn văn bản trong chế độ Nguồn để thay chính xác phạm vi Markdown.","请在源码视图中选择文字，以精确替换 Markdown 范围。","請在原始碼檢視選取文字，以精確取代 Markdown 範圍。","Pilih teks di tampilan Sumber agar rentang Markdown diganti dengan tepat.","Markdown 범위를 정확히 교체하려면 소스 보기에서 텍스트를 선택하세요.","Markdown の範囲を正確に置換するにはソース表示でテキストを選択してください。"],
     "Wait for the Markdown replacement to finish.": ["Attendi che la sostituzione del Markdown sia completata.","Attendez la fin du remplacement Markdown.","Đợi thay thế Markdown hoàn tất.","请等待 Markdown 替换完成。","請等候 Markdown 取代完成。","Tunggu penggantian Markdown selesai.","Markdown 교체가 끝날 때까지 기다려 주세요.","Markdown の置換が完了するまでお待ちください。"],
     "Markdown changed. Choose the view again to refresh its display.": ["Markdown modificato. Scegli di nuovo la vista per aggiornare la visualizzazione.","Markdown modifié. Choisissez à nouveau la vue pour l'actualiser.","Markdown đã thay đổi. Chọn lại chế độ xem để cập nhật hiển thị.","Markdown 已修改。请重新选择视图刷新显示。","Markdown 已修改。請重新選擇檢視以更新顯示。","Markdown berubah. Pilih tampilan lagi untuk memperbarui tampilan.","Markdown이 변경되었습니다. 보기를 다시 선택하여 표시를 새로 고치세요.","Markdown を変更しました。表示を更新するにはビューを選び直してください。"],
     "The response was incomplete. Try a shorter document or lower reasoning level.": ["La risposta è incompleta. Prova un documento più breve o riduci il livello di ragionamento.","La réponse est incomplète. Essayez un document plus court ou moins de raisonnement.","Phản hồi chưa đầy đủ. Thử tài liệu ngắn hơn hoặc giảm mức suy luận.","回复不完整。请缩短文档或降低推理级别。","回覆不完整。請縮短文件或降低推理級別。","Respons tidak lengkap. Coba dokumen lebih pendek atau penalaran lebih rendah.","응답이 완전하지 않습니다. 더 짧은 문서나 낮은 추론 수준으로 시도하세요.","応答が不完全です。文書を短くするか推論レベルを下げてください。"],
@@ -405,7 +405,7 @@
     "Use full document": ["Usa tutto il documento","Utiliser tout le document","Dùng toàn bộ tài liệu","使用整个文档","使用整份文件","Gunakan seluruh dokumen","문서 전체 사용","文書全体を使用"],
     "Entire document": ["Intero documento","Document entier","Toàn bộ tài liệu","整个文档","整份文件","Seluruh dokumen","문서 전체","文書全体"],
     "Selection · {0} characters": ["Selezione · {0} caratteri","Sélection · {0} caractères","Phần chọn · {0} ký tự","选中内容 · {0} 个字符","選取內容 · {0} 個字元","Pilihan · {0} karakter","선택 영역 · {0}자","選択範囲 · {0} 文字"],
-    "Select in Source to edit precisely": ["Seleziona nel Sorgente per una modifica precisa","Sélectionnez dans la source pour une modification précise","Chọn trong Mã nguồn để chỉnh sửa chính xác","在源码中选择以精确编辑","在原始碼中選取以精確編輯","Pilih di Sumber untuk mengedit dengan tepat","정확히 편집하려면 소스에서 선택하세요","正確に編集するにはソースで選択してください"],
+    "Select in Source to edit precisely": ["Seleziona il testo nella vista Codice per modificarlo","Sélectionnez dans la source pour une modification précise","Chọn trong Mã nguồn để chỉnh sửa chính xác","在源码中选择以精确编辑","在原始碼中選取以精確編輯","Pilih di Sumber untuk mengedit dengan tepat","정확히 편집하려면 소스에서 선택하세요","正確に編集するにはソースで選択してください"],
     "Open a Markdown document to begin": ["Apri un documento Markdown per iniziare","Ouvrez un document Markdown pour commencer","Mở tài liệu Markdown để bắt đầu","打开 Markdown 文档以开始","開啟 Markdown 文件以開始","Buka dokumen Markdown untuk memulai","Markdown 문서를 열어 시작하세요","Markdown 文書を開いて開始"],
     "Select model": ["Seleziona modello","Choisir le modèle","Chọn mô hình","选择模型","選擇模型","Pilih model","모델 선택","モデルを選択"],
     "Default": ["Predefinito","Par défaut","Mặc định","默认","預設","Bawaan","기본값","既定"],
@@ -746,7 +746,7 @@
       "読む"
     ],
     "Source": [
-      "Sorgente",
+      "Codice",
       "Source",
       "Mã nguồn",
       "源码",
@@ -756,7 +756,7 @@
       "ソース"
     ],
     "Split": [
-      "Affianca",
+      "Vista combinata",
       "Fractionner",
       "Chia đôi",
       "分栏",
@@ -1065,26 +1065,10 @@
       "Acrylic 창 배경",
       "Acrylic のウィンドウ背景"
     ],
-    "Use lightweight source view": [
-      "Usa sorgente leggera",
-      "Utiliser la vue source légère",
-      "Dùng trình xem mã nhẹ",
-      "使用轻量源码视图",
-      "使用輕量原始碼檢視",
-      "Gunakan tampilan sumber ringan",
-      "가벼운 소스 보기 사용",
-      "軽量ソースビューを使う"
-    ],
-    "Remember last workspace": [
-      "Ricorda ultimo workspace",
-      "Mémoriser le dernier espace",
-      "Nhớ không gian làm việc gần nhất",
-      "记住上次工作区",
-      "記住上次工作區",
-      "Ingat ruang kerja terakhir",
-      "마지막 작업 공간 기억",
-      "最後のワークスペースを記憶"
-    ],
+    "Show source as plain text": ["Mostra il codice come testo semplice","Afficher le code source en texte brut","Hiển thị mã nguồn dưới dạng văn bản thuần","以纯文本显示源码","以純文字顯示原始碼","Tampilkan kode sumber sebagai teks biasa","소스 코드를 일반 텍스트로 표시","ソースコードをプレーンテキストで表示"],
+    "Read and copy Markdown without syntax highlighting. Turn this off to see headings and other Markdown elements in color.": ["Leggi e copia il codice Markdown senza colori. Disattiva questa opzione per distinguere titoli e altri elementi Markdown in base al colore.","Lisez et copiez le Markdown sans coloration syntaxique. Désactivez cette option pour afficher les titres et autres éléments en couleur.","Đọc và sao chép Markdown không tô màu cú pháp. Tắt tùy chọn này để thấy tiêu đề và các thành phần khác có màu.","阅读和复制 Markdown 时不使用语法高亮。关闭此项可用颜色区分标题等元素。","閱讀同複製 Markdown 時唔會標示語法顏色。關閉呢個選項就可以用顏色分辨標題等元素。","Baca dan salin Markdown tanpa warna sintaks. Matikan opsi ini untuk membedakan judul dan elemen lain berdasarkan warna.","구문 강조 없이 Markdown을 읽고 복사합니다. 이 옵션을 끄면 제목 등의 요소가 색으로 구분됩니다.","構文を色分けせずに Markdown を読んだりコピーしたりできます。オフにすると見出しなどが色分けされます。"],
+    "Reopen the last document": ["Riapri l’ultimo documento","Rouvrir le dernier document","Mở lại tài liệu gần nhất","重新打开上次的文档","重新開啟上次嘅文件","Buka kembali dokumen terakhir","마지막 문서 다시 열기","前回の文書を開く"],
+    "When you start MarkVibe, it opens the last folder and document and returns to your reading position.": ["Quando avvii MarkVibe, ritrovi la cartella e il documento che avevi aperto e riprendi la lettura dal punto in cui eri.","Au démarrage, MarkVibe rouvre le dernier dossier et le dernier document à votre position de lecture.","Khi khởi động, MarkVibe mở lại thư mục và tài liệu gần nhất tại vị trí bạn đang đọc.","启动 MarkVibe 时，会重新打开上次的文件夹和文档，并回到上次的阅读位置。","啟動 MarkVibe 時會重新開啟上次嘅資料夾同文件，並返回上次睇到嘅位置。","Saat dimulai, MarkVibe membuka folder dan dokumen terakhir di posisi terakhir Anda membaca.","MarkVibe를 시작하면 마지막 폴더와 문서를 열고 읽던 위치로 돌아갑니다.","MarkVibe の起動時に前回のフォルダーと文書を開き、読みかけの位置に戻ります。"],
     "Reset preferences": [
       "Ripristina impostazioni",
       "Réinitialiser les préférences",
@@ -1285,16 +1269,7 @@
       "나만의 MarkVibe",
       "MarkVibe を自分好みに"
     ],
-    "Changes are saved automatically.": [
-      "Le modifiche si salvano automaticamente.",
-      "Les modifications sont enregistrées automatiquement.",
-      "Thay đổi được lưu tự động.",
-      "更改会自动保存。",
-      "更改會自動儲存。",
-      "Perubahan disimpan otomatis.",
-      "변경 사항은 자동으로 저장됩니다.",
-      "変更は自動で保存されます。"
-    ],
+    "Diagnostics": ["Diagnostica","Diagnostic","Chẩn đoán","诊断","診斷","Diagnostik","진단","診断"],
     "Default preferences restored.": [
       "Impostazioni predefinite ripristinate.",
       "Préférences par défaut rétablies.",
@@ -1476,7 +1451,7 @@
       "これが VibeWare · マニフェストを読む"
     ],
     "Markdown source": [
-      "Sorgente Markdown",
+      "Codice sorgente Markdown",
       "Source Markdown",
       "Mã nguồn Markdown",
       "Markdown 源码",
@@ -1486,7 +1461,7 @@
       "Markdown ソース"
     ],
     "Find in source": [
-      "Cerca nel sorgente",
+      "Cerca nel codice",
       "Rechercher dans la source",
       "Tìm trong mã nguồn",
       "在源码中查找",
@@ -1496,7 +1471,7 @@
       "ソース内を検索"
     ],
     "Read-only Markdown source": [
-      "Sorgente Markdown in sola lettura",
+      "Codice sorgente Markdown in sola lettura",
       "Source Markdown en lecture seule",
       "Mã Markdown chỉ đọc",
       "只读 Markdown 源码",
@@ -1536,7 +1511,7 @@
       "コピー"
     ],
     "Source copied.": [
-      "Sorgente copiato.",
+      "Codice copiato.",
       "Source copiée.",
       "Đã sao chép mã nguồn.",
       "已复制源码。",
@@ -1546,7 +1521,7 @@
       "ソースをコピーしました。"
     ],
     "Preparing your source…": [
-      "Preparazione sorgente…",
+      "Caricamento del codice…",
       "Préparation de la source…",
       "Đang chuẩn bị mã nguồn…",
       "正在准备源码…",
@@ -1556,7 +1531,7 @@
       "ソースを準備中…"
     ],
     "No source matches found.": [
-      "Nessun risultato nel sorgente.",
+      "Nessun risultato nel codice.",
       "Aucun résultat dans la source.",
       "Không tìm thấy trong mã nguồn.",
       "源码中没有匹配结果。",
@@ -2471,7 +2446,7 @@
       "{0} を開き直して {1} の続きを読むことができます。前回の位置はこの端末に保存しています。"
     ],
     "{0} source lines · {1}": [
-      "{0} righe sorgente · {1}",
+      "{0} righe di codice · {1}",
       "{0} lignes source · {1}",
       "{0} dòng mã · {1}",
       "{0} 行源码 · {1}",
@@ -3221,7 +3196,7 @@
       "手書きを保存中です。次の線を描く前にお待ちください。"
     ],
     "Select the source text and copy it with your keyboard or touch menu.": [
-      "Seleziona il sorgente e copialo da tastiera o dal menu touch.",
+      "Seleziona il codice e copialo da tastiera o dal menu touch.",
       "Sélectionnez la source et copiez-la au clavier ou avec le menu tactile.",
       "Chọn mã nguồn rồi sao chép bằng bàn phím hoặc menu cảm ứng.",
       "选中源码，用键盘或触控菜单复制。",
@@ -3231,7 +3206,7 @@
       "ソースを選択し、キーボードまたはタッチメニューでコピーしてください。"
     ],
     "The lightweight source view is ready. Select and copy text as usual.": [
-      "La vista sorgente leggera è pronta. Puoi selezionare e copiare il testo.",
+      "Il codice sorgente è visualizzato come testo semplice. Puoi selezionarlo e copiarlo.",
       "La vue source légère est prête. Sélectionnez et copiez le texte normalement.",
       "Trình xem mã nhẹ đã sẵn sàng. Chọn và sao chép như thường.",
       "轻量源码视图已就绪，可照常选择和复制文本。",
@@ -3728,8 +3703,6 @@
     "Choose document colors and fonts for dark mode": "Dark document theme",
     "Choose code block colors for light mode": "Light code theme",
     "Choose code block colors for dark mode": "Dark code theme",
-    "Use a simple source view instead of Monaco": "Use lightweight source view",
-    "Reopen the last document at its saved reading position": "Remember last workspace",
     "Restore the default appearance, language and reading preferences": "Reset preferences",
     "Export the current document as HTML": "Export HTML…",
     "Save the current document as PDF": "Export PDF…",

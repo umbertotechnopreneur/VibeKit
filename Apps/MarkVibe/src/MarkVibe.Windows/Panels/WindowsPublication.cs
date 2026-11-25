@@ -6,17 +6,13 @@
  * VBWR E */
 using System.Reflection;
 using MarkVibe.Core;
-using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
-using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
-using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.ApplicationModel;
-using Windows.Storage;
 using Windows.System;
 using Windows.UI.ViewManagement;
 using static MarkVibe.Core.UiStrings;
@@ -252,55 +248,18 @@ internal static class WindowsAboutDialog
     /// <summary>Opens the native About dialog owned by the supplied shell.</summary>
     public static async Task ShowAsync(XamlRoot root, Func<Task<string>>? emailDiagnostics = null)
     {
-        var icon = CreateImage(44);
-        var badge = CreateImage(64);
-        var badgeLink = WindowsPublication.Link("Manifesto", WindowsPublication.Manifesto);
-        badgeLink.Content = badge;
-        badgeLink.HorizontalAlignment = HorizontalAlignment.Center;
-        AutomationProperties.SetName(badgeLink, T("Participates in VibeWare. Read the manifesto"));
-        ToolTipService.SetToolTip(badgeLink, T("Participates in VibeWare. Read the manifesto"));
-
-        var title = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Center };
-        title.Children.Add(icon);
-        title.Children.Add(new TextBlock
-        {
-            Text = "MarkVibe", FontSize = 28, FontWeight = FontWeights.Light, VerticalAlignment = VerticalAlignment.Center
-        });
-        var contents = new StackPanel { Spacing = 10, Margin = new Thickness(12, 0, 12, 0) };
-        contents.Children.Add(title);
-        contents.Children.Add(Copy(T("Version") + " " + WindowsPublication.Version(), 13));
-        contents.Children.Add(Copy(T("I built MarkVibe to read local Markdown, explore links between documents, and make the workspace my own."), 14));
-        contents.Children.Add(Copy(T("I created this software with AI assistance. I define its purpose, guide the implementation, and take responsibility for checking functionality, performance, and security."), 14));
-        contents.Children.Add(Copy("Umberto Giacobbi", 14));
-        contents.Children.Add(badgeLink);
-        contents.Children.Add(Copy("Human intent, AI execution, and plenty of tokens", 13));
-
-        var links = new NativeWrapPanel { HorizontalAlignment = HorizontalAlignment.Center };
-        links.Children.Add(WindowsPublication.Link("MarkVibe on GitHub", WindowsPublication.Repository));
-        links.Children.Add(WindowsPublication.Link("VibeWare on GitHub", WindowsPublication.Initiative));
-        links.Children.Add(WindowsPublication.Link("umbertogiacobbi.biz", WindowsPublication.Author));
-        links.Children.Add(WindowsPublication.Link("MIT license", WindowsPublication.License));
-        links.Children.Add(WindowsPublication.Link("Terms", WindowsPublication.Terms));
-        links.Children.Add(WindowsPublication.Link("Privacy", WindowsPublication.Privacy));
-        contents.Children.Add(links);
-        if (emailDiagnostics != null)
-        {
-            AddDiagnostics(contents, emailDiagnostics);
-        }
-
-        var scroll = WindowsDialogs.Scroll(contents);
-        AutomationProperties.SetName(scroll, T("About MarkVibe"));
+        var scroll = WindowsDialogs.Scroll(new AboutView(emailDiagnostics));
+        scroll.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         var dialog = new ContentDialog
         {
             XamlRoot = root,
             Content = scroll,
             CloseButtonText = T("Close"),
-            DefaultButton = ContentDialogButton.Close
+            CloseButtonStyle = (Style)Application.Current.Resources["AboutCloseButtonStyle"]
         };
-        WindowsDialogs.SetTitle(dialog, T("About MarkVibe"));
+        AutomationProperties.SetName(dialog, T("About MarkVibe"));
         dialog.PreviewKeyDown += (_, args) => ScrollAboutOnPageKey(scroll, args);
-        dialog.Opened += async (_, _) => await Task.WhenAll(LoadImageAsync(icon, "favicon.svg", svg: true), LoadImageAsync(badge, "images/vibeware-logo.png", svg: false));
-        await WindowsDialogs.ShowScrollableAsync(dialog, scroll, 620);
+        await WindowsDialogs.ShowScrollableAsync(dialog, scroll, 760);
     }
 
     /// <summary>Scrolls the About body from the keyboard while focus stays on its current control.</summary>
@@ -324,68 +283,5 @@ internal static class WindowsAboutDialog
                 args.Handled = scroll.ChangeView(null, target, null, disableAnimation: true);
             }
         }
-    }
-
-    /// <summary>Creates an exactly proportioned local image within the publication dialog.</summary>
-    private static Image CreateImage(double size) => new() { Width = size, Height = size, Stretch = Stretch.Uniform, IsHitTestVisible = false };
-
-    /// <summary>Renders a line of About content with wrapping enabled for narrow windows.</summary>
-    private static TextBlock Copy(string text, double size) => new()
-    {
-        Text = text, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, FontSize = size, FontWeight = FontWeights.Normal
-    };
-
-    /// <summary>Loads the original staged logo or product icon only when About is opened.</summary>
-    private static async Task LoadImageAsync(Image target, string relative, bool svg)
-    {
-        try
-        {
-            var path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "app", relative));
-            var file = await StorageFile.GetFileFromPathAsync(path);
-            using var stream = await file.OpenAsync(FileAccessMode.Read);
-            if (svg)
-            {
-                var source = new SvgImageSource();
-                await source.SetSourceAsync(stream);
-                target.Source = source;
-            }
-            else
-            {
-                var source = new BitmapImage();
-                await source.SetSourceAsync(stream);
-                target.Source = source;
-            }
-        }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException)
-        {
-            // Missing artwork leaves the native product name and accessible manifesto action usable.
-        }
-    }
-
-    /// <summary>Adds the existing diagnostic ZIP and email workflow on explicit button activation.</summary>
-    private static void AddDiagnostics(Panel contents, Func<Task<string>> email)
-    {
-        var button = new Button { Content = T("Email diagnostics…"), HorizontalAlignment = HorizontalAlignment.Center };
-        var status = Copy("", 12);
-        AutomationProperties.SetLiveSetting(status, AutomationLiveSetting.Polite);
-        button.Click += async (_, _) =>
-        {
-            button.IsEnabled = false;
-            status.Text = T("Preparing the diagnostics ZIP…");
-            try
-            {
-                status.Text = await email();
-            }
-            catch (Exception)
-            {
-                status.Text = T("Could not create a diagnostics ZIP or open email.");
-            }
-            finally
-            {
-                button.IsEnabled = true;
-            }
-        };
-        contents.Children.Add(button);
-        contents.Children.Add(status);
     }
 }

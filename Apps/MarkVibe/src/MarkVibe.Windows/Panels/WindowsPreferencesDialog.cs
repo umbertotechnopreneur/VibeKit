@@ -16,6 +16,17 @@ using static MarkVibe.Core.UiStrings;
 
 namespace MarkVibe.Windows;
 
+/// <summary>Supplies the name and typeface to both presenters of a native font picker.</summary>
+[WinRT.GeneratedBindableCustomProperty]
+public sealed partial class FontPreview(string label, FontFamily family)
+{
+    public string Label { get; } = label;
+    public FontFamily Family { get; } = family;
+
+    /// <summary>Exposes the readable label to controls that request the item's text.</summary>
+    public override string ToString() => Label;
+}
+
 /// <summary>Presents global preferences and folder-specific reader appearance without owning persistence.</summary>
 internal static class WindowsPreferencesDialog
 {
@@ -60,8 +71,10 @@ internal static class WindowsPreferencesDialog
 
         var workspaceDetails = new StackPanel { Spacing = 20, VerticalAlignment = VerticalAlignment.Top };
         var workspace = Section(workspaceDetails, "Workspace");
-        form.Check(workspace, "Use lightweight source view", value => value.SimpleSource, (value, next) => value with { SimpleSource = next });
-        form.Check(workspace, "Remember last workspace", value => value.RememberLastDocument, (value, next) => value with { RememberLastDocument = next });
+        form.Check(workspace, "Show source as plain text", value => value.SimpleSource, (value, next) => value with { SimpleSource = next },
+            "Read and copy Markdown without syntax highlighting. Turn this off to see headings and other Markdown elements in color.");
+        form.Check(workspace, "Reopen the last document", value => value.RememberLastDocument, (value, next) => value with { RememberLastDocument = next },
+            "When you start MarkVibe, it opens the last folder and document and returns to your reading position.");
         AddFileAssociations(workspaceDetails, options);
 
         var document = new StackPanel { Spacing = 10, VerticalAlignment = VerticalAlignment.Top };
@@ -92,7 +105,8 @@ internal static class WindowsPreferencesDialog
         var scroll = WindowsDialogs.Scroll(appearancePage);
         scroll.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         scroll.Padding = new Thickness(0, 0, 12, 0);
-        var body = new Grid { RowSpacing = 12 };
+        var body = new Grid();
+        categories.Margin = new Thickness(0, 0, 0, 12);
         body.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         body.RowDefinitions.Add(new RowDefinition());
         body.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -225,7 +239,7 @@ internal static class WindowsPreferencesDialog
         using var dialogLifetime = CancellationTokenSource.CreateLinkedTokenSource(lifetime);
         var form = new Form(preferences, value => apply(ReaderAppearance.From(value)), dialogLifetime.Token);
         var panel = new StackPanel { Spacing = 10, Margin = new Thickness(4, 0, 12, 0) };
-        panel.Children.Add(Text("These reading choices are saved for this folder.", 14));
+        panel.Children.Add(Text("These reading settings apply only to this folder.", 14));
         panel.Children.Add(form.Status);
         AutomationProperties.SetLiveSetting(form.Status, AutomationLiveSetting.Polite);
         AddReaderChoices(panel, form);
@@ -245,7 +259,7 @@ internal static class WindowsPreferencesDialog
             }
             catch (Exception)
             {
-                form.Status.Text = T("Preferences could not be saved. Try again.");
+                form.ShowSaveError();
                 args.Cancel = true;
             }
             finally
@@ -502,7 +516,7 @@ internal static class WindowsPreferencesDialog
         private bool _updating;
 
         public Preferences Value { get; private set; } = current;
-        public TextBlock Status { get; } = Text("Changes are saved automatically.", 12);
+        public TextBlock Status { get; } = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
         public Task Saved { get; private set; } = Task.CompletedTask;
         public event Action? Changed;
 
@@ -513,14 +527,15 @@ internal static class WindowsPreferencesDialog
             var options = choices.ToArray();
             var control = new ComboBox { Header = Text(label, 14), HorizontalAlignment = HorizontalAlignment.Stretch };
             AutomationProperties.SetName(control, T(label));
-            foreach (var option in options)
+            if (previewFont)
             {
-                var item = new ComboBoxItem { Content = T(option.Label), Tag = option.Id };
-                if (previewFont && option.Id != "system")
-                {
-                    item.FontFamily = new FontFamily(option.Id);
-                }
-                control.Items.Add(item);
+                control.ItemTemplate = (DataTemplate)Application.Current.Resources["FontPreviewTemplate"];
+                control.ItemsSource = options.Select(option => new FontPreview(T(option.Label), option.Id == "system"
+                    ? new FontFamily("XamlAutoFontFamily") : new FontFamily(option.Id))).ToArray();
+            }
+            else
+            {
+                control.ItemsSource = options.Select(option => T(option.Label)).ToArray();
             }
             /// <summary>Reads the current selected identifier without firing a write during initialization or reset.</summary>
             void Set(Preferences value)
@@ -531,9 +546,10 @@ internal static class WindowsPreferencesDialog
             Set(Value);
             control.SelectionChanged += (_, _) =>
             {
-                if (control.SelectedItem is ComboBoxItem { Tag: string selected })
+                var index = control.SelectedIndex;
+                if (index >= 0 && index < options.Length)
                 {
-                    Change(replace(Value, selected));
+                    Change(replace(Value, options[index].Id));
                 }
             };
             _setters.Add(Set);
@@ -542,9 +558,22 @@ internal static class WindowsPreferencesDialog
         }
 
         /// <summary>Builds a native checkbox for a boolean model setting.</summary>
-        public void Check(Panel panel, string label, Func<Preferences, bool> read, Func<Preferences, bool, Preferences> replace)
+        public void Check(Panel panel, string label, Func<Preferences, bool> read, Func<Preferences, bool, Preferences> replace,
+            string? description = null)
         {
             var control = new CheckBox { Content = T(label), IsChecked = read(Value) };
+            if (description != null)
+            {
+                var caption = new StackPanel { Spacing = 3 };
+                caption.Children.Add(Text(label, 14));
+                var detail = Text(description, 12);
+                detail.Style = (Style)Application.Current.Resources["SettingsDescriptionStyle"];
+                caption.Children.Add(detail);
+                control.Content = caption;
+                control.HorizontalAlignment = HorizontalAlignment.Stretch;
+                AutomationProperties.SetName(control, T(label));
+                AutomationProperties.SetHelpText(control, detail.Text);
+            }
             control.Checked += (_, _) => Change(replace(Value, true));
             control.Unchecked += (_, _) => Change(replace(Value, false));
             _setters.Add(value => control.IsChecked = read(value));
@@ -595,16 +624,24 @@ internal static class WindowsPreferencesDialog
                 await apply(next);
                 if (next == Value && !lifetime.IsCancellationRequested)
                 {
-                    Status.Text = T("Changes are saved automatically.");
+                    Status.Visibility = Visibility.Collapsed;
+                    Status.Text = string.Empty;
                 }
             }
             catch (Exception)
             {
                 if (next == Value && !lifetime.IsCancellationRequested)
                 {
-                    Status.Text = T("Preferences could not be saved. Try again.");
+                    ShowSaveError();
                 }
             }
+        }
+
+        /// <summary>Exposes the live status only when a preference write needs attention.</summary>
+        public void ShowSaveError()
+        {
+            Status.Visibility = Visibility.Visible;
+            Status.Text = T("Preferences could not be saved. Try again.");
         }
     }
 }

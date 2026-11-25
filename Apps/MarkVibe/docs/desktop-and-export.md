@@ -86,7 +86,7 @@ unrestricted filesystem or shell access.
 
 Windows preferences and reader layout live in `desktop-settings.json` under
 `%LOCALAPPDATA%\MarkVibe\Windows`. The native session in the same profile records
-the last root, document, anchor and position. **Remember last workspace** allows
+the last root, document, anchor and position. **Reopen the last document** allows
 the app to restore it on restart. `--open` selects a different starting file.
 Document map positions, colors, icons and atlas settings live in the workspace's
 `.markvibe-map.json`. See [map layout](map-layout.md).

@@ -1,0 +1,72 @@
+<!-- VBWR B
+  Project: MarkVibe | Creator: Umberto Giacobbi
+  Created with AI: OpenAI Codex; responsive product information inspired by WorkTrail
+  Copyright (c) 2026 Umberto Giacobbi | License: MIT (see LICENSE)
+VBWR E -->
+<UserControl
+    x:Class="MarkVibe.Windows.AboutView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <ImageBrush x:Key="AboutLandscape" ImageSource="ms-appx:///app/images/about-hero.png" Stretch="UniformToFill" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <ImageBrush x:Key="AboutLandscape" ImageSource="ms-appx:///app/images/about-hero.png" Stretch="UniformToFill" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="AboutLandscape" Color="{ThemeResource SystemColorWindowColor}" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <StackPanel Spacing="18">
+        <Border RequestedTheme="Dark" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" CornerRadius="8">
+            <Grid Background="{ThemeResource AboutLandscape}" MinHeight="154" CornerRadius="8" Padding="20,18">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left" Spacing="2">
+                    <Image Width="36" Height="32" HorizontalAlignment="Left" Stretch="Uniform" AutomationProperties.AccessibilityView="Raw">
+                        <Image.Source><SvgImageSource UriSource="ms-appx:///app/favicon.svg" /></Image.Source>
+                    </Image>
+                    <TextBlock Text="MarkVibe" FontSize="32" FontWeight="SemiBold" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorPrimaryBrush}" AutomationProperties.HeadingLevel="Level1" />
+                    <TextBlock x:Name="VersionLabel" FontSize="13" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+        <Grid x:Name="Details" RowDefinitions="Auto,Auto" ColumnDefinitions="*,0" SizeChanged="ArrangeDetails">
+            <StackPanel Spacing="8">
+                <TextBlock x:Name="Purpose" FontSize="16" TextWrapping="Wrap" />
+                <TextBlock Text="Umberto Giacobbi" FontWeight="SemiBold" Margin="0,6,0,0" />
+                <TextBlock x:Name="Responsibility" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+            <StackPanel x:Name="ProjectPanel" Grid.Row="1" Spacing="3">
+                <StackPanel x:Name="ProjectLinks" HorizontalAlignment="Left" />
+                <StackPanel x:Name="DiagnosticsPanel" Spacing="6" Margin="0,10,0,0">
+                    <TextBlock x:Name="DiagnosticsHeading" FontWeight="SemiBold" AutomationProperties.HeadingLevel="Level2" />
+                    <Button x:Name="EmailButton" Click="EmailDiagnostics">
+                        <TextBlock x:Name="EmailLabel" TextWrapping="Wrap" />
+                    </Button>
+                    <TextBlock x:Name="DiagnosticsStatus" Visibility="Collapsed" FontSize="12" TextWrapping="Wrap"
+                               AutomationProperties.LiveSetting="Polite" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+        <Border BorderThickness="0,1,0,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" Padding="0,12,0,0">
+            <StackPanel Spacing="4">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                    <HyperlinkButton x:Name="ManifestoBadge" Padding="3" VerticalAlignment="Center">
+                        <Image Width="48" Height="48" Stretch="Uniform" Source="ms-appx:///app/images/vibeware-logo.png" />
+                    </HyperlinkButton>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="VibeWare" FontWeight="SemiBold" />
+                        <TextBlock Text="Human intent, AI execution, and plenty of tokens" FontSize="13" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Grid>
+                <ContentPresenter x:Name="LegalLinks" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

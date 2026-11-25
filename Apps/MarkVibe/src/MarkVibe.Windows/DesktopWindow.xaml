@@ -36,7 +36,7 @@ VBWR E -->
                 <SelectorBarItem x:Name="MapButton" Text="Map" Tag="map" />
             </SelectorBar>
             <CommandBar x:Name="Header" Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center"
-                        DefaultLabelPosition="Right" Background="Transparent">
+                        DefaultLabelPosition="Right" OverflowButtonVisibility="Auto" Background="Transparent">
                 <AppBarButton x:Name="OpenFileButton" Label="Open file" Icon="OpenFile" Click="OpenFile" />
                 <AppBarButton x:Name="OpenFolderButton" Label="Open folder" Icon="Folder" Click="OpenFolder" />
                 <AppBarButton x:Name="FindButton" Label="Find" Icon="Find" Click="OpenFind" LabelPosition="Collapsed" />

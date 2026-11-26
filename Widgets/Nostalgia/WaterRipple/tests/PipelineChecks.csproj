@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Models.cs" Link="Models.cs" />
+    <Compile Include="../SettingsStore.cs" Link="SettingsStore.cs" />
+    <Compile Include="../SettingsChecks.cs" Link="SettingsChecks.cs" />
+    <Compile Include="../PipelineModel.cs" Link="PipelineModel.cs" />
+    <Compile Include="../NativeInterop.cs" Link="NativeInterop.cs" />
+    <Compile Include="../RenderParameters.cs" Link="RenderParameters.cs" />
+    <Compile Include="../FrameSchedule.cs" Link="FrameSchedule.cs" />
+    <Compile Include="../CloseSequence.cs" Link="CloseSequence.cs" />
+    <Compile Include="../../../Shared/DesktopEffectRecovery.cs" Link="DesktopEffectRecovery.cs" />
+    <Compile Include="../../../Shared/DesktopEffectStop.cs" Link="DesktopEffectStop.cs" />
+    <Compile Include="../../Vignette/Windows/Appearance.cs" Link="VignetteAppearance.cs" />
+    <EmbeddedResource Include="../Shared/pipeline-catalog.json" LogicalName="WaterRipple.pipeline-catalog.json" />
+  </ItemGroup>
+</Project>

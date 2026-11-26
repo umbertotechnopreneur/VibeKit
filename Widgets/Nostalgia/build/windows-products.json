@@ -1,0 +1,47 @@
+{
+  "WaterRipple": {
+    "project": "WaterRipple.csproj",
+    "name": "Water Ripple",
+    "upgrade_code": "4c38f791-02e4-4c90-910c-947475cbde47",
+    "description": "Desktop water ripple effect.",
+    "icon": "Assets/WaterRipple.ico",
+    "runtime": "core",
+    "remove_user_startup": true
+  },
+  "Vignette": {
+    "project": "Windows/Vignette.csproj",
+    "name": "Vignette",
+    "upgrade_code": "88c39ecd-1581-4af1-9d14-6ee462e55f71",
+    "description": "Elliptical desktop edge lighting and shading.",
+    "icon": "Windows/Vignette.ico",
+    "runtime": "desktop",
+    "remove_user_startup": true
+  },
+  "RetroTerminal": {
+    "project": "Windows/Studio/RetroStudio.csproj",
+    "name": "Retro Terminal",
+    "upgrade_code": "83fb29fe-a2f5-46b7-ba1b-a74ed0f45606",
+    "description": "Desktop CRT effect and control panel.",
+    "icon": "Windows/Studio/RetroTerminal.ico",
+    "runtime": "core",
+    "remove_user_startup": true
+  },
+  "CrtDegauss": {
+    "project": "Windows/CrtDegauss.csproj",
+    "name": "CRT Degauss",
+    "upgrade_code": "b0716a3f-f0e8-42d0-b3bc-f5af827a4a19",
+    "description": "CRT magnetization effect.",
+    "icon": "Windows/CrtDegauss.ico",
+    "runtime": "core",
+    "remove_user_startup": false
+  },
+  "RetroSound": {
+    "project": "Windows/RetroSound.csproj",
+    "name": "Retro Sound",
+    "upgrade_code": "3be6b86d-7508-485e-bae6-4c7b5647c6df",
+    "description": "Mechanical disk sound effect.",
+    "icon": "Windows/RetroSound.ico",
+    "runtime": "core",
+    "remove_user_startup": false
+  }
+}

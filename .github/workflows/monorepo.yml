@@ -23,6 +23,9 @@ on:
           - openai-usage
           - desktop-ripple
           - retro-terminal
+          - vignette
+          - crt-degauss
+          - retro-sound
           - studio-controls
 
 permissions:
@@ -99,6 +102,23 @@ jobs:
     if: contains(fromJSON(needs.changes.outputs.projects), 'retro-terminal')
     uses: ./.github/workflows/ci-retro-terminal.yml
 
+  vignette:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'vignette')
+    uses: ./.github/workflows/ci-vignette.yml
+  crt-degauss:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'crt-degauss')
+    uses: ./.github/workflows/ci-native-effect.yml
+    with:
+      widget: CrtDegauss
+  retro-sound:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.projects), 'retro-sound')
+    uses: ./.github/workflows/ci-native-effect.yml
+    with:
+      widget: RetroSound
+
   studio-controls:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.projects), 'studio-controls')
@@ -107,7 +127,7 @@ jobs:
   required:
     name: VibeKit CI required
     if: always()
-    needs: [changes, helpme, markvibe, thermalright, ulanzideck, voiceducker, worktrail, worktrail-scripts, ghostty-shaders, desktop-ripple, openai-usage, retro-terminal, studio-controls]
+    needs: [changes, helpme, markvibe, thermalright, ulanzideck, voiceducker, worktrail, worktrail-scripts, ghostty-shaders, desktop-ripple, openai-usage, retro-terminal, vignette, crt-degauss, retro-sound, studio-controls]
     runs-on: ubuntu-24.04
     steps:
       - name: Require every selected pipeline to succeed

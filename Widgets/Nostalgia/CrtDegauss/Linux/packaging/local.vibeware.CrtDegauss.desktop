@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=CRT Degauss
+GenericName=Desktop effect
+Comment=Simulate gradual CRT magnetization
+Exec=sh -c "gnome-extensions enable crt-degauss@vibeware.local && exec gjs -m /usr/share/gnome-shell/extensions/crt-degauss@vibeware.local/control.js"
+TryExec=gnome-extensions
+Icon=local.vibeware.CrtDegauss
+Terminal=false
+StartupNotify=false
+Categories=Settings;DesktopSettings;
+Keywords=CRT;Degauss;Retro;Magnetization;
+OnlyShowIn=GNOME;

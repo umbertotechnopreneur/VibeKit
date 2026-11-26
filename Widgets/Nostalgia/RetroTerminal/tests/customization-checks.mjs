@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: MIT
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const moduleAt = async name => import(`data:text/javascript;base64,${Buffer.from(readFileSync(
+    new URL(`../Linux/extension/retro-terminal@vibeware.local/${name}.js`, import.meta.url), 'utf8')).toString('base64')}`);
+const {DEFAULTS, BUILTINS, PhosphorMask, validateValues} = await moduleAt('settings-model');
+const {GlitchSequence} = await moduleAt('glitches');
+assert.equal(BUILTINS.length, 40);
+assert.equal(new Set(BUILTINS.map(({id}) => id)).size, BUILTINS.length);
+assert.equal(new Set(BUILTINS.map(({name}) => name)).size, BUILTINS.length);
+assert.equal(new Set(BUILTINS.map(({values}) => JSON.stringify(values))).size, BUILTINS.length);
+for (const {name, values} of BUILTINS) {
+    assert.deepEqual(validateValues(values), values);
+    assert(values.intensity * values.scanlines <= 0.055, name);
+    assert(values.intensity * values.grain >= 0.015, name);
+    assert(!values['glitches-enabled'] && !values['persistence-enabled'], name);
+    if (name.startsWith('Trinitron '))
+        assert.equal(values.mask, PhosphorMask.RGB_STRIPES, name);
+}
+assert.throws(() => validateValues({...DEFAULTS, active: true}));
+assert.throws(() => validateValues({...DEFAULTS, 'glitch-intensity': 1.1}));
+assert.throws(() => validateValues({...DEFAULTS, 'phosphor-color': 'not a color'}));
+assert.throws(() => validateValues({...DEFAULTS, 'glow-radius': NaN}));
+const sequence = new GlitchSequence(() => 0.5);
+sequence.configure(DEFAULTS, 0);
+assert.equal(sequence.next, Infinity, 'Random starts disabled');
+assert(sequence.start(0, true), 'Manual preview works with random disabled');
+assert.equal(sequence.event.duration, 0.175);
+assert(!sequence.start(0.1, true), 'Episodes never overlap');
+assert(sequence.frame(0.1).progress > 0);
+assert.equal(sequence.frame(0.2), null);
+assert(!sequence.start(2, true), 'A two second rest follows the end');
+assert(sequence.start(2.3, true));
+sequence.cancel(2.4);
+assert.equal(sequence.event, null);
+assert.equal(sequence.next, Infinity);
+sequence.configure({...DEFAULTS, 'glitches-enabled': true}, 5);
+assert.equal(sequence.next, 45);
+assert(!sequence.start(44.9));
+assert(sequence.start(45));
+sequence.configure({...DEFAULTS, 'glitches-enabled': false}, 45.1);
+assert.equal(sequence.event, null, 'Turning off random immediately cancels its episode');
+assert.equal(sequence.next, Infinity);
+sequence.configure({...DEFAULTS, 'glitches-enabled': true, 'glitch-rgb': false,
+    'glitch-tear': false, 'glitch-noise': false, 'glitch-band': false}, 50);
+assert.equal(sequence.next, Infinity);
+assert(!sequence.start(50, true));
+sequence.configure({...DEFAULTS, 'glitches-enabled': true, 'glitch-intensity': 0}, 55);
+assert.equal(sequence.next, Infinity);
+assert(!sequence.start(55, true));
+sequence.configure({...DEFAULTS, 'glitches-enabled': true,
+    'glitch-interval-min': 60, 'glitch-interval-max': 20}, 60);
+assert.equal(sequence.next, 100, 'Reversed bounds are normalized');
+console.log('PASS preset validation, corruption preservation, event scheduling, no overlap, stop, rest and type gating');

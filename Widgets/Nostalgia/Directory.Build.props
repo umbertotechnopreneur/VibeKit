@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <!-- Restore, build and publish use the same project-specific paths, including project references. -->
+    <NostalgiaArtifactsRoot Condition="'$(NOSTALGIA_ARTIFACTS)' == ''">$(MSBuildThisFileDirectory)artifacts</NostalgiaArtifactsRoot>
+    <NostalgiaArtifactsRoot Condition="'$(NOSTALGIA_ARTIFACTS)' != ''">$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(NOSTALGIA_ARTIFACTS)'))</NostalgiaArtifactsRoot>
+    <_FamilyRelative>$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)'))</_FamilyRelative>
+    <_FamilyProduct>$([System.Text.RegularExpressions.Regex]::Match('$(_FamilyRelative)', '^[^/\\]+').Value)</_FamilyProduct>
+    <_FamilyPlatform Condition="'$(OS)' == 'Windows_NT'">windows/x64</_FamilyPlatform>
+    <_FamilyPlatform Condition="'$(OS)' != 'Windows_NT'">linux/portable</_FamilyPlatform>
+    <_FamilyWork>$(NostalgiaArtifactsRoot)/work/$(_FamilyPlatform)/$(_FamilyProduct)/$(MSBuildProjectName)</_FamilyWork>
+    <!-- Each packaging run gets private intermediates so simultaneous products can build the UI library. -->
+    <_FamilyWork Condition="'$(NostalgiaBuildDirectory)' != ''">$(NostalgiaBuildDirectory)/$(MSBuildProjectName)</_FamilyWork>
+    <BaseOutputPath>$(_FamilyWork)/bin/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(_FamilyWork)/obj/</BaseIntermediateOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**;**/dist/**;**/artifacts/**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

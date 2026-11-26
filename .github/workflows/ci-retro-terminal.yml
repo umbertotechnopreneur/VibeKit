@@ -4,6 +4,9 @@ on:
   workflow_call:
   workflow_dispatch:
 
+env:
+  NOSTALGIA_CHANNEL: public
+
 permissions:
   contents: read
 
@@ -20,39 +23,39 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gjs gir1.2-adw-1 gir1.2-gtk-4.0 libglib2.0-bin xvfb xauth dbus-x11
       - name: Check pure models and resource policies
         run: |
-          node Widgets/RetroTerminal/tests/guard-checks.mjs
-          node Widgets/RetroTerminal/tests/customization-checks.mjs
-          node Widgets/RetroTerminal/tests/capture-plan-checks.mjs
-          node Widgets/RetroTerminal/tests/pipeline-checks.mjs
+          node Widgets/Nostalgia/RetroTerminal/tests/guard-checks.mjs
+          node Widgets/Nostalgia/RetroTerminal/tests/customization-checks.mjs
+          node Widgets/Nostalgia/RetroTerminal/tests/capture-plan-checks.mjs
+          node Widgets/Nostalgia/RetroTerminal/tests/pipeline-checks.mjs
       - name: Check portable Windows settings and scheduler
         run: |
           for check in settings persistence; do
-            c++ -std=c++20 -Wall -Wextra -Werror -pedantic "Widgets/RetroTerminal/Windows/tests/$check-checks.cpp" -o "$RUNNER_TEMP/retro-$check-checks"
+            c++ -std=c++20 -Wall -Wextra -Werror -pedantic "Widgets/Nostalgia/RetroTerminal/Windows/tests/$check-checks.cpp" -o "$RUNNER_TEMP/retro-$check-checks"
             "$RUNNER_TEMP/retro-$check-checks"
           done
       - name: Build Debian package and extension archive
-        run: python3 Widgets/RetroTerminal/Linux/build-package.py --output-dir artifacts/retro-terminal
+        run: python3 Widgets/Nostalgia/RetroTerminal/Linux/build-package.py --output-dir Widgets/Nostalgia/artifacts/packages/public/linux/all/RetroTerminal
       - name: Check real GTK controls and isolated storage
         run: |
-          unzip -q artifacts/retro-terminal/retro-terminal@vibeware.local.shell-extension.zip -d "$RUNNER_TEMP/retro-extension"
-          python3 scripts/ci/run_isolated_gtk.py -- gjs -m Widgets/RetroTerminal/tests/gtk-checks.js "$RUNNER_TEMP/retro-extension"
-          python3 scripts/ci/run_isolated_gtk.py -- gjs -m Widgets/RetroTerminal/tests/library-checks.js "$RUNNER_TEMP/retro-extension"
+          unzip -q Widgets/Nostalgia/artifacts/packages/public/linux/all/RetroTerminal/retro-terminal@vibeware.local.shell-extension.zip -d "$RUNNER_TEMP/retro-extension"
+          python3 scripts/ci/run_isolated_gtk.py -- gjs -m Widgets/Nostalgia/RetroTerminal/tests/gtk-checks.js "$RUNNER_TEMP/retro-extension"
+          python3 scripts/ci/run_isolated_gtk.py -- gjs -m Widgets/Nostalgia/RetroTerminal/tests/library-checks.js "$RUNNER_TEMP/retro-extension"
       - name: Inspect Debian package
-        run: dpkg-deb --info artifacts/retro-terminal/*.deb
+        run: dpkg-deb --info Widgets/Nostalgia/artifacts/packages/public/linux/all/RetroTerminal/*.deb
       - uses: actions/upload-artifact@v4
         with:
           name: retro-terminal-linux
-          path: artifacts/retro-terminal/*.deb
+          path: Widgets/Nostalgia/artifacts/packages/public/linux/all/RetroTerminal/*.deb
           if-no-files-found: error
   windows:
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - name: Compile native application and portable checks
+      - name: Compile the native effect engine and portable checks
         shell: pwsh
         run: |
-          cmake -S Widgets/RetroTerminal/Windows -B "$env:RUNNER_TEMP/retro-build" -A x64 -DCMAKE_SYSTEM_VERSION=10.0.26100.0
+          cmake -S Widgets/Nostalgia/RetroTerminal/Windows -B "$env:RUNNER_TEMP/retro-build" -A x64 '-DCMAKE_SYSTEM_VERSION=10.0.26100.0'
           if ($LASTEXITCODE -ne 0) { throw 'CMake configuration failed.' }
           cmake --build "$env:RUNNER_TEMP/retro-build" --config Release
           if ($LASTEXITCODE -ne 0) { throw 'Native Windows build failed.' }
@@ -67,9 +70,9 @@ jobs:
           $sdk = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin'
           $fxc = Get-ChildItem $sdk -Directory | Where-Object { $_.Name -match '^10\.0\.\d+\.0$' } | Sort-Object { [version]$_.Name } -Descending | ForEach-Object { Join-Path $_.FullName 'x64/fxc.exe' } | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $fxc) { throw 'Windows SDK shader compiler is missing.' }
-          & $fxc /nologo /WX /T vs_5_0 /E VSMain /O3 /Fo "$env:RUNNER_TEMP/retro-vs.cso" Widgets/RetroTerminal/Windows/Shaders/Retro.hlsl
+          & $fxc /nologo /WX /T vs_5_0 /E VSMain /O3 /Fo "$env:RUNNER_TEMP/retro-vs.cso" Widgets/Nostalgia/RetroTerminal/Windows/Shaders/Retro.hlsl
           if ($LASTEXITCODE -ne 0) { throw 'Vertex shader compilation failed.' }
-          & $fxc /nologo /WX /T ps_5_0 /E PSMain /O3 /Fo "$env:RUNNER_TEMP/retro-ps.cso" Widgets/RetroTerminal/Windows/Shaders/Retro.hlsl
+          & $fxc /nologo /WX /T ps_5_0 /E PSMain /O3 /Fo "$env:RUNNER_TEMP/retro-ps.cso" Widgets/Nostalgia/RetroTerminal/Windows/Shaders/Retro.hlsl
           if ($LASTEXITCODE -ne 0) { throw 'Pixel shader compilation failed.' }
       - uses: actions/setup-dotnet@v6
         with:
@@ -84,9 +87,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'WiX installation failed.' }
       - name: Build unsigned MSI from source
         shell: pwsh
-        run: ./Widgets/RetroTerminal/Windows/Packaging/Build-MSI.ps1 -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe" -OutputDirectory "$env:RUNNER_TEMP/retro-msi"
+        run: ./Widgets/Nostalgia/build/Build-Windows.ps1 -Widget RetroTerminal -Channel public -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe"
       - uses: actions/upload-artifact@v6
         with:
           name: retro-terminal-windows-x64
-          path: ${{ runner.temp }}/retro-msi/*.msi
+          path: Widgets/Nostalgia/artifacts/packages/public/windows/x64/RetroTerminal/*.msi
           if-no-files-found: error

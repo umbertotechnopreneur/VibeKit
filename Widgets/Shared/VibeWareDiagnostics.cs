@@ -19,7 +19,7 @@ namespace Tools.Widgets;
 
 internal enum SupportEmailResult { Completed, ManualAttachment, NoEmailApp }
 
-internal static class VibeWareDiagnostics
+public static class VibeWareDiagnostics
 {
     internal const string SupportAddress = "hello@umbertogiacobbi.biz";
     internal const string TimestampFormat = "yyyy-MM-dd'T'HH:mm:ss.fff'Z'";
@@ -32,9 +32,9 @@ internal static class VibeWareDiagnostics
         "(?:[a-z][a-z0-9+.-]*://[^\\s<>]+|[a-z]:\\\\[^\\r\\n<>\"]*|\\\\\\\\[^\\r\\n<>\"]*|[\\w.+-]+@[\\w.-]+\\.[a-z]{2,}|\\b(?:bearer\\s+|sk-)[a-z0-9_.-]+)",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-    internal static string GetLogDirectory(string appId) => Path.Combine(GetAppDirectory(appId), "logs");
+    public static string GetLogDirectory(string appId) => Path.Combine(GetAppDirectory(appId), "logs");
 
-    internal static Logger CreateLogger(string appId) => CreateLogger(appId, out _);
+    public static Logger CreateLogger(string appId) => CreateLogger(appId, out _);
 
     internal static Logger CreateLogger(string appId, out Func<long> droppedEvents, string? logDirectory = null)
     {

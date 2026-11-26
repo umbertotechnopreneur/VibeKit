@@ -1,0 +1,52 @@
+<schemalist>
+  <schema id="org.gnome.shell.extensions.vibeware-retro-terminal" path="/org/gnome/shell/extensions/vibeware-retro-terminal/">
+    <key name="window-theme" type="s">
+      <choices><choice value="system"/><choice value="light"/><choice value="dark"/></choices>
+      <default>'system'</default>
+      <summary>Preferences window theme</summary>
+    </key>
+    <key name="active" type="b"><default>false</default></key>
+    <key name="target-monitors" type="as"><default>['*']</default></key>
+    <key name="animation-fps" type="i"><range min="15" max="120"/><default>60</default></key>
+    <key name="capture-fps" type="i"><range min="5" max="60"/><default>30</default></key>
+    <key name="auto-restart" type="b"><default>true</default></key>
+    <key name="recovery-delay" type="i"><range min="30" max="300"/><default>60</default></key>
+    <key name="recovery-pending" type="b"><default>false</default></key>
+    <key name="panic-enabled" type="b"><default>true</default></key>
+    <key name="panic-available" type="b"><default>false</default></key>
+    <key name="quit-request" type="x"><default>0</default></key>
+    <key name="show-gpu-jokes" type="b"><default>true</default><summary>Show GPU captions and a startup joke notification</summary></key>
+    <key name="preset" type="i"><range min="0" max="2"/><default>0</default></key>
+    <key name="intensity" type="d"><range min="0.0" max="1.0"/><default>0.9</default></key>
+    <key name="scanlines" type="d"><range min="0.0" max="0.6"/><default>0.22</default></key>
+    <key name="glow" type="d"><range min="0.0" max="0.8"/><default>0.35</default></key>
+    <key name="vignette" type="d"><range min="0.0" max="0.6"/><default>0.25</default></key>
+    <key name="grain" type="d"><range min="0.0" max="0.1"/><default>0.015</default></key>
+    <key name="custom-color" type="b"><default>false</default></key>
+    <key name="phosphor-color" type="s"><default>'#33ff6b'</default></key>
+    <key name="scanline-spacing" type="d"><range min="2" max="12"/><default>3.0</default></key>
+    <key name="scanline-width" type="d"><range min="0.25" max="6"/><default>1.0</default></key>
+    <key name="glow-radius" type="d"><range min="0.5" max="8"/><default>2.0</default></key>
+    <key name="mask" type="i"><range min="0" max="2"/><default>0</default></key>
+    <key name="mask-strength" type="d"><range min="0" max="0.5"/><default>0.16</default></key>
+    <key name="black-level" type="d"><range min="-0.2" max="0.2"/><default>0.0</default></key>
+    <key name="contrast" type="d"><range min="0.5" max="2"/><default>1.0</default></key>
+    <key name="persistence-enabled" type="b"><default>false</default></key>
+    <key name="persistence-duration" type="d"><range min="0.04" max="0.5"/><default>0.15</default></key>
+    <key name="persistence-strength" type="d"><range min="0" max="0.6"/><default>0.25</default></key>
+    <key name="glitches-enabled" type="b"><default>false</default></key>
+    <key name="glitch-rgb" type="b"><default>true</default></key>
+    <key name="glitch-tear" type="b"><default>true</default></key>
+    <key name="glitch-noise" type="b"><default>true</default></key>
+    <key name="glitch-band" type="b"><default>true</default></key>
+    <key name="glitch-intensity" type="d"><range min="0" max="1"/><default>0.25</default></key>
+    <key name="glitch-interval-min" type="d"><range min="5" max="300"/><default>20.0</default></key>
+    <key name="glitch-interval-max" type="d"><range min="5" max="300"/><default>60.0</default></key>
+    <key name="glitch-duration-min" type="d"><range min="80" max="1200"/><default>100.0</default></key>
+    <key name="glitch-duration-max" type="d"><range min="80" max="1200"/><default>250.0</default></key>
+    <key name="glitch-request" type="u"><default>0</default></key>
+    <key name="glitch-status" type="s"><default>'Idle'</default></key>
+    <key name="status" type="s"><default>'Stopped'</default></key>
+    <key name="retro-terminal-panic" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;F12']</default></key>
+  </schema>
+</schemalist>

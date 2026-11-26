@@ -4,6 +4,9 @@ on:
   workflow_call:
   workflow_dispatch:
 
+env:
+  NOSTALGIA_CHANNEL: public
+
 permissions:
   contents: read
 
@@ -20,28 +23,28 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - name: Check the portable C# pipeline model
-        run: dotnet run --project Widgets/WaterRipple/tests/PipelineChecks.csproj --configuration Debug --artifacts-path "${{ runner.temp }}/ripple-checks" -p:NuGetAudit=false
+        run: dotnet run --project Widgets/Nostalgia/WaterRipple/tests/PipelineChecks.csproj --configuration Debug --artifacts-path "${{ runner.temp }}/ripple-checks" -p:NuGetAudit=false
       - name: Check JavaScript models
         run: |
-          node Widgets/WaterRipple/tests/pipeline-checks.mjs
-          node Widgets/WaterRipple/tests/diagnostics-checks.mjs
-          node Widgets/WaterRipple/tests/recovery-checks.mjs
-          node Widgets/WaterRipple/tests/frame-pacing-checks.mjs
+          node Widgets/Nostalgia/WaterRipple/tests/pipeline-checks.mjs
+          node Widgets/Nostalgia/WaterRipple/tests/diagnostics-checks.mjs
+          node Widgets/Nostalgia/WaterRipple/tests/recovery-checks.mjs
+          node Widgets/Nostalgia/WaterRipple/tests/frame-pacing-checks.mjs
       - name: Install native GTK check dependencies
         run: sudo apt-get update && sudo apt-get install -y gjs gir1.2-adw-1 gir1.2-gtk-4.0 libglib2.0-bin xvfb xauth dbus-x11
       - name: Build Debian package and GNOME extension archive
-        run: python3 Widgets/WaterRipple/Linux/build-package.py --output-dir artifacts/desktop-ripple
+        run: python3 Widgets/Nostalgia/WaterRipple/Linux/build-package.py --output-dir Widgets/Nostalgia/artifacts/packages/public/linux/all/WaterRipple
       - name: Inspect Debian package
-        run: dpkg-deb --info artifacts/desktop-ripple/*.deb
+        run: dpkg-deb --info Widgets/Nostalgia/artifacts/packages/public/linux/all/WaterRipple/*.deb
       - name: Check real GTK controls and isolated storage
         run: |
-          unzip -q artifacts/desktop-ripple/ripple@vibeware.local.shell-extension.zip -d "$RUNNER_TEMP/ripple-extension"
-          python3 scripts/ci/run_isolated_gtk.py -- gjs -m Widgets/WaterRipple/tests/gtk-checks.js "$RUNNER_TEMP/ripple-extension"
-          python3 scripts/ci/run_isolated_gtk.py -- gjs -m Widgets/WaterRipple/tests/library-checks.js "$RUNNER_TEMP/ripple-extension"
+          unzip -q Widgets/Nostalgia/artifacts/packages/public/linux/all/WaterRipple/ripple@vibeware.local.shell-extension.zip -d "$RUNNER_TEMP/ripple-extension"
+          python3 scripts/ci/run_isolated_gtk.py -- gjs -m Widgets/Nostalgia/WaterRipple/tests/gtk-checks.js "$RUNNER_TEMP/ripple-extension"
+          python3 scripts/ci/run_isolated_gtk.py -- gjs -m Widgets/Nostalgia/WaterRipple/tests/library-checks.js "$RUNNER_TEMP/ripple-extension"
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-ripple-linux
-          path: artifacts/desktop-ripple/*.deb
+          path: Widgets/Nostalgia/artifacts/packages/public/linux/all/WaterRipple/*.deb
           if-no-files-found: error
   windows:
     runs-on: windows-latest
@@ -64,9 +67,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'WiX installation failed.' }
       - name: Build unsigned MSI from source
         shell: pwsh
-        run: ./Widgets/WaterRipple/Packaging/Build-MSI.ps1 -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe" -OutputDirectory "$env:RUNNER_TEMP/ripple-msi"
+        run: ./Widgets/Nostalgia/build/Build-Windows.ps1 -Widget WaterRipple -Channel public -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe"
       - uses: actions/upload-artifact@v6
         with:
           name: desktop-ripple-windows-x64
-          path: ${{ runner.temp }}/ripple-msi/*.msi
+          path: Widgets/Nostalgia/artifacts/packages/public/windows/x64/WaterRipple/*.msi
           if-no-files-found: error

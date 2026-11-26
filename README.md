@@ -123,19 +123,23 @@ A native OBS control desk with twelve scenes, screen zoom, independent vignettes
 
 Keep AI usage visible in a desktop widget. Other providers are a future goal.
 
-#### [Desktop Ripple](Widgets/WaterRipple/README.md)
+### [Nostalgia desktop effects](Widgets/Nostalgia/README.md)
+
+Water Ripple, Vignette, Retro Terminal, CRT Degauss and Retro Sound install independently on Windows and Linux.
+
+#### [Desktop Ripple](Widgets/Nostalgia/WaterRipple/README.md)
 
 [![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
 ![Platform: Windows 11 · GNOME](https://img.shields.io/badge/platform-Windows_11_%C2%B7_GNOME-0078D4)
-[![License: see notes](https://img.shields.io/badge/license-see_notes-8A6D3B)](Widgets/WaterRipple/README.md#licensing)
+[![License: see notes](https://img.shields.io/badge/license-see_notes-8A6D3B)](Widgets/Nostalgia/WaterRipple/README.md#licensing)
 
-Give the desktop a water-like ripple effect; see also the [Linux edition](Widgets/WaterRipple/Linux/README.md).
+Give the desktop a water-like ripple effect; see also the [Linux edition](Widgets/Nostalgia/WaterRipple/Linux/README.md).
 
-#### [CRT Filter / Retro Terminal](Widgets/RetroTerminal/README.md)
+#### [CRT Filter / Retro Terminal](Widgets/Nostalgia/RetroTerminal/README.md)
 
 [![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
 ![Platform: Windows 11 · GNOME 50](https://img.shields.io/badge/platform-Windows_11_%C2%B7_GNOME_50-0078D4)
-[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](Widgets/RetroTerminal/LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](Widgets/Nostalgia/RetroTerminal/LICENSE)
 
 Give the GNOME desktop green phosphor, amber or arcade color, with controls for the effect and an emergency stop.
 

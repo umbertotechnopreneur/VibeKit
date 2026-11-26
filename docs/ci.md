@@ -1,4 +1,5 @@
 > **File name:** `ci.md`<br>
+> **Full path (workspace file):** `E:\vibekit\docs\ci.md`<br>
 > **Full path (published document):** `https://github.com/umbertotechnopreneur/VibeKit/blob/main/docs/ci.md`<br>
 > **Relative path (VibeKit repository root):** `docs/ci.md`
 
@@ -20,10 +21,10 @@ GitHub discovers workflows in the root `.github/workflows/` directory. The copie
 | `Apps/WorkTrail/` | Windows x64/ARM64 compilation and PowerShell packaging safeguards; optional manual lint/tests |
 | `Apps/Ghostty Shaders/` | Manager checks with isolated configuration directories |
 | `Widgets/OpenAI/` | Shared .NET calculations on Windows/Linux and synthetic watchdog ownership checks |
-| `Widgets/WaterRipple/` | Portable C# and Linux model checks, recovery checks and Debian/extension packaging |
+| `Widgets/Nostalgia/` | Independent Windows and Linux pipelines for Water Ripple, Retro Terminal, Vignette, CRT Degauss and Retro Sound. Shared UI and family build changes select all five. |
 | `Widgets/StudioControls/` | Shared synthetic checks, isolated GTK/WinUI startup and Windows ZIP/Linux Debian packages |
 
-For example, changing only `Apps/WorkTrail/` runs its two pipelines and the common selection/result jobs. It does not build HelpMe or another application. Changing multiple applications runs each affected pipeline. Shared `scripts/` or `.github/actions/` changes check all configured consumers. `Widgets/Shared/` changes check OpenAI Usage and Ripple, its two consumers. Editing one application's root workflow checks that application. Root documentation alone does not build applications; WaterRipple retains its Markdown-only exclusion.
+Changing an application selects its pipelines and the common selection and result jobs. The selector maps shared widget utilities to their consumers across VibeKit. CRT Degauss also builds Retro Terminal's renderer, so a change to that renderer selects both effects. [Project selector](../scripts/ci/select_projects.py)
 
 OpenAI Usage checks use synthetic account data and isolated temporary storage. They do not contact the owner's Codex account or claim native WinUI/GTK validation. Ripple also checks the portable C# model and the recovery policy; its C# checks run in Debug because the preference-check helper is deliberately Debug-only. Adding a project requires an explicit entry in `scripts/ci/select_projects.py`, a reusable workflow, and the corresponding dispatcher and result jobs.
 
@@ -88,5 +89,6 @@ only the final release job can write release metadata. Manual releases default t
 drafts. Website downloads use an explicit application/version URL.
 
 > **File name:** `ci.md`<br>
+> **Full path (workspace file):** `E:\vibekit\docs\ci.md`<br>
 > **Full path (published document):** `https://github.com/umbertotechnopreneur/VibeKit/blob/main/docs/ci.md`<br>
 > **Relative path (VibeKit repository root):** `docs/ci.md`

@@ -1,0 +1,16 @@
+{
+  "attribution": "I'm Umberto Giacobbi.",
+  "warranty": "I provide this software independently and as-is, without warranty.",
+  "manifesto": "https://umbertogiacobbi.biz/vibeware/manifesto",
+  "links": {
+    "Website": "https://umbertogiacobbi.biz",
+    "Mini Utilities": "https://umbertogiacobbi.biz/mini-utilities/",
+    "Source": "https://github.com/umbertotechnopreneur/VibeKit",
+    "Terms": "https://umbertogiacobbi.biz/terms/",
+    "Privacy": "https://umbertogiacobbi.biz/privacy/"
+  },
+  "licenses": {
+    "MIT": "https://opensource.org/license/mit",
+    "GPL-3.0-or-later": "https://www.gnu.org/licenses/gpl-3.0.html"
+  }
+}

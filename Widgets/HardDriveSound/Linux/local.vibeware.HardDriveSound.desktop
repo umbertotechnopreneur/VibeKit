@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Hard Drive Sound
-Comment=Play mechanical hard drive sounds with disk activity
-Exec=/usr/bin/vibeware-hard-drive-sound
-TryExec=/usr/bin/vibeware-hard-drive-sound
-Icon=drive-harddisk
-Terminal=false
-Categories=AudioVideo;Audio;

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>1.0.23</Version>
+    <ApplicationIcon>RetroTerminal.ico</ApplicationIcon>
+    <OutputType>WinExe</OutputType><TargetFramework>net10.0-windows10.0.26100.0</TargetFramework><TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion><WindowsSdkPackageVersion>10.0.26100.87</WindowsSdkPackageVersion>
+    <ApplicationManifest>app.manifest</ApplicationManifest><UseWinUI>true</UseWinUI><WindowsPackageType>None</WindowsPackageType><WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained><WindowsAppSDKDeploymentManagerInitialize>false</WindowsAppSDKDeploymentManagerInitialize>
+    <PlatformTarget>x64</PlatformTarget><Platforms>x64</Platforms><RuntimeIdentifier>win-x64</RuntimeIdentifier><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../Shared/Windows/Nostalgia.WinUI.csproj" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.6.5" /><PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.6.5" /><PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" PrivateAssets="all" /></ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer" Version="0.8.0" PrivateAssets="all" />
+    <PackageReference Include="Serilog" Version="4.4.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <Compile Include="../../../../Shared/ProcessMemoryWatchdog.cs" Link="ProcessMemoryWatchdog.cs" />
+    <Compile Include="../../../../Shared/DesktopEffectRecovery.cs" Link="DesktopEffectRecovery.cs" />
+    <Compile Include="../../../../Shared/WindowsSignIn.cs" Link="WindowsSignIn.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="RetroTerminal.ico" Link="Assets/RetroTerminal.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../../Shared/Native/Shaders/Degauss.hlsl" Link="Shaders/Degauss.hlsl" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

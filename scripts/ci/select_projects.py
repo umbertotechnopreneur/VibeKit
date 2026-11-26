@@ -7,6 +7,15 @@ import os
 import subprocess
 import sys
 
+FAMILY_ROOT = "Widgets/Nostalgia/"
+NOSTALGIA = {
+    "desktop-ripple": FAMILY_ROOT + "WaterRipple/",
+    "retro-terminal": FAMILY_ROOT + "RetroTerminal/",
+    "vignette": FAMILY_ROOT + "Vignette/",
+    "crt-degauss": FAMILY_ROOT + "CrtDegauss/",
+    "retro-sound": FAMILY_ROOT + "RetroSound/",
+}
+
 PROJECTS = {
     "helpme": "Apps/HelpMe/",
     "markvibe": "Apps/MarkVibe/",
@@ -16,9 +25,33 @@ PROJECTS = {
     "worktrail": "Apps/WorkTrail/",
     "ghostty-shaders": "Apps/Ghostty Shaders/",
     "openai-usage": "Widgets/OpenAI/",
-    "desktop-ripple": "Widgets/WaterRipple/",
-    "retro-terminal": "Widgets/RetroTerminal/",
+    **NOSTALGIA,
     "studio-controls": "Widgets/StudioControls/",
+}
+
+
+# The five effect products build independently, but changes to their common host,
+# contracts or build entry points must reach every affected job in the monorepo.
+EFFECTS = set(NOSTALGIA)
+NATIVE_STUDIOS = {"crt-degauss", "retro-sound"}
+DIAGNOSTIC_APPS = {"helpme", "markvibe", "thermalright", "voiceducker", "worktrail"}
+SHARED_CONSUMERS = {
+    "Build-WindowsMsi.ps1": EFFECTS | {"helpme", "voiceducker", "studio-controls"},
+    "create-widget-wix.py": EFFECTS | {"helpme", "ulanzideck", "voiceducker"},
+    "VibeWareDiagnostics.cs": EFFECTS | DIAGNOSTIC_APPS | {"openai-usage"},
+    "ProcessMemoryWatchdog.cs": {"helpme", "markvibe", "thermalright", "worktrail",
+                                "desktop-ripple", "retro-terminal", "studio-controls"},
+    "WidgetAbout.cs": EFFECTS | {"openai-usage"},
+    "DiagnosticAboutActions.cs": EFFECTS | {"openai-usage"},
+    "DesktopEffectStop.cs": EFFECTS | {"studio-controls"},
+    "WidgetTrayIcon.cs": EFFECTS | {"studio-controls"},
+    "WidgetTrayMenu.cs": EFFECTS | {"studio-controls"},
+}
+
+# CRT Degauss also compiles Retro Terminal's capture implementation from source.
+CRT_RENDERER_INPUTS = {
+    NOSTALGIA["retro-terminal"] + "Windows/" + name for name in (
+        "Renderer.cpp", "Renderer.h", "EffectSettings.h", "PresentationRetry.h", "RippleFrameInput.h")
 }
 
 
@@ -30,27 +63,22 @@ def select_paths(paths):
             path.startswith(("scripts/", ".github/actions/"))
         ):
             return list(PROJECTS)
-        if path in {"Widgets/Shared/Build-WindowsMsi.ps1", "Widgets/Shared/create-widget-wix.py"}:
-            selected.update({"helpme", "voiceducker", "desktop-ripple", "retro-terminal", "studio-controls"})
-            if path == "Widgets/Shared/create-widget-wix.py":
-                selected.add("ulanzideck")
-            continue
-        if path in {"Widgets/Shared/WindowsSignIn.cs", "Widgets/Shared/EffectStudioLayout.cs",
-                    "Widgets/Shared/DisplayTarget.cs", "Widgets/Shared/EffectWindowCoverage.h"}:
-            selected.update({"desktop-ripple", "retro-terminal"})
-            continue
         if path == ".github/workflows/widget-releases.yml":
-            selected.update({"openai-usage", "desktop-ripple", "retro-terminal"})
+            selected.update({"openai-usage", "desktop-ripple", "retro-terminal", "vignette"})
             continue
-        if path == "Widgets/Shared/ProcessMemoryWatchdog.cs":
-            selected.update({
-                "helpme", "markvibe", "thermalright", "worktrail",
-                "desktop-ripple", "retro-terminal", "studio-controls",
-            })
+        if path == ".github/workflows/ci-native-effect.yml":
+            selected.update(NATIVE_STUDIOS)
             continue
-        if path.startswith("Widgets/Shared/"):
-            selected.update({"openai-usage", "desktop-ripple"})
+        if path.startswith("Widgets/Shared/") and not path.endswith(".md"):
+            name = path.removeprefix("Widgets/Shared/")
+            selected.update(SHARED_CONSUMERS.get(name, EFFECTS))
             continue
+        if path.startswith(FAMILY_ROOT) and not path.startswith(tuple(NOSTALGIA.values())):
+            if not path.lower().endswith(".md"):
+                selected.update(EFFECTS)
+            continue
+        if path in CRT_RENDERER_INPUTS:
+            selected.add("crt-degauss")
         for project, prefix in PROJECTS.items():
             if path.startswith(prefix) or path in {
                 f".github/workflows/ci-{project}.yml",

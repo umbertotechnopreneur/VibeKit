@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Retro Sound
+Comment=Play mechanical hard drive sounds with disk activity
+Exec=/usr/bin/vibeware-retro-sound
+TryExec=/usr/bin/vibeware-retro-sound
+Icon=local.vibeware.RetroSound
+Terminal=false
+Categories=AudioVideo;Audio;

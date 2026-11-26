@@ -3,7 +3,8 @@ param(
     [Parameter(Mandatory)][string]$WixPath,
     [Parameter(Mandatory)][string]$Source,
     [Parameter(Mandatory)][string]$Output,
-    [Parameter(Mandatory)][string]$IntermediateDirectory
+    [Parameter(Mandatory)][string]$IntermediateDirectory,
+    [switch]$SkipSigning
 )
 $ErrorActionPreference = 'Stop'
 $compiler = (Resolve-Path -LiteralPath $WixPath).Path
@@ -44,5 +45,7 @@ try {
 if (-not (Test-Path -LiteralPath $outputPath -PathType Leaf)) {
     throw 'Windows Installer compilation did not produce a package.'
 }
-& (Join-Path $PSScriptRoot '../../scripts/packaging/Sign-VibeWareDevelopmentFile.ps1') -Path $outputPath -WhenConfigured
+if (-not $SkipSigning) {
+    & (Join-Path $PSScriptRoot '../../scripts/packaging/Sign-VibeWareDevelopmentFile.ps1') -Path $outputPath -WhenConfigured
+}
 Write-Output "MSI: $outputPath"

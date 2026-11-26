@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Vignette
+GenericName=Desktop effects
+Comment=Shade or brighten the outer edges of selected displays
+Exec=sh -c "gnome-extensions enable vignette@vibeware.local && exec gjs -m /usr/share/gnome-shell/extensions/vignette@vibeware.local/control.js"
+TryExec=gnome-extensions
+Icon=local.vibeware.Vignette
+Terminal=false
+StartupNotify=false
+Categories=Settings;DesktopSettings;
+Keywords=Vignette;CRT;Gradient;Screen;Effects;

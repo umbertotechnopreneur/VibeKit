@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>0.2.7</Version>
+    <ApplicationIcon>CrtDegauss.ico</ApplicationIcon>
+    <ApplicationManifest>CrtDegauss.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <Import Project="../../Shared/Native/Studio.props" />
+</Project>

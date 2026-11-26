@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Retro Terminal
+GenericName=Desktop effects
+Comment=Customize CRT colors, scanlines, afterglow and signal glitches
+Exec=sh -c "gnome-extensions enable retro-terminal@vibeware.local && exec gjs -m /usr/share/gnome-shell/extensions/retro-terminal@vibeware.local/control.js"
+TryExec=gnome-extensions
+Icon=local.vibeware.RetroTerminal
+Terminal=false
+StartupNotify=false
+Categories=Settings;DesktopSettings;
+Keywords=CRT;Retro;Phosphor;Monitor;Effects;
+OnlyShowIn=GNOME;Unity;

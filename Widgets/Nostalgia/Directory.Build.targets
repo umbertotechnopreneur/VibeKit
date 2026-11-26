@@ -1,0 +1,11 @@
+<Project>
+  <!-- Unpackaged WinUI loads the host's merged resource index under this exact filename. -->
+  <Target Name="StageNostalgiaResources" AfterTargets="Build"
+          Condition="'$(UseWinUI)' == 'true' and '$(OutputType)' == 'WinExe'">
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).pri" DestinationFiles="$(TargetDir)resources.pri" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="PublishNostalgiaResources" AfterTargets="Publish"
+          Condition="'$(UseWinUI)' == 'true' and '$(OutputType)' == 'WinExe'">
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).pri" DestinationFiles="$(PublishDir)/resources.pri" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

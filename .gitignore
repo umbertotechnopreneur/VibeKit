@@ -2,6 +2,7 @@
 **/obj/
 **/dist/
 **/artifacts/
+desktop.ini
 **/__pycache__/
 **/.venv/
 *.pyc

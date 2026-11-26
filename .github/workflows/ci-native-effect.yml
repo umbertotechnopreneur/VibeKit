@@ -1,0 +1,69 @@
+name: Nostalgia native effect packages
+
+on:
+  workflow_call:
+    inputs:
+      widget:
+        description: CrtDegauss or RetroSound
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  NOSTALGIA_CHANNEL: public
+  WIDGET: ${{ inputs.widget }}
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            10.0.x
+            6.0.x
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Stage WiX 5
+        shell: pwsh
+        run: dotnet tool install wix --version 5.0.2 --tool-path "$env:RUNNER_TEMP/widget-wix"
+      - name: Build unsigned MSI from source
+        shell: pwsh
+        run: ./Widgets/Nostalgia/build/Build-Windows.ps1 -Widget $env:WIDGET -Channel public -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: ${{ inputs.widget }}-windows-x64
+          path: Widgets/Nostalgia/artifacts/packages/public/windows/x64/${{ inputs.widget }}/*.msi
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install GNOME schema compiler
+        if: inputs.widget == 'CrtDegauss'
+        run: sudo apt-get update && sudo apt-get install -y libglib2.0-bin
+      - name: Build and inspect Debian package
+        id: package
+        shell: bash
+        run: |
+          case "$WIDGET" in
+            CrtDegauss) architecture=all ;;
+            RetroSound) architecture=$(dpkg --print-architecture) ;;
+            *) echo "Unexpected widget: $WIDGET" >&2; exit 1 ;;
+          esac
+          output="Widgets/Nostalgia/artifacts/packages/public/linux/$architecture/$WIDGET"
+          python3 "Widgets/Nostalgia/$WIDGET/Linux/build-package.py" --output-dir "$output"
+          dpkg-deb --info "$output"/*.deb
+          echo "output=$output" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: ${{ inputs.widget }}-linux
+          path: ${{ steps.package.outputs.output }}/*.deb
+          if-no-files-found: error

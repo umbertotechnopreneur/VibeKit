@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from select_projects import PROJECTS, changed_projects, select_paths
+from select_projects import NOSTALGIA, PROJECTS, changed_projects, select_paths
 
 
 class ProjectSelectionTests(unittest.TestCase):
@@ -18,13 +18,26 @@ class ProjectSelectionTests(unittest.TestCase):
         self.assertEqual(select_paths([".github/workflows/ci-helpme.yml"]), ["helpme"])
         self.assertEqual(select_paths([".github/workflows/helpme-store-msix.yml"]), ["helpme"])
         self.assertEqual(select_paths(["scripts/powershell/Common.ps1"]), list(PROJECTS))
-        self.assertEqual(select_paths(["Widgets/WaterRipple/README.md"]), [])
-        self.assertEqual(select_paths(["Widgets/WaterRipple/Linux/extension.js"]), ["desktop-ripple"])
+        self.assertEqual(select_paths(["Widgets/Nostalgia/WaterRipple/README.md"]), [])
+        self.assertEqual(select_paths(["Widgets/Nostalgia/WaterRipple/Linux/extension.js"]), ["desktop-ripple"])
         self.assertEqual(select_paths(["Widgets/OpenAI/Shared/Analytics.cs"]), ["openai-usage"])
-        self.assertEqual(select_paths(["Widgets/RetroTerminal/Linux/extension/retro-terminal@vibeware.local/persistence.js"]), ["retro-terminal"])
-        self.assertEqual(select_paths(["Widgets/RetroTerminal/Windows/Main.cpp"]), ["retro-terminal"])
+        self.assertEqual(select_paths(["Widgets/Nostalgia/RetroTerminal/Linux/extension/retro-terminal@vibeware.local/persistence.js"]), ["retro-terminal"])
+        self.assertEqual(select_paths(["Widgets/Nostalgia/RetroTerminal/Windows/RetroEngine.cpp"]), ["retro-terminal"])
         self.assertEqual(select_paths([".github/workflows/ci-retro-terminal.yml"]), ["retro-terminal"])
-        self.assertEqual(select_paths(["Widgets/Shared/WidgetAbout.cs"]), ["openai-usage", "desktop-ripple"])
+        self.assertEqual(select_paths(["Widgets/Shared/WidgetAbout.cs"]), ["openai-usage", *NOSTALGIA])
+
+    def test_nostalgia_routes_and_external_consumers(self):
+        for project, path in NOSTALGIA.items():
+            self.assertEqual(select_paths([path + "Windows/Studio.cs"]), [project])
+        for path in ("Widgets/Nostalgia/Shared/Windows/EffectStudioTheme.xaml",
+                     "Widgets/Nostalgia/build/Build-Windows.ps1"):
+            self.assertEqual(select_paths([path]), list(NOSTALGIA))
+        self.assertEqual(select_paths(["Widgets/Shared/WidgetTrayMenu.cs"]), [*NOSTALGIA, "studio-controls"])
+        self.assertEqual(select_paths([".github/workflows/ci-native-effect.yml"]), ["crt-degauss", "retro-sound"])
+        self.assertEqual(select_paths(["Widgets/Nostalgia/RetroTerminal/Windows/Renderer.cpp"]),
+                         ["retro-terminal", "crt-degauss"])
+        self.assertEqual(select_paths([".github/workflows/widget-releases.yml"]),
+                         ["openai-usage", "desktop-ripple", "retro-terminal", "vignette"])
 
     def test_studio_controls_isolated_selection(self):
         self.assertEqual(select_paths(["Widgets/StudioControls/Windows/MainWindow.cs"]), ["studio-controls"])

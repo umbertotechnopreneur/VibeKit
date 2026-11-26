@@ -10,7 +10,7 @@ Each widget can run several display chains concurrently. The **Monitors** switch
 
 ## Water Ripple and Retro Terminal
 
-Water Ripple captures the display, applies its shader, and exports the result as a shared D3D11 texture. Retro Terminal reads that texture, applies the CRT shader and optional phosphor history, and presents the combined result. The sharing contract is local to the Windows desktop session. The peers must match the display and bounds, run under the same user, and open the texture on a compatible adapter. The transport uses an unnamed, read-only NT handle and zero-wait keyed mutex acquisition. Pixel data stays on the GPU. [Shared transport](../Widgets/Shared/DesktopEffectInterop.h) · [Water Ripple export](../Widgets/WaterRipple/Native/CrtFrameExport.h) · [Retro Terminal input](../Widgets/RetroTerminal/Windows/RippleFrameInput.h)
+Water Ripple captures the display, applies its shader, and exports the result as a shared D3D11 texture. Retro Terminal reads that texture, applies the CRT shader and optional phosphor history, and presents the combined result. The sharing contract is local to the Windows desktop session. The peers must match the display and bounds, run under the same user, and open the texture on a compatible adapter. The transport uses an unnamed, read-only NT handle and zero-wait keyed mutex acquisition. Pixel data stays on the GPU. [Shared transport](../Widgets/Shared/DesktopEffectInterop.h) · [Water Ripple export](../Widgets/Nostalgia/WaterRipple/Native/CrtFrameExport.h) · [Retro Terminal input](../Widgets/Nostalgia/RetroTerminal/Windows/RippleFrameInput.h)
 
 ```mermaid
 flowchart LR
@@ -37,7 +37,7 @@ flowchart LR
     Ripple -.->|Standalone presentation on lease loss| DWM
 ```
 
-Starting Retro Terminal on its own uses its local capture. As soon as it accepts shared input, it closes its local capture and resets source-dependent history. Water Ripple continues to render and export its frames. It yields presentation only while Retro Terminal holds the matching lease. The lease requires the shared generation, acknowledgment for that Water Ripple window, and a monotonic timestamp refreshed after successful presentation to an opaque overlay. Its 500 ms expiry bounds the time Water Ripple waits on a stalled peer. A v1 texture acknowledgment alone leaves Water Ripple's presentation active, so older peers keep working. Water Ripple's intentional screenshot path returns to its local presenter before capture. [Retro Terminal renderer](../Widgets/RetroTerminal/Windows/Renderer.cpp) · [Water Ripple renderer](../Widgets/WaterRipple/Native/RippleRenderer.cpp)
+Starting Retro Terminal on its own uses its local capture. As soon as it accepts shared input, it closes its local capture and resets source-dependent history. Water Ripple continues to render and export its frames. It yields presentation only while Retro Terminal holds the matching lease. The lease requires the shared generation, acknowledgment for that Water Ripple window, and a monotonic timestamp refreshed after successful presentation to an opaque overlay. Its 500 ms expiry bounds the time Water Ripple waits on a stalled peer. A v1 texture acknowledgment alone leaves Water Ripple's presentation active, so older peers keep working. Water Ripple's intentional screenshot path returns to its local presenter before capture. [Retro Terminal renderer](../Widgets/Nostalgia/RetroTerminal/Windows/Renderer.cpp) · [Water Ripple renderer](../Widgets/Nostalgia/WaterRipple/Native/RippleRenderer.cpp)
 
 ```mermaid
 flowchart TD
@@ -57,6 +57,27 @@ flowchart TD
     Return -->|Fresh frame| Local
     Return -->|Capture fails or times out| Safe["Remove the affected overlay and report the reason"]
 ```
+
+## Vignette and the CRT Degauss pulse
+
+The order on the primary display during the pulse is Water Ripple, Retro Terminal, Vignette, then Degauss. Retro Terminal owns presentation when it is active on that display. Otherwise Ripple can present. If neither capture effect is active, Degauss temporarily captures and presents the desktop. Away from the pulse, Degauss draws its color patches without opening a desktop capture.
+
+```mermaid
+flowchart LR
+    accTitle: Order of the Windows desktop effects during a degauss pulse
+    accDescr: One renderer presents the pulse using the processed desktop, the current Vignette gradient and Degauss animation parameters.
+    Desktop["Display capture"] --> Ripple["Water Ripple shader"]
+    Ripple -->|Existing shared GPU frame| Retro["Retro Terminal shader and phosphor"]
+    Retro --> Frame["Presenter's finished GPU frame"]
+    Vignette["Vignette overlay"] -->|Gradient settings| Pulse["Shared Degauss shader"]
+    Degauss["CRT Degauss controller"] -->|Target and expiring animation parameters| Pulse
+    Frame --> Pulse
+    Pulse -->|Rotated samples and short trail| DWM["DWM presentation"]
+```
+
+The presenter composites Vignette at the sampled coordinates before averaging the rotated samples. It presents above the regular Vignette surface while the pulse is fresh and restores the usual layer order afterward. The Degauss overlay stays transparent while its peer presents the animation. Loss of a compatible presenter interrupts the pulse and leaves the upstream effects visible.
+
+The CRT shader writes straight into a temporary GPU target during the pulse. Ripple can sample its capture directly when there are no waves. Each path releases the temporary target at the end of the pulse. The transport sends small control values and keeps the frame local to the presenting GPU. [Presenter contract](../Widgets/Shared/MonitorEffects.h) · [Shared pulse shader](../Widgets/Nostalgia/Shared/Native/Shaders/Degauss.hlsl)
 
 ## Contract for future effects
 

@@ -1,0 +1,47 @@
+<Project>
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <WindowsSdkPackageVersion>10.0.26100.87</WindowsSdkPackageVersion>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <WindowsAppSDKDeploymentManagerInitialize>false</WindowsAppSDKDeploymentManagerInitialize>
+    <SelfContained>false</SelfContained>
+    <PlatformTarget>x64</PlatformTarget>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>VibeWare.EffectsStudio</RootNamespace>
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <NativeBuild>$(BaseIntermediateOutputPath)native-$(Configuration)</NativeBuild>
+    <NativeStudioDir>$(MSBuildThisFileDirectory)</NativeStudioDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Shared/Windows/Nostalgia.WinUI.csproj" />
+    <PackageReference Include="Serilog" Version="4.4.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.6.5" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.6.5" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer" Version="0.8.0" PrivateAssets="all" />
+    <ApplicationDefinition Include="$(NativeStudioDir)App.xaml" Link="App.xaml" />
+    <Compile Include="$(NativeStudioDir)*.cs" Link="%(Filename)%(Extension)" />
+    <Content Include="$(ApplicationIcon)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../LICENSE" Link="LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="BuildWidgetEngine" BeforeTargets="AssignTargetPaths" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(NativeStudioDir)Build-Engine.ps1&quot; -Source &quot;$(MSBuildProjectDirectory)&quot; -Build &quot;$(NativeBuild)&quot; -Configuration &quot;$(Configuration)&quot;" />
+    <ItemGroup>
+      <_EngineFiles Include="$(NativeBuild)\payload\**\*" Exclude="$(NativeBuild)\payload\LICENSE;$(NativeBuild)\payload\*.lib" />
+      <Content Include="@(_EngineFiles)">
+        <Link>%(_EngineFiles.RecursiveDir)%(_EngineFiles.Filename)%(_EngineFiles.Extension)</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </Content>
+    </ItemGroup>
+  </Target>
+</Project>

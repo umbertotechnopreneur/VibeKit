@@ -73,11 +73,22 @@ jobs:
               raise SystemExit('Expected one Windows MSI and one Debian package.')
           installer, = installers
           package, = packages
-          if not re.fullmatch(fr'{names[widget]}-{re.escape(version)}-windows-x64(?:-\d{{8}}-\d{{6}}-\d{{3}})?\.msi', installer.name):
+          name = f'{names[widget]}-{version}-windows-x64'
+          if widget == 'openai-usage':
+              valid_name = re.fullmatch(fr'{re.escape(name)}(?:-\d{{8}}-\d{{6}}-\d{{3}})?\.msi', installer.name)
+          else:
+              valid_name = installer.name == f'{name}.msi'
+          if not valid_name:
               raise SystemExit('The tag does not match the Windows package version.')
           if not installer.stat().st_size or not package.stat().st_size:
               raise SystemExit('Both distribution packages must be non-empty.')
           notes = 'Windows x64 per-user MSI and Debian package.'
+          if widget in ('desktop-ripple', 'retro-terminal'):
+              notes += (
+                  '\n\nYou can use the framework-dependent MSI immediately if Microsoft .NET Runtime '
+                  '10.0 (x64) is already installed. Otherwise, install it separately from '
+                  '[Microsoft](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).'
+              )
           if widget == 'vignette':
               notes = (
                   'Windows x64 per-user MSI and Debian package for GNOME Shell 50.\n\n'

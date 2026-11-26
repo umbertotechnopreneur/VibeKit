@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.vibeware-vignette" path="/org/gnome/shell/extensions/vibeware-vignette/">
+    <key name="active" type="b"><default>false</default></key>
+    <key name="target-monitors" type="as"><default>['*']</default></key>
+    <key name="status" type="s"><default>'Stopped'</default></key>
+    <key name="panic-available" type="b"><default>false</default></key>
+    <key name="window-theme" type="s"><default>'system'</default></key>
+    <key name="appearance" type="(sdddd)"><default>('#000000', 0.39, 0.43, 0.43, 1.0)</default></key>
+    <key name="pipeline-library" type="s"><default>'[]'</default></key>
+    <key name="quit-request" type="x"><default>0</default></key>
+    <key name="vignette-panic" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;F10']</default></key>
+  </schema>
+</schemalist>

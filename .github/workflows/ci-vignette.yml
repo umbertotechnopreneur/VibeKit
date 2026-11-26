@@ -4,6 +4,9 @@ on:
   workflow_call:
   workflow_dispatch:
 
+env:
+  NOSTALGIA_CHANNEL: public
+
 permissions:
   contents: read
 
@@ -17,15 +20,15 @@ jobs:
         with:
           node-version: '22'
       - name: Check gradients and compositing
-        run: node Widgets/Vignette/Tests/gradient-checks.mjs
+        run: node Widgets/Nostalgia/Vignette/Tests/gradient-checks.mjs
       - name: Build and inspect Debian package
         run: |
-          python3 Widgets/Vignette/Linux/build-package.py --output-dir "$RUNNER_TEMP/vignette-deb"
-          dpkg-deb --info "$RUNNER_TEMP"/vignette-deb/*.deb
+          python3 Widgets/Nostalgia/Vignette/Linux/build-package.py --output-dir "Widgets/Nostalgia/artifacts/packages/public/linux/all/Vignette"
+          dpkg-deb --info Widgets/Nostalgia/artifacts/packages/public/linux/all/Vignette/*.deb
       - uses: actions/upload-artifact@v6
         with:
           name: vignette-linux
-          path: ${{ runner.temp }}/vignette-deb/*.deb
+          path: Widgets/Nostalgia/artifacts/packages/public/linux/all/Vignette/*.deb
           if-no-files-found: error
   windows:
     runs-on: windows-latest
@@ -47,9 +50,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'WiX installation failed.' }
       - name: Build unsigned MSI from source
         shell: pwsh
-        run: ./Widgets/Vignette/Windows/Packaging/Build-MSI.ps1 -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe" -OutputDirectory "$env:RUNNER_TEMP/vignette-msi"
+        run: ./Widgets/Nostalgia/build/Build-Windows.ps1 -Widget Vignette -Channel public -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe"
       - uses: actions/upload-artifact@v6
         with:
           name: vignette-windows-x64
-          path: ${{ runner.temp }}/vignette-msi/*.msi
+          path: Widgets/Nostalgia/artifacts/packages/public/windows/x64/Vignette/*.msi
           if-no-files-found: error

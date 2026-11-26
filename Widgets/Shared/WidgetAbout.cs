@@ -1,6 +1,7 @@
 using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 
@@ -16,20 +17,23 @@ internal static class WidgetAbout
 
     internal static SolidColorBrush Paper() => Brush(255, 244, 220);
 
-    internal static StackPanel Create(Image mark, Image initiative, string name, string version,
-        string description, string sourceUrl, string notice, UIElement? details = null, bool dark = false, bool followTheme = false)
+    internal static StackPanel Create(FrameworkElement mark, Image initiative, string name, string version,
+        string description, string sourceUrl, string notice, UIElement? details = null, bool dark = false, bool followTheme = false,
+        string license = "Proprietary")
     {
         var content = new StackPanel { Spacing = 24, MaxWidth = 660 };
         mark.HorizontalAlignment = HorizontalAlignment.Center;
         content.Children.Add(mark);
 
         var identity = new StackPanel { Spacing = 5 };
-        identity.Children.Add(Centered(name, 23, dark: dark, followTheme: followTheme));
+        var title = Centered(name, 23, dark: dark, followTheme: followTheme);
+        AutomationProperties.SetHeadingLevel(title, AutomationHeadingLevel.Level1);
+        identity.Children.Add(title);
         identity.Children.Add(Centered(version, 14, secondary: true, dark: dark, followTheme: followTheme));
         content.Children.Add(identity);
         content.Children.Add(Centered(description, 15, dark: dark, followTheme: followTheme));
         content.Children.Add(Centered(notice, 13, secondary: true, dark: dark, followTheme: followTheme));
-        content.Children.Add(Centered("I'm Umberto Giacobbi · Proprietary", 15, dark: dark, followTheme: followTheme));
+        content.Children.Add(Centered("I'm Umberto Giacobbi · " + license, 15, dark: dark, followTheme: followTheme));
         if (details is not null)
             content.Children.Add(details);
 

@@ -3,20 +3,24 @@ using System.ComponentModel;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 
 namespace Tools.Widgets;
 
-internal static class DiagnosticAboutActions
+public static class DiagnosticAboutActions
 {
-    internal static StackPanel Create(string appId, string appName)
+    public static StackPanel Create(string appId, string appName)
     {
         string? archive = null;
-        var heading = new TextBlock { Text = "Support diagnostics", FontSize = 16 };
+        var heading = new TextBlock { Text = "Support diagnostics", FontSize = 16, TextWrapping = TextWrapping.Wrap };
+        AutomationProperties.SetHeadingLevel(heading, AutomationHeadingLevel.Level2);
         var status = new TextBlock
         {
             Text = "Create a ZIP with the past seven days of app logs.", TextWrapping = TextWrapping.Wrap
         };
+        AutomationProperties.SetLiveSetting(status, AutomationLiveSetting.Polite);
         var panel = new StackPanel { Spacing = 8 };
         var create = new Button { Content = "Create log ZIP" };
         var show = new Button { Content = "Show ZIP", IsEnabled = false };
@@ -28,6 +32,18 @@ internal static class DiagnosticAboutActions
         panel.Children.Add(heading);
         panel.Children.Add(status);
         panel.Children.Add(actions);
+
+        panel.SizeChanged += (_, args) =>
+        {
+            var unconstrained = new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity);
+            double required = actions.Spacing * (actions.Children.Count - 1);
+            foreach (var button in actions.Children)
+            {
+                button.Measure(unconstrained);
+                required += button.DesiredSize.Width;
+            }
+            actions.Orientation = args.NewSize.Width < required ? Orientation.Vertical : Orientation.Horizontal;
+        };
 
         void SetBusy(bool busy)
         {

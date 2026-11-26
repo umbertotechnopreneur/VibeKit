@@ -13,7 +13,7 @@ public sealed partial class MainWindow
 {
     private readonly WrappingPanel strip = new(TileSpacing);
     private readonly FlipTile remaining = new("Allowance remaining", 115, 20, SecondaryText, label: "Allowance left", showAccent: true, worn: true, compactAccent: true);
-    private readonly FlipTile credits = new("Remaining Credits", 108, 20, SecondaryText, sizingCharacters: 7, showAccent: true, worn: true, compactAccent: true);
+    private readonly FlipTile credits = new("Remaining Credits", 108, 20, SecondaryText, sizingCharacters: 7, worn: true);
     private readonly CreditPercentageTile creditPercentage = new(SecondaryText);
     private readonly FlipTile forecast = new("Time to run out", 152, 20, SecondaryText);
     private readonly FlipTile vouchers = new("Available vouchers", 104, 20, SecondaryText, label: "Vouchers");
@@ -30,7 +30,6 @@ public sealed partial class MainWindow
     private readonly HashSet<int> soundedThresholds = [];
     private string? alertWindow;
     private int? creditsAlertThreshold;
-    private readonly CreditProgress creditProgress = new();
     private bool creditsBelowThreshold;
     private string? resetCalendarText;
 
@@ -40,6 +39,7 @@ public sealed partial class MainWindow
         ConfigureUsageLink(usageLink, remaining);
         ConfigureUsageLink(forecastLink, forecast);
         BuildVoucherButton();
+        DescribeMetric(creditPercentage, CreditPercentageTile.FieldDescription);
 
         ConfigureUsageLink(countdownLink, resetClock);
     }
@@ -102,12 +102,10 @@ public sealed partial class MainWindow
             _ when state.ResetVoucherExpirations.Count == 0 => "Codex did not provide expiration dates.",
             _ => string.Join(Environment.NewLine, state.ResetVoucherExpirations.Select((item, index) => $"Voucher {index + 1}: {item.Detail}"))
         };
-        decimal? percentage = creditProgress.Observe(state.CreditAccountKey, state.CreditsBalance);
-        double? creditPercent = (double?)percentage;
+        decimal? percentage = CreditProgress.Percentage(state.CreditsBalance, settings.CreditsAlertThreshold);
         remaining.SetProgress(state.Remaining, ProgressColor(state.Remaining));
-        credits.SetProgress(creditPercent, ProgressColor(creditPercent));
         creditPercentage.Set(percentage, animate);
-        DescribeMetric(credits, $"Remaining credits: {state.CreditsLabel}. The bar compares the balance with the highest balance seen since the widget opened.");
+        DescribeMetric(credits, $"Remaining credits reported by Codex: {state.CreditsLabel}.");
 
         resetCalendarText = null;
         if (state.ResetCalendarDate?.Split(' ', StringSplitOptions.RemoveEmptyEntries) is { Length: 4 } parts)

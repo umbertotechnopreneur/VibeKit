@@ -12,6 +12,7 @@ import os
 import re
 import random
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 import shutil
 import sys
@@ -180,6 +181,16 @@ class SlotLayout:
     row_height: int
 
 
+def flap_grain(seed):
+    # Keep the two stamped textures as vector paths, shared by all display sizes.
+    randomizer = random.Random(seed)
+    cr = cairo.Context(cairo.RecordingSurface(cairo.CONTENT_ALPHA, None))
+    for _ in range(135):
+        cr.rectangle(randomizer.random() * 150, randomizer.random() * 44,
+                     .35 + randomizer.random() * 1.4, .35 + randomizer.random() * .8)
+    return cr.copy_path()
+
+
 class FlipTile(LabeledDisplay):
     DEFAULT_SHADOW = CreaseShadow(5, (52/255, 10/255, 13/255, .44), (24/255, 6/255, 7/255))
     CHARACTER_ADVANCE = .62
@@ -189,6 +200,8 @@ class FlipTile(LabeledDisplay):
     FACE_PADDING = 12
     INFO_WIDTH = 22
     VERTICAL_PADDING = 2
+    INK = (1, 250 / 255, 240 / 255)
+    GRAIN = (flap_grain(41), flap_grain(67))
     FLAP_TONES = (
         (0, 45, 46, 49), (.08, 37, 38, 41), (.14, 67, 68, 72), (.48, 56, 57, 61),
         (.52, 45, 46, 50), (.82, 47, 48, 52), (.88, 29, 30, 33), (.93, 48, 49, 53), (1, 29, 30, 33),
@@ -210,8 +223,6 @@ class FlipTile(LabeledDisplay):
         if not 0 <= digit_delay[0] <= digit_delay[1]:
             raise ValueError("Digit delays must be an ascending range in milliseconds.")
         self.digit_delay = digit_delay
-        noise = random.Random(name)
-        self.grain = [(noise.random(), noise.random(), noise.random()) for _ in range(150)]
         self.worn = worn
         self.progress = None
         self.scale = 1
@@ -225,7 +236,7 @@ class FlipTile(LabeledDisplay):
         self.available_width = self.base_width
         self.value = "—"
         self.accent = None
-        self.ink = (1, 1, 1)
+        self.ink = self.INK
         self.layout = None
         self.characters = []
         self.digit_flips = {}
@@ -347,7 +358,7 @@ class FlipTile(LabeledDisplay):
             self.face.add_tick_callback(self.tick)
 
     def set_colors(self, *, accent=None, warning=False):
-        ink = (1, .71, .19) if warning else (1, 1, 1)
+        ink = (1, 194 / 255, 51 / 255) if warning else self.INK
         if self.ink == ink and self.accent == accent:
             return
         self.ink, self.accent = ink, accent
@@ -365,7 +376,9 @@ class FlipTile(LabeledDisplay):
     def draw(self, area, cr, width, height):
         self.draw_face(cr, width, height)
         layout = self.layout
-        font = Pango.FontDescription("Monospace Bold")
+        font = Pango.FontDescription()
+        font.set_family("Consolas, Ubuntu Sans Mono, monospace")
+        font.set_weight(Pango.Weight.SEMIBOLD)
         font.set_absolute_size(layout.font_size * Pango.SCALE)
         glyph = PangoCairo.create_layout(cr)
         glyph.set_font_description(font)
@@ -382,7 +395,6 @@ class FlipTile(LabeledDisplay):
             cr.rectangle(left, 1, flap_width, layout.row_height - 2)
             cr.fill()
             cr.restore()
-        self.draw_grain(cr, width, height)
         now = time.monotonic()
         for row in range(layout.rows):
             y = row * layout.row_height
@@ -391,18 +403,25 @@ class FlipTile(LabeledDisplay):
                 slot = row * layout.columns + column
                 char = self.characters[slot]
                 flip = self.digit_flips.get(slot)
+                cr.save()
+                cr.rectangle(x, y + 1, layout.pitch, layout.row_height - 2)
+                cr.clip()
                 if flip and flip.start < now < flip.start + flip.duration:
                     self.draw_flip(cr, glyph, char, flip, now, x, y, y + text_top, flap)
                 else:
                     self.draw_character(cr, glyph, self.visible_character(slot, now), x, y + text_top)
-                cr.set_source_rgba(100 / 255, 102 / 255, 106 / 255, .75)
+                cr.restore()
+            cr.set_source_rgba(100 / 255, 102 / 255, 106 / 255, .75)
+            for column in range(layout.columns):
+                x = left + column * layout.pitch
                 cr.rectangle(x + 1, y + 4, max(0, layout.pitch - 3), 1)
-                cr.fill()
-                if column < layout.columns - 1:
-                    cr.set_source_rgba(0, 0, 0, .5)
-                    cr.rectangle(x + layout.pitch - 1, y + 4, 1, layout.row_height - 8)
-                    cr.fill()
+            cr.fill()
+            cr.set_source_rgba(0, 0, 0, .5)
+            for column in range(1, layout.columns):
+                cr.rectangle(left + column * layout.pitch - 1, y + 4, 1, layout.row_height - 8)
+            cr.fill()
             self.draw_seam(cr, width, y, layout.row_height)
+        self.draw_grain(cr, width, height)
         self.draw_progress(cr, width, height)
 
     def flap_gradient(self, height):
@@ -422,56 +441,90 @@ class FlipTile(LabeledDisplay):
 
     def draw_flip(self, cr, glyph, char, flip, now, x, y, text_y, flap):
         phase = (now - flip.start) / flip.duration
-        self.draw_half(cr, glyph, char, x, y, text_y, True, 1, flap)
-        self.draw_half(cr, glyph, flip.before, x, y, text_y, False, 1, flap)
-        if phase < .5:
-            self.draw_half(cr, glyph, flip.before, x, y, text_y, True, math.cos(phase * math.pi), flap)
-        else:
-            self.draw_half(cr, glyph, char, x, y, text_y, False, math.sin((phase - .5) * math.pi), flap)
-
-    def draw_half(self, cr, glyph, char, x, y, text_y, top, scale, flap):
-        height = self.layout.row_height / 2
-        center = y + height
+        half = self.layout.row_height / 2
+        hinge = y + half
+        self.draw_character(cr, glyph, char, x, text_y)
         cr.save()
-        cr.rectangle(x, y if top else center, self.layout.pitch, height)
+        cr.rectangle(x, hinge, self.layout.pitch, half)
         cr.clip()
-        cr.translate(0, center)
-        cr.scale(1, max(.001, scale))
-        cr.translate(0, -center)
+        self.paint_flap(cr, glyph, flip.before, x, y, text_y, flap)
+        cr.restore()
+
+        top = phase < .5
+        angle = math.pi * (phase if top else 1 - phase)
+        cosine = math.cos(angle)
+        if cosine < .001:
+            return
+        # Project the rotating plate around its hinge. A few narrow affine bands
+        # give Cairo the taper of WinUI's PlaneProjection at any device scale.
+        depth = math.sin(angle) / 1000
+        direction = -1 if top else 1
+        center_x = x + self.layout.pitch / 2
+        cr.save()
+        cr.rectangle(x, y if top else hinge, self.layout.pitch, half)
+        cr.clip()
+        cr.push_group()
+        self.paint_flap(cr, glyph, flip.before if top else char, x, y, text_y, flap)
+        paper = cr.pop_group()
+        near = projected_near = 0
+        for band in range(1, 5):
+            far = half * band / 4
+            projected_far = far * cosine / (1 - far * depth)
+            band_top = hinge - projected_far if top else hinge + projected_near
+            cr.save()
+            cr.set_antialias(cairo.ANTIALIAS_NONE)
+            cr.rectangle(x, band_top, self.layout.pitch, projected_far - projected_near)
+            cr.clip()
+            cr.translate(center_x, hinge + direction * projected_near)
+            cr.scale(1 / (1 - (near + far) / 2 * depth), (projected_far - projected_near) / (far - near))
+            cr.translate(-center_x, -(hinge + direction * near))
+            cr.set_source(paper)
+            cr.paint()
+            cr.restore()
+            near, projected_near = far, projected_far
+        cr.restore()
+
+    def paint_flap(self, cr, glyph, char, x, y, text_y, flap):
+        cr.save()
         cr.translate(0, y)
         cr.set_source(flap)
-        cr.rectangle(x, 0 if top else height, self.layout.pitch, height)
-        cr.fill()
+        cr.paint()
         self.draw_character(cr, glyph, char, x, text_y - y)
         cr.restore()
 
-    def draw_face(self, cr, width, height):
-        cr.save()
-        radius = 7
-        for cx, cy, a, b in ((width-radius, radius, -math.pi/2, 0),
-                              (width-radius, height-radius, 0, math.pi/2),
-                              (radius, height-radius, math.pi/2, math.pi),
-                              (radius, radius, math.pi, 3*math.pi/2)):
+    @staticmethod
+    def rounded_rectangle(cr, x, y, width, height, radius):
+        radius = min(radius, width / 2, height / 2)
+        cr.new_sub_path()
+        for cx, cy, a, b in ((x + width - radius, y + radius, -math.pi / 2, 0),
+                              (x + width - radius, y + height - radius, 0, math.pi / 2),
+                              (x + radius, y + height - radius, math.pi / 2, math.pi),
+                              (x + radius, y + radius, math.pi, 3 * math.pi / 2)):
             cr.arc(cx, cy, radius, a, b)
         cr.close_path()
-        edge = 20 / 255, 21 / 255, 23 / 255
+
+    def draw_face(self, cr, width, height):
+        cr.save()
+        self.rounded_rectangle(cr, .5, .5, width - 1, height - 1, 5.5)
         gradient = cairo.LinearGradient(0, 0, 0, height)
         gradient.add_color_stop_rgb(0, 45 / 255, 46 / 255, 49 / 255)
         gradient.add_color_stop_rgb(1, 29 / 255, 30 / 255, 33 / 255)
         cr.set_source(gradient)
         cr.fill_preserve()
-        cr.set_source_rgb(*edge)
-        cr.set_line_width(2)
+        cr.set_source_rgb(20 / 255, 21 / 255, 23 / 255)
+        cr.set_line_width(1)
         cr.stroke()
         cr.restore()
 
     def draw_grain(self, cr, width, height):
-        for shade, opacity in ((0, .24 if self.worn else .18), (1, .12 if self.worn else .09)):
+        cr.save()
+        cr.translate(4, 2)
+        cr.scale((width - 8) / 150, (height - 4) / 44)
+        for shade, opacity in enumerate((.28, .13) if self.worn else (.18, .09)):
             cr.set_source_rgba(shade, shade, shade, opacity)
-            for x, y, tone in self.grain:
-                if int(tone * 2) == shade:
-                    cr.rectangle(4 + x * (width - 8), 3 + y * (height - 6), .4 + tone, .7)
+            cr.append_path(self.GRAIN[shade])
             cr.fill()
+        cr.restore()
 
     def draw_seam(self, cr, width, y, height):
         cr.save()
@@ -484,15 +537,15 @@ class FlipTile(LabeledDisplay):
             gradient.add_color_stop_rgba(.5, *shadow.color)
             gradient.add_color_stop_rgba(1, *shadow.color[:3], 0)
             cr.set_source(gradient)
-            cr.rectangle(2, center - spread, width - 4, spread * 2)
+            cr.rectangle(1, center - spread, width - 2, spread * 2)
             cr.fill()
         line = shadow.line if shadow else (.02, .02, .02)
         cr.set_source_rgba(*line, .85)
         cr.set_line_width(1.5)
-        cr.move_to(2, center)
-        cr.line_to(width - 2, center)
+        cr.move_to(1, center)
+        cr.line_to(width - 1, center)
         cr.stroke()
-        cr.set_source_rgb(.42, .42, .42)
+        cr.set_source_rgb(114 / 255, 116 / 255, 119 / 255)
         for x in (1, width - 4):
             cr.rectangle(x, center - 4.5, 3, 9)
             cr.fill()
@@ -512,80 +565,177 @@ class FlipTile(LabeledDisplay):
 
 
 class CreditsPercentageTile(FlipTile):
-    DESCRIPTION = "Credits left as a percentage of the highest balance seen for this account during this session."
+    DESCRIPTION = ("Current credit balance divided by the Credit alert threshold in Settings. "
+                   "The meter shows up to 100% and needs a positive threshold.")
     GREEN_LENSES = 9
     AMBER_LENSES = 5
     RED_LENSES = 2
     LENS_COUNT = GREEN_LENSES + AMBER_LENSES + RED_LENSES
-    METER_WIDTH = LENS_COUNT * 10 + 8
     MINIMUM_WIDTH = 120
-    GAP = 6
-    LENS_COLORS = (((.16, .77, .46),) * GREEN_LENSES + ((1, .53, .08),) * AMBER_LENSES
-                   + ((.94, .18, .22),) * RED_LENSES)
+    GAP = 8
+    TRACK_INSETS = 8
+    VALUE_SHARE = .34
+    LENS_IMAGE_SIZE = 96
+    LENS_IMAGE_RADIUS = 30
+    OFF = (0x65666B, 0x37383C, 0x17171A)
+    LENS_COLORS = (((0xA4F9C4, 0x31C67D, 0x065239),) * GREEN_LENSES
+                   + ((0xFFD997, 0xFF922E, 0x963100),) * AMBER_LENSES
+                   + ((0xFFB1AB, 0xFF4640, 0x8B1218),) * RED_LENSES)
 
     def __init__(self):
         self.meter = Gtk.DrawingArea()
         self.active_lenses = 0
-        super().__init__("Remaining Credits Percentage", "Remaining Credits Percentage", 270,
-                         sizing_text="99.9%", worn=True)
-        self.display.set_spacing(self.GAP)
+        self.lens_images = {palette: self.make_lens(palette) for palette in {self.OFF, *self.LENS_COLORS}}
+        sizing_text = "99.9%"
+        pitch = self.VALUE_FONT_SIZE * self.CHARACTER_ADVANCE + 2 * self.CHARACTER_PADDING
+        self.value_preferred = math.ceil(self.FACE_PADDING + len(sizing_text) * pitch)
+        self.preferred = self.value_preferred + self.GAP + self.TRACK_INSETS + self.LENS_COUNT * 12
+        super().__init__("Remaining Credits Percentage", "Remaining Credits Percentage", self.preferred,
+                         sizing_text=sizing_text)
         self.display.append(self.meter)
         self.meter.set_draw_func(self.draw_meter)
         self.set_detail(self.DESCRIPTION)
         self.meter.set_tooltip_text(self.DESCRIPTION)
 
     def face_width(self, available, scale):
-        return available - self.GAP - min(round(self.METER_WIDTH * scale), available * 3 // 5)
+        share = (available - round(self.GAP * scale)) * self.VALUE_SHARE
+        return round(min(self.value_preferred * scale, max(40 * scale, share)))
 
     def width_for_face(self, face, scale):
-        minimum = face + self.GAP
-        return min(minimum + round(self.METER_WIDTH * scale), math.ceil(minimum / .4))
+        total = round(self.GAP * scale) + math.ceil(face / self.VALUE_SHARE)
+        return max(self.MINIMUM_WIDTH, min(round(self.preferred * scale), total))
 
     def resize(self, scale, available=None, font_size=None):
         super().resize(scale, available, font_size)
-        meter_width = self.available_width - self.layout.width - self.GAP
+        gap = round(self.GAP * scale)
+        self.display.set_spacing(gap)
+        meter_width = self.available_width - self.layout.width - gap
         if self.meter.get_content_width() != meter_width:
             self.meter.set_content_width(meter_width)
         if self.meter.get_content_height() != self.layout.row_height:
             self.meter.set_content_height(self.layout.row_height)
 
     def set_percentage(self, percent, animate):
+        if percent is not None:
+            percent = Decimal(str(percent))
         if percent is None:
             self.update("—", animate)
         elif percent == 0 or percent == 100:
-            self.update(f"{percent:g}%", animate)
+            self.update(f"{int(percent)}%", animate)
         else:
-            rounded = min(99.9, max(.1, round(percent, 1)))
+            rounded = min(Decimal("99.9"), max(Decimal("0.1"),
+                          percent.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)))
             self.update(locale.format_string("%g", rounded) + "%", animate)
         active_lenses = math.ceil(percent * self.LENS_COUNT / 100) if percent else 0
         if self.active_lenses != active_lenses:
             self.active_lenses = active_lenses
             self.meter.queue_draw()
 
+    @classmethod
+    def make_lens(cls, palette):
+        # A small supersampled optical surface is shared by all lamps of a color.
+        # Its texture stays attached to the glass when a lamp switches on or off.
+        image = cairo.ImageSurface(cairo.FORMAT_ARGB32, cls.LENS_IMAGE_SIZE, cls.LENS_IMAGE_SIZE)
+        cr = cairo.Context(image)
+        cr.translate(cls.LENS_IMAGE_SIZE / 2, cls.LENS_IMAGE_SIZE / 2)
+        cr.scale(cls.LENS_IMAGE_RADIUS, cls.LENS_IMAGE_RADIUS)
+        highlight, body, edge = [tuple(((rgb >> shift) & 255) / 255 for shift in (16, 8, 0))
+                                 for rgb in palette]
+        lit = palette != cls.OFF
+        if lit:
+            glow = cairo.RadialGradient(0, .08, .67, 0, .08, 1.55)
+            for offset, opacity in ((0, .52), (.42, .30), (.73, .09), (1, 0)):
+                glow.add_color_stop_rgba(offset, *body, opacity)
+            cr.set_source(glow)
+            cr.paint()
+
+        socket = cairo.LinearGradient(-.20, -.95, .20, .95)
+        socket.add_color_stop_rgb(0, .035, .036, .04)
+        socket.add_color_stop_rgb(.50, .10, .105, .11)
+        socket.add_color_stop_rgb(1, .41, .40, .39)
+        cr.set_source(socket)
+        cr.arc(0, 0, 1, 0, math.tau)
+        cr.fill()
+        cr.arc(0, 0, .86, 0, math.tau)
+        cr.clip()
+        glass = cairo.RadialGradient(.10, .20, 0, 0, 0, .90)
+        glass.add_color_stop_rgb(0, *highlight)
+        glass.add_color_stop_rgb(.44, *body)
+        glass.add_color_stop_rgb(.76, *body)
+        glass.add_color_stop_rgb(1, *edge)
+        cr.set_source(glass)
+        cr.paint()
+
+        # Molded pinpricks catch light on one edge and leave a shallow pit on the other.
+        specks = random.Random(41)
+        for _ in range(58):
+            x, y = specks.uniform(-.85, .85), specks.uniform(-.85, .85)
+            size = specks.uniform(.026, .052)
+            cr.new_sub_path()
+            cr.arc(x, y, size, 0, math.tau)
+        pits = cr.copy_path()
+        cr.set_source_rgba(0, 0, 0, .25)
+        cr.fill()
+        cr.save()
+        cr.translate(-.025, -.035)
+        cr.append_path(pits)
+        cr.set_source_rgba(1, 1, 1, .18)
+        cr.fill()
+        cr.restore()
+
+        # Cool reflection at the crown and a small amber fringe on the opposite rim.
+        cr.set_line_cap(cairo.LINE_CAP_ROUND)
+        cr.set_line_width(.058)
+        cr.set_source_rgba(.52, .84, 1, .56 if lit else .34)
+        cr.arc(.015, .025, .76, 1.05 * math.pi, 1.53 * math.pi)
+        cr.stroke()
+        cr.set_source_rgba(1, .65, .40, .43 if lit else .16)
+        cr.arc(-.025, -.02, .77, .05 * math.pi, .38 * math.pi)
+        cr.stroke()
+
+        cr.translate(-.26, -.40)
+        cr.rotate(-.38)
+        cr.scale(.40, .18)
+        glint = cairo.RadialGradient(0, 0, 0, 0, 0, 1)
+        glint.add_color_stop_rgba(0, 1, 1, 1, .89 if lit else .60)
+        glint.add_color_stop_rgba(.45, .93, .97, 1, .46 if lit else .27)
+        glint.add_color_stop_rgba(1, .86, .94, 1, 0)
+        cr.set_source(glint)
+        cr.paint()
+        return image
+
     def draw_meter(self, area, cr, width, height):
         self.draw_face(cr, width, height)
-        pitch = (width - 8) / self.LENS_COUNT
-        top = self.flap_gradient(height)
-        for i in range(self.LENS_COUNT):
-            cr.set_source(top)
-            cr.rectangle(4 + i * pitch, 2, pitch - 1, height - 4)
+        scale = self.scale
+        pitch = (width - self.TRACK_INSETS * scale) / self.LENS_COUNT
+        track_height = height - 6 * scale
+        radius = min(15 * scale, pitch - 2 * scale, track_height) / 2
+        if radius <= 0:
+            return
+        cr.save()
+        cr.translate(self.TRACK_INSETS * scale / 2, 3 * scale)
+        flap = self.flap_gradient(track_height)
+        y = track_height / 2
+        for i, palette in enumerate(self.LENS_COLORS):
+            left = i * pitch + .5 * scale
+            cr.set_source(flap)
+            cr.rectangle(left, 0, pitch - scale, track_height)
             cr.fill()
-        self.draw_grain(cr, width, height)
-        self.draw_seam(cr, width, 0, height)
-        y = height / 2
-        radius = min(height * .3, pitch * .39)
-        for i, tint in enumerate(self.LENS_COLORS):
-            x = 4 + (i + .5) * pitch
-            active = i >= self.LENS_COUNT - self.active_lenses
-            color = tint if active else (.25, .26, .27)
-            lens = cairo.RadialGradient(x - radius * .28, y - radius * .38, 0, x, y, radius)
-            lens.add_color_stop_rgb(0, *(min(1, .15 + c) for c in color))
-            lens.add_color_stop_rgb(.54, *color)
-            lens.add_color_stop_rgb(.87, *(c * .63 for c in color))
-            lens.add_color_stop_rgb(1, .05, .05, .06)
-            cr.set_source(lens)
-            cr.arc(x, y, radius, 0, math.tau)
+            cr.set_source_rgba(24/255, 6/255, 7/255, 217/255)
+            cr.rectangle(left, y - .6 * scale, pitch - scale, 1.2 * scale)
             cr.fill()
+            x = (i + .5) * pitch
+            glass = self.lens_images[palette if i >= self.LENS_COUNT - self.active_lenses else self.OFF]
+            cr.save()
+            cr.rectangle(left, 0, pitch - scale, track_height)
+            cr.clip()
+            cr.translate(x, y)
+            cr.scale(radius / self.LENS_IMAGE_RADIUS, radius / self.LENS_IMAGE_RADIUS)
+            cr.set_source_surface(glass, -self.LENS_IMAGE_SIZE / 2, -self.LENS_IMAGE_SIZE / 2)
+            cr.get_source().set_filter(cairo.FILTER_BEST)
+            cr.paint()
+            cr.restore()
+        cr.restore()
 
 
 class VoucherTile(FlipTile):
@@ -842,8 +992,6 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.initial_fit_done = False
         self.layout_width = 1240
         self.resize_surface = None
-        self.highest_credits = 0
-        self.credit_account_key = None
         self.connect("close-request", self.on_close)
 
         strip = self.strip = wrap_box()
@@ -853,7 +1001,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.signal = TrafficSignal()
         self.signal.set_valign(Gtk.Align.START)
         self.allowance_tile = FlipTile("Allowance remaining", "Allowance left", 115, worn=True, compact_accent=True)
-        self.credits_tile = FlipTile("Remaining Credits", "Remaining Credits", 108, sizing_text="000,000", worn=True, compact_accent=True)
+        self.credits_tile = FlipTile("Remaining Credits", "Remaining Credits", 108, sizing_text="000,000", worn=True)
         self.credits_percentage_tile = CreditsPercentageTile()
         self.estimate_tile = FlipTile("Time to run out", "Time to run out", 152)
         self.voucher_tile = VoucherTile()
@@ -868,7 +1016,7 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
         self.build_details()
         self.modules = [
             ("allowance", self.allowance_tile, "Percentage still available in the selected Codex quota."),
-            ("credits", self.credits_tile, "Remaining credit balance. The bar compares it with the highest balance seen this session."),
+            ("credits", self.credits_tile, "Remaining credit balance reported by Codex."),
             ("credits-percentage", self.credits_percentage_tile, CreditsPercentageTile.DESCRIPTION),
             ("estimate", self.estimate_tile, "Estimated time until the selected quota runs out at your observed usage rate."),
             ("vouchers", self.voucher_tile, "Vouchers you can use now for a manual quota reset. Click the count for their expiration dates."),
@@ -1083,23 +1231,27 @@ class UsageWindow(SettingsUiMixin, Gtk.ApplicationWindow):
                            + state.get("forecastDetail", "Collecting quota history."))
         self.estimate_tile.set_detail(estimate_detail)
         credits = state.get("creditsLabel", "Unavailable")
-        credit_account_key = state.get("creditAccountKey")
-        if credit_account_key and credit_account_key != self.credit_account_key:
-            self.credit_account_key = credit_account_key
-            self.highest_credits = 0
-        balance = state.get("creditsBalance")
-        credit_percent = None
-        if type(balance) in (int, float) and math.isfinite(balance) and balance >= 0:
-            self.highest_credits = max(self.highest_credits, balance)
-            credit_percent = balance / self.highest_credits * 100 if self.highest_credits else 0
         self.set_progress(self.allowance_tile, remaining)
-        self.set_progress(self.credits_tile, credit_percent)
         self.credits_tile.update("—" if credits == "Unavailable" else credits.upper(),
                                  animate and self.credits_tile.get_mapped())
         self.credits_tile.set_detail(f"Credits remaining as reported by Codex: {credits}. The displayed balance is rounded to a whole number.")
-        self.credits_percentage_tile.set_percentage(credit_percent, animate and self.credits_percentage_tile.get_mapped())
+        self.update_credit_percentage(state, animate)
         self.voucher_tile.show_vouchers(state.get("resetVoucherCount"), state.get("resetVoucherExpirations", []),
                                        animate and self.voucher_tile.get_mapped())
+
+    def update_credit_percentage(self, state, animate):
+        balance = state.get("creditsBalanceExact", state.get("creditsBalance"))
+        budget = self.settings.get("creditsAlertThreshold")
+        percent = None
+        if type(budget) is int and budget > 0 and balance is not None:
+            try:
+                amount = Decimal(str(balance))
+            except InvalidOperation:
+                amount = None
+            if amount is not None and amount.is_finite() and amount >= 0:
+                percent = min(amount, budget) / budget * 100
+        tile = self.credits_percentage_tile
+        tile.set_percentage(percent, animate and tile.get_mapped())
 
     def update_voucher_expiry(self, now):
         expirations = self.state.get("resetVoucherExpirations") or []

@@ -116,12 +116,13 @@ internal sealed partial class StudioController : IDisposable
     }
 
     private bool initialized;
+    private long stopRequests;
     internal void SurfaceLoaded()
     {
         if (initialized || model.State.IsClosing) return;
         initialized = true;
         CheckCapabilities();
-        if (!model.State.EffectEnabled) StartScreen();
+        if (!model.State.EffectEnabled && stopRequests == 0) StartScreen();
 #if DEBUG
         if (Array.IndexOf(Environment.GetCommandLineArgs(), "--exercise-overlay") >= 0)
             _ = ExerciseOverlayAsync();
@@ -160,8 +161,9 @@ internal sealed partial class StudioController : IDisposable
         if (model.State.EffectEnabled) { StopScreen(); return; }
         CancelRecovery();
         if (closeSequence.IsPending || model.State.IsClosing || model.State.IsCaptureConsentOpen || model.State.IsSettingsOpen) return;
+        long priorStops = stopRequests;
         await captureConsent.EnsureAsync(((FrameworkElement)window.Content).XamlRoot);
-        if (model.State.IsClosing || model.State.EffectEnabled) return;
+        if (priorStops != stopRequests || model.State.IsClosing || model.State.EffectEnabled) return;
         StartScreen();
     }
 
@@ -369,6 +371,7 @@ internal sealed partial class StudioController : IDisposable
 
     private void StopScreen(string reason = "")
     {
+        ++stopRequests;
         CancelRecovery();
         bool hadEffect = model.State.IsScreenEffectActive || screens.Count > 0;
         bool resetFallback = fallbackDisplayIds is not null;

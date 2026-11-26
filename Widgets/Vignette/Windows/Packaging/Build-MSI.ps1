@@ -20,6 +20,7 @@ New-Item -ItemType Directory -Path $payload -Force | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Vignette source publish failed.' }
 Copy-Item -LiteralPath (Join-Path $windows 'bin/x64/Release/net10.0-windows10.0.26100.0/win-x64/Vignette.pri') -Destination (Join-Path $payload 'resources.pri')
 
+& (Join-Path $shared '../../scripts/packaging/Sign-VibeWareDevelopmentFile.ps1') -Path (Join-Path $payload 'Vignette.exe') -WhenConfigured
 $wxs = Join-Path $stage 'Vignette.wxs'
 & python (Join-Path $shared 'create-widget-wix.py') vignette $version $payload $wxs
 if ($LASTEXITCODE -ne 0) { throw 'Vignette WiX source generation failed.' }

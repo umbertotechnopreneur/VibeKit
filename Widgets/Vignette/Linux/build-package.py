@@ -32,6 +32,7 @@ def build(output):
         desktop = stage / 'usr/share/applications'
         desktop.mkdir(parents=True)
         shutil.copy2(ROOT / 'packaging/local.vibeware.Vignette.desktop', desktop)
+        shutil.copytree(source / 'icons/hicolor', stage / 'usr/share/icons/hicolor')
         docs = stage / 'usr/share/doc/vibeware-vignette'
         docs.mkdir(parents=True)
         shutil.copy2(ROOT.parent / 'LICENSE', docs / 'copyright')

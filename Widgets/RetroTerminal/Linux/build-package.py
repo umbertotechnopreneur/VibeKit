@@ -29,6 +29,7 @@ def build(output):
         applications = stage / 'usr/share/applications'
         applications.mkdir(parents=True)
         shutil.copy2(ROOT / 'packaging/local.vibeware.RetroTerminal.desktop', applications)
+        shutil.copytree(source / 'icons/hicolor', stage / 'usr/share/icons/hicolor')
         docs = stage / 'usr/share/doc/vibeware-retro-terminal'
         docs.mkdir(parents=True)
         shutil.copy2(ROOT.parent / 'README.md', docs)

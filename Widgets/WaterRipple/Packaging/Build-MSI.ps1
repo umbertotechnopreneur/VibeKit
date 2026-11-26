@@ -25,6 +25,7 @@ foreach ($shader in @('RippleVS.cso', 'RipplePS.cso')) {
     Copy-Item -LiteralPath (Join-Path $native "Shaders/$shader") -Destination $shaders.FullName
 }
 
+& (Join-Path $shared '../../scripts/packaging/Sign-VibeWareDevelopmentFile.ps1') -Path (Join-Path $payload 'WaterRipple.exe') -WhenConfigured
 $wxs = Join-Path $stage 'WaterRipple.wxs'
 & python (Join-Path $shared 'create-widget-wix.py') water-ripple $version $payload $wxs
 if ($LASTEXITCODE -ne 0) { throw 'Water Ripple WiX source generation failed.' }

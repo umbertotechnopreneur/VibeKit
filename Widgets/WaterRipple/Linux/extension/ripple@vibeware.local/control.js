@@ -25,6 +25,7 @@ let closeDialog = null;
 let exiting = false;
 let leaseProcess = null;
 let startupHidden = false;
+let startupCancelled = false;
 let memoryTimer = 0;
 
 function showPanel() {
@@ -107,7 +108,8 @@ function activate(startMinimized, enableOnStartup = true) {
             console.warn('Ripple lease helper failed to start', error.message);
         }
     }
-    controls = buildControls(window, settings, app, Boolean(leaseProcess), startMinimized, Gio.DBus.session, enableOnStartup);
+    controls = buildControls(window, settings, app, Boolean(leaseProcess), startMinimized, Gio.DBus.session,
+        enableOnStartup && !startupCancelled);
     const {page, footer} = controls;
     const toolbar = new Adw.ToolbarView({content: page});
     toolbar.add_top_bar(header);
@@ -146,7 +148,10 @@ app.connect('startup', () => {
     for (const name of ['open', 'preferences', 'about', 'stop', 'quit']) {
         const action = new Gio.SimpleAction({name});
         action.connect('activate', () => {
-            if (name === 'stop') controls?.cancelStartup();
+            if (name === 'stop') {
+                startupCancelled = true;
+                controls?.cancelStartup();
+            }
             else if (name === 'quit') exitRipple();
             else openAction(name);
         });

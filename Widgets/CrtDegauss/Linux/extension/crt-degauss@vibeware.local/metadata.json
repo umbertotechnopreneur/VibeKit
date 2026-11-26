@@ -1,0 +1,10 @@
+{
+    "uuid": "crt-degauss@vibeware.local",
+    "name": "CRT Degauss",
+    "description": "Simulate gradual CRT magnetization and manually degauss the primary display.",
+    "settings-schema": "org.gnome.shell.extensions.vibeware-crt-degauss",
+    "shell-version": ["50"],
+    "version": 2,
+    "version-name": "0.1.1",
+    "url": "https://github.com/umbertotechnopreneur/VibeKit"
+}

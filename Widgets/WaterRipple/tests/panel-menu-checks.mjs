@@ -60,7 +60,7 @@ const settings = {
     get_string: () => 'Ready', get_boolean: key => values.get(key) ?? false,
     set_boolean: (key, value) => values.set(key, value), is_writable: () => true,
 };
-const menu = new RipplePanelMenu({dir: {get_child: name => name}}, settings, () => true, () => settings.set_boolean('active', false));
+const menu = new RipplePanelMenu({dir: {resolve_relative_path: name => name}}, settings, () => true, () => settings.set_boolean('active', false));
 menu._controllerAction = () => {};
 const crt = {uuid: 'retro-terminal@vibeware.local', state: 1};
 const vignette = {uuid: 'vignette@vibeware.local', state: 1};

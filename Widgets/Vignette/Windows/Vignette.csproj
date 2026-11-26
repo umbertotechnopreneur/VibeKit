@@ -11,7 +11,7 @@
     <PlatformTarget>x64</PlatformTarget>
     <Platforms>x64</Platforms>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <Version>0.1.3</Version>
+    <Version>0.1.4</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -27,6 +27,7 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" PrivateAssets="all" />
     <Using Include="System" />
     <Compile Include="../../Shared/DisplayTarget.cs" Link="DisplayTarget.cs" />
+    <Compile Include="../../Shared/DesktopEffectStop.cs" Link="DesktopEffectStop.cs" />
     <Compile Include="../../Shared/EffectStudioLayout.cs" Link="EffectStudioLayout.cs" />
     <Compile Include="../../Shared/WidgetAbout.cs" Link="WidgetAbout.cs" />
     <Compile Include="../../Shared/WidgetFooter.cs" Link="WidgetFooter.cs" />

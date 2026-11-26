@@ -11,6 +11,11 @@ public:
     static constexpr UINT CallbackMessage = WM_APP + 17;
     enum class Action { None, Open, Quit, Preferences, About, Enable, Stop, Preview, Green, Amber, Arcade, Glitch };
     static constexpr UINT_PTR PreviewTimer = 4;
+    bool IsDisableAll(UINT message) const { return disableAllMessage && message == disableAllMessage; }
+    void CancelPendingStart()
+    {
+        if (action == Action::Enable || action == Action::Preview) action = Action::None;
+    }
 
     bool BeginPreview()
     {
@@ -33,6 +38,7 @@ public:
         window = messageWindow;
         owner = appWindow;
         taskbarCreated = RegisterWindowMessageW(L"TaskbarCreated");
+        disableAllMessage = RegisterWindowMessageW(L"VibeWare.DesktopEffects.DisableAll.v1");
     }
 
     bool Keep()
@@ -102,7 +108,7 @@ public:
 private:
     HWND window{}, owner{};
     ULONGLONG previewUntil{};
-    UINT taskbarCreated{};
+    UINT taskbarCreated{}, disableAllMessage{};
     bool kept{}, visible{}, versionFour{};
     Action action = Action::None;
 
@@ -151,7 +157,7 @@ private:
 
     void ShowMenu(WPARAM anchor, bool active, bool running, const std::wstring& status)
     {
-        constexpr int miniUtilitiesCommand = 100, disableEffectCommand = 101;
+        constexpr int miniUtilitiesCommand = 100, disableEffectCommand = 101, disableAllCommand = 102;
         const auto menu = CreatePopupMenu();
         if (!menu) return;
         POINT point{static_cast<short>(LOWORD(anchor)), static_cast<short>(HIWORD(anchor))};
@@ -174,6 +180,7 @@ private:
         const auto summary = status.substr(0, status.find(L'\n'));
         if (!AppendMenuW(menu, running ? MF_STRING : MF_GRAYED, UINT_PTR(Action::Glitch), L"Try a glitch now") ||
             !AppendMenuW(menu, MF_STRING, UINT_PTR(Action::Stop), L"Stop") ||
+            !AppendMenuW(menu, MF_STRING, disableAllCommand, L"Disable all effects") ||
             !AppendMenuW(menu, MF_GRAYED, 0, summary.c_str()) ||
             !AppendMenuW(menu, MF_SEPARATOR, 0, nullptr) ||
             !AppendMenuW(menu, MF_STRING, UINT_PTR(Action::Quit), L"Quit") ||
@@ -189,6 +196,9 @@ private:
         if (result == miniUtilitiesCommand)
             ShellExecuteW(owner, L"open", L"https://umbertogiacobbi.biz/mini-utilities/", nullptr, nullptr, SW_SHOWNORMAL);
         else if (result == disableEffectCommand) action = Action::Stop;
+        else if (result == disableAllCommand) {
+            if (disableAllMessage) PostMessageW(HWND_BROADCAST, disableAllMessage, 0, 0);
+        }
         else if (result)
             action = static_cast<Action>(result);
         PostMessageW(window, WM_NULL, 0, 0);

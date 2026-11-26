@@ -406,6 +406,11 @@ namespace
             SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(app));
         }
         if (!app) return DefWindowProcW(window, message, wParam, lParam);
+        if (app->tray.IsDisableAll(message)) {
+            app->tray.CancelPendingStart();
+            app->Stop(L"All effects disabled by you.");
+            return 0;
+        }
         if (app->tray.HandleMessage(message, wParam, lParam, app->running, app->running, app->statusText))
         {
             const auto action = app->tray.TakeAction();

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "Renderer.h"
+#include "PresentationRetry.h"
 #include "RippleFrameInput.h"
 #include "../../Shared/EffectWindowCoverage.h"
 #include <d3d11.h>
@@ -33,8 +34,8 @@ namespace
     constexpr int DesktopCaptureBuffers = 2;
     // Each process can take one discovery interval to notice its peer.
     constexpr auto RippleStartupGrace = 3 * vibeware::desktop_effect::DiscoveryInterval;
-    struct alignas(16) Constants { float Surface[4], Phosphor[4], Scan[4], Tone[4], Finish[4], Glitch[4], Target[4]; };
-    static_assert(sizeof(Constants) == 112);
+    struct alignas(16) Constants { float Surface[4], Phosphor[4], Scan[4], Tone[4], Finish[4], Glitch[4], Target[4], Effect[4]; };
+    static_assert(sizeof(Constants) == 128);
 
     ComPtr<IDXGIAdapter1> FindAdapter(HMONITOR monitor, std::wstring& name)
     {
@@ -75,7 +76,7 @@ namespace
         if (FAILED(hr))
         {
             if (errors) OutputDebugStringA(static_cast<const char*>(errors->GetBufferPointer()));
-            throw winrt::hresult_error(hr, L"The CRT shader could not compile. Keep Shaders/Retro.hlsl next to the application.");
+            throw winrt::hresult_error(hr, L"The desktop effect shader could not compile. Check the Shaders folder beside the application.");
         }
         return code;
     }
@@ -89,6 +90,7 @@ struct Renderer::State
     vibeware::desktop_effect::WindowCoverage coverage;
     UINT width{}, height{};
     bool validFrame = false, presentPending = false;
+    PresentationRetry visibilityRetry;
     retro_terminal::RippleFrameInput rippleInput;
     bool usedRippleFrame = false, waitingForInput = true, presentedRippleFrame = false;
     Clock::time_point busySince{};
@@ -278,8 +280,16 @@ struct Renderer::State
                 Fail(L"The GPU presentation queue stayed busy. Enable manually to retry.");
             return false;
         }
-        if (presented == DXGI_STATUS_OCCLUDED) Fail(L"Presentation became unavailable. The effect stopped.");
+        if (presented == DXGI_STATUS_OCCLUDED)
+        {
+            visibilityRetry.Occluded(now);
+            rippleInput.ClearPresentation();
+            waitingForInput = presentPending = true;
+            busySince = now;
+            return false;
+        }
         Check(presented);
+        visibilityRetry.Presented();
         presentPending = false;
         waitingForInput = false;
         presentedRippleFrame = usingRipple && presented == S_OK;
@@ -308,7 +318,7 @@ void Renderer::ClearPresentation() noexcept
     if (state) state->rippleInput.ClearPresentation();
 }
 
-void Renderer::Start(HWND overlay, HMONITOR monitor, const std::wstring& shaderPath, int captureFps)
+void Renderer::Start(HWND overlay, HMONITOR monitor, const std::wstring& shaderPath, int captureFps, bool useRippleInput)
 {
     Stop();
     auto next = std::make_unique<State>();
@@ -380,10 +390,10 @@ void Renderer::Start(HWND overlay, HMONITOR monitor, const std::wstring& shaderP
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
 
     next->SetCaptureLimit(captureFps);
-    next->rippleInput.Start(overlay, monitor, info.rcMonitor);
+    if (useRippleInput) next->rippleInput.Start(overlay, monitor, info.rcMonitor);
     // Preserve immediate standalone capture. A matching Ripple already on this
     // display gets a bounded opportunity to supply input before capture starts.
-    if (next->rippleInput.HasRunningProducer())
+    if (useRippleInput && next->rippleInput.HasRunningProducer())
         next->waitForRippleUntil = Clock::now() + RippleStartupGrace;
     else
         next->OpenDesktopCapture();
@@ -391,7 +401,7 @@ void Renderer::Start(HWND overlay, HMONITOR monitor, const std::wstring& shaderP
 }
 
 bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, bool settingsChanged, bool animationChanged,
-    int effectTarget, int captureFps)
+    int effectTarget, int captureFps, const std::array<float, 4>& effectParameters)
 {
     if (!state) return false;
     auto& s = *state;
@@ -400,6 +410,9 @@ bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, b
         Fail(L"The captured monitor became unavailable. Enable manually to retry.");
     Check(s.device->GetDeviceRemovedReason());
     auto now = Clock::now();
+    if (s.visibilityRetry.Expired(now))
+        Fail(L"The display remained unavailable for three seconds. Enable the effect manually to retry.");
+    if (s.visibilityRetry.Waiting(now)) return false;
     if (now - s.lastBudgetCheck > std::chrono::seconds(2))
     {
         s.CheckBudget();
@@ -460,7 +473,8 @@ bool Renderer::Tick(const EffectSettings& settings, const GlitchFrame& glitch, b
         {settings.glowRadius, settings.glow, settings.blackLevel, settings.contrast},
         {settings.vignette, settings.grain, decay, persistence ? settings.persistenceStrength : 0.f},
         {float(glitch.type), glitch.amount, glitch.position, glitch.phase},
-        {float(effectTarget), 0.f, 0.f, 0.f}
+        {float(effectTarget), 0.f, 0.f, 0.f},
+        {effectParameters[0], effectParameters[1], effectParameters[2], effectParameters[3]}
     };
     s.context->UpdateSubresource(s.constants.Get(), 0, nullptr, &values, 0, 0);
     const unsigned historyWrite = 1 - s.historyRead;

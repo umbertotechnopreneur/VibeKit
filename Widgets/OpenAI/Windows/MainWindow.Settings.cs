@@ -248,7 +248,7 @@ public sealed partial class MainWindow
         notifications.Children.Add(SettingsRow("5% remaining", alert5));
         notifications.Children.Add(SettingsRow("Play a sound for alerts", alertSound));
         notifications.Children.Add(SettingsRow("Credit alert threshold", creditsThreshold,
-            "Send an alert at or below this balance. Leave blank to disable."));
+            "Send an alert at or below this balance. A positive amount also sets the budget for Remaining Credits Percentage. Leave blank to disable both."));
         notifications.Children.Add(thresholdError);
 
         var connection = Section("Codex connection", "Executable and time zone", "\uE753");

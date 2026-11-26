@@ -60,6 +60,8 @@ class SettingsUiMixin:
         self.settings_revision += 1
         if "showInTaskbar" in changes:
             self.sync_taskbar()
+        if "creditsAlertThreshold" in changes:
+            self.update_credit_percentage(self.state, self.animations_enabled())
         self.apply_size()
         self.check_alerts()
         self.queue_settings_save()
@@ -287,7 +289,8 @@ class SettingsUiMixin:
             switch(alerts, f"{threshold}% remaining", f"alert{threshold}")
         switch(alerts, "Play a sound for alerts", "alertSound", True)
         existing = self.settings.get("creditsAlertThreshold")
-        credit_hint = "Send an alert at or below this balance. Leave blank to disable."
+        credit_hint = ("Send an alert at or below this balance. A positive amount also sets the budget "
+                       "for Remaining Credits Percentage. Leave blank to disable both.")
 
         credit_row, credits = entry_row(alerts, "Credit alert threshold", "" if existing is None else str(existing),
                                        credit_hint, "Example: 1000")

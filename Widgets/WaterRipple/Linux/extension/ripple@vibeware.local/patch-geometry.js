@@ -1,7 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+const MAX_TEXTURE_SIDE = 1024;
+const TEXTURE_PADDING = 8;
+
+export function safePatchSize(size, scale) {
+    if (!Number.isFinite(scale) || scale < 1) return 0;
+    return Math.max(0, Math.min(size, Math.floor(MAX_TEXTURE_SIDE / scale) - TEXTURE_PADDING));
+}
+
 // Keep the full crop where possible without sampling across the source or display edge.
 export function clipRipplePatch(sourceWidth, sourceHeight, x, y, monitor, maxSize) {
+    if (![sourceWidth, sourceHeight, x, y, monitor.x, monitor.y, monitor.width, monitor.height, maxSize]
+        .every(Number.isFinite)) return null;
     const minX = Math.max(0, monitor.x);
     const minY = Math.max(0, monitor.y);
     const maxX = Math.min(sourceWidth, monitor.x + monitor.width);

@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Dispatching;
+using Tools.Widgets;
 
 namespace WaterRipple;
 
@@ -112,6 +113,11 @@ internal sealed class TrayService : IDisposable
     {
         try
         {
+            if (!disposed && DesktopEffectStop.Matches(message))
+            {
+                Dispatch(() => setEffect(false));
+                return IntPtr.Zero;
+            }
             if (!disposed && message == taskbarCreated && visible)
             {
                 // Explorer discarded its icon list. Re-register without growing resources.
@@ -166,6 +172,7 @@ internal sealed class TrayService : IDisposable
                 !AppendMenu(menu, 0, 1, "Open") ||
                 !AppendMenu(menu, separator, 0, null) ||
                 !AppendMenu(menu, flags, 6, "Effect") ||
+                !AppendMenu(menu, 0, 7, "Disable all effects") ||
                 !AppendMenu(menu, separator, 0, null) ||
                 !AppendMenu(menu, 0, 3, "Quit") ||
                 !AppendMenu(menu, separator, 0, null) ||
@@ -188,6 +195,7 @@ internal sealed class TrayService : IDisposable
             else if (command == 4) Dispatch(about);
             else if (command == 5) Dispatch(OpenMiniUtilities);
             else if (command == 6) Dispatch(() => setEffect(!effect.Active));
+            else if (command == 7) DesktopEffectStop.Broadcast();
         }
         finally { DestroyMenu(menu); }
     }

@@ -17,6 +17,7 @@ const notifications = [];
 let nextTimer = 0;
 let clock = 100;
 let cpu = 0;
+let memoryPressure = null;
 const GLib = {
     get_monotonic_time: () => clock * 1e6,
     file_get_contents: path => [true, new TextEncoder().encode(path === '/proc/stat'
@@ -37,17 +38,19 @@ const scheduleStartupGpuJoke = vm.runInNewContext(
 const Extension = vm.runInNewContext(source('extension.js')
     .replace('export default class RippleExtension', 'class RippleExtension') + '\nRippleExtension;', {
     GLib, Extension: class {}, RecoveryPolicy, readResourceSample, retryDelay, FramePacer, scheduleStartupGpuJoke,
+    registerEffectStop: () => () => {},
     MONITOR_SELECTION_KEY: 'target-monitors',
     RipplePanelMenu: class { update() {} updateLease() {} destroy() {} },
     acquireShellEffects: () => ({
         displays: () => [{id: 'test-output'}],
+        memoryPressure: () => memoryPressure,
         subscribePressure: () => () => {},
         release() {},
     }),
     selectMonitors: monitors => monitors,
     TextDecoder,
     Clutter: {ModifierType: {BUTTON1_MASK: 1}},
-    console: {log: message => logs.push(JSON.parse(message.slice('Ripple: '.length)))},
+    console: {log: message => logs.push(JSON.parse(message.slice('Ripple: '.length))), warn() {}},
     Main: {wm: {removeKeybinding() {}}, overview: {}, layoutManager: {}, sessionMode: {},
         notify: (title, body) => notifications.push({title, body})},
     global: {stage: {}, get_pointer: () => [0, 0, 0]},
@@ -158,6 +161,28 @@ assert.equal(values.active, false);
 assert.equal(values['recovery-pending'], false, 'Expired heartbeat prevents recovery');
 extension.disable();
 assert.equal(timers.size, 0, 'Recovery timers are cleaned up');
+
+settingsChanged = undefined;
+extension.enable();
+settings.set_boolean('active', true);
+memoryPressure = {availableBytes: 100};
+const activationTimer = extension._startTimer;
+const activate = timers.get(activationTimer);
+timers.delete(activationTimer);
+values['lease-until'] = clock + 7.5;
+activate();
+assert.equal(values.active, false, 'Low memory must refuse activation before starting pointer polling');
+assert.equal(extension._pointerTimer, 0);
+assert.match(values.status, /system memory is low/);
+assert.equal(values['recovery-pending'], false, 'Low memory must not schedule recovery');
+extension.disable();
+
+const geometrySource = readFileSync(new URL('../Linux/extension/ripple@vibeware.local/patch-geometry.js', import.meta.url), 'utf8');
+const {clipRipplePatch, safePatchSize} = await import(`data:text/javascript;base64,${Buffer.from(geometrySource).toString('base64')}`);
+const thinViewport = {x: 0, y: 0, width: 512, height: 100};
+const thinPatch = clipRipplePatch(512, 100, 100, 50, thinViewport, safePatchSize(512, 3));
+assert((thinPatch.width + 8) * 3 <= 1024, 'A narrow crop must respect the texture limit on its long side');
+assert.equal(clipRipplePatch(512, 100, NaN, 50, thinViewport, 512), null);
 
 settingsChanged = undefined;
 const jokes = [];

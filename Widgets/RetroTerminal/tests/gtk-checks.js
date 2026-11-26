@@ -16,6 +16,12 @@ settings.set_string('saved-presets', JSON.stringify([{name: 'Previous look', val
 const legacy = settings.get_string('saved-presets');
 const window = new Adw.PreferencesWindow();
 const ui = buildControls(window, settings);
+settings.set_string('status', 'Diagnostic test');
+settings.set_boolean('panic-available', true);
+settings.set_boolean('recovery-pending', true);
+check(ui.diagnosticStatus.subtitle === 'Diagnostic test' && ui.diagnosticShortcut.subtitle.includes('available') &&
+    ui.diagnosticRecovery.subtitle.includes('stable'), 'Diagnostics must follow live state');
+settings.set_boolean('recovery-pending', false);
 check(!ui.active.active, 'Must start disabled');
 check(ui.animationLimit.get_value() === 60 && ui.captureLimit.get_value() === 30 && ui.recovery.value === 60,
     'Performance controls expose the default limits and cooldown');

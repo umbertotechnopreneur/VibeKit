@@ -12,6 +12,7 @@ import {createAbout} from './about.js';
 import {createAccordion, addThemeSetting} from './preferences-layout.js';
 import {createGpuJokes} from './gpu-jokes.js';
 import {createMonitorGroup} from './shared/monitor-settings.js';
+import {AutostartPreference} from './autostart.js';
 
 export function buildControls(window, settings, application = null, externalLease = false, startEffect = false,
     extensionConnection = Gio.DBus.session, enableOnStartup = Boolean(application) || startEffect) {
@@ -25,9 +26,36 @@ export function buildControls(window, settings, application = null, externalLeas
     const effect = addSection('Effect');
     const pipelineSection = addSection('Pipelines');
     const settingsSection = addSection('Settings');
+    const diagnostics = addSection('Diagnostics');
     const aboutSection = addSection('About');
     addThemeSetting(window, settings, settingsSection, application);
     settingsSection.add(createMonitorGroup(settings));
+    const startupGroup = new Adw.PreferencesGroup({title: 'Startup'});
+    const startup = new Adw.SwitchRow({title: 'Start with GNOME'});
+    const startupPreference = new AutostartPreference();
+    let syncingStartup = false;
+    const syncStartup = error => {
+        syncingStartup = true;
+        try {
+            const state = startupPreference.read();
+            startup.active = state.enabled;
+            startup.sensitive = state.available;
+            startup.subtitle = error || (state.available
+                ? 'Start Ripple in the top bar when you sign in.'
+                : 'The system startup entry is not installed.');
+        } catch (problem) {
+            startup.sensitive = false;
+            startup.subtitle = problem.message;
+        } finally { syncingStartup = false; }
+    };
+    startup.connect('notify::active', () => {
+        if (syncingStartup) return;
+        try { startupPreference.setEnabled(startup.active); syncStartup(); }
+        catch (error) { syncStartup(`Could not update startup: ${error.message}`); }
+    });
+    syncStartup();
+    startupGroup.add(startup);
+    settingsSection.add(startupGroup);
     const about = createAbout(window);
     const aboutGroup = new Adw.PreferencesGroup({title: 'VibeWare', description: 'Desktop toys by Umberto Giacobbi'});
     const aboutRow = new Adw.ActionRow({title: 'About Ripple', subtitle: 'Version, credits, license and project links', activatable: true});
@@ -93,6 +121,23 @@ export function buildControls(window, settings, application = null, externalLeas
     syncEmergency();
     const status = new Adw.ActionRow({title: settings.get_string('status'), use_markup: false});
     group.add(status);
+    const diagnosticGroup = new Adw.PreferencesGroup({title: 'Live effect status',
+        description: 'The compositor does not report GPU frame time here.'});
+    const diagnosticStatus = new Adw.ActionRow({title: 'Effect', use_markup: false});
+    const diagnosticShortcut = new Adw.ActionRow({title: 'Emergency shortcut', use_markup: false});
+    const diagnosticRecovery = new Adw.ActionRow({title: 'Recovery', use_markup: false});
+    for (const row of [diagnosticStatus, diagnosticShortcut, diagnosticRecovery]) diagnosticGroup.add(row);
+    diagnostics.add(diagnosticGroup);
+    const syncDiagnostics = () => {
+        diagnosticStatus.subtitle = settings.get_string('status');
+        diagnosticShortcut.subtitle = !settings.get_boolean('panic-enabled') ? 'Disabled' :
+            settings.get_boolean('panic-available') ? 'Super + Shift + Esc is available.' : 'Shortcut unavailable.';
+        diagnosticRecovery.subtitle = settings.get_boolean('recovery-pending') ? 'Waiting for stable conditions.' :
+            settings.get_boolean('auto-restart') ? 'Enabled after a performance pause.' : 'Automatic recovery is off.';
+    };
+    const diagnosticChanges = ['status', 'panic-enabled', 'panic-available', 'recovery-pending', 'auto-restart']
+        .map(key => settings.connect(`changed::${key}`, syncDiagnostics));
+    syncDiagnostics();
     const target = new Adw.ComboRow({
         title: 'Apply to', model: Gtk.StringList.new(['Wallpaper only', 'Windows only', 'Wallpaper and windows']),
     });
@@ -223,6 +268,8 @@ export function buildControls(window, settings, application = null, externalLeas
         settings.disconnect(changed);
         for (const handler of emergencyChanges)
             settings.disconnect(handler);
+        for (const handler of diagnosticChanges)
+            settings.disconnect(handler);
         settings.disconnect(pipelineChanged);
         unsubscribePipeline(); library.dispose();
         return false;
@@ -316,5 +363,5 @@ export function buildControls(window, settings, application = null, externalLeas
         });
     }
     return {page, footer, active, preset, stop, status, pipelines, library, about, aboutRow, aboutSection: aboutSection.row,
-        settingsSection: settingsSection.row, jokes, cancelStartup};
+        settingsSection: settingsSection.row, jokes, cancelStartup, startup, diagnosticStatus, diagnosticShortcut, diagnosticRecovery};
 }

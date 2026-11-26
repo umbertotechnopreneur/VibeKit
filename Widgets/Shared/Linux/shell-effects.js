@@ -100,6 +100,7 @@ export function acquireShellEffects(stage, layoutManager, onMonitorsChanged) {
     }
     return {
         displays: () => shared.displays(),
+        memoryPressure: shellPressure,
         subscribeFrames: callback => track(shared.subscribeFrames(callback)),
         subscribePressure: callback => track(shared.subscribePressure(callback)),
         registerPostEffect(actor) {

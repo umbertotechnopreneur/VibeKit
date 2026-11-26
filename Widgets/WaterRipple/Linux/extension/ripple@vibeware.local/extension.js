@@ -2,6 +2,7 @@
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import {acquireShellEffects} from './shared/shell-effects.js';
+import {registerEffectStop} from './shared/effect-stop.js';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
@@ -12,7 +13,7 @@ import {RecoveryPolicy, readResourceSample, retryDelay} from './recovery.js';
 import {FramePacer} from './frame-pacing.js';
 import {RipplePanelMenu} from './panel-menu.js';
 import {scheduleStartupGpuJoke} from './gpu-joke-notifications.js';
-import {clipRipplePatch} from './patch-geometry.js';
+import {clipRipplePatch, safePatchSize} from './patch-geometry.js';
 import {MONITOR_SELECTION_KEY, selectMonitors} from './shared/monitor-selection.js';
 
 const NUMBERS = ['strength', 'speed', 'wavelength', 'rings', 'lifetime',
@@ -58,6 +59,7 @@ export default class RippleExtension extends Extension {
             this._cancelRecovery();
             this._settings.set_boolean('active', false);
         });
+        this._releaseStop = registerEffectStop(global.stage, () => this._panel._setAll(false));
         this._connect(this._settings, 'changed', (_settings, key) => {
             // Heartbeats change every second and must never produce log traffic.
             if (key !== 'lease-until')
@@ -167,8 +169,7 @@ export default class RippleExtension extends Extension {
         if (this._startTimer || !this._settings.get_boolean('active'))
             return;
         if (this._monitors.length) {
-            this._startPointerPolling();
-            this._settings.set_string('status', 'Active');
+            if (this._startPointerPolling()) this._settings.set_string('status', 'Active');
         } else {
             this._stopPointerPolling();
             this._settings.set_string('status', selection.length ? 'No selected monitor is connected' : 'No monitors selected');
@@ -182,11 +183,13 @@ export default class RippleExtension extends Extension {
 
     _startPointerPolling() {
         if (this._pointerTimer)
-            return;
-        this._memoryWatch = this._effects.subscribePressure(event => {
-            console.warn(JSON.stringify({kind: 'guard.memory-pressure', app: 'WaterRipple', ...event}));
-            this._stop('Stopped because system memory is low. Enable the effect manually to resume.');
-        });
+            return true;
+        const pressure = this._effects.memoryPressure();
+        if (pressure) {
+            this._stopForMemoryPressure(pressure);
+            return false;
+        }
+        this._memoryWatch = this._effects.subscribePressure(event => this._stopForMemoryPressure(event));
         this._lastPressed = Boolean(global.get_pointer()[2] & Clutter.ModifierType.BUTTON1_MASK);
         // Wayland forwards application clicks before Clutter emits captured-event.
         // Read the cached pointer state only while active; never grab input.
@@ -208,6 +211,12 @@ export default class RippleExtension extends Extension {
             this._lastPressed = pressed;
             return GLib.SOURCE_CONTINUE;
         });
+        return true;
+    }
+
+    _stopForMemoryPressure(event) {
+        console.warn(JSON.stringify({kind: 'guard.memory-pressure', app: 'WaterRipple', ...event}));
+        this._stop('Stopped because system memory is low. Enable the effect manually to resume.');
     }
 
     _stopPointerPolling() {
@@ -351,38 +360,37 @@ export default class RippleExtension extends Extension {
             const viewport = {
                 x: monitor.x - sourceX, y: monitor.y - sourceY, width: monitor.width, height: monitor.height,
             };
-            let crop = clipRipplePatch(source.width, source.height, localX, localY, viewport, size);
+            const scale = Math.max(1, monitor.scale, source.get_resource_scale(),
+                St.ThemeContext.get_for_stage(global.stage).scale_factor);
+            const safeSize = safePatchSize(size, scale);
+            if (safeSize < 16) {
+                this._settings.set_string('status', 'Area exceeds the safety limit');
+                return;
+            }
+            const crop = clipRipplePatch(source.width, source.height, localX, localY, viewport, safeSize);
             if (!crop)
                 return;
-            const scale = Math.max(1, monitor.scale, St.ThemeContext.get_for_stage(global.stage).scale_factor);
-            const maxTextureSide = 1024;
-            const padding = 8;
-            if ((crop.width + padding) * (crop.height + padding) * scale * scale > maxTextureSide ** 2) {
-                const safeSize = Math.floor(maxTextureSide / scale) - padding;
-                crop = clipRipplePatch(source.width, source.height, localX, localY, viewport, safeSize);
-                if (!crop) {
-                    this._settings.set_string('status', 'Area exceeds the safety limit');
-                    return;
-                }
-            }
+            // Reserve a slot before allocating the new offscreen effect.
+            while (this._patches.length >= this._settings.get_int('max-waves'))
+                this._removePatch(this._patches[0]);
             const {left, top, width, height} = crop;
             const actor = new Clutter.Actor({
                 width, height, x: source.x + left, y: source.y + top,
                 reactive: false, clip_to_allocation: true,
             });
+            // Track partial setup so the common stop path also destroys it on error.
+            const patch = {actor, effect: null, source, monitor, born: now(), sourceSignals: [], desktop};
+            this._patches.push(patch);
             actor.set_clip(0, 0, width, height);
             const clone = new Clutter.Clone({source, reactive: false, x: -left, y: -top});
             actor.add_child(clone);
             const effect = new RippleEffect(width, height, [localX - left, localY - top], this._values());
+            patch.effect = effect;
             actor.add_effect(effect);
             // Sibling of the source: cloning can never recurse into our own overlay.
             parent.insert_child_above(actor, source);
-            const patch = {actor, effect, source, monitor, born: now(), sourceSignals: [], desktop};
             patch.sourceSignals.push(source.connect('destroy', () => this._removePatch(patch)));
             patch.sourceSignals.push(source.connect('notify::allocation', () => this._removePatch(patch)));
-            this._patches.push(patch);
-            while (this._patches.length > this._settings.get_int('max-waves'))
-                this._removePatch(this._patches[0]);
             this._startAnimation();
         } catch (error) {
             this._stop('Effect stopped. ' + error.message);
@@ -532,6 +540,8 @@ export default class RippleExtension extends Extension {
     }
 
     disable() {
+        this._releaseStop?.();
+        this._releaseStop = null;
         this._cancelGpuJokes?.();
         this._cancelGpuJokes = null;
         this._cancelStart();

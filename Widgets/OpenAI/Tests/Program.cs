@@ -15,19 +15,20 @@ Check(Analytics.Compact(1_000_000_000) == "1 G", "Token giga suffix instead of B
 Check(Analytics.Compact(1_000_000_000_000) == "1 T", "Token tera suffix");
 Check(Analytics.Compact(999_999_999) == "1 G", "Rounding promotes the next unit");
 Check(Analytics.Compact(0) == "0" && Analytics.Compact(double.NaN) == "—", "Zero and invalid token quantities");
-var creditProgress = new CreditProgress();
-Check(creditProgress.Observe("first-account", 0) == 0 && creditProgress.Observe("first-account", null) is null,
+Check(CreditProgress.Percentage(0, 50_000) == 0 && CreditProgress.Percentage(null, 50_000) is null,
     "An empty credit balance is distinct from an unavailable balance");
-Check(creditProgress.Observe("first-account", 10_000) == 100 && creditProgress.Observe("first-account", 6_250) == 62.5m,
-    "Remaining credits percentage uses the session high-water mark");
-Check(creditProgress.Observe(null, null) is null && creditProgress.Observe("first-account", 10) == .1m,
-    "A connection failure preserves the credit high-water mark");
-Check(creditProgress.Observe("second-account", 40) == 100 && creditProgress.Observe("second-account", 80) == 100 &&
-      creditProgress.Observe("second-account", 40) == 50,
-    "Account switches and credit top-ups set the correct session reference");
+Check(CreditProgress.Percentage(30_858, 50_000) == 61.716m && CreditProgress.Percentage(30_858, 100_000) == 30.858m,
+    "Remaining Credits Percentage uses the configured credit alert threshold as its budget");
+Check(CreditProgress.Percentage(60_000, 50_000) == 100 && CreditProgress.Percentage(50_000, 50_000) == 100 &&
+      CreditProgress.Percentage(50, 50_000) == .1m,
+    "The budget meter is full at or above the budget and handles very low balances");
+Check(CreditProgress.Percentage(30_858, null) is null && CreditProgress.Percentage(30_858, 0) is null &&
+      CreditProgress.Percentage(-1, 50_000) is null,
+    "The meter requires a valid balance and a positive budget");
 foreach (var (percentage, active) in new (decimal?, int)[] { (null, 0), (0, 0), (.1m, 1), (12.5m, 2), (12.5001m, 3), (43.75m, 7), (62.5m, 10), (100, 16) })
     Check(CreditProgress.LitLenses(percentage) == active, $"{percentage?.ToString(CultureInfo.InvariantCulture) ?? "Unavailable"}% lights {active} credit lenses");
 Check(CreditProgress.Format(.001m, CultureInfo.GetCultureInfo("it-IT")) == "0,1%" &&
+      CreditProgress.Format(CreditProgress.Percentage(275, 50_000), CultureInfo.InvariantCulture) == "0.6%" &&
       CreditProgress.Format(99.99m, CultureInfo.InvariantCulture) == "99.9%" &&
       CreditProgress.Format(100, CultureInfo.InvariantCulture) == "100%",
     "A positive balance stays distinguishable from zero and a partial balance from full");
@@ -102,7 +103,6 @@ try
     store.SaveSettings(settings);
     Check(store.LoadSettings().TimeZoneId == "UTC", "Settings persist atomically");
     var state = new UsageService(store).Build(parsed, settings, now);
-    Check(state.CreditAccountKey == parsed.Identity, "Credit progress uses the hashed account key");
     Check(!settings.EnableDetailsBar, "Details bar is opt-in for existing profiles");
     Check(state.FiveHourAllowance?.Remaining == 80 && state.WeeklyAllowance?.Remaining == 42 &&
         state.FiveHourAllowance.ResetsAt == parsed.Windows[1].ResetsAt, "Allowance cards use both authoritative quota windows");
@@ -114,6 +114,8 @@ try
     Check(store.LoadSettings().EnableDetailsBar, "The details bar opt-in persists");
     Check(state.CreditsLabel == "1,250", "Credit balance is displayed without decimal places");
     Check(state.CreditsBalance == 1250.25m, "Credits alerts compare the raw balance before display rounding");
+    Check(JsonSerializer.SerializeToElement(state, JsonOptions.Compact).GetProperty("creditsBalanceExact").GetString() == "1250.25",
+        "GTK receives a culture-independent exact credit balance");
     var withVouchers = parsed with
     {
         ResetVouchers = new(3, [now.AddDays(1).ToUnixTimeSeconds(), now.AddDays(2).ToUnixTimeSeconds(), now.AddDays(3).ToUnixTimeSeconds()])

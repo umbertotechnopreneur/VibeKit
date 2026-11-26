@@ -2,24 +2,16 @@ using System.Globalization;
 
 namespace OpenAIUsage;
 
-public sealed class CreditProgress
+public static class CreditProgress
 {
     public const int LensCount = 16;
-    private string? accountKey;
-    private decimal highestBalance;
 
-    public decimal? Observe(string? key, decimal? balance)
+    public static decimal? Percentage(decimal? balance, int? budget)
     {
-        if (!string.IsNullOrEmpty(key) && key != accountKey)
-        {
-            accountKey = key;
-            highestBalance = 0;
-        }
-        if (balance is not { } value || value < 0) return null;
+        if (balance is not { } value || value < 0 || budget is not > 0) return null;
         if (value == 0) return 0;
-
-        highestBalance = Math.Max(highestBalance, value);
-        return Math.Max(1e-28m, value / highestBalance * 100);
+        if (value >= budget.Value) return 100;
+        return Math.Max(1e-28m, value / budget.Value * 100);
     }
 
     public static int LitLenses(decimal? percentage) =>

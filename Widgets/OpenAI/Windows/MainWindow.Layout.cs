@@ -32,9 +32,9 @@ public sealed partial class MainWindow
         modules =
         [
             new("allowance", "Allowance remaining", "Percentage still available in the selected Codex quota.", usageLink, remaining),
-            new("credits", "Remaining Credits", "Remaining credit balance. The bar compares it with the highest balance seen for this account during this session.", credits, credits),
+            new("credits", "Remaining Credits", "Remaining credit balance reported by Codex.", credits, credits),
             new(CreditPercentageTile.FieldKey, CreditPercentageTile.FieldLabel,
-                "Credits left as a percentage of the highest balance seen for this account during this session.", creditPercentage, creditPercentage),
+                CreditPercentageTile.FieldDescription, creditPercentage, creditPercentage),
             new("estimate", "Time to run out", "Estimated time until the selected quota runs out at your observed usage rate.", forecastLink, forecast),
             new("vouchers", "Available vouchers", "Vouchers you can use now for a manual quota reset. Click the count for their expiration dates.", vouchersButton, vouchers),
             new("first-reset", "Next voucher expiry", "When the next available voucher with a reported date expires. A dash means no date is available.", voucherExpiry, voucherExpiry),

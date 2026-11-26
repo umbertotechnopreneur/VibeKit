@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <Version>1.0.43</Version>
+    <Version>1.0.44</Version>
     <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <WindowsSdkPackageVersion>10.0.26100.87</WindowsSdkPackageVersion>
@@ -25,6 +25,7 @@
     <Compile Include="../Shared/WidgetFooter.cs" Link="WidgetFooter.cs" />
     <Compile Include="../Shared/EffectStudioLayout.cs" Link="EffectStudioLayout.cs" />
     <Compile Include="../Shared/DisplayTarget.cs" Link="DisplayTarget.cs" />
+    <Compile Include="../Shared/DesktopEffectStop.cs" Link="DesktopEffectStop.cs" />
     <Compile Include="../Shared/DisplayTargetPicker.cs" Link="DisplayTargetPicker.cs" />
     <Compile Include="../Shared/VibeWareDiagnostics.cs" Link="VibeWareDiagnostics.cs" />
     <Compile Include="../Shared/ProcessMemoryWatchdog.cs" Link="ProcessMemoryWatchdog.cs" />

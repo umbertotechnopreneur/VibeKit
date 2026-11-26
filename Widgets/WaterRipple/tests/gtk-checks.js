@@ -11,6 +11,12 @@ function check(condition, message) { if (!condition) throw Error(message); }
 const settings = Gio.Settings.new_full(loadSchema(directory.get_child('schema.js').get_uri()), null, null);
 const window = new Adw.PreferencesWindow();
 const controls = buildControls(window, settings, null, true);
+settings.set_string('status', 'Diagnostic test');
+settings.set_boolean('panic-available', true);
+settings.set_boolean('recovery-pending', true);
+check(controls.diagnosticStatus.subtitle === 'Diagnostic test' && controls.diagnosticShortcut.subtitle.includes('available') &&
+    controls.diagnosticRecovery.subtitle.includes('stable'), 'Diagnostics must follow live state');
+settings.set_boolean('recovery-pending', false);
 check(!controls.jokes.running, 'Hidden preferences must not schedule joke updates.');
 controls.preset.selected = 1;
 check(settings.get_double('strength') === 7, 'Pipeline selection did not reach settings.');
@@ -88,10 +94,16 @@ const steps = [
     [() => stateQueries > 0, 'Controller did not inspect Shell extension state.', () => {
         check(!next.active.sensitive && !settings.get_boolean('active'),
             'Controller started the effect before GNOME activated the extension.');
+        next.stop.emit('clicked');
         shellState = 1; // ACTIVE
     }],
-    [() => next.active.sensitive && settings.get_boolean('active'),
-        'Controller did not start the effect after GNOME confirmed activation.', () => next.stop.emit('clicked')],
+    [() => next.active.sensitive,
+        'Controller did not finish connecting after GNOME confirmed activation.', () => {
+            check(!settings.get_boolean('active'), 'Stop during startup must prevent delayed activation.');
+            next.active.active = true;
+            check(settings.get_boolean('active'), 'Manual activation should remain available after a stop.');
+            next.stop.emit('clicked');
+        }],
     [() => next.jokes.running, 'Application view did not start the optional ticker.', () => {
         appWindow.close();
         check(next.jokes.running, 'Intercepted close disposed a panel that remains open.');

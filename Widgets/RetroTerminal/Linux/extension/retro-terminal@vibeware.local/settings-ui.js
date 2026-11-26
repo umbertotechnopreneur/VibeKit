@@ -23,6 +23,7 @@ export function buildControls(window, settings) {
     const effect = addSection('Effect');
     const pipelineSection = addSection('Pipelines');
     const settingsSection = addSection('Settings');
+    const diagnostics = addSection('Diagnostics');
     const aboutSection = addSection('About');
     addThemeSetting(window, settings, settingsSection);
     const library = pipelineControls(window, pipelines, path, pipelineSection, () => {
@@ -113,6 +114,26 @@ export function buildControls(window, settings) {
     syncShortcut();
     page.add(shortcutGroup);
 
+    const diagnosticGroup = new Adw.PreferencesGroup({title: 'Live effect status',
+        description: 'The compositor does not report GPU frame time here.'});
+    const diagnosticStatus = new Adw.ActionRow({title: 'Effect', use_markup: false, subtitle_lines: 0});
+    const diagnosticShortcut = new Adw.ActionRow({title: 'Emergency shortcut', use_markup: false});
+    const diagnosticRecovery = new Adw.ActionRow({title: 'Recovery', use_markup: false});
+    diagnosticGroup.add(diagnosticStatus);
+    diagnosticGroup.add(diagnosticShortcut);
+    diagnosticGroup.add(diagnosticRecovery);
+    diagnostics.add(diagnosticGroup);
+    const syncDiagnostics = () => {
+        diagnosticStatus.subtitle = settings.get_string('status');
+        diagnosticShortcut.subtitle = !settings.get_boolean('panic-enabled') ? 'Disabled' :
+            settings.get_boolean('panic-available') ? 'Super + Shift + F12 is available.' : 'Shortcut unavailable.';
+        diagnosticRecovery.subtitle = settings.get_boolean('recovery-pending') ? 'Waiting for stable conditions.' :
+            settings.get_boolean('auto-restart') ? 'Enabled after a performance pause.' : 'Automatic recovery is off.';
+    };
+    for (const key of ['status', 'panic-enabled', 'panic-available', 'recovery-pending', 'auto-restart'])
+        signals.push(settings.connect(`changed::${key}`, syncDiagnostics));
+    syncDiagnostics();
+
     const selection = group('', 'Adjust a personal pipeline to save it automatically. Duplicate a built-in in Pipelines to keep your changes.');
     const pipeline = new Adw.ComboRow({
         title: 'Pipeline',
@@ -192,7 +213,7 @@ export function buildControls(window, settings) {
     const aboutButton = new Gtk.Button({label: 'About Retro Terminal', valign: Gtk.Align.CENTER});
     aboutButton.connect('clicked', () => about.show());
     const brandRow = new Adw.ActionRow({title: 'Retro Terminal', subtitle: 'Modern graphics. Retro priorities.', activatable_widget: aboutButton});
-    brandRow.add_prefix(new Gtk.Image({icon_name: 'utilities-terminal-symbolic', pixel_size: 32}));
+    brandRow.add_prefix(new Gtk.Image({icon_name: 'local.vibeware.RetroTerminal', pixel_size: 32}));
     brandRow.add_suffix(aboutButton); brand.add(brandRow); aboutSection.add(brand);
     const jokes = createGpuJokes(settings);
     aboutSection.add(jokes.group);
@@ -207,7 +228,7 @@ export function buildControls(window, settings) {
     };
     window.connect('close-request', () => { dispose(); return false; });
     window.connect('unrealize', dispose);
-    return {active, status, preset, controls, expanders, color, random, tryGlitch, stop,
+    return {active, status, diagnosticStatus, diagnosticShortcut, diagnosticRecovery, preset, controls, expanders, color, random, tryGlitch, stop,
         animationLimit, captureLimit, resume, recovery, shortcut,
         pipeline, pipelines, library, page, effectSection: effect.row, aboutSection: aboutSection.row, aboutButton, about, jokes};
 }

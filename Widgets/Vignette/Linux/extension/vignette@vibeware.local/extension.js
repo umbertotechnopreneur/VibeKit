@@ -13,6 +13,7 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {selectMonitors} from './shared/monitor-selection.js';
 import {acquireShellEffects} from './shared/shell-effects.js';
+import {registerEffectStop, stopAllEffects} from './shared/effect-stop.js';
 import {isHistoryCapture} from './shared/capture-pass.js';
 import {createPixels, TEXTURE_SIZE} from './gradient.js';
 import {readAppearance} from './pipelines.js';
@@ -41,7 +42,12 @@ export default class Vignette extends Extension {
         this._textureKey = '';
         this._content = null;
         this._button = new PanelMenu.Button(0, 'Vignette');
-        this._button.add_child(new St.Icon({icon_name: 'weather-clear-night-symbolic', style_class: 'system-status-icon'}));
+        this._button.add_child(new St.Icon({
+            icon_name: 'local.vibeware.Vignette',
+            fallback_gicon: new Gio.FileIcon({file: this.dir.resolve_relative_path(
+                'icons/hicolor/32x32/apps/local.vibeware.Vignette.png')}),
+            style_class: 'system-status-icon',
+        }));
         const {menu} = this._button;
         menu.addAction('Preferences', () => this.openPreferences());
         menu.addAction('Open', () => this.openPreferences());
@@ -50,6 +56,7 @@ export default class Vignette extends Extension {
         menu.addMenuItem(this._toggle);
         this._toggle.connect('toggled', (_item, active) => this._settings.set_boolean('active', active));
         menu.addAction('Stop', () => this._settings.set_boolean('active', false));
+        menu.addAction('Disable all effects', () => stopAllEffects(global.stage));
         this._status = new PopupMenu.PopupMenuItem('Stopped', {reactive: false});
         menu.addMenuItem(this._status);
         menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
@@ -66,6 +73,10 @@ export default class Vignette extends Extension {
             this.openPreferences();
         });
         Main.panel.addToStatusArea(this.uuid, this._button);
+        this._releaseStop = registerEffectStop(global.stage, () => {
+            this._settings.set_boolean('active', false);
+            this._clear('All effects stopped manually');
+        });
         this._connect(this._settings, 'changed', (_settings, key) => {
             if (!['active', 'appearance', 'target-monitors'].includes(key)) return;
             if (this._settings.get_boolean('active')) this._queueUpdate();
@@ -81,6 +92,7 @@ export default class Vignette extends Extension {
             Meta.KeyBindingFlags.IGNORE_AUTOREPEAT, Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW |
                 Shell.ActionMode.POPUP | Shell.ActionMode.SYSTEM_MODAL,
             () => this._settings.set_boolean('active', false));
+        this._settings.set_boolean('panic-available', this._shortcut !== Meta.KeyBindingAction.NONE);
         this._settings.set_boolean('active', false);
         this._clear('Stopped');
     }
@@ -125,11 +137,14 @@ export default class Vignette extends Extension {
             this._clear('Active · intensity is zero', true);
             return;
         }
-        this._memoryWatch ??= this._effects.subscribePressure(event => {
-            console.warn(JSON.stringify({kind: 'guard.memory-pressure', app: 'Vignette', ...event}));
-            this._settings.set_boolean('active', false);
-            this._clear('Stopped because system memory is low. Enable the effect manually to resume.');
-        });
+        if (!this._memoryWatch) {
+            const pressure = this._effects.memoryPressure();
+            if (pressure) {
+                this._stopForMemoryPressure(pressure);
+                return;
+            }
+            this._memoryWatch = this._effects.subscribePressure(event => this._stopForMemoryPressure(event));
+        }
         const key = JSON.stringify(appearance);
         if (key !== this._textureKey) {
             const context = global.stage.get_context().get_backend().get_cogl_context();
@@ -159,6 +174,12 @@ export default class Vignette extends Extension {
         this._setStatus(`Active · ${monitors.length} ${monitors.length === 1 ? 'display' : 'displays'}`);
     }
 
+    _stopForMemoryPressure(event) {
+        console.warn(JSON.stringify({kind: 'guard.memory-pressure', app: 'Vignette', ...event}));
+        this._settings.set_boolean('active', false);
+        this._clear('Stopped because system memory is low. Enable the effect manually to resume.');
+    }
+
     _setStatus(message) {
         this._status.label.text = message;
         this._settings.set_string('status', message);
@@ -178,6 +199,8 @@ export default class Vignette extends Extension {
     }
 
     disable() {
+        this._releaseStop?.();
+        this._releaseStop = null;
         this._clear('Stopped');
         this._releaseOverlay();
         this._effects.release();
@@ -185,6 +208,7 @@ export default class Vignette extends Extension {
         for (const [object, signal] of this._signalRecords) object.disconnect(signal);
         this._signalRecords = [];
         Main.wm.removeKeybinding('vignette-panic');
+        this._settings.set_boolean('panic-available', false);
         this._button.destroy();
         this._group.destroy();
         this._settings = this._button = this._group = null;

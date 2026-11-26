@@ -10,6 +10,10 @@ const website = 'https://umbertogiacobbi.biz';
 
 // Kept local so the extension archive also contains its complete About UI.
 export function createAbout(parent) {
+    const theme = Gtk.IconTheme.get_for_display(parent.get_display());
+    const icons = directory.get_child('icons').get_path();
+    if (!theme.get_search_path().includes(icons)) theme.add_search_path(icons);
+    parent.set_icon_name('local.vibeware.RetroTerminal');
     let dialog = null;
     let provider = null;
     let display = null;
@@ -25,7 +29,7 @@ export function createAbout(parent) {
         const metadata = JSON.parse(new TextDecoder().decode(contents));
         dialog = new Adw.Window({title: `About ${metadata.name}`, transient_for: parent,
             modal: true, destroy_with_parent: true, default_width: 640, default_height: 680,
-            icon_name: 'utilities-terminal'});
+            icon_name: 'local.vibeware.RetroTerminal'});
         dialog.add_css_class('retro-about');
         const body = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 20,
             margin_top: 24, margin_bottom: 24, margin_start: 24, margin_end: 24});

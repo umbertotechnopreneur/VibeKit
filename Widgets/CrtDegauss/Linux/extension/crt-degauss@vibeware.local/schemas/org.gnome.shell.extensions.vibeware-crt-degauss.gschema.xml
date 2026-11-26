@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.vibeware-crt-degauss" path="/org/gnome/shell/extensions/vibeware-crt-degauss/">
+    <key name="minutes" type="i"><range min="1" max="120"/><default>15</default></key>
+    <key name="patches" type="i"><range min="1" max="2"/><default>1</default></key>
+    <key name="sound-variant" type="u"><range min="0" max="5"/><default>0</default></key>
+    <key name="sound" type="b"><default>true</default></key>
+    <key name="active" type="b"><default>false</default></key>
+    <key name="degauss-request" type="x"><default>0</default></key>
+    <key name="degaussing" type="b"><default>false</default></key>
+    <key name="status" type="s"><default>'Stopped'</default></key>
+    <key name="crt-degauss-panic" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;F9']</default></key>
+  </schema>
+</schemalist>

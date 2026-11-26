@@ -153,6 +153,7 @@ internal sealed partial class Studio : Window
         trayEffect = new Forms.ToolStripMenuItem("Effect", null, (_, _) => SetEffect(!effect.IsOn));
         menu.Items.Add(trayEffect);
         menu.Items.Add("Stop", null, (_, _) => SetEffect(false));
+        menu.Items.Add("Disable all effects", null, (_, _) => DesktopEffectStop.Broadcast());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Quit", null, async (_, _) => await QuitAsync());
         menu.Items.Add(new Forms.ToolStripSeparator());
@@ -417,7 +418,7 @@ internal sealed partial class Studio : Window
     private nint OnWindowMessage(nint window, uint code, nint wp, nint lp, nuint id, nuint data)
     {
         const uint hotkeyMessage = 0x0312, endSession = 0x0016, size = 0x0005;
-        if (code == hotkeyMessage && wp == Hotkey)
+        if ((code == hotkeyMessage && wp == Hotkey) || DesktopEffectStop.Matches(code))
         {
             DispatcherQueue.TryEnqueue(() => { if (!closing) SetEffect(false); });
             return 0;

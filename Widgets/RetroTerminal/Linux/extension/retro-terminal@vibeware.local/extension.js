@@ -11,6 +11,7 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {CrtEffect, MAX_MONITOR_REGIONS} from './effect.js';
 import {DelayGuard, MAX_DESKTOP_PIXELS, MAX_STAGE_PIXELS, surfaceAllowed} from './guard.js';
 import {acquireShellEffects} from './shared/shell-effects.js';
+import {registerEffectStop, stopAllEffects} from './shared/effect-stop.js';
 import {PhosphorPersistence} from './persistence.js';
 import {GlitchSequence} from './glitches.js';
 import {DEFAULTS, readValues} from './settings-model.js';
@@ -19,18 +20,22 @@ import {selectMonitors} from './shared/monitor-selection.js';
 import {MAX_RECOVERY_ATTEMPTS, RecoveryWindow, parseResources} from './recovery.js';
 
 const STARTUP_GRACE_US = 5_000_000;
+const DISPLAY_START_TIMEOUT_US = 3_000_000;
+const DISPLAY_RETRY_MS = 100;
 const now = () => GLib.get_monotonic_time() / 1e6;
 export default class RetroTerminal extends Extension {
     enable() {
         this._settings = this.getSettings();
-        this._effects = acquireShellEffects(global.stage, Main.layoutManager,
-            () => this._stop('Display changed; enable again to resume'));
+        this._effects = acquireShellEffects(global.stage, Main.layoutManager, () => {
+            if (!this._startupTimer) this._stop('Display changed; enable again to resume');
+        });
         this._memoryWatch = null;
         this._signals = [];
         this._timer = 0;
         this._previewTimer = 0;
         this._previewRequested = false;
         this._startupTimer = 0;
+        this._displayDeadline = 0;
         this._readyAt = GLib.get_monotonic_time() + STARTUP_GRACE_US;
         this._settingsUpdate = 0;
         this._effect = null;
@@ -49,7 +54,12 @@ export default class RetroTerminal extends Extension {
         this._settings.set_boolean('active', false);
         this._settings.set_string('status', 'Stopped');
         this._button = new PanelMenu.Button(0.0, 'Retro Terminal');
-        this._button.add_child(new St.Icon({icon_name: 'utilities-terminal-symbolic', style_class: 'system-status-icon'}));
+        this._button.add_child(new St.Icon({
+            icon_name: 'local.vibeware.RetroTerminal',
+            fallback_gicon: new Gio.FileIcon({file: this.dir.resolve_relative_path(
+                'icons/hicolor/32x32/apps/local.vibeware.RetroTerminal.png')}),
+            style_class: 'system-status-icon',
+        }));
         this._button.menu.addAction('Preferences', () => {
             this._settings.set_int64('preferences-request', GLib.get_monotonic_time());
             this.openPreferences();
@@ -71,6 +81,7 @@ export default class RetroTerminal extends Extension {
         this._button.menu.addMenuItem(palette);
         this._button.menu.addAction('Try a glitch now', () => this._startGlitch(true));
         this._button.menu.addAction('Stop', () => this._stop('Stopped manually'));
+        this._button.menu.addAction('Disable all effects', () => stopAllEffects(global.stage));
         this._status = new PopupMenu.PopupMenuItem('Stopped', {reactive: false});
         this._button.menu.addMenuItem(this._status);
         this._button.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
@@ -88,6 +99,7 @@ export default class RetroTerminal extends Extension {
             this.openPreferences();
         });
         Main.panel.addToStatusArea(this.uuid, this._button);
+        this._releaseStop = registerEffectStop(global.stage, () => this._stop('All effects stopped manually'));
         this._syncPanic();
         this._connect(this._settings, 'changed', (_settings, key) => {
             if (key === 'status') this._status.label.text = this._settings.get_string('status');
@@ -127,8 +139,9 @@ export default class RetroTerminal extends Extension {
         // Read the keys after connecting so dconf changes from Preferences are observed.
         this._status.label.text = this._settings.get_string('status');
         this._sync();
-        this._connect(St.ThemeContext.get_for_stage(global.stage), 'notify::scale-factor',
-            () => this._stop('Display scale changed; enable again to resume'));
+        this._connect(St.ThemeContext.get_for_stage(global.stage), 'notify::scale-factor', () => {
+            if (!this._startupTimer) this._stop('Display scale changed; enable again to resume');
+        });
         this._connect(Main.sessionMode, 'updated', () => {
             if (!this._userSession())
                 this._stop('Session changed; enable again to resume');
@@ -152,10 +165,6 @@ export default class RetroTerminal extends Extension {
         if (this._settings.get_boolean('active') && this._settings.get_boolean('panic-enabled') && !available)
             this._stop('Emergency shortcut unavailable');
         else this._updateActiveStatus();
-    }
-
-    _monitors() {
-        return selectMonitors(this._effects.displays(), this._settings.get_strv('target-monitors'));
     }
 
     _userSession() {
@@ -201,7 +210,10 @@ export default class RetroTerminal extends Extension {
         if (!this._persistence) return;
         this._persistence.configure(this._settings, this._selectedMonitors);
         if (this._settings.get_boolean('persistence-enabled') && this._settings.get_double('intensity') > 0 &&
-            this._settings.get_double('persistence-strength') > 0) this._persistence.start();
+            this._settings.get_double('persistence-strength') > 0) {
+            if (!this._persistence.running && this._stopForMemoryPressure(this._effects.memoryPressure())) return;
+            this._persistence.start();
+        }
         else this._persistence.stop();
         this._updateActiveStatus();
     }
@@ -278,6 +290,15 @@ export default class RetroTerminal extends Extension {
             }
         });
     }
+    _scheduleStart(waitMs, status) {
+        this._startupTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, waitMs, () => {
+            this._startupTimer = 0;
+            this._sync();
+            return GLib.SOURCE_REMOVE;
+        });
+        this._settings.set_string('status', status);
+    }
+
     _sync() {
         const active = this._settings.get_boolean('active');
         this._toggle.setToggleState(active);
@@ -296,19 +317,29 @@ export default class RetroTerminal extends Extension {
             this._stop('Available only in the unlocked desktop');
             return;
         }
-        const waitMs = Math.ceil((this._readyAt - GLib.get_monotonic_time()) / 1000);
+        const time = GLib.get_monotonic_time();
+        const waitMs = Math.ceil((this._readyAt - time) / 1000);
         if (this._startupTimer) return;
         if (waitMs > 0) {
-            this._startupTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, waitMs, () => {
-                this._startupTimer = 0;
-                this._sync();
-                return GLib.SOURCE_REMOVE;
-            });
-            this._settings.set_string('status', 'Starting…');
+            this._scheduleStart(waitMs, 'Starting…');
             return;
         }
         try {
-            const monitors = this._monitors();
+            const displays = this._effects.displays();
+            const selection = this._settings.get_strv('target-monitors');
+            const [width, height, scale] = this._dimensions();
+            if (selection.length && (!displays.length || !(width > 0 && height > 0))) {
+                if (!this._displayDeadline) this._displayDeadline = time + DISPLAY_START_TIMEOUT_US;
+                if (time < this._displayDeadline) {
+                    const remainingMs = Math.ceil((this._displayDeadline - time) / 1000);
+                    this._scheduleStart(Math.min(remainingMs, DISPLAY_RETRY_MS), 'Waiting for the desktop display…');
+                } else {
+                    this._stop('Desktop display is unavailable. Enable CRT again to retry.');
+                }
+                return;
+            }
+            this._displayDeadline = 0;
+            const monitors = selectMonitors(displays, selection);
             if (!monitors.length) {
                 if (this._previewRequested || this._previewTimer)
                     this._stop('Preview stopped because no displays are selected');
@@ -318,9 +349,8 @@ export default class RetroTerminal extends Extension {
                 }
                 return;
             }
-            const [width, height, scale] = this._dimensions();
             const actorScale = Math.max(scale, Math.ceil(Main.layoutManager.uiGroup.get_resource_scale()));
-            if (monitors.length > MAX_MONITOR_REGIONS || !surfaceAllowed(width, height, scale, MAX_DESKTOP_PIXELS) ||
+            if (monitors.length > MAX_MONITOR_REGIONS || !surfaceAllowed(width, height, scale, MAX_DESKTOP_PIXELS, 16384) ||
                 !surfaceAllowed(width + 4, height + 4, actorScale, MAX_STAGE_PIXELS, 16384)) {
                 this._stop('Desktop layout exceeds the CRT framebuffer safety limit');
                 return;
@@ -331,17 +361,14 @@ export default class RetroTerminal extends Extension {
                 this._configurePersistence();
                 return;
             }
+            if (this._stopForMemoryPressure(this._effects.memoryPressure())) return;
             this._effect = new CrtEffect();
             this._configure();
             this._effect.setMonitors(monitors, width, height);
             // The base CRT pass transforms uiGroup once, without clones or input grabs.
             // Optional temporal afterglow separately captures the composed stage on the GPU.
             Main.layoutManager.uiGroup.add_effect_with_name(this.uuid, this._effect);
-            this._memoryWatch = this._effects.subscribePressure(event => {
-                console.warn(JSON.stringify({kind: 'guard.memory-pressure', app: 'RetroTerminal', ...event}));
-                this._stop('Stopped because system memory is low. Enable the effect manually to resume.');
-                Main.notify('Retro Terminal stopped', 'System memory is low. You can enable the effect again after memory recovers.');
-            });
+            this._memoryWatch = this._effects.subscribePressure(event => this._stopForMemoryPressure(event));
             this._persistence = new PhosphorPersistence({
                 onError: error => {
                     console.error('Retro Terminal persistence:', error);
@@ -376,6 +403,14 @@ export default class RetroTerminal extends Extension {
             console.error('Retro Terminal:', error);
             this._stop(`Could not start CRT: ${error.message}. Enable CRT again to retry.`);
         }
+    }
+
+    _stopForMemoryPressure(event) {
+        if (!event) return false;
+        console.warn(JSON.stringify({kind: 'guard.memory-pressure', app: 'RetroTerminal', ...event}));
+        this._stop('Stopped because system memory is low. Enable the effect manually to resume.');
+        Main.notify('Retro Terminal stopped', 'System memory is low. You can enable the effect again after memory recovers.');
+        return true;
     }
 
     _cancelRecovery() {
@@ -430,6 +465,7 @@ export default class RetroTerminal extends Extension {
         this._memoryWatch = null;
         if (this._startupTimer) GLib.source_remove(this._startupTimer);
         this._startupTimer = 0;
+        this._displayDeadline = 0;
         this._previewRequested = false;
         if (this._previewTimer) GLib.source_remove(this._previewTimer);
         if (this._timer) GLib.source_remove(this._timer);
@@ -457,6 +493,8 @@ export default class RetroTerminal extends Extension {
         this._settings.set_string('status', reason);
     }
     disable() {
+        this._releaseStop?.();
+        this._releaseStop = null;
         this._cancelGpuJokes?.();
         this._cancelGpuJokes = null;
         this._stop('Extension disabled');

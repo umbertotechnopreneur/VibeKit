@@ -97,6 +97,24 @@ export default class SmokeTest extends ProductionExtension {
                 } finally { stream.close(null); }
             };
             await shot('gnome-original');
+            if (!oversized && GLib.getenv('RETRO_TEST_PRESETS') !== '1') {
+                const dimensions = this._dimensions;
+                this._readyAt = 0;
+                this._dimensions = () => [0, 0, 1];
+                this._settings.set_boolean('active', true);
+                if (!this._startupTimer || this._effect || !this._settings.get_string('status').startsWith('Waiting'))
+                    throw Error('CRT must wait for a display allocation before starting');
+                this._settings.set_boolean('active', false);
+                if (this._startupTimer || this._displayDeadline || this._effect)
+                    throw Error('Stop must cancel the pending display retry');
+                this._settings.set_boolean('active', true);
+                this._displayDeadline = GLib.get_monotonic_time();
+                await delay(150);
+                if (this._settings.get_boolean('active') || this._startupTimer ||
+                    !this._settings.get_string('status').includes('unavailable'))
+                    throw Error('CRT must stop after its display deadline');
+                this._dimensions = dimensions;
+            }
             this._settings.set_boolean('active', true);
             const startupDeadline = GLib.get_monotonic_time() + 5_000_000;
             while (this._startupTimer && GLib.get_monotonic_time() < startupDeadline)

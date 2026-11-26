@@ -32,6 +32,10 @@ function aboutLink(label, uri, child) {
 }
 
 export function createAbout(window) {
+    const theme = Gtk.IconTheme.get_for_display(window.get_display());
+    const icons = directory.get_child('icons').get_path();
+    if (!theme.get_search_path().includes(icons)) theme.add_search_path(icons);
+    window.set_icon_name('local.vibeware.WaterRipple');
     let about = null;
     let provider = null;
     let display = null;
@@ -50,7 +54,7 @@ export function createAbout(window) {
         const metadata = JSON.parse(new TextDecoder().decode(metadataContents));
         const dialog = new Adw.Window({
             application: window.get_application(), title: 'About Ripple', transient_for: window, destroy_with_parent: true,
-            modal: true, default_width: 640, default_height: 620, icon_name: 'local.vibeware.Ripple',
+            modal: true, default_width: 640, default_height: 620, icon_name: 'local.vibeware.WaterRipple',
         });
         dialog.add_css_class('widget-about');
         const content = new Gtk.Box({
@@ -58,7 +62,7 @@ export function createAbout(window) {
             margin_top: 24, margin_bottom: 24, margin_start: 24, margin_end: 24,
         });
         content.add_css_class('about-body');
-        content.append(new Gtk.Image({icon_name: 'local.vibeware.Ripple', pixel_size: 100}));
+        content.append(new Gtk.Image({icon_name: 'local.vibeware.WaterRipple', pixel_size: 100}));
         const identity = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 5});
         identity.append(aboutText('Ripple', 'about-heading'));
         identity.append(aboutText(`Version ${metadata['version-name']}`, 'about-note'));

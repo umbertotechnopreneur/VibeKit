@@ -28,6 +28,7 @@ export function buildPreferences(window, settings) {
     const effect = section('Effect');
     const library = section('Pipelines');
     const preferences = section('Settings');
+    const diagnostics = section('Diagnostics');
     const about = createAbout(window);
     const connections = [];
     const changed = (key, callback) => connections.push(settings.connect('changed::'+key,callback));
@@ -85,8 +86,12 @@ export function buildPreferences(window, settings) {
     library.add(notice);
 
     const adjustmentGroup = new Adw.PreferencesGroup();
-    const colorRow = new Adw.ActionRow({title:'Edge color', subtitle:'Dark colors shade the edges. Light colors lift them.'});
+    const colorHelp = 'Dark colors shade the edges. Light colors lift them.';
+    const colorRow = new Adw.ActionRow({title:'Edge color', subtitle:colorHelp});
+    const hexColor = new Gtk.Entry({width_chars:7, max_length:7, valign:Gtk.Align.CENTER, placeholder_text:'#RRGGBB'});
+    hexColor.set_tooltip_text('Edge color in #RRGGBB format');
     const color = new Gtk.ColorDialogButton({dialog:new Gtk.ColorDialog({with_alpha:false}),valign:Gtk.Align.CENTER});
+    colorRow.add_suffix(hexColor);
     colorRow.add_suffix(color);
     adjustmentGroup.add(colorRow);
     const adjustments = new Map();
@@ -105,6 +110,21 @@ export function buildPreferences(window, settings) {
         const hex = [rgba.red,rgba.green,rgba.blue].map(c => Math.round(c*255).toString(16).padStart(2,'0')).join('');
         report(() => writeAppearance(settings,{...readAppearance(settings), color:'#'+hex}));
     });
+    const commitColor = () => {
+        try {
+            if (!writeAppearance(settings, {...readAppearance(settings), color:hexColor.text.trim()}))
+                throw Error('The color setting is read-only.');
+            colorRow.subtitle = colorHelp;
+            refresh();
+        } catch (error) {
+            colorRow.subtitle = error.message;
+            hexColor.text = readAppearance(settings).color;
+        }
+    };
+    hexColor.connect('activate', commitColor);
+    const colorFocus = new Gtk.EventControllerFocus();
+    colorFocus.connect('leave', commitColor);
+    hexColor.add_controller(colorFocus);
     effect.add(adjustmentGroup);
     preferences.add(createMonitorGroup(settings));
     addThemeSetting(window, settings, preferences);
@@ -112,6 +132,21 @@ export function buildPreferences(window, settings) {
     safety.add(new Adw.ActionRow({title:'Emergency stop', subtitle:'Super + Shift + F10'}));
     safety.add(new Adw.ActionRow({title:'Rendering', subtitle:'One reusable gradient texture. No screen capture.'}));
     preferences.add(safety);
+    const diagnosticGroup = new Adw.PreferencesGroup({title: 'Desktop overlay'});
+    const diagnosticStatus = new Adw.ActionRow({title: 'Effect status', use_markup: false});
+    const diagnosticShortcut = new Adw.ActionRow({title: 'Emergency shortcut', use_markup: false});
+    diagnosticGroup.add(diagnosticStatus);
+    diagnosticGroup.add(diagnosticShortcut);
+    diagnostics.add(diagnosticGroup);
+    const refreshDiagnostics = () => {
+        diagnosticStatus.subtitle = settings.get_string('status');
+        diagnosticShortcut.subtitle = settings.get_boolean('panic-available')
+            ? 'Super + Shift + F10 stops the effect.'
+            : 'Unavailable. The effect cannot be started until the shortcut is available.';
+    };
+    changed('status', refreshDiagnostics);
+    changed('panic-available', refreshDiagnostics);
+    refreshDiagnostics();
     const footer = new Gtk.Box({spacing:8, halign:Gtk.Align.CENTER});
     footer.append(button('About', () => about.show()));
     footer.append(new Gtk.LinkButton({label:'Mini Utilities',uri:'https://umbertogiacobbi.biz/mini-utilities/'}));
@@ -125,6 +160,7 @@ export function buildPreferences(window, settings) {
             const rgba = new Gdk.RGBA();
             rgba.parse(values.color);
             color.rgba = rgba;
+            hexColor.text = values.color;
             for (const [key,row] of adjustments) row.value = values[key];
             const preferred = entries.findIndex(entry => entry.id === editId && matches(entry, values));
             const index = preferred >= 0 ? preferred : entries.findIndex(entry => matches(entry, values));
@@ -174,4 +210,5 @@ export function buildPreferences(window, settings) {
     refreshStatus();
     refreshLibrary();
     effect.row.expanded=true;
+    return {active, diagnosticStatus, diagnosticShortcut, hexColor, colorRow};
 }

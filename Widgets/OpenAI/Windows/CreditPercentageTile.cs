@@ -13,6 +13,9 @@ internal sealed class CreditPercentageTile : Grid, IWidgetTile
 {
     internal const string FieldKey = "credits-percentage";
     internal const string FieldLabel = "Remaining Credits Percentage";
+    internal const string FieldDescription =
+        "Current credit balance divided by the Credit alert threshold in Settings. " +
+        "The meter shows up to 100% and needs a positive threshold.";
     private const double ValueGap = 8, LensInsets = 8, ValueShare = .34;
     private const int RedLenses = 2, OrangeLenses = 5;
     private static readonly Brush LensRim = new SolidColorBrush(ColorHelper.FromArgb(255, 28, 26, 26));
@@ -31,6 +34,7 @@ internal sealed class CreditPercentageTile : Grid, IWidgetTile
     public CreditPercentageTile(Brush captionBrush)
     {
         value = new(FieldLabel, 88, 20, captionBrush, sizingCharacters: 5);
+        Background = new SolidColorBrush(Colors.Transparent);
         VerticalAlignment = VerticalAlignment.Center;
         RowDefinitions.Add(new());
         RowDefinitions.Add(new());

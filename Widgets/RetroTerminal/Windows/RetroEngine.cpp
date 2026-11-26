@@ -476,6 +476,11 @@ LRESULT CALLBACK EngineProc(HWND w,UINT m,WPARAM a,LPARAM b) {
     auto* e=reinterpret_cast<Engine*>(GetWindowLongPtrW(w,GWLP_USERDATA));
     if(m==WM_NCCREATE) { e=static_cast<Engine*>(reinterpret_cast<CREATESTRUCTW*>(b)->lpCreateParams); e->window=w; SetWindowLongPtrW(w,GWLP_USERDATA,reinterpret_cast<LONG_PTR>(e)); }
     if(!e) return DefWindowProcW(w,m,a,b);
+    if (e->tray.IsDisableAll(m)) {
+        e->tray.CancelPendingStart();
+        e->Stop(L"All effects disabled by you.");
+        return 0;
+    }
     if (e->tray.HandleMessage(m,a,b,e->armed,e->Running(),e->status)) return 0;
     switch(m) {
     case WM_CLOSE:

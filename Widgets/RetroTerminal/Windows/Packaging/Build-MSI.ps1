@@ -36,6 +36,7 @@ Copy-Item -LiteralPath (Join-Path $build 'Release/RetroEngine.dll'),(Join-Path $
 $shaders = New-Item -ItemType Directory -Path (Join-Path $payload 'Shaders') -Force
 Copy-Item -LiteralPath (Join-Path $windows 'Shaders/Retro.hlsl') -Destination $shaders.FullName
 
+& (Join-Path $shared '../../scripts/packaging/Sign-VibeWareDevelopmentFile.ps1') -Path (Join-Path $payload 'RetroStudio.exe') -WhenConfigured
 $wxs = Join-Path $stage 'RetroTerminal.wxs'
 & python (Join-Path $shared 'create-widget-wix.py') retro-terminal $version $payload $wxs
 if ($LASTEXITCODE -ne 0) { throw 'Retro Terminal WiX source generation failed.' }

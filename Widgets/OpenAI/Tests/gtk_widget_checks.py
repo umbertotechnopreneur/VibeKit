@@ -11,7 +11,7 @@ import openai_usage as widget
 expiry = int(time.time()) + 86_400
 snapshot = {
     "connected": True, "remaining": 60, "selectedWindow": "codex:weekly", "creditsBalance": 170,
-    "creditsLabel": "170", "creditAccountKey": "account-a", "resetVoucherCount": 3,
+    "creditsLabel": "170", "resetVoucherCount": 3,
     "forecastAvailable": True, "forecastCompact": "3d 21h",
     "windows": [{"key": "codex:weekly", "minutes": 10080}],
     "resetVoucherExpirations": [
@@ -45,6 +45,31 @@ def descendants(control):
     while child:
         yield from descendants(child)
         child = child.get_next_sibling()
+
+
+def check_credit_meter():
+    # Sample the rendered glass itself so reversing the drawing order is caught.
+    tile = widget.CreditsPercentageTile()
+    for width in (tile.MINIMUM_WIDTH, tile.base_width):
+        tile.resize(1, width)
+        meter_width = tile.meter.get_content_width()
+        height = tile.meter.get_content_height()
+        centers = [round(4 + (i + .5) * (meter_width - 8) / 16) for i in range(16)]
+
+        def lens_pixels(percent):
+            tile.set_percentage(percent, False)
+            surface = widget.cairo.ImageSurface(widget.cairo.FORMAT_ARGB32, meter_width, height)
+            tile.draw_meter(tile.meter, widget.cairo.Context(surface), meter_width, height)
+            surface.flush()
+            row = surface.get_data()[height // 2 * surface.get_stride():]
+            return [bytes(row[4*x:4*x+4]) for x in centers]
+
+        off, lit = lens_pixels(None), lens_pixels(100)
+        assert all(dark != light for dark, light in zip(off, lit))
+        assert lens_pixels(42) == off[:9] + lit[9:]
+        assert tile.value == "42%"
+        assert lens_pixels(6.25) == off[:15] + lit[15:]
+        assert tile.value == locale.format_string("%g", 6.3) + "%"
 
 
 def assert_resize_edges(view):
@@ -98,6 +123,7 @@ stable_after = 0
 widths_to_check = [450, 650, 850, 1000, 1200, 1600, 650]
 row_counts = []
 width_retry_at = None
+single_row_width = None
 started = time.monotonic()
 failure = None
 
@@ -110,7 +136,7 @@ def request_test_width(view, width):
 
 
 def poll():
-    global stage, size, stable_after, width_retry_at, failure
+    global stage, size, stable_after, width_retry_at, single_row_width, failure
     try:
         if time.monotonic() - started > 12:
             raise AssertionError(f"Native widget check timed out at stage {stage}, surface {(app.window.get_surface().get_width(), app.window.get_surface().get_height())}, rows {row_counts}")
@@ -141,17 +167,21 @@ def poll():
             assert percentage.value == "100%" and percentage.active_lenses == 16
             assert percentage.LENS_COLORS.count(percentage.LENS_COLORS[-1]) == 2
             assert percentage.LENS_COLORS.count(percentage.LENS_COLORS[-3]) == 5
-            view.update_metrics(dict(snapshot, creditsBalance=106.25))
+            view.update_metrics(dict(snapshot, creditsBalance=93.75))
             assert percentage.value == locale.format_string("%g", 62.5) + "%"
-            assert percentage.active_lenses == 10 and view.credits_tile.progress == .625
-            view.update_metrics(dict(snapshot, creditsBalance=.17))
+            assert percentage.active_lenses == 10 and view.credits_tile.progress is None
+            view.update_metrics(dict(snapshot, creditsBalance=1.275, creditsBalanceExact="1.275"))
+            assert percentage.value == locale.format_string("%g", .9) + "%" and percentage.active_lenses == 1
+            check_credit_meter()
+            view.update_metrics(dict(snapshot, creditsBalance=.15))
             assert percentage.value == locale.format_string("%g", .1) + "%" and percentage.active_lenses == 1
-            view.update_metrics(dict(snapshot, creditAccountKey=None, creditsBalance=None))
-            assert percentage.value == "—" and percentage.active_lenses == 0 and view.highest_credits == 170
-            view.update_metrics(dict(snapshot, creditAccountKey="account-b", creditsBalance=0))
-            assert percentage.value == "0%" and percentage.active_lenses == 0 and view.highest_credits == 0
-            view.update_metrics(dict(snapshot, creditAccountKey="account-b", creditsBalance=15))
-            assert percentage.value == "100%" and view.highest_credits == 15
+            view.update_metrics(dict(snapshot, creditsBalance=None))
+            assert percentage.value == "—" and percentage.active_lenses == 0
+            view.update_metrics(dict(snapshot, creditsBalance=0))
+            assert percentage.value == "0%" and percentage.active_lenses == 0
+            view.update_metrics(dict(snapshot, creditsBalance=15))
+            assert percentage.value == "10%" and percentage.active_lenses == 2
+            assert "Credit alert threshold" in percentage.meter.get_tooltip_text()
             view.update_metrics(snapshot)
             assert_resize_edges(view)
             assert view.signal.last_remaining == snapshot["remaining"]
@@ -246,10 +276,10 @@ def poll():
             assert view.credits_percentage_tile.get_parent() is view.strip
             toggles["Remaining Credits Percentage"].set_active(False)
             assert view.credits_percentage_tile.get_parent() is None
-            view.update_metrics(dict(snapshot, creditsBalance=200))
-            assert view.highest_credits == 200
+            view.update_metrics(dict(snapshot, creditsBalance=75))
+            assert view.credits_percentage_tile.value == "50%"
             view.update_metrics(snapshot)
-            assert view.credits_percentage_tile.value == "85%"
+            assert view.credits_percentage_tile.value == "100%"
             assert view.voucher_expiry_tile.get_parent() is view.strip
             alerts.set_expanded(True)
             assert alerts.get_expanded() and not fields.get_expanded()
@@ -262,8 +292,11 @@ def poll():
             assert view.signal.last_remaining == 4 and len(dings) == 3
             limit = next(control for control in descendants(alerts) if isinstance(control, widget.Gtk.Entry)
                          and control.get_placeholder_text() == "Example: 1000")
+            limit.set_text("250")
+            assert view.credits_percentage_tile.value == "64%"
             limit.set_text("125")
             assert view.settings["creditsAlertThreshold"] == 125
+            assert view.credits_percentage_tile.value == "100%"
             appearance.set_expanded(True)
             assert appearance.get_expanded() and not alerts.get_expanded() and positions.get_selected() == 2
             details = next(control for control in descendants(appearance)
@@ -382,7 +415,10 @@ def poll():
             assert (view.get_surface().get_width(), view.get_surface().get_height()) == (850, 700), (view.get_surface().get_width(), view.get_surface().get_height())
             assert view.signal.get_mapped() and view.menu_button.get_mapped()
             view.update_settings(enableDetailsBar=False)
-            view.set_default_size(1150, 700)
+            # Check the wrap boundary for the enabled fields at their natural width.
+            chrome_width = view.get_surface().get_width() - view.strip.get_width()
+            single_row_width = view.strip.measure(widget.Gtk.Orientation.HORIZONTAL, -1).natural + chrome_width
+            view.set_default_size(single_row_width - view.strip.get_layout_manager().spacing, 700)
             stable_after = time.monotonic() + 0.3
             stage = 10
         elif stage == 10 and time.monotonic() >= stable_after:
@@ -390,7 +426,7 @@ def poll():
             assert len({tile.get_allocation().y for tile in tiles}) == 2
             assert view.signal.get_mapped() and view.menu_button.get_mapped()
             assert view.signal.get_allocation().y <= view.strip.get_allocation().y + view.strip.get_height()
-            view.set_default_size(1600, 700)
+            view.set_default_size(single_row_width + view.strip.get_layout_manager().spacing, 700)
             stable_after = time.monotonic() + 0.3
             stage = 11
         elif stage == 11 and time.monotonic() >= stable_after:
@@ -400,7 +436,7 @@ def poll():
             assert view.menu_button.get_visible() and not view.compact_switch.get_active()
             # Even a narrow expanded window is a single row when only one metric is enabled.
             view.update_settings(showAvailableResets=False, showCredits=False, showEstimatedTime=False,
-                                 hiddenFields=["clock", "first-reset"])
+                                 hiddenFields=["clock", "first-reset", "credits-percentage"])
             view.set_default_size(450, 700)
             stable_after = time.monotonic() + 0.3
             stage = 12

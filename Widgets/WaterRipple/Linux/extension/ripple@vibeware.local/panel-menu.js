@@ -7,6 +7,7 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {ExtensionState} from 'resource:///org/gnome/shell/misc/extensionUtils.js';
 import {CONTROLLER_ID, CONTROLLER_PATH, PANEL_BUS_NAME} from './panel-ipc.js';
+import {stopAllEffects} from './shared/effect-stop.js';
 
 const PEERS = [
     ['retro-terminal@vibeware.local', 'org.gnome.shell.extensions.vibeware-retro-terminal'],
@@ -27,7 +28,9 @@ export class RipplePanelMenu {
         this._cancellable = new Gio.Cancellable();
         const button = this._button = new PanelMenu.Button(0, 'Water Ripple');
         button.add_child(new St.Icon({
-            gicon: new Gio.FileIcon({file: extension.dir.get_child('ripple-symbolic.svg')}),
+            icon_name: 'local.vibeware.WaterRipple',
+            fallback_gicon: new Gio.FileIcon({file: extension.dir.resolve_relative_path(
+                'icons/hicolor/32x32/apps/local.vibeware.WaterRipple.png')}),
             style_class: 'system-status-icon',
         }));
         const {menu} = button;
@@ -45,6 +48,7 @@ export class RipplePanelMenu {
         });
         menu.addMenuItem(this._all);
         this._stopItem = menu.addAction('Stop', () => this._setRipple(false));
+        menu.addAction('Disable all effects', () => stopAllEffects(global.stage));
         this._status = new PopupMenu.PopupMenuItem('', {reactive: false});
         menu.addMenuItem(this._status);
         menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());

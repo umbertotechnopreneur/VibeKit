@@ -15,7 +15,7 @@ add_custom_command(TARGET RetroTerminal POST_BUILD
 
 include(CTest)
 if(BUILD_TESTING)
-    foreach(check IN ITEMS settings persistence registry)
+    foreach(check IN ITEMS settings persistence registry presentation)
         add_executable(${check}-checks tests/${check}-checks.cpp)
         target_compile_features(${check}-checks PRIVATE cxx_std_20)
         target_compile_definitions(${check}-checks PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)

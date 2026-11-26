@@ -39,9 +39,7 @@ with tempfile.TemporaryDirectory(prefix='water-ripple-') as staging_directory:
     autostart = stage / 'etc/xdg/autostart'
     autostart.mkdir(parents=True)
     shutil.copy2(root / 'packaging/ripple-autostart.desktop', autostart / 'local.vibeware.Ripple.desktop')
-    icons = stage / 'usr/share/icons/hicolor/scalable/apps'
-    icons.mkdir(parents=True)
-    shutil.copy2(root / 'packaging/ripple.svg', icons / 'local.vibeware.Ripple.svg')
+    shutil.copytree(source / 'icons/hicolor', stage / 'usr/share/icons/hicolor')
 
     docs = stage / 'usr/share/doc/vibeware-ripple'
     docs.mkdir(parents=True)

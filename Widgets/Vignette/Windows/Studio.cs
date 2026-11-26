@@ -276,10 +276,11 @@ internal sealed partial class Studio : Window
         try { pipeline.SelectedItem = item; }
         finally { syncing = false; }
         description.Text = item?.Description ?? (item?.Name ?? "Custom settings");
+        RefreshPresetRows();
         updatePipeline.IsEnabled = removePipeline.IsEnabled = store.Writable && preferences.Personal.Any(p => p.Id == editId);
     }
 
-    private void EditPipeline(string? id)
+    private bool EditPipeline(string? id)
     {
         try
         {
@@ -291,13 +292,31 @@ internal sealed partial class Studio : Window
             editId = value.Id;
             RefreshPipelines();
             ScheduleSave();
+            return true;
+        }
+        catch (InvalidOperationException error) { ShowMessage(error.Message); return false; }
+    }
+
+    private void DuplicatePreset(string id)
+    {
+        var source = builtins.Concat(preferences.Personal).FirstOrDefault(p => p.Id == id);
+        if (source is null) return;
+        try
+        {
+            if (!store.Writable) throw new InvalidOperationException(store.Warning);
+            if (preferences.Personal.Length >= 60) throw new InvalidOperationException("The personal library can hold 60 presets.");
+            var value = Pipeline.Personal(null, source.Name[..Math.Min(source.Name.Length, 75)] + " copy", source.Appearance);
+            preferences = preferences with { Personal = [..preferences.Personal, value] };
+            editId = value.Id;
+            Change(value.Appearance);
+            RefreshPipelines();
         }
         catch (InvalidOperationException error) { ShowMessage(error.Message); }
     }
 
-    private async Task RemovePipelineAsync()
+    private async Task RemovePipelineAsync(string id)
     {
-        var item = preferences.Personal.FirstOrDefault(p => p.Id == editId);
+        var item = preferences.Personal.FirstOrDefault(p => p.Id == id);
         if (item is null) return;
         var dialog = new ContentDialog
         {
@@ -309,7 +328,7 @@ internal sealed partial class Studio : Window
         };
         if (await ShowStudioDialogAsync(dialog) != ContentDialogResult.Primary) return;
         preferences = preferences with { Personal = preferences.Personal.Where(p => p.Id != item.Id).ToArray() };
-        editId = null;
+        if (editId == id) editId = null;
         pipelineName.Text = "";
         RefreshPipelines();
         ScheduleSave();

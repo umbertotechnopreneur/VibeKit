@@ -92,6 +92,7 @@ internal sealed class SettingsStore
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true, MaxDepth = 12 };
     private readonly string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "VibeWare", "Vignette", "settings.json");
+    internal string FilePath => path;
     internal bool Writable { get; private set; } = true;
     internal string? Warning { get; private set; }
 

@@ -33,6 +33,9 @@ internal sealed partial class Studio
     private readonly TextBlock emergencyStatus = SettingsHint("");
     private readonly TextBlock diagnosticShortcut = SettingsHint("");
     private readonly TextBlock diagnosticDisplays = SettingsHint("");
+    private readonly StackPanel presetRows = new() { Spacing = 0 };
+    private readonly Dictionary<string, (Border Row, TextBlock Title)> presetCards = new();
+    private readonly StackPanel presetEditor = new() { Spacing = 8, Visibility = Visibility.Collapsed };
     private readonly ComboBox pipeline = new() { PlaceholderText = "Custom settings", DisplayMemberPath = nameof(Pipeline.Name) };
     private readonly TextBox pipelineName = new() { MaxLength = 80, PlaceholderText = "Pipeline name" };
     private readonly TextBox edgeColor = new() { MaxLength = 7, Width = 105, PlaceholderText = "#000000" };
@@ -174,7 +177,7 @@ internal sealed partial class Studio
 
     private FrameworkElement BuildPipelines()
     {
-        var page = CreatePage("Presets");
+        var page = new StackPanel { Spacing = 12 };
         pipeline.SelectionChanged += (_, _) =>
         {
             if (syncing || pipeline.SelectedItem is not Pipeline item) return;
@@ -182,28 +185,76 @@ internal sealed partial class Studio
             pipelineName.Text = builtins.Contains(item) ? "" : item.Name;
             Change(item.Appearance);
         };
-        description.Text = "Custom settings";
-        page.Children.Add(RowGroup("Pipeline", PreferenceRow("Preset", description, pipeline)));
-
-        updatePipeline = ActionButton("Update", () => EditPipeline(editId));
-        removePipeline = new Button { Content = "Remove" };
-        removePipeline.Click += async (_, _) => await RemovePipelineAsync();
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        var save = ActionButton("Save as", () => EditPipeline(null));
-        save.IsEnabled = store.Writable;
-        actions.Children.Add(save);
-        actions.Children.Add(updatePipeline);
-        actions.Children.Add(removePipeline);
-
-        var library = new StackPanel { Spacing = 8 };
-        pipelineName.Header = "Personal pipeline name";
+        page.Children.Add(SettingsHint("Presets are saved sets of vignette settings."));
+        var create = ActionButton("New preset", () => { pipelineName.Text = ""; presetEditor.Visibility = Visibility.Visible; pipelineName.Focus(FocusState.Programmatic); });
+        create.IsEnabled = store.Writable;
+        page.Children.Add(create);
+        pipelineName.Header = "Preset name";
         AutomationProperties.SetAutomationId(pipelineName, "PersonalPipelineName");
-        pipelineName.MaxWidth = 340;
-        pipelineName.HorizontalAlignment = HorizontalAlignment.Stretch;
-        library.Children.Add(pipelineName);
-        library.Children.Add(actions);
-        page.Children.Add(RowGroup("Personal presets", new Border { Child = library, Padding = new Thickness(16, 12, 16, 16) }));
+        presetEditor.Children.Add(pipelineName);
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        actions.Children.Add(ActionButton("Save", () => { if (EditPipeline(null)) presetEditor.Visibility = Visibility.Collapsed; }));
+        actions.Children.Add(ActionButton("Cancel", () => presetEditor.Visibility = Visibility.Collapsed));
+        presetEditor.Children.Add(actions);
+        page.Children.Add(presetEditor);
+        updatePipeline = new Button();
+        removePipeline = new Button();
+        page.Children.Add(presetRows);
+        page.Children.Add(SettingsHint("Library: " + store.FilePath));
         return page;
+    }
+
+    private void RefreshPresetRows()
+    {
+        var items = builtins.Concat(preferences.Personal).ToArray();
+        foreach (var id in presetCards.Keys.Except(items.Select(p => p.Id)).ToArray())
+        {
+            presetRows.Children.Remove(presetCards[id].Row);
+            presetCards.Remove(id);
+        }
+        for (int index = 0; index < items.Length; index++)
+        {
+            var item = items[index];
+            if (!presetCards.TryGetValue(item.Id, out var card))
+            {
+                string id = item.Id;
+                var row = new Grid { ColumnSpacing = 8 };
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                var label = new StackPanel { Spacing = 4 };
+                var title = new TextBlock { FontSize = 18 };
+                label.Children.Add(title);
+                label.Children.Add(new TextBlock { Text = item.Description ?? "Personal vignette preset", FontSize = 12, TextWrapping = TextWrapping.Wrap });
+                var open = new Button { Content = label, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left,
+                    Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent), Padding = new Thickness(4, 9, 4, 9) };
+                open.Click += (_, _) => { var current = builtins.Concat(preferences.Personal).FirstOrDefault(p => p.Id == id); if (current is not null) { editId = id; Change(current.Appearance); } };
+                row.Children.Add(open);
+                var menu = new MenuFlyout();
+                var duplicate = new MenuFlyoutItem { Text = "Duplicate", IsEnabled = store.Writable };
+                duplicate.Click += (_, _) => DuplicatePreset(id);
+                menu.Items.Add(duplicate);
+                if (!builtins.Any(p => p.Id == id))
+                {
+                    var update = new MenuFlyoutItem { Text = "Update with current settings", IsEnabled = store.Writable };
+                    update.Click += (_, _) => { pipelineName.Text = ""; EditPipeline(id); };
+                    menu.Items.Add(update);
+                    var remove = new MenuFlyoutItem { Text = "Delete", IsEnabled = store.Writable };
+                    remove.Click += async (_, _) => await RemovePipelineAsync(id);
+                    menu.Items.Add(remove);
+                }
+                var more = new Button { Content = "\u22ee", Flyout = menu, VerticalAlignment = VerticalAlignment.Center,
+                    Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent) };
+                AutomationProperties.SetName(more, "Actions for " + item.Name);
+                Grid.SetColumn(more, 1); row.Children.Add(more);
+                card = (new Border { Child = row, BorderThickness = new Thickness(0, 0, 0, 1), BorderBrush = new SolidColorBrush(Color.FromArgb(60, 191, 187, 178)) }, title);
+                presetCards.Add(id, card);
+            }
+            card.Title.Text = (item.Id == (pipeline.SelectedItem as Pipeline)?.Id ? "\u2713 " : "") + item.Name;
+            int previous = presetRows.Children.IndexOf(card.Row);
+            if (previous == index) continue;
+            if (previous >= 0) presetRows.Children.RemoveAt(previous);
+            presetRows.Children.Insert(index, card.Row);
+        }
     }
 
     private FrameworkElement BuildSettings()

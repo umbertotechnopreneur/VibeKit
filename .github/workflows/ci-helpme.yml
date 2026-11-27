@@ -179,7 +179,13 @@ jobs:
         working-directory: Apps/HelpMe
 
   windows-msi:
-    name: Framework-dependent Windows MSI
+    name: Windows Release packages (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+    env:
+      ARCH: ${{ matrix.arch }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -195,14 +201,21 @@ jobs:
           $ErrorActionPreference = 'Stop'
           dotnet tool install --tool-path "$env:RUNNER_TEMP/wix5" wix --version 5.0.2
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet publish Apps/HelpMe/HelpMe/HelpMe.csproj -c Release -r win-x64 --self-contained false -o "$env:RUNNER_TEMP/helpme-payload"
+          dotnet publish Apps/HelpMe/HelpMe/HelpMe.csproj -c Release -r "win-$env:ARCH" --self-contained false -o "$env:RUNNER_TEMP/helpme-payload"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item -LiteralPath Apps/HelpMe/LICENSES -Destination "$env:RUNNER_TEMP/helpme-payload/LICENSES" -Recurse
+          Compress-Archive -Path "$env:RUNNER_TEMP/helpme-payload/*" -DestinationPath "$env:RUNNER_TEMP/HelpMe-windows-$env:ARCH-portable.zip"
           $version = ([xml](Get-Content Apps/HelpMe/HelpMe/HelpMe.csproj -Raw)).Project.PropertyGroup.Version | Select-Object -First 1
-          python scripts/ci/create-app-msi.py helpme $version "$env:RUNNER_TEMP/helpme-payload" "$env:RUNNER_TEMP/helpme.wxs"
+          python scripts/ci/create-app-msi.py helpme $version "$env:RUNNER_TEMP/helpme-payload" "$env:RUNNER_TEMP/helpme.wxs" --architecture $env:ARCH
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & ./Widgets/Shared/Build-WindowsMsi.ps1 -WixPath "$env:RUNNER_TEMP/wix5/wix.exe" -Source "$env:RUNNER_TEMP/helpme.wxs" -Output "$env:RUNNER_TEMP/HelpMe-windows-x64.msi" -IntermediateDirectory "$env:RUNNER_TEMP/helpme-msi-work"
+          & ./Widgets/Shared/Build-WindowsMsi.ps1 -Architecture $env:ARCH -WixPath "$env:RUNNER_TEMP/wix5/wix.exe" -Source "$env:RUNNER_TEMP/helpme.wxs" -Output "$env:RUNNER_TEMP/HelpMe-windows-$env:ARCH.msi" -IntermediateDirectory "$env:RUNNER_TEMP/helpme-msi-work"
       - uses: actions/upload-artifact@v4
         with:
-          name: helpme-windows-msi-x64
-          path: ${{ runner.temp }}/HelpMe-windows-x64.msi
+          name: helpme-windows-msi-${{ matrix.arch }}
+          path: ${{ runner.temp }}/HelpMe-windows-${{ matrix.arch }}.msi
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: helpme-windows-portable-${{ matrix.arch }}
+          path: ${{ runner.temp }}/HelpMe-windows-${{ matrix.arch }}-portable.zip
           if-no-files-found: error

@@ -20,12 +20,6 @@ name: markvibe / Package MarkVibe for Windows
 on:
   workflow_dispatch:
     inputs:
-      configuration:
-        description: Build configuration
-        type: choice
-        options: [Release, Debug]
-        default: Release
-        required: true
       version:
         description: Four-part version greater than packaging/windows/version.json
         type: string
@@ -52,14 +46,15 @@ jobs:
           global-json-file: Apps/MarkVibe/global.json
       - name: Package x64 and ARM64; no tests or installation
         env:
-          MARKVIBE_CONFIGURATION: ${{ inputs.configuration }}
           MARKVIBE_VERSION: ${{ inputs.version }}
-        run: ./scripts/package-windows.ps1 -Configuration $env:MARKVIBE_CONFIGURATION -Architectures x64,arm64 -Version $env:MARKVIBE_VERSION
+        run: ./scripts/package-windows.ps1 -Configuration Release -Architectures x64,arm64 -Version $env:MARKVIBE_VERSION
       - name: Upload distribution files
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: MarkVibe-${{ inputs.version }}-${{ inputs.configuration }}-Windows
-          path: Apps/MarkVibe/artifacts/*
+          name: MarkVibe-${{ inputs.version }}-Release-Windows
+          path: |
+            Apps/MarkVibe/artifacts/*/*.msi
+            Apps/MarkVibe/artifacts/*/*-portable.zip
           if-no-files-found: error
           compression-level: 0
           retention-days: 30

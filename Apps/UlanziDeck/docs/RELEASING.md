@@ -8,7 +8,7 @@ This guide is for preparing downloads. For everyday use, start with [installatio
 
 | Platform | Download |
 | --- | --- |
-| Windows x64 and ARM64 | ZIP with the controller and Windows sign-in launcher. |
+| Windows x64 and ARM64 | Portable ZIP and per-user MSI, both with the controller and Windows sign-in launcher. |
 | Linux x64 | tar.gz and a Debian `.deb` installer, built on Ubuntu 24.04 in CI. |
 
 See [platform coverage](PLATFORMS.md) for features and runtime limits. Windows also has a separate [local MSIX installer](INSTALLATION.md#build-your-own-installer) for x64 and ARM64.
@@ -23,7 +23,7 @@ Build the current source for the intended target first. The packaging script rea
 pwsh -NoProfile -File scripts/ulanzi.ps1 -Command package -Target x86_64-pc-windows-msvc -Label windows-x64 -Tag v0.2.0-stable
 ```
 
-Use the intended version and matching platform. Packages go in `dist/`. The script refuses to overwrite an archive or reuse its package folder. It also writes a SHA-256 checksum, which lets someone check that a download arrived unchanged. Unix packages use tar.gz to keep executable permissions.
+The Windows CI jobs pass `-WixPath` with the path to WiX 5.0.2 to `scripts/package-release.ps1` to create an MSI from the same staged files. Use the intended version and matching platform. Packages go in `dist/`. The script refuses to overwrite an archive or reuse its package folder. It also writes a SHA-256 checksum, which lets someone check that a download arrived unchanged. Unix packages use tar.gz to keep executable permissions.
 
 ## Make a Debian package
 

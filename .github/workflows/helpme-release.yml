@@ -167,9 +167,9 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $tagSha -cne $env:SOURCE_SHA) { throw 'The release tag no longer points to the verified source commit.' }
           $createArguments += '--verify-tag'
           New-Item -ItemType Directory -Path artifacts/release-notes -Force | Out-Null
-          @'
-          Choose the Linux Debian package matching your machine: amd64 (x64) or arm64. Install with sudo apt install ./helpme_<version>_<architecture>.deb. The .NET runtime is included; native Debian dependencies are declared in the package. PowerShell 7 is optional for Bash conversation commands and required for generated script, file, and skill wrappers. Windows distribution remains Microsoft Store MSIX; macOS builds and packages are outside the current scope.
-          '@ | Set-Content artifacts/release-notes/notes.md -Encoding utf8NoBOM
+          @"
+          Choose the Linux Debian package matching your machine: amd64 (x64) or arm64. Install with sudo apt install ./helpme_<version>_<architecture>.deb. The .NET runtime is included; native Debian dependencies are declared in the package. PowerShell 7 is optional for Bash conversation commands and required for generated script, file, and skill wrappers. For Windows, sign in to GitHub and open [the Actions run](https://github.com/$env:GH_REPO/actions/runs/$env:GITHUB_RUN_ID) to download the x64 or ARM64 portable ZIP or MSI. The commercial Windows edition is distributed through Microsoft Store.
+          "@ | Set-Content artifacts/release-notes/notes.md -Encoding utf8NoBOM
           $files = @(Get-ChildItem artifacts/release -File | ForEach-Object FullName)
           gh release create $env:RELEASE_TAG @files @createArguments
           if ($LASTEXITCODE -ne 0) { throw 'Draft creation failed. Existing releases are never overwritten.' }

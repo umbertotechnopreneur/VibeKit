@@ -72,8 +72,8 @@ Description: Repo Radar, a full-screen Git repository dashboard
         "data.tar.gz": tar_gz(data)}))
 
 
-def windows_zip(publish, output):
-    target = output / f"RepoRadar-{VERSION}-win-x64-portable.zip"
+def windows_zip(publish, output, architecture):
+    target = output / f"RepoRadar-{VERSION}-win-{architecture}-portable.zip"
     temp = target.with_suffix(".zip.tmp")
     with zipfile.ZipFile(temp, "w", zipfile.ZIP_DEFLATED) as package:
         for name in (*MANAGED, "repo-radar.exe"):
@@ -90,6 +90,10 @@ if __name__ == "__main__":
     parser.add_argument("channel", choices=("debian", "windows"))
     parser.add_argument("publish", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--architecture", choices=("x64", "arm64"), default="x64")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    (debian_package if args.channel == "debian" else windows_zip)(args.publish, args.output)
+    if args.channel == "debian":
+        debian_package(args.publish, args.output)
+    else:
+        windows_zip(args.publish, args.output, args.architecture)

@@ -18,7 +18,11 @@ VBWR E -->
 
 ## Use the Windows installer
 
-Binary downloads are not yet published in VibeKit. Start with the [source build guide](DEVELOPMENT.md), or [build your own installer](#build-your-own-installer). MSIX is Windows' app package format. Once you have a locally built package:
+Choose the Windows MSI matching your CPU (x64 or ARM64) in [VibeKit releases](https://github.com/umbertotechnopreneur/VibeKit/releases). Run it to install for the current user, then open UlanziDeck from Start.
+
+### Local MSIX installation
+
+You can also [build your own MSIX](#build-your-own-installer). Once you have a locally built package:
 
 1. Open the MSIX and choose **Install**.
 2. Open **UlanziDeck** from Start.

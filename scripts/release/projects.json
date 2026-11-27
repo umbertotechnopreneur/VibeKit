@@ -4,12 +4,24 @@
     "inputs": {},
     "assets": [
       {
-        "artifact": "desktop-ripple-windows-x64",
-        "file": "WaterRipple-*-windows-x64*.msi"
-      },
-      {
         "artifact": "desktop-ripple-linux",
         "file": "vibeware-ripple_*_all.deb"
+      },
+      {
+        "artifact": "desktop-ripple-windows-x64",
+        "file": "WaterRipple-{version}-windows-x64.msi"
+      },
+      {
+        "artifact": "desktop-ripple-windows-x64",
+        "file": "WaterRipple-{version}-windows-x64-portable.zip"
+      },
+      {
+        "artifact": "desktop-ripple-windows-arm64",
+        "file": "WaterRipple-{version}-windows-arm64.msi"
+      },
+      {
+        "artifact": "desktop-ripple-windows-arm64",
+        "file": "WaterRipple-{version}-windows-arm64-portable.zip"
       }
     ],
     "version_file": "Widgets/WaterRipple/WaterRipple.csproj",
@@ -35,8 +47,20 @@
     "inputs": {},
     "linked_artifacts": [
       {
+        "artifact": "helpme-windows-portable-x64",
+        "title": "HelpMe ZIP portatile per Windows x64 (GitHub Actions)"
+      },
+      {
         "artifact": "helpme-windows-msi-x64",
-        "title": "HelpMe MSI per Windows x64 (serve l'accesso a GitHub Actions)"
+        "title": "HelpMe MSI per Windows x64 (GitHub Actions)"
+      },
+      {
+        "artifact": "helpme-windows-portable-arm64",
+        "title": "HelpMe ZIP portatile per Windows arm64 (GitHub Actions)"
+      },
+      {
+        "artifact": "helpme-windows-msi-arm64",
+        "title": "HelpMe MSI per Windows arm64 (GitHub Actions)"
       }
     ],
     "assets": [
@@ -55,7 +79,6 @@
   "markvibe": {
     "workflow": "markvibe-package-windows.yml",
     "inputs": {
-      "configuration": "Release",
       "version": "{version}"
     },
     "assets": [
@@ -84,12 +107,24 @@
     "inputs": {},
     "assets": [
       {
-        "artifact": "openai-usage-windows-x64",
-        "file": "OpenAIUsage-*-windows-x64*.msi"
-      },
-      {
         "artifact": "openai-usage-linux-amd64",
         "file": "openai-usage_*_amd64.deb"
+      },
+      {
+        "artifact": "openai-usage-windows-x64",
+        "file": "OpenAIUsage-{version}-windows-x64-*.msi"
+      },
+      {
+        "artifact": "openai-usage-windows-x64",
+        "file": "OpenAIUsage-{version}-windows-x64-portable.zip"
+      },
+      {
+        "artifact": "openai-usage-windows-arm64",
+        "file": "OpenAIUsage-{version}-windows-arm64-*.msi"
+      },
+      {
+        "artifact": "openai-usage-windows-arm64",
+        "file": "OpenAIUsage-{version}-windows-arm64-portable.zip"
       }
     ],
     "version_file": "Widgets/OpenAI/Directory.Build.props",
@@ -110,6 +145,14 @@
       {
         "artifact": "reporadar-packages",
         "file": "repo-radar_{version}-1_amd64.deb"
+      },
+      {
+        "artifact": "reporadar-packages",
+        "file": "RepoRadar-{version}-win-arm64.msi"
+      },
+      {
+        "artifact": "reporadar-packages",
+        "file": "RepoRadar-{version}-win-arm64-portable.zip"
       }
     ],
     "version_file": "Apps/RepoRadar/src/RepoRadar.csproj",
@@ -120,12 +163,24 @@
     "inputs": {},
     "assets": [
       {
-        "artifact": "retro-terminal-windows-x64",
-        "file": "RetroTerminal-*-windows-x64*.msi"
-      },
-      {
         "artifact": "retro-terminal-linux",
         "file": "vibeware-retro-terminal_*_all.deb"
+      },
+      {
+        "artifact": "retro-terminal-windows-x64",
+        "file": "RetroTerminal-{version}-windows-x64.msi"
+      },
+      {
+        "artifact": "retro-terminal-windows-x64",
+        "file": "RetroTerminal-{version}-windows-x64-portable.zip"
+      },
+      {
+        "artifact": "retro-terminal-windows-arm64",
+        "file": "RetroTerminal-{version}-windows-arm64.msi"
+      },
+      {
+        "artifact": "retro-terminal-windows-arm64",
+        "file": "RetroTerminal-{version}-windows-arm64-portable.zip"
       }
     ],
     "version_file": "Widgets/RetroTerminal/Windows/Studio/RetroStudio.csproj",
@@ -136,12 +191,24 @@
     "inputs": {},
     "assets": [
       {
+        "artifact": "studio-controls-linux-deb",
+        "file": "StudioControls-linux-all.deb"
+      },
+      {
         "artifact": "studio-controls-windows-x64",
         "file": "StudioControls-windows-x64.msi"
       },
       {
-        "artifact": "studio-controls-linux-deb",
-        "file": "StudioControls-linux-all.deb"
+        "artifact": "studio-controls-windows-x64",
+        "file": "StudioControls-{version}-windows-x64-portable.zip"
+      },
+      {
+        "artifact": "studio-controls-windows-arm64",
+        "file": "StudioControls-windows-arm64.msi"
+      },
+      {
+        "artifact": "studio-controls-windows-arm64",
+        "file": "StudioControls-{version}-windows-arm64-portable.zip"
       }
     ],
     "version_file": "Widgets/StudioControls/Windows/StudioControls.Windows.csproj",
@@ -149,28 +216,26 @@
   },
   "thermalright": {
     "workflow": "ci-thermalright.yml",
-    "inputs": {
-      "configuration": "{configuration}"
-    },
+    "inputs": {},
     "assets": [
       {
-        "artifact": "ThermalrightVibeWare-win-x64-{configuration}",
+        "artifact": "ThermalrightVibeWare-win-x64-Release",
         "file": "ThermalrightVibeWare-win-x64-{version}.msi"
       },
       {
-        "artifact": "ThermalrightVibeWare-win-x64-{configuration}",
-        "file": "ThermalrightVibeWare-win-x64-*.zip"
+        "artifact": "ThermalrightVibeWare-win-x64-Release",
+        "file": "ThermalrightVibeWare-win-x64-release.zip"
       },
       {
-        "artifact": "ThermalrightVibeWare-win-ARM64-{configuration}",
+        "artifact": "ThermalrightVibeWare-win-ARM64-Release",
         "file": "ThermalrightVibeWare-win-arm64-{version}.msi"
       },
       {
-        "artifact": "ThermalrightVibeWare-win-ARM64-{configuration}",
-        "file": "ThermalrightVibeWare-win-arm64-*.zip"
+        "artifact": "ThermalrightVibeWare-win-ARM64-Release",
+        "file": "ThermalrightVibeWare-win-arm64-release.zip"
       },
       {
-        "artifact": "ThermalrightVibeWare-linux-amd64-{configuration}",
+        "artifact": "ThermalrightVibeWare-linux-amd64-Release",
         "file": "thermalright-vibeware_{version}_amd64.deb"
       }
     ],
@@ -196,6 +261,14 @@
       {
         "artifact": "release-linux-x64",
         "file": "ulanzi-dock-vibeware_{version}_amd64.deb"
+      },
+      {
+        "artifact": "release-windows-x64",
+        "file": "ulanzi-dock-vibeware-v{version}-stable-windows-x64.msi"
+      },
+      {
+        "artifact": "release-windows-arm64",
+        "file": "ulanzi-dock-vibeware-v{version}-stable-windows-arm64.msi"
       }
     ],
     "version_file": "Apps/UlanziDeck/Cargo.toml",
@@ -206,12 +279,24 @@
     "inputs": {},
     "assets": [
       {
-        "artifact": "vignette-windows-x64",
-        "file": "Vignette-*-windows-x64*.msi"
-      },
-      {
         "artifact": "vignette-linux",
         "file": "vibeware-vignette_*_all.deb"
+      },
+      {
+        "artifact": "vignette-windows-x64",
+        "file": "Vignette-{version}-windows-x64.msi"
+      },
+      {
+        "artifact": "vignette-windows-x64",
+        "file": "Vignette-{version}-windows-x64-portable.zip"
+      },
+      {
+        "artifact": "vignette-windows-arm64",
+        "file": "Vignette-{version}-windows-arm64.msi"
+      },
+      {
+        "artifact": "vignette-windows-arm64",
+        "file": "Vignette-{version}-windows-arm64-portable.zip"
       }
     ],
     "version_file": "Widgets/Vignette/Windows/Vignette.csproj",
@@ -232,6 +317,10 @@
       {
         "artifact": "voiceducker-windows-msi-x64",
         "file": "VoiceDucker-windows-x64.msi"
+      },
+      {
+        "artifact": "voiceducker-windows-msi-arm64",
+        "file": "VoiceDucker-windows-arm64.msi"
       }
     ],
     "version_file": "Apps/VoiceDucker/VoiceDucker.csproj",
@@ -251,6 +340,14 @@
       {
         "artifact": "release-bundle-worktrail",
         "file": "WorkTrail-{version}-ARM64-portable-unsigned.zip"
+      },
+      {
+        "artifact": "release-bundle-worktrail",
+        "file": "WorkTrail-{version}-x64.msi"
+      },
+      {
+        "artifact": "release-bundle-worktrail",
+        "file": "WorkTrail-{version}-ARM64.msi"
       }
     ],
     "version_file": "Apps/WorkTrail/WorkTrail/build-version.json",

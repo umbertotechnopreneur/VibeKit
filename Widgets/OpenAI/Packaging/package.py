@@ -24,7 +24,8 @@ def identity(prefix, value):
     return prefix + hashlib.sha256(value.encode()).hexdigest()[:24]
 
 
-def wix_source(payload, output):
+def wix_source(payload, output, architecture="x64"):
+    component_namespace = NAMESPACE if architecture == "x64" else uuid.uuid5(NAMESPACE, architecture)
     ET.register_namespace("", WIX)
     def child(parent, tag, **attrs):
         return ET.SubElement(parent, "{"+WIX+"}"+tag, attrs)
@@ -65,7 +66,7 @@ def wix_source(payload, output):
                 dirs[key] = child(dirs[ancestor], "Directory", Id=identity("D", key), Name=part)
         comp_id = identity("C", relative)
         comp = child(dirs[parent.as_posix()], "Component", Id=comp_id,
-                     Guid=str(uuid.uuid5(NAMESPACE, relative)), Bitness="always64")
+                     Guid=str(uuid.uuid5(component_namespace, relative)), Bitness="always64")
         file_id = identity("F", relative)
         child(comp, "File", Id=file_id, Source=str(file), Name=file.name, KeyPath="no")
         child(comp, "RegistryValue", Root="HKCU", Key="Software\\UmbertoGiacobbi\\OpenAIUsage\\Components",
@@ -77,13 +78,13 @@ def wix_source(payload, output):
         raise ValueError("Current Windows executable is missing")
     for key, directory in dirs.items():
         comp_id = identity("R", key)
-        comp = child(directory, "Component", Id=comp_id, Guid=str(uuid.uuid5(NAMESPACE, "directory:"+key)), Bitness="always64")
+        comp = child(directory, "Component", Id=comp_id, Guid=str(uuid.uuid5(component_namespace, "directory:"+key)), Bitness="always64")
         child(comp, "RemoveFolder", Id=identity("Remove", key), On="uninstall")
         child(comp, "RegistryValue", Root="HKCU", Key="Software\\UmbertoGiacobbi\\OpenAIUsage\\Directories",
               Name=comp_id, Type="integer", Value="1", KeyPath="yes")
         component_ids.append(comp_id)
     menu = child(package, "StandardDirectory", Id="ProgramMenuFolder")
-    comp = child(menu, "Component", Id="MenuShortcut", Guid=str(uuid.uuid5(NAMESPACE, "menu-shortcut")), Bitness="always64")
+    comp = child(menu, "Component", Id="MenuShortcut", Guid=str(uuid.uuid5(component_namespace, "menu-shortcut")), Bitness="always64")
     shortcut = child(comp, "Shortcut", Id="StartMenuShortcut", Name="OpenAI Usage", Target="[#"+exe_file+"]",
           WorkingDirectory="INSTALLFOLDER", Icon="AppIcon", Advertise="no")
     child(shortcut,"ShortcutProperty",Key="System.AppUserModel.ID",Value="biz.umbertogiacobbi.OpenAIUsage")
@@ -100,6 +101,7 @@ def wix_source(payload, output):
     installer.add_installer_ui(
         root,
         payload=payload,
+        architecture=architecture,
         executable="OpenAIUsage.Windows.exe",
         output=output.resolve(),
         home_url="https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/OpenAI",
@@ -217,11 +219,12 @@ if __name__ == "__main__":
     parser.add_argument("command", choices=["wix", "deb", "verify-deb"])
     parser.add_argument("payload", type=Path)
     parser.add_argument("output", type=Path, nargs="?")
+    parser.add_argument("--architecture", choices=("x64", "arm64"), default="x64")
     args = parser.parse_args()
     if args.command == "verify-deb":
         print(json.dumps(verify_deb(args.payload)))
     elif args.command == "wix":
-        print(f"Windows installer source: {wix_source(args.payload.resolve(), args.output)} files")
+        print(f"Windows installer source: {wix_source(args.payload.resolve(), args.output, args.architecture)} files")
     else:
         print(f"Ubuntu package: {deb_package(args.payload.resolve(), args.output)} files")
         print(json.dumps(verify_deb(args.output)))

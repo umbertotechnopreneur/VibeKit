@@ -159,7 +159,7 @@ def extract_packages(archive, artifact_name, specs, dest, names):
             member = PurePosixPath(item.filename)
             if (member.is_absolute() or ".." in member.parts or "\\" in item.filename
                     or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]+", name) or name.casefold() in names
-                    or not name.lower().endswith((".msi", ".zip", ".deb", ".tar.gz", ".msix", ".msixbundle"))
+                    or not name.lower().endswith((".msi", ".zip", ".deb", ".tar.gz"))
                     or (item.external_attr >> 16) & 0o170000 == 0o120000):
                 raise ReleaseError(f"Nome di pacchetto duplicato o non valido: {name}")
             path = dest/name
@@ -270,8 +270,7 @@ def main():
     if args.channel == "test":
         version_tag = f"{version_tag + '-' if version_tag else ''}test.{sha[:12]}"
     tag = f"release/{args.project}/{version_tag}"
-    params = {"version":version or "", "channel":args.channel, "project":args.project,
-              "configuration":"Release" if args.channel=="stable" else "Debug"}
+    params = {"version":version or "", "channel":args.channel, "project":args.project}
     inputs = {k:v.format(**params) for k,v in project["inputs"].items()}
     specs = [{**s, "artifact":s["artifact"].format(**params), "file":s["file"].format(**params)}
              for s in project["assets"]]

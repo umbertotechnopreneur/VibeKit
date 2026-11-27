@@ -22,15 +22,17 @@ cmake --build build --config Release
 
 ## Windows installer
 
-Use PowerShell, Python 3 and WiX 5.0.2 to build the unsigned per-user x64 MSI.
+Use PowerShell, Python 3 and WiX 5.0.2 to build the Release portable ZIP and unsigned per-user MSI for x64 or ARM64.
 
 ```powershell
-.\Packaging\Build-MSI.ps1 -WixPath <path-to-wix.exe-or-wix.dll>
+.\Packaging\Build-MSI.ps1 -Architecture x64 -WixPath <path-to-wix.exe-or-wix.dll>
+.\Packaging\Build-MSI.ps1 -Architecture arm64 -WixPath <path-to-wix.exe-or-wix.dll>
 ```
 
 The installer is under the application `dist/` directory. It adds Retro Terminal
 to Start and installs the WinUI studio, native engine, shader and private
-runtimes. Use `msiexec /i <path-to-msi> /quiet /norestart` for automation.
+WinUI runtime. For the portable edition, install .NET Runtime 10 for the target architecture, extract the ZIP and run `RetroStudio.exe`.
+Use `msiexec /i <path-to-msi> /quiet /norestart` for automation.
 
 The original native panel stores preferences under `HKCU\Software\VibeWare\RetroTerminal`.
 The WinUI studio stores preferences in the user's LocalAppData directory. Before

@@ -1,9 +1,12 @@
 # Evaluate only the OS prerequisite in a safe MSI session. No installation is performed.
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$PackagePath)
+param([Parameter(Mandatory)][string]$PackagePath, [ValidateSet('x64','arm64')][string]$Architecture = 'x64')
 $ErrorActionPreference = 'Stop'
 $installer = New-Object -ComObject WindowsInstaller.Installer
 $installer.UILevel = 2
+$summary = $installer.SummaryInformation([IO.Path]::GetFullPath($PackagePath), 0)
+$template = $summary.Property(7)
+if (($template -split ';')[0] -ne $Architecture) { throw "Unexpected MSI platform: $template (expected $Architecture)." }
 $database = $installer.OpenDatabase([IO.Path]::GetFullPath($PackagePath),0)
 $view = $database.OpenView('SELECT `Condition` FROM `LaunchCondition`')
 $view.Execute()

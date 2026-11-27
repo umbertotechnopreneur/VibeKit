@@ -45,13 +45,14 @@ jobs:
         with:
           path: release
           merge-multiple: true
-      - name: Publish the verified MSI and Debian package
+      - name: Publish the verified Windows and Debian packages
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           python3 - <<'PY'
+          import hashlib
           import os
           from pathlib import Path
           import re
@@ -67,20 +68,30 @@ jobs:
           }
           if not re.fullmatch(r'\d+\.\d+\.\d+', version):
               raise SystemExit('Use the MSI product version in the release tag.')
-          installers = list(Path('release').glob('*.msi'))
-          packages = list(Path('release').glob('*.deb'))
-          if len(installers) != 1 or len(packages) != 1:
-              raise SystemExit('Expected one Windows MSI and one Debian package.')
-          installer, = installers
-          package, = packages
-          if not re.fullmatch(fr'{names[widget]}-{re.escape(version)}-windows-x64(?:-\d{{8}}-\d{{6}}-\d{{3}})?\.msi', installer.name):
-              raise SystemExit('The tag does not match the Windows package version.')
-          if not installer.stat().st_size or not package.stat().st_size:
-              raise SystemExit('Both distribution packages must be non-empty.')
+          root = Path('release')
+          files = []
+          prefix = f'{names[widget]}-{version}-windows-'
+          for arch in ('x64', 'arm64'):
+              timestamp = r'-\d{8}-\d{6}-\d{3}' if widget == 'openai-usage' else ''
+              matches = [p for p in root.glob('*.msi') if re.fullmatch(re.escape(prefix + arch) + timestamp + r'\.msi', p.name)]
+              if len(matches) != 1:
+                  raise SystemExit(f'Expected exactly one {arch} MSI for {version}.')
+              files.extend([matches[0], root / f'{prefix}{arch}-portable.zip'])
+          debs = list(root.glob('*.deb'))
+          if len(debs) != 1:
+              raise SystemExit('Expected exactly one Debian package.')
+          files.extend(debs)
+          if any(not p.is_file() or not p.stat().st_size for p in files):
+              raise SystemExit('One or more release packages are missing or empty.')
+          checksums = root / 'SHA256SUMS.txt'
+          with checksums.open('x') as sums:
+              for path in files:
+                  with path.open('rb') as stream:
+                      sums.write(f'{hashlib.file_digest(stream, "sha256").hexdigest()}  {path.name}\n')
           subprocess.run(
-              ['gh', 'release', 'create', tag, str(installer), str(package),
+              ['gh', 'release', 'create', tag, *map(str, files), str(checksums),
                '--verify-tag', '--title', f'{names[widget]} {version}',
-               '--notes', 'Windows x64 per-user MSI and Debian package.'],
+               '--notes', 'Portable ZIP and per-user MSI for Windows x64 and ARM64, and a Debian package.'],
               check=True,
           )
           PY

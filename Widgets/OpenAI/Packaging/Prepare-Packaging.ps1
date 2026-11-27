@@ -1,9 +1,9 @@
 # Explicit preparation only. Builds and tests never invoke antivirus scans.
 [CmdletBinding()]
-param([psobject]$PreviousImports, [switch]$WindowsOnly)
+param([psobject]$PreviousImports, [switch]$WindowsOnly, [ValidateSet('x64','arm64')][string]$Architecture = 'x64')
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
-$context = & (Join-Path $projectRoot 'Prepare-Imports.ps1') -PreviousImports $PreviousImports -ForPackaging -WindowsOnly:$WindowsOnly
+$context = & (Join-Path $projectRoot 'Prepare-Imports.ps1') -PreviousImports $PreviousImports -ForPackaging -WindowsOnly:$WindowsOnly -Architecture $Architecture
 $toolRoot = Join-Path $projectRoot '.imports\wix-5.0.2'
 $toolPackages = @('wix', 'wixtoolset.ui.wixext', 'wixtoolset.netfx.wixext')
 $oldTools = @()

@@ -63,8 +63,8 @@ function Invoke-RepoRadarPreflight {
     if (-not $missing.Count) { return }
     if ($Check) { throw 'Preflight found missing prerequisites.' }
     $architecture = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
-    if (-not $script:repoOnWindows -or $architecture -ne 'AMD64') {
-        throw 'Automatic installation is available on Windows x64. Install the missing prerequisites for your platform.'
+    if (-not $script:repoOnWindows -or $architecture -notin @('AMD64','ARM64')) {
+        throw 'Automatic installation is available on Windows x64 and ARM64. Install the missing prerequisites for your platform.'
     }
 
     $winget = Get-Command winget.exe -CommandType Application -ErrorAction SilentlyContinue
@@ -72,9 +72,10 @@ function Invoke-RepoRadarPreflight {
         throw 'WinGet is unavailable. Install or update Microsoft App Installer, then run Preflight again. https://aka.ms/getwinget'
     }
 
+    $wingetArch = if ($architecture -eq 'ARM64') { 'arm64' } else { 'x64' }
     foreach ($requirement in $missing) {
         Write-Host "Installing $($requirement.Label) with WinGet..."
-        & $winget.Source install --id $requirement.Id --exact --source winget --architecture x64 --no-upgrade --silent
+        & $winget.Source install --id $requirement.Id --exact --source winget --architecture $wingetArch --no-upgrade --silent
         $installerExit = $LASTEXITCODE
         # Armata stops on a restart-required outcome. WinGet can wrap the native installer code.
         if ($installerExit -in @(1641, 3010, -1978334967, -1978334966, -1978334965)) {

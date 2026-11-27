@@ -30,7 +30,8 @@ param(
     [Parameter(Mandatory)][string]$Version,
     [Parameter(Mandatory)][ValidateSet('x64', 'ARM64')][string]$Platform,
     [string]$OutputDirectory,
-    [switch]$Preview
+    [switch]$Preview,
+    [string]$WixPath
 )
 
 #region Initialization
@@ -197,7 +198,7 @@ No CLI alias is registered.
 This unsigned prerelease preparation artifact may trigger Windows security prompts.
 Follow your organization's policy for unsigned software; do not disable security checks.
 
-The .NET and Windows App SDK runtimes are included.
+Install the Microsoft .NET 10 Runtime for $Platform. The Windows App SDK is included.
 
 Portable describes application deployment, not a portable user profile.
 Settings, screenshots, history, and other application data use the normal LocalAppData
@@ -273,3 +274,18 @@ finally {
 $zipHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash
 [IO.File]::WriteAllText("$zipPath.sha256", "$zipHash  $archiveName`n", $utf8)
 Write-Host "Unsigned portable release archive ready: $zipPath"
+
+if ($WixPath) {
+    $stage = [IO.Directory]::CreateTempSubdirectory('worktrail-msi-payload-')
+    try {
+        Expand-Archive -LiteralPath $zipPath -DestinationPath $stage.FullName
+        $msiName = "WorkTrail-$Version-$Platform.msi"
+        $msi = Join-Path $outputRoot $msiName
+        & "$repositoryRoot/../../scripts/release/Build-PortableMsi.ps1" -Source $stage.FullName -Output $msi -Name WorkTrail -Version $Version -Architecture $Platform -Executable 'WorkTrail.exe' -UpgradeCode 'c43498fe-7a86-4390-b608-7bf02dcc6935' -WixPath $WixPath
+        $digest = (Get-FileHash -LiteralPath $msi -Algorithm SHA256).Hash
+        [IO.File]::WriteAllText("$msi.sha256", "$digest  $msiName`n", $utf8)
+    }
+    finally {
+        $stage.Delete($true)
+    }
+}

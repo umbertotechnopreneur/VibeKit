@@ -39,7 +39,8 @@ param(
     [ValidateSet('windows-x64', 'windows-arm64', 'linux-x64')]
     [string]$Label,
     [ValidatePattern('^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$')]
-    [string]$Tag
+    [string]$Tag,
+    [string]$WixPath
 )
 
 if ($PSBoundParameters.Count -eq 0) {
@@ -96,3 +97,12 @@ if ($isWindowsPackage) {
 $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
 "$hash  $name" | Set-Content -LiteralPath "$archive.sha256" -Encoding ascii
 Write-Host "Package ready: $archive"
+
+if ($isWindowsPackage -and $WixPath) {
+    $architecture = $Label.Substring('windows-'.Length)
+    $version = ($Tag.Substring(1) -split '-', 2)[0]
+    $msi = Join-Path $archiveRoot "ulanzi-dock-vibeware-$Tag-$Label.msi"
+    & "$root/../../scripts/release/Build-PortableMsi.ps1" -Source $package -Output $msi -Name UlanziDeck -Version $version -Architecture $architecture -Executable 'ulanzi-dock-vibeware.exe' -UpgradeCode '1d0a783e-7f2a-4381-9aa6-cebd2af894db' -WixPath $WixPath -MinimumWindowsBuild 17763
+    $digest = (Get-FileHash -LiteralPath $msi -Algorithm SHA256).Hash.ToLowerInvariant()
+    "$digest  $([IO.Path]::GetFileName($msi))" | Set-Content -LiteralPath "$msi.sha256" -Encoding ascii
+}

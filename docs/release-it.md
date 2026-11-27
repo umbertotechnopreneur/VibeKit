@@ -41,19 +41,26 @@ Il comando scarica gli artefatti in una directory temporanea, controlla i digest
 Get-FileHash .\VoiceDucker-windows-x64.msi -Algorithm SHA256
 ```
 
-## Opzioni per sottoprogetto
+## Pacchetti per sottoprogetto
 
-| Identificativo | Pacchetti distribuiti o condizione |
+Per ogni applicazione Windows preparo quattro file, tutti compilati in configurazione **Release**. Il canale `dev` sceglie i sorgenti di sviluppo e contrassegna la pubblicazione come anteprima. Anche su questo canale i pacchetti sono ottimizzati. Le build Debug si preparano sul PC di sviluppo.
+
+| Sul PC di destinazione | Intel o AMD a 64 bit | Windows su ARM |
+| --- | --- | --- |
+| Voglio estrarre il programma in una cartella | ZIP portatile x64 | ZIP portatile ARM64 |
+| Voglio installare il programma | MSI x64 | MSI ARM64 |
+
+| Sottoprogetti | Download disponibili |
 | --- | --- |
-| `voiceducker` | MSI Windows x64 e ZIP Windows x64 e ARM64. |
-| `ulanzideck` | ZIP Windows x64 e ARM64, archivio e DEB Linux x64. |
-| `worktrail` | ZIP portatili Windows x64 e ARM64. Per i test il pacchetto può usare una versione 0.x, per la stabile il packaging del progetto richiede una versione sorgente con major almeno 1. |
-| `markvibe` | MSI e ZIP Windows x64 e ARM64. Specifico la versione completa con `--version`, maggiore della revisione registrata nel sorgente. |
-| `reporadar` | MSI e ZIP portatile per Windows x64, DEB per Linux amd64. |
-| `helpme` | DEB Linux amd64 e arm64. Le note della release contengono un link autenticato all'MSI Windows x64 del run, valido fino alla scadenza dell'artefatto Actions. Il canale commerciale Windows usa Microsoft Store. |
-| `ghostty-shaders` | Archivio Linux con shader, gestore e licenze. Per la stabile specifico `--version X.Y.Z`. Per un test basta il commit. |
-| `thermalright` | MSI e ZIP Windows x64 e ARM64 e DEB Linux amd64. Il canale test usa pacchetti Debug. La stabile richiede la configurazione Release sui tre target. |
-| `openai-usage`, `desktop-ripple`, `retro-terminal`, `studio-controls`, `vignette` | MSI Windows x64 e pacchetto Debian del widget scelto. |
+| `voiceducker`, `markvibe`, `worktrail` | I quattro pacchetti Windows. |
+| `reporadar`, `ulanzideck`, `thermalright` | I quattro pacchetti Windows e il DEB Linux amd64. UlanziDeck offre anche il suo archivio Linux. |
+| `openai-usage`, `desktop-ripple`, `retro-terminal`, `studio-controls`, `vignette` | I quattro pacchetti Windows e il DEB del widget per Linux. |
+| `helpme` | DEB pubblici per Linux amd64 e arm64. Per Windows accedo a GitHub e seguo i link nelle note della release ai quattro artefatti Actions. I link valgono fino alla scadenza degli artefatti. La versione commerciale si trova nel Microsoft Store. |
+| `ghostty-shaders` | ZIP per Ghostty su Linux con shader, gestore e licenze. |
+
+I requisiti di runtime dipendono dal sottoprogetto anche quando uso lo ZIP. Per HelpMe serve il runtime .NET 10 della stessa architettura del pacchetto. Essendo VibeKit un repository pubblico, gli utenti che accedono a GitHub possono scaricare questi artefatti fino alla loro scadenza. Gli allegati pubblici Windows sono ZIP e MSI. Gli MSIX destinati allo Store seguono la procedura dedicata.
+
+Per MarkVibe specifico una versione a quattro componenti maggiore della revisione nei sorgenti. WorkTrail permette le versioni 0.x sul canale `dev` e richiede almeno 1.x per la stabile. Per la stabile di Ghostty Shaders scelgo esplicitamente una versione con `--version`.
 
 Esempi con versione esplicita:
 

@@ -2,6 +2,7 @@
 [CmdletBinding()]
 param(
     [ValidateSet('Debug', 'Release')][string]$Configuration = 'Release',
+    [ValidateSet('x64', 'arm64')][string]$Architecture = 'x64',
     [string]$WixBin
 )
 $ErrorActionPreference = 'Stop'
@@ -28,7 +29,7 @@ function Invoke-Checked([string]$Program, [string[]]$Arguments) {
     if ($LASTEXITCODE -ne 0) { throw "$Program failed with exit code $LASTEXITCODE." }
 }
 function Get-FileId([string]$Name) {
-    $bytes = [Text.Encoding]::UTF8.GetBytes('RepoRadar/win-x64/' + $Name.ToLowerInvariant())
+    $bytes = [Text.Encoding]::UTF8.GetBytes("RepoRadar/win-$Architecture/" + $Name.ToLowerInvariant())
     return 'F' + [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).Substring(0, 32)
 }
 function Assert-Child([string]$Parent, [string]$Target) {
@@ -88,7 +89,7 @@ New-Item -ItemType Directory -Path $stage -Force | Out-Null
 $publish = Join-Path $stage 'publish'
 
 # A fresh output directory ensures no files from previous builds enter the installer.
-Invoke-Checked dotnet @('publish', $projectFile, '-c', $Configuration, '-r', 'win-x64', '--self-contained', 'false',
+Invoke-Checked dotnet @('publish', $projectFile, '-c', $Configuration, '-r', "win-$Architecture", '--self-contained', 'false',
     '-p:PublishSingleFile=false', '-p:UseAppHost=true', '-p:DebugSymbols=false', '-p:DebugType=None', '-o', $publish)
 $configs = @(Get-ChildItem -LiteralPath $publish -File -Filter '*.runtimeconfig.json')
 if ($configs.Count -ne 1) { throw 'Expected one runtime configuration for the published application.' }
@@ -109,14 +110,15 @@ $reader = [IO.BinaryReader]::new([IO.File]::OpenRead($appHostPath))
 try {
     $reader.BaseStream.Position = 60
     $reader.BaseStream.Position = $reader.ReadUInt32()
-    if ($reader.ReadUInt32() -ne 0x4550 -or $reader.ReadUInt16() -ne 0x8664) {
-        throw 'The application host is not a Windows x64 PE executable.'
+    $machine = if ($Architecture -eq 'x64') { 0x8664 } else { 0xAA64 }
+    if ($reader.ReadUInt32() -ne 0x4550 -or $reader.ReadUInt16() -ne $machine) {
+        throw "The application host does not match Windows $Architecture."
     }
 }
 finally { $reader.Dispose() }
 $versionInfo = (Get-Item -LiteralPath (Join-Path $publish ($appName + '.dll'))).VersionInfo
 $productVersion = '{0}.{1}.{2}' -f $versionInfo.ProductMajorPart, $versionInfo.ProductMinorPart, $versionInfo.ProductBuildPart
-$packageName = "RepoRadar-$productVersion-win-x64.msi"
+$packageName = "RepoRadar-$productVersion-win-$Architecture.msi"
 
 # Bundle the apphost, runtime manifest and app-specific libraries from the source publish.
 # Catalogs, preferences, workspace databases and debug files are personal or local to a build.
@@ -172,7 +174,7 @@ $icon = Join-Path $PSScriptRoot 'RepoRadar.ico'
 $dialogIcon = Join-Path $stage 'Setup.ico'
 Export-SetupIcon $icon $dialogIcon
 $runtimeCheck = Join-Path $PSScriptRoot 'Check-MsiRuntime.js'
-Invoke-Checked (Join-Path $WixBin 'candle.exe') @('-nologo', '-arch', 'x64', "-dAppExeName=$appExeName",
+Invoke-Checked (Join-Path $WixBin 'candle.exe') @('-nologo', '-arch', $Architecture, "-dArchitecture=$Architecture", "-dAppExeName=$appExeName",
     "-dInstallerIcon=$icon", "-dSetupIcon=$dialogIcon", "-dRuntimeCheck=$runtimeCheck",
     "-dRuntimeVersion=$runtimeVersion", "-dProductVersion=$productVersion", '-out', ($stage + '\'),
     (Join-Path $PSScriptRoot 'Product.wxs'), $payloadWxs)
@@ -192,12 +194,12 @@ foreach ($file in $payload) {
 $destination = Join-Path $packageDir $packageName
 Assert-Child $packageDir $destination
 [IO.File]::Move($msi, $destination, $true)
-foreach ($old in Get-ChildItem -LiteralPath $packageDir -Filter 'RepoRadar-*-win-x64.msi' -File) {
-    if ($old.Name -ne $packageName -and $old.Name -match '^RepoRadar-\d+\.\d+\.\d+-win-x64\.msi$') {
+foreach ($old in Get-ChildItem -LiteralPath $packageDir -Filter "RepoRadar-*-win-$Architecture.msi" -File) {
+    if ($old.Name -ne $packageName -and $old.Name -match "^RepoRadar-\d+\.\d+\.\d+-win-$Architecture\.msi$") {
         Assert-Child $packageDir $old.FullName
         Remove-Item -LiteralPath $old.FullName -Force
     }
 }
 Assert-Child $packageDir $stage
 Remove-Item -LiteralPath $stage -Recurse -Force
-Write-Host "Verified Windows x64 per-user MSI: $destination"
+Write-Host "Verified Windows $Architecture per-user MSI: $destination"

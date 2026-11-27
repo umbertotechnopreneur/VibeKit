@@ -43,7 +43,7 @@ function Assert-PublishLayout {
 }
 
 function Copy-DependencyNotices {
-    param([Parameter(Mandatory)][string]$AssetsFile, [Parameter(Mandatory)][string]$Destination)
+    param([Parameter(Mandatory)][string]$AssetsFile, [Parameter(Mandatory)][string]$Destination, [ValidateSet('x64','arm64')][string]$Architecture = 'x64')
     $assets = Get-Content -LiteralPath $AssetsFile -Raw | ConvertFrom-Json -AsHashtable
     $packages = @{}
     foreach ($library in $assets.libraries.Values) {
@@ -81,7 +81,7 @@ function Copy-DependencyNotices {
         }
         $inventory += [ordered]@{ id = $parts[0]; version = $parts[1]; notices = $copied; packageUrl = "https://www.nuget.org/packages/$($parts[0])/$($parts[1])" }
     }
-    foreach ($required in @('microsoft.netcore.app.runtime.win-x64', 'microsoft.windowsappsdk.winui')) {
+    foreach ($required in @("microsoft.netcore.app.runtime.win-$Architecture", 'microsoft.windowsappsdk.winui')) {
         if (-not @($inventory | Where-Object { $_.id -eq $required -and $_.notices.Count -gt 0 }).Count) {
             throw "Redistributed runtime license was not found in the restored packages: $required"
         }
@@ -90,7 +90,7 @@ function Copy-DependencyNotices {
 }
 
 function Write-PublishManifest {
-    param([Parameter(Mandatory)][string]$Directory, [Parameter(Mandatory)][string]$Version)
+    param([Parameter(Mandatory)][string]$Directory, [Parameter(Mandatory)][string]$Version, [ValidateSet('x64','arm64')][string]$Architecture = 'x64')
     Assert-PublishLayout -Directory $Directory
     $files = @(foreach ($file in Get-PublishFiles -Directory $Directory) {
         [ordered]@{
@@ -99,7 +99,7 @@ function Write-PublishManifest {
             sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
         }
     })
-    [ordered]@{ format = 1; application = 'StudioControls'; version = $Version; runtime = 'win-x64'; files = $files } |
+    [ordered]@{ format = 1; application = 'StudioControls'; version = $Version; runtime = "win-$Architecture"; files = $files } |
         ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $Directory '.publish-manifest.json') -Encoding utf8NoBOM
 }
 

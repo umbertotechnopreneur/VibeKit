@@ -2,6 +2,7 @@
 import argparse
 import importlib.util
 from pathlib import Path
+import struct
 import sys
 import uuid
 import xml.etree.ElementTree as ET
@@ -26,19 +27,40 @@ APPS = {
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('app', choices=APPS)
+parser.add_argument('app', choices=[*APPS, 'portable'])
 parser.add_argument('version')
 parser.add_argument('payload', type=Path)
 parser.add_argument('output', type=Path)
+parser.add_argument('--architecture', choices=('x64', 'arm64'), default='x64')
+parser.add_argument('--minimum-build', type=int, default=22000)
+parser.add_argument('--name')
+parser.add_argument('--executable')
+parser.add_argument('--upgrade-code', type=uuid.UUID)
 args = parser.parse_args()
-name, executable, guid, home_url, logo = APPS[args.app]
+if args.app == 'portable':
+    if not (args.name and args.executable and args.upgrade_code):
+        parser.error('A portable installer needs a display name, executable and upgrade code')
+    name, executable, namespace = args.name, args.executable, args.upgrade_code
+else:
+    name, executable, guid, home_url, logo = APPS[args.app]
+    namespace = uuid.UUID(guid)
 if args.output.exists():
     parser.error('Choose a new output file')
-namespace = uuid.UUID(guid)
+payload = args.payload.resolve()
+entry = (payload / executable).resolve()
+if not entry.is_relative_to(payload) or not entry.is_file():
+    parser.error('The executable must be inside the publish directory')
+with entry.open('rb') as binary:
+    if binary.read(2) != b'MZ':
+        parser.error('Missing Windows executable header')
+    binary.seek(0x3c)
+    binary.seek(struct.unpack('<I', binary.read(4))[0])
+    if binary.read(4) != b'PE\0\0' or struct.unpack('<H', binary.read(2))[0] != {'x64': 0x8664, 'arm64': 0xAA64}[args.architecture]:
+        parser.error(f'Expected a native {args.architecture} executable')
 generator.wix_source(args.payload.resolve(), args.output.resolve(), name=name, version=args.version,
     namespace=namespace, executable=executable, registry=f'Software\\VibeWare\\{name}\\Installer',
-    app_id=f'biz.umbertogiacobbi.{name}', minimum_build=22000,
-    requirement=f'{name} requires 64-bit Windows 11 or newer.', description=name)
+    app_id=f'biz.umbertogiacobbi.{name}', minimum_build=args.minimum_build,
+    requirement=f'{name} requires 64-bit Windows build {args.minimum_build} or newer.', description=name)
 tree = ET.parse(args.output)
 root = tree.getroot()
 ns = '{' + generator.WIX + '}'
@@ -56,7 +78,8 @@ if args.app == 'helpme':
     ET.SubElement(component, ns + 'RegistryValue', Root='HKCU', Key='Software\\VibeWare\\HelpMe\\Installer',
         Name='Path', Type='integer', Value='1', KeyPath='yes')
     ET.SubElement(feature, ns + 'ComponentRef', Id='CommandPath')
-add_installer_ui(root, payload=args.payload, executable=executable, output=args.output,
-                 home_url=home_url, logo=ROOT / logo)
+if args.app != 'portable':
+    add_installer_ui(root, payload=payload, executable=executable, output=args.output,
+                     home_url=home_url, logo=ROOT / logo, architecture=args.architecture)
 ET.indent(root)
 tree.write(args.output, encoding='utf-8', xml_declaration=True)

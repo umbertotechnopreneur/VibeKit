@@ -20,7 +20,7 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - name: Check the portable C# pipeline model
-        run: dotnet run --project Widgets/WaterRipple/tests/PipelineChecks.csproj --configuration Debug --artifacts-path "${{ runner.temp }}/ripple-checks" -p:NuGetAudit=false
+        run: dotnet run --project Widgets/WaterRipple/tests/PipelineChecks.csproj --configuration Release --artifacts-path "${{ runner.temp }}/ripple-checks" -p:NuGetAudit=false
       - name: Check JavaScript models
         run: |
           node Widgets/WaterRipple/tests/pipeline-checks.mjs
@@ -44,7 +44,11 @@ jobs:
           path: artifacts/desktop-ripple/*.deb
           if-no-files-found: error
   windows:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture: [x64, arm64]
+    runs-on: windows-2025
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
@@ -62,11 +66,13 @@ jobs:
         run: |
           dotnet tool install wix --version 5.0.2 --tool-path "$env:RUNNER_TEMP/widget-wix"
           if ($LASTEXITCODE -ne 0) { throw 'WiX installation failed.' }
-      - name: Build unsigned MSI from source
+      - name: Build Release portable ZIP and MSI from source
         shell: pwsh
-        run: ./Widgets/WaterRipple/Packaging/Build-MSI.ps1 -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe" -OutputDirectory "$env:RUNNER_TEMP/ripple-msi"
+        run: ./Widgets/WaterRipple/Packaging/Build-MSI.ps1 -Architecture ${{ matrix.architecture }} -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe" -OutputDirectory "$env:RUNNER_TEMP/ripple-msi"
       - uses: actions/upload-artifact@v6
         with:
-          name: desktop-ripple-windows-x64
-          path: ${{ runner.temp }}/ripple-msi/*.msi
+          name: desktop-ripple-windows-${{ matrix.architecture }}
+          path: |
+            ${{ runner.temp }}/ripple-msi/*.msi
+            ${{ runner.temp }}/ripple-msi/*.zip
           if-no-files-found: error

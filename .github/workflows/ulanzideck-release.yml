@@ -131,16 +131,20 @@ jobs:
         if: inputs.run_tests
         shell: pwsh
         run: |
-          cargo test --locked --lib --bins --target ${{ matrix.target }}
+          cargo test --release --locked --lib --bins --target ${{ matrix.target }}
           if ($LASTEXITCODE -ne 0) { throw 'Unit tests failed.' }
       - name: Build release executables
         shell: pwsh
         run: |
           cargo build --locked --release --target ${{ matrix.target }}
           if ($LASTEXITCODE -ne 0) { throw 'Release build failed.' }
+      - name: Stage WiX 5 on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: dotnet tool install --tool-path "$env:RUNNER_TEMP/wix5" wix --version 5.0.2
       - name: Package executable, documentation and notices
         shell: pwsh
-        run: ./scripts/package-release.ps1 -Target '${{ matrix.target }}' -Label '${{ matrix.label }}' -Tag ($env:RELEASE_TAG -replace
+        run: ./scripts/package-release.ps1 -Target '${{ matrix.target }}' -Label '${{ matrix.label }}' -WixPath "$env:RUNNER_TEMP/wix5/wix.exe" -Tag ($env:RELEASE_TAG -replace
           '^ulanzideck/', '')
       - name: Package native Linux Debian installer
         if: runner.os == 'Linux'
@@ -151,6 +155,7 @@ jobs:
           name: release-${{ matrix.label }}
           path: |
             Apps/UlanziDeck/dist/ulanzi-dock-vibeware-*.zip
+            Apps/UlanziDeck/dist/ulanzi-dock-vibeware-*.msi
             Apps/UlanziDeck/dist/ulanzi-dock-vibeware-*.tar.gz
             Apps/UlanziDeck/dist/ulanzi-dock-vibeware-*.sha256
             Apps/UlanziDeck/dist/ulanzi-dock-vibeware_*.deb
@@ -184,9 +189,10 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $archives = @(Get-ChildItem -LiteralPath dist -File | Where-Object { $_.Name -match '\.(zip|tar\.gz)$' })
+          $installers = @(Get-ChildItem -LiteralPath dist -Filter '*.msi')
           $debs = @(Get-ChildItem -LiteralPath dist -Filter '*.deb')
           $checksums = @(Get-ChildItem -LiteralPath dist -Filter '*.sha256')
-          if ($archives.Count -ne 3 -or $debs.Count -ne 1 -or $checksums.Count -ne 4) { throw 'Three platform archives, the Linux Debian package and all four checksums are required.' }
+          if ($archives.Count -ne 3 -or $debs.Count -ne 1 -or $installers.Count -ne 2 -or $checksums.Count -ne 6) { throw 'Three platform archives, two Windows installers, one Debian package and their checksums are required.' }
           Push-Location dist
           try {
             Get-Content -LiteralPath $checksums.FullName | Set-Content -LiteralPath SHA256SUMS.txt -Encoding ascii
@@ -196,6 +202,7 @@ jobs:
           $cliArgs = @('release', 'create', $env:RELEASE_TAG, '--target', $env:SOURCE_SHA,
             '--title', "UlanziDock VibeWare $env:RELEASE_VERSION", '--generate-notes',
             "--draft=$env:IS_DRAFT", "--prerelease=$env:IS_PRERELEASE")
+          $cliArgs += $installers.FullName
           $cliArgs += $archives.FullName
           $cliArgs += $debs.FullName
           $cliArgs += 'dist/SHA256SUMS.txt'

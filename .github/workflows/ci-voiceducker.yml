@@ -13,7 +13,7 @@
 # License: MIT - see LICENSE
 # VBWR E
 
-name: voiceducker / Portable Windows ZIPs
+name: voiceducker / Windows Release packages
 
 on:
   workflow_call:
@@ -31,7 +31,7 @@ jobs:
         include:
           - architecture: x64
             runtime: win-x64
-          - architecture: ARM64
+          - architecture: arm64
             runtime: win-arm64
     steps:
       - uses: actions/checkout@v5
@@ -56,6 +56,22 @@ jobs:
       - name: Create portable ZIP with documentation and license
         shell: pwsh
         run: ./scripts/package-portable.ps1 -Runtime '${{ matrix.runtime }}'
+      - name: Build the MSI from the same Release payload
+        shell: pwsh
+        env:
+          ARCH: ${{ matrix.architecture }}
+        run: |
+          dotnet tool install --tool-path "$env:RUNNER_TEMP/wix5" wix --version 5.0.2
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $version = @(([xml](Get-Content VoiceDucker.csproj -Raw)).Project.PropertyGroup.Version | Where-Object { $_ })[0]
+          python -B ../../scripts/ci/create-app-msi.py voiceducker $version "artifacts/app/win-$env:ARCH" "$env:RUNNER_TEMP/voiceducker.wxs" --architecture $env:ARCH
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & ../../Widgets/Shared/Build-WindowsMsi.ps1 -Architecture $env:ARCH -WixPath "$env:RUNNER_TEMP/wix5/wix.exe" -Source "$env:RUNNER_TEMP/voiceducker.wxs" -Output "$env:RUNNER_TEMP/VoiceDucker-windows-$env:ARCH.msi" -IntermediateDirectory "$env:RUNNER_TEMP/voiceducker-msi-work"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: voiceducker-windows-msi-${{ matrix.architecture }}
+          path: ${{ runner.temp }}/VoiceDucker-windows-${{ matrix.architecture }}.msi
+          if-no-files-found: error
       - uses: actions/upload-artifact@v7
         with:
           name: VoiceDucker-${{ matrix.runtime }}
@@ -96,32 +112,3 @@ jobs:
             unzip -Z1 "$archive" | grep -Fx VoiceDucker.exe
             unzip -Z1 "$archive" | grep -Fx LICENSE
           done
-
-  windows-msi:
-    name: Framework-dependent Windows MSI
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-      - uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: Apps/VoiceDucker/global.json
-      - name: Publish and package MSI
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          dotnet tool install --tool-path "$env:RUNNER_TEMP/wix5" wix --version 5.0.2
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet publish Apps/VoiceDucker/VoiceDucker.csproj -c Release -r win-x64 -p:Platform=x64 -p:SelfContained=false -p:PublishProfile= -o "$env:RUNNER_TEMP/voiceducker-payload"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $version = ([xml](Get-Content Apps/VoiceDucker/VoiceDucker.csproj -Raw)).Project.PropertyGroup.Version | Select-Object -First 1
-          python scripts/ci/create-app-msi.py voiceducker $version "$env:RUNNER_TEMP/voiceducker-payload" "$env:RUNNER_TEMP/voiceducker.wxs"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & ./Widgets/Shared/Build-WindowsMsi.ps1 -WixPath "$env:RUNNER_TEMP/wix5/wix.exe" -Source "$env:RUNNER_TEMP/voiceducker.wxs" -Output "$env:RUNNER_TEMP/VoiceDucker-windows-x64.msi" -IntermediateDirectory "$env:RUNNER_TEMP/voiceducker-msi-work"
-      - uses: actions/upload-artifact@v7
-        with:
-          name: voiceducker-windows-msi-x64
-          path: ${{ runner.temp }}/VoiceDucker-windows-x64.msi
-          if-no-files-found: error

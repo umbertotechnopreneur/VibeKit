@@ -26,6 +26,9 @@ def select_paths(paths):
     for path in paths:
         if is_documentation(path):
             continue
+        if path == "scripts/release/Build-PortableMsi.ps1":
+            selected.update({"ulanzideck", "worktrail"})
+            continue
         if path.startswith("scripts/release/"):
             # The coordinator runs the release command's tests directly.
             continue

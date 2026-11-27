@@ -3,34 +3,35 @@
   <Product Id="*" Name="Repo Radar" Manufacturer="Umberto Giacobbi.biz" Language="1033" Codepage="1252"
            Version="$(var.ProductVersion)" UpgradeCode="{CE5423A2-5BD4-45D1-9FE6-B3901CA6E596}">
     <Package InstallerVersion="500" Compressed="yes" InstallScope="perUser" InstallPrivileges="limited"
-             Description="Repo Radar for Windows x64" Comments="Umberto Giacobbi | umbertogiacobbi.biz" />
+             Description="Repo Radar for Windows $(var.Architecture)" Comments="Umberto Giacobbi | umbertogiacobbi.biz" />
     <MajorUpgrade Schedule="afterInstallInitialize"
                   DowngradeErrorMessage="A newer version of Repo Radar is installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
-    <Property Id="ARPCOMMENTS" Value="Git dashboard by Umberto Giacobbi. Requires Git and Microsoft .NET 10 Runtime (x64)." />
+    <Property Id="ARPCOMMENTS" Value="Git dashboard by Umberto Giacobbi. Requires Git and Microsoft .NET 10 Runtime ($(var.Architecture))." />
     <Property Id="ARPURLINFOABOUT" Value="https://umbertogiacobbi.biz" />
     <Property Id="ARPHELPLINK" Value="https://umbertogiacobbi.biz/contacts/" />
     <Property Id="ARPNOMODIFY" Value="1" />
     <Property Id="ARPPRODUCTICON" Value="RepoRadar.ico" />
     <Property Id="RepoRadarPublisherSite" Value="https://umbertogiacobbi.biz/" />
     <Property Id="RepoRadarManifesto" Value="https://umbertogiacobbi.biz/vibeware/manifesto/" />
+    <Property Id="RepoRadarArchitecture" Value="$(var.Architecture)" />
     <Property Id="RepoRadarRuntimeVersion" Value="$(var.RuntimeVersion)" />
     <Property Id="RepoRadarRuntimeDownload" Value="https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime" />
     <Icon Id="RepoRadar.ico" SourceFile="$(var.InstallerIcon)" />
     <Binary Id="RepoRadarSetupIcon" SourceFile="$(var.SetupIcon)" />
     <Binary Id="RepoRadarRuntimeCheck" SourceFile="$(var.RuntimeCheck)" />
     <!-- Read both registry views because older .NET installers wrote the x64 root into the 32-bit view. -->
-    <Property Id="REPORADAR_DOTNET_X64_OTHER" Secure="yes">
-      <RegistrySearch Id="DotNetInstallX64" Root="HKLM" Win64="no" Key="SOFTWARE\dotnet\Setup\InstalledVersions\x64"
+    <Property Id="REPORADAR_DOTNET_OTHER" Secure="yes">
+      <RegistrySearch Id="DotNetInstallX64" Root="HKLM" Win64="no" Key="SOFTWARE\dotnet\Setup\InstalledVersions\$(var.Architecture)"
                       Name="InstallLocation" Type="raw" />
     </Property>
-    <Property Id="REPORADAR_DOTNET_X64_NATIVE" Secure="yes">
-      <RegistrySearch Id="DotNetInstallNative" Root="HKLM" Win64="yes" Key="SOFTWARE\dotnet\Setup\InstalledVersions\x64"
+    <Property Id="REPORADAR_DOTNET_NATIVE" Secure="yes">
+      <RegistrySearch Id="DotNetInstallNative" Root="HKLM" Win64="yes" Key="SOFTWARE\dotnet\Setup\InstalledVersions\$(var.Architecture)"
                       Name="InstallLocation" Type="raw" />
     </Property>
     <CustomAction Id="CheckRepoRadarRuntime" BinaryKey="RepoRadarRuntimeCheck" JScriptCall="CheckRepoRadarRuntime" Win64="yes" Return="ignore" />
     <CustomAction Id="RequireRepoRadarRuntime"
-                  Error="Microsoft .NET Runtime [RepoRadarRuntimeVersion] or a later 10.0 patch (x64) is required. Download it at [RepoRadarRuntimeDownload], then run setup again." />
+                  Error="Microsoft .NET Runtime [RepoRadarRuntimeVersion] or a later 10.0 patch ($(var.Architecture)) is required. Download it at [RepoRadarRuntimeDownload], then run setup again." />
     <Condition Message="Repo Radar requires 64-bit Windows.">Installed OR VersionNT64</Condition>
     <Condition Message="Repo Radar installs for the current user. Omit ALLUSERS when starting setup.">Installed OR NOT ALLUSERS</Condition>
     <Directory Id="TARGETDIR" Name="SourceDir">
@@ -87,7 +88,7 @@
         <Control Id="Details" Type="Text" X="82" Y="49" Width="268" Height="14" NoPrefix="yes" Text="Version [ProductVersion] · Per-user installation" />
         <Control Id="Welcome" Type="Text" X="82" Y="70" Width="268" Height="16" NoPrefix="yes" Text="Welcome to the [ProductName] installer." />
         <Control Id="Runtime" Type="Text" X="82" Y="92" Width="268" Height="26" NoPrefix="yes"
-                 Text="Requires Microsoft .NET Runtime [RepoRadarRuntimeVersion] or a later .NET 10.0 patch (x64)." />
+                 Text="Requires Microsoft .NET Runtime [RepoRadarRuntimeVersion] or a later .NET 10.0 patch ($(var.Architecture))." />
         <Control Id="ProductLink" Type="Hyperlink" X="82" Y="124" Width="268" Height="14"
                  Text="&lt;a href=&quot;[RepoRadarPublisherSite]&quot;&gt;Repo Radar home&lt;/a&gt; • &lt;a href=&quot;[RepoRadarManifesto]&quot;&gt;Member of VibeWare movement&lt;/a&gt;" />
         <Control Id="SupportLink" Type="Hyperlink" X="82" Y="142" Width="268" Height="14"
@@ -113,7 +114,7 @@
         <Control Id="Details" Type="Text" X="82" Y="49" Width="268" Height="14" NoPrefix="yes" Text="Version [ProductVersion] · Per-user installation" />
         <Control Id="Welcome" Type="Text" X="82" Y="70" Width="268" Height="16" NoPrefix="yes" Text="Welcome to the [ProductName] installer." />
         <Control Id="Runtime" Type="Text" X="82" Y="92" Width="268" Height="26" NoPrefix="yes"
-                 Text="Requires Microsoft .NET Runtime [RepoRadarRuntimeVersion] or a later .NET 10.0 patch (x64)." />
+                 Text="Requires Microsoft .NET Runtime [RepoRadarRuntimeVersion] or a later .NET 10.0 patch ($(var.Architecture))." />
         <Control Id="ProductLink" Type="Hyperlink" X="82" Y="124" Width="268" Height="14"
                  Text="&lt;a href=&quot;[RepoRadarPublisherSite]&quot;&gt;Repo Radar home&lt;/a&gt; • &lt;a href=&quot;[RepoRadarManifesto]&quot;&gt;Member of VibeWare movement&lt;/a&gt;" />
         <Control Id="SupportLink" Type="Hyperlink" X="82" Y="142" Width="268" Height="14"

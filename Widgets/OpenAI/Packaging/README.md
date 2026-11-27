@@ -4,14 +4,14 @@
 
 # Local installers
 
-Source/package target: **0.4.3**. Architecture: Windows x64 / Ubuntu amd64. Packages are generated on demand and removed by an explicit clean.
+Source/package target: **0.4.3**. Architectures: Windows x64 and ARM64, Ubuntu amd64. Packages are generated on demand and removed by an explicit clean.
 
 ## Windows
 
-Build the Windows installer using the commands below. Open the generated MSI and launch **OpenAI Usage** from Start.
+Open the generated MSI and launch **OpenAI Usage** from Start, or extract the portable ZIP and run `OpenAIUsage.Windows.exe`.
 
 - Per-user installation in `%LOCALAPPDATA%/Programs/OpenAI Usage`.
-- Uses the shared Microsoft .NET Runtime 10.0 for Windows x64 and includes Windows App SDK components. If setup finds the runtime missing, it offers the [official Microsoft download page](https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime).
+- Uses the shared Microsoft .NET Runtime 10.0 for the target Windows architecture and includes Windows App SDK components. If setup finds the runtime missing, it offers the [official Microsoft download page](https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime).
 - Uses the [VibeKit installer layout](../../../docs/installers/README.md) with native progress, Add/Remove Programs and major-upgrade handling.
 - MSI major upgrades require a newer product version. A second build with the same 0.4.3 version does not upgrade an existing 0.4.3 installation; uninstalling it first preserves the personal settings and history described below.
 - Does not add autostart or a background service. It does not install or sign in to Codex.
@@ -39,11 +39,14 @@ Launch **OpenAI Usage** from the application menu or run `openai-usage`.
 For Windows, from the project root in PowerShell:
 
 ```powershell
-$imports = & .\Packaging\Prepare-Packaging.ps1 -WindowsOnly
-& .\Packaging\Build-WindowsDistribution.ps1 -Imports $imports
+$imports = $null
+foreach ($arch in 'x64', 'arm64') {
+    $imports = & .\Packaging\Prepare-Packaging.ps1 -WindowsOnly -Architecture $arch -PreviousImports $imports
+    & .\Packaging\Build-WindowsDistribution.ps1 -Imports $imports -Architecture $arch
+}
 ```
 
-The MSI comes from a current source publish and includes Windows App SDK components and dependency notices. Output filenames include a build timestamp so prior packages are preserved. Build staging and imports are retained for manual cleanup. This Windows-only packaging command checks the MSI requirements but does not run the behavioral test suite.
+The MSI comes from a current source publish and includes Windows App SDK components and dependency notices. The MSI filename includes a timestamp. Use a fresh output directory to rebuild the portable ZIP for the same version. Build staging and imports are retained for manual cleanup. This Windows-only packaging command checks the MSI requirements but does not run the behavioral test suite.
 
 On Linux, build only the Debian package with `bash Packaging/Build-Debian.sh`.
 

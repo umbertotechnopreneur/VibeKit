@@ -67,7 +67,11 @@ jobs:
         with:
           global-json-file: Apps/WorkTrail/global.json
 
-      - name: Crea e verifica gli ZIP portatili di WorkTrail per Windows x64 e ARM64
+      - name: Prepara WiX per gli installer Windows
+        if: inputs.project == 'worktrail'
+        run: dotnet tool install --tool-path "$env:RUNNER_TEMP/wix5" wix --version 5.0.2
+
+      - name: Crea e verifica i pacchetti di WorkTrail per Windows x64 e ARM64
         if: inputs.project == 'worktrail'
         working-directory: Apps/WorkTrail
         run: |
@@ -81,9 +85,10 @@ jobs:
             $info = Get-Content -LiteralPath "$publish/BuildInfo.json" -Raw | ConvertFrom-Json
             if ($info.gitCommit -cne $env:GITHUB_SHA -or $info.gitDirty -ne $false) { throw 'Origine della build non verificata.' }
             $output = Join-Path $PWD "artifacts/portable-release/$arch"
-            ./scripts/New-PortableReleaseArchive.ps1 -Version $version -Platform $arch -PublishDirectory $publish -OutputDirectory $output -Preview:$preview
+            ./scripts/New-PortableReleaseArchive.ps1 -Version $version -Platform $arch -PublishDirectory $publish -OutputDirectory $output -Preview:$preview -WixPath "$env:RUNNER_TEMP/wix5/wix.exe"
             $zip = Join-Path $output "WorkTrail-$version-$arch-portable-unsigned.zip"
-            Copy-Item -LiteralPath $zip,"$zip.sha256" -Destination $bundle.FullName
+            $msi = Join-Path $output "WorkTrail-$version-$arch.msi"
+            Copy-Item -LiteralPath $zip,"$zip.sha256",$msi,"$msi.sha256" -Destination $bundle.FullName
           }
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

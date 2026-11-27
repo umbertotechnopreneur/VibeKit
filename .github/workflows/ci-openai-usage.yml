@@ -45,7 +45,15 @@ jobs:
           python3 scripts/ci/run_isolated_gtk.py -- /usr/bin/python3 Widgets/OpenAI/Tests/gtk_settings_checks.py --fail-first
           python3 scripts/ci/run_isolated_gtk.py -- /usr/bin/python3 Widgets/OpenAI/Tests/gtk_settings_recovery_checks.py
   windows-ui:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {arch: x64, runner: windows-latest}
+          - {arch: arm64, runner: windows-11-arm}
+    runs-on: ${{ matrix.runner }}
+    env:
+      PACKAGE_ARCH: ${{ matrix.arch }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -61,12 +69,14 @@ jobs:
       - name: Prepare imports and build unsigned MSI
         shell: pwsh
         run: |
-          $imports = & ./Widgets/OpenAI/Packaging/Prepare-Packaging.ps1 -WindowsOnly
-          & ./Widgets/OpenAI/Packaging/Build-WindowsDistribution.ps1 -Imports $imports
+          $imports = & ./Widgets/OpenAI/Packaging/Prepare-Packaging.ps1 -WindowsOnly -Architecture $env:PACKAGE_ARCH
+          & ./Widgets/OpenAI/Packaging/Build-WindowsDistribution.ps1 -Imports $imports -Architecture $env:PACKAGE_ARCH
       - uses: actions/upload-artifact@v6
         with:
-          name: openai-usage-windows-x64
-          path: Widgets/OpenAI/artifacts/installers/*.msi
+          name: openai-usage-windows-${{ matrix.arch }}
+          path: |
+            Widgets/OpenAI/artifacts/installers/*.msi
+            Widgets/OpenAI/artifacts/installers/*-portable.zip
           if-no-files-found: error
   debian:
     runs-on: ubuntu-24.04

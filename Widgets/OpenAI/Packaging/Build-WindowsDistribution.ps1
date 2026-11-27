@@ -1,6 +1,11 @@
 [CmdletBinding()]
-param([Parameter(Mandatory)][psobject]$Imports)
+param(
+    [Parameter(Mandatory)][psobject]$Imports,
+    [ValidateSet('x64','arm64')][string]$Architecture = 'x64',
+    [string]$OutputDirectory = (Join-Path $PSScriptRoot '../artifacts/installers')
+)
 $ErrorActionPreference = 'Stop'
+$platform = if ($Architecture -eq 'arm64') { 'ARM64' } else { 'x64' }
 $root = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $packages = Join-Path $root '.imports\packages'
 $tools = [IO.Path]::GetFullPath($Imports.ToolRoot)
@@ -16,17 +21,19 @@ foreach ($group in @(@{Root=$packages; Entries=@($Imports.Packages)}, @{Root=$to
 $version = ([xml](Get-Content -LiteralPath (Join-Path $root 'Directory.Build.props') -Raw)).Project.PropertyGroup.Version
 $run = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fff')
 $stage = Join-Path $root "artifacts\windows-distribution-$run"
-$payload = Join-Path $stage "OpenAIUsage-$version-windows-x64"
-$output = Join-Path $root 'artifacts\installers'
-$msi = Join-Path $output "OpenAIUsage-$version-windows-x64-$run.msi"
+$payload = Join-Path $stage "OpenAIUsage-$version-windows-$Architecture"
+$output = [IO.Path]::GetFullPath($OutputDirectory)
+$msi = Join-Path $output "OpenAIUsage-$version-windows-$Architecture-$run.msi"
+$zip = Join-Path $output "OpenAIUsage-$version-windows-$Architecture-portable.zip"
+if (Test-Path -LiteralPath $zip) { throw "Choose a new OutputDirectory: $zip" }
 New-Item -ItemType Directory -Path $payload,$output -Force | Out-Null
 Push-Location $root
 try {
-    & dotnet restore Windows/OpenAIUsage.Windows.csproj -r win-x64 --packages $packages --source $packages -p:NuGetAudit=false -p:SelfContained=false
+    & dotnet restore Windows/OpenAIUsage.Windows.csproj -r "win-$Architecture" "-p:Platform=$platform" --packages $packages --source $packages -p:NuGetAudit=false -p:SelfContained=false
     if ($LASTEXITCODE -ne 0) { throw 'Offline restore failed.' }
-    & dotnet build Windows/OpenAIUsage.Windows.csproj -t:Rebuild -c Release -r win-x64 --self-contained false --no-restore
+    & dotnet build Windows/OpenAIUsage.Windows.csproj -t:Rebuild -c Release -r "win-$Architecture" "-p:Platform=$platform" --self-contained false --no-restore
     if ($LASTEXITCODE -ne 0) { throw 'Windows source build failed.' }
-    & dotnet publish Windows/OpenAIUsage.Windows.csproj -c Release -r win-x64 --self-contained false --no-build --no-restore -o $payload
+    & dotnet publish Windows/OpenAIUsage.Windows.csproj -c Release -r "win-$Architecture" "-p:Platform=$platform" --self-contained false --no-build --no-restore -o $payload
     if ($LASTEXITCODE -ne 0) { throw 'Windows publish failed.' }
     foreach ($file in @('OpenAIUsage.Windows.exe','OpenAIUsage.Windows.pri','App.xbf','OpenAIUsage.Windows.runtimeconfig.json')) { if (-not (Test-Path -LiteralPath (Join-Path $payload $file))) { throw "Missing $file" } }
     if ((Get-Item (Join-Path $payload 'OpenAIUsage.Windows.dll')).VersionInfo.FileVersion -ne "$version.0") { throw 'Published version mismatch.' }
@@ -34,13 +41,15 @@ try {
     New-Item -ItemType Directory -Path $notices | Out-Null
     Get-ChildItem -LiteralPath $packages -Directory | ForEach-Object { $id = $_.Name; Get-ChildItem -LiteralPath $_.FullName -Directory | ForEach-Object { $v = $_.Name; Get-ChildItem -LiteralPath $_.FullName -File | Where-Object Name -Match '(?i)^(license|third[-_]?party|notice)' | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $notices "$id-$v-$($_.Name)") } } }
     $wxs = Join-Path $stage 'OpenAIUsage.wxs'
-    & python Packaging/package.py wix $payload $wxs
+    & python Packaging/package.py wix $payload $wxs --architecture $Architecture
     if ($LASTEXITCODE -ne 0) { throw 'WiX source generation failed.' }
     $uiExtension = Join-Path $tools 'wixtoolset.ui.wixext/wixext5/WixToolset.UI.wixext.dll'
     $netfxExtension = Join-Path $tools 'wixtoolset.netfx.wixext/wixext5/WixToolset.Netfx.wixext.dll'
-    & dotnet (Join-Path $tools 'wix/tools/net6.0/any/wix.dll') build $wxs -arch x64 -o $msi -pdbtype none `
+    & dotnet (Join-Path $tools 'wix/tools/net6.0/any/wix.dll') build $wxs -arch $Architecture -o $msi -pdbtype none `
         -intermediatefolder (Join-Path $stage 'wix-intermediate') -ext $uiExtension -ext $netfxExtension
     if ($LASTEXITCODE -ne 0) { throw 'MSI build failed.' }
-    & (Join-Path $PSScriptRoot 'Verify-WindowsRequirement.ps1') -PackagePath $msi
+    & (Join-Path $PSScriptRoot 'Verify-WindowsRequirement.ps1') -PackagePath $msi -Architecture $Architecture
+    & python (Join-Path $root '../Shared/package-portable.py') --payload $payload --executable OpenAIUsage.Windows.exe --architecture $Architecture --native Microsoft.UI.Xaml.dll --output $zip
+    if ($LASTEXITCODE -ne 0) { throw 'OpenAI Usage portable packaging failed.' }
     Write-Output "MSI: $msi"
 } finally { Pop-Location }

@@ -3,19 +3,12 @@ name: thermalright / CI
 on:
   workflow_call:
   workflow_dispatch:
-    inputs:
-      configuration:
-        description: Build configuration for distribution packages
-        type: choice
-        options: [Debug, Release]
-        default: Debug
-        required: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-thermalright-ci-${{ github.ref }}-${{ inputs.configuration || 'ci' }}
+  group: ci-thermalright-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -37,8 +30,6 @@ jobs:
           global-json-file: Apps/ThermalRight Panel/global.json
       - name: Prepare Windows imports, then build and package
         shell: pwsh
-        env:
-          PACKAGE_CONFIGURATION: ${{ inputs.configuration || 'Debug' }}
         run: |
           $architecture = '${{ matrix.arch }}'
           Import-Module ./scripts/modules/Build.psm1 -Force
@@ -55,13 +46,13 @@ jobs:
             dotnet run --project tests/ThermalrightVibeWare.StudioChecks -c Release --no-restore
             if ($LASTEXITCODE -ne 0) { throw 'Offline studio checks failed.' }
           }
-          Invoke-Package -Architecture $architecture -Configuration $env:PACKAGE_CONFIGURATION -ImportSession $imports
+          Invoke-Package -Architecture $architecture -Configuration Release -ImportSession $imports
           $payloads = @(Get-ChildItem -LiteralPath artifacts/staging -Directory)
           if ($payloads.Count -ne 1) { throw 'Expected exactly one fresh published payload.' }
           ./scripts/build/Build-Msi.ps1 -PayloadPath $payloads[0].FullName -Architecture $architecture -ImportSession $imports
       - uses: actions/upload-artifact@v7
         with:
-          name: ThermalrightVibeWare-win-${{ matrix.arch }}${{ inputs.configuration && format('-{0}', inputs.configuration) || '' }}
+          name: ThermalrightVibeWare-win-${{ matrix.arch }}-Release
           path: |
             Apps/ThermalRight Panel/artifacts/packages/*.zip
             Apps/ThermalRight Panel/artifacts/packages/*.msi
@@ -92,7 +83,7 @@ jobs:
       - name: Offline state and provider checks (no hardware)
         run: dotnet run --project tests/ThermalrightVibeWare.StudioChecks -c Release
       - name: Offline Linux sensors and NVML checks (no hardware)
-        run: dotnet run --project tests/ThermalrightVibeWare.LinuxChecks -c Debug
+        run: dotnet run --project tests/ThermalrightVibeWare.LinuxChecks -c Release
     defaults:
       run:
         working-directory: Apps/ThermalRight Panel
@@ -110,12 +101,10 @@ jobs:
           ./scripts/vibeware.ps1 preflight
       - name: Build UI and Debian package
         shell: pwsh
-        env:
-          PACKAGE_CONFIGURATION: ${{ inputs.configuration || 'Debug' }}
-        run: ./scripts/vibeware.ps1 package -PackageConfiguration $env:PACKAGE_CONFIGURATION
+        run: ./scripts/vibeware.ps1 package -PackageConfiguration Release
       - uses: actions/upload-artifact@v7
         with:
-          name: ThermalrightVibeWare-linux-amd64${{ inputs.configuration && format('-{0}', inputs.configuration) || '' }}
+          name: ThermalrightVibeWare-linux-amd64-Release
           path: Apps/ThermalRight Panel/artifacts/packages/*.deb
           if-no-files-found: error
     defaults:

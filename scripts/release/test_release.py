@@ -52,6 +52,16 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaises(ReleaseError):
                 extract_packages(path, "win", specs, Path(tmp), set())
 
+    def test_public_assets_reject_store_packages_even_with_a_broad_catalog_pattern(self):
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            for extension in ("msix", "msixbundle", "msixupload"):
+                archive = directory / "download.zip"
+                with zipfile.ZipFile(archive, "w") as bundle:
+                    bundle.writestr(f"store.{extension}", b"test")
+                with self.assertRaises(ReleaseError):
+                    extract_packages(archive, "win", [{"artifact": "win", "file": "*"}], directory, set())
+
     def test_markvibe_reuse_is_bound_to_requested_version_and_handles_directories(self):
         project = json.loads(CATALOG.read_text())["markvibe"]
         specs = [{"artifact":s["artifact"].format(version="0.1.0.64"),
@@ -95,6 +105,24 @@ class ReleaseTests(unittest.TestCase):
         for project in projects.values():
             self.assertTrue((root/".github/workflows"/project["workflow"]).is_file())
             self.assertTrue(project["assets"])
+
+    def test_windows_release_matrix_and_helpme_distribution(self):
+        projects = json.loads(CATALOG.read_text())
+        for slug, config in projects.items():
+            public = [item["file"].lower() for item in config["assets"]]
+            self.assertFalse(any(".msix" in name or "debug" in name for name in public), slug)
+            if slug == "ghostty-shaders":
+                self.assertTrue(all("linux" in name for name in public))
+            elif slug == "helpme":
+                self.assertTrue(all(name.endswith(".deb") for name in public))
+                self.assertEqual({a["artifact"] for a in config["linked_artifacts"]},
+                                 {f"helpme-windows-{kind}-{arch}" for kind in ("msi", "portable")
+                                  for arch in ("x64", "arm64")})
+            else:
+                for arch in ("x64", "arm64"):
+                    for extension in (".zip", ".msi"):
+                        hits = [name for name in public if arch in name and name.endswith(extension)]
+                        self.assertEqual(len(hits), 1, (slug, arch, extension, hits))
 
 
 if __name__ == "__main__":

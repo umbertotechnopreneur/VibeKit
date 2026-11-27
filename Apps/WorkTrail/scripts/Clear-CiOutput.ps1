@@ -7,7 +7,7 @@ Cleans this job's generated output after preserving its dependency scan records.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('Debug', 'Release-Unpackaged')]
+    [ValidateSet('Release', 'Release-Unpackaged')]
     [string]$Configuration,
     [Parameter(Mandatory)]
     [ValidateSet('x64', 'ARM64')]
@@ -41,8 +41,8 @@ $cleanFailed = $false
 if ($clearedStages.Archive -and $clearedStages.DotNet -and $clearedStages.NuGet) {
     # Never invoke MSBuild targets from dependencies that failed their security gate.
     $cleanTargets = @((Join-Path $repositoryRoot 'WorkTrail.slnx'))
-    if ($Configuration -eq 'Debug') {
-        # The lint job builds test projects directly; the solution has no Debug|x64 configuration.
+    if ($Configuration -eq 'Release') {
+        # The lint job builds test projects directly; the solution has no Release|x64 configuration.
         $cleanTargets = @(git -C $repositoryRoot ls-files -- '*.Tests.csproj')
         if ($LASTEXITCODE -ne 0 -or $cleanTargets.Count -eq 0) {
             $cleanFailed = $true

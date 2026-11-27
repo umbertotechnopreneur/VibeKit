@@ -4,7 +4,9 @@ GitHub discovers workflows in the root `.github/workflows/` directory. The copie
 
 ## Selective CI
 
-`monorepo.yml` starts on pushes to `main` and pull requests targeting `main`. It compares every commit in a push, or the pull request's merge base and head. Deleted and renamed files participate in selection. A missing comparison base checks every configured project rather than silently skipping checks. Selection uses Git directly and is not limited to the first 300 changed files.
+`monorepo.yml` starts on pushes to `main` and pull requests targeting `main` when they include a change outside the documentation filters. Markdown, MDX, reStructuredText and AsciiDoc files, plus images and PDFs under `docs/`, do not start CI by themselves. HelpMe's CodeQL and dependency review use the same exclusions for their automatic push and pull request triggers. Mixed code and documentation changes still run CI; manually started and scheduled workflows remain available. GitHub evaluates path filters on a limited change list, so unusually large changes may need a manual run.
+
+When started, `monorepo.yml` compares every commit in a push, or the pull request's merge base and head. Deleted and renamed files participate in selection. A missing comparison base checks every configured project rather than silently skipping checks. Project selection uses Git directly.
 
 | Directory | Pipeline |
 | --- | --- |
@@ -23,7 +25,7 @@ For example, changing only `Apps/WorkTrail/` runs its two pipelines and the comm
 
 OpenAI Usage checks use synthetic account data and isolated temporary storage. They do not contact the owner's Codex account or claim native WinUI/GTK validation. Ripple also checks the portable C# model and the recovery policy; its C# checks run in Debug because the preference-check helper is deliberately Debug-only. Adding a project requires an explicit entry in `scripts/ci/select_projects.py`, a reusable workflow, and the corresponding dispatcher and result jobs.
 
-The stable check for branch protection is **VibeKit CI required**. It requires successful selection and every selected reusable workflow, and accepts skips only for unrelated applications. Do not require individually path-filtered workflows, which can leave checks pending. HelpMe CodeQL and dependency review retain separate scoped triggers; the existing CodeQL schedule is preserved. They require the corresponding GitHub repository features. On private repositories, set `CODE_SECURITY_ENABLED=true` only after enabling GitHub Code Security. Otherwise, dependency checks use NuGet audit for direct and transitive high/critical vulnerabilities (including audit-source errors), and CodeQL reports that analysis is unavailable. NuGet audit does not replace dependency-diff or license review.
+When CI runs, **VibeKit CI required** requires successful selection and every selected reusable workflow, and accepts skips only for unrelated applications. Do not make this or another path-filtered workflow a mandatory branch protection check: GitHub leaves skipped required checks pending and blocks documentation-only pull requests. HelpMe CodeQL and dependency review retain separate scoped triggers; the existing CodeQL schedule is preserved. They require the corresponding GitHub repository features. On private repositories, set `CODE_SECURITY_ENABLED=true` only after enabling GitHub Code Security. Otherwise, dependency checks use NuGet audit for direct and transitive high/critical vulnerabilities (including audit-source errors), and CodeQL reports that analysis is unavailable. NuGet audit does not replace dependency-diff or license review.
 
 Use **Actions → VibeKit CI → Run workflow** to select one project or all configured projects. Individual application workflows also retain manual entry points. Normal commits build CI artifacts; they do not publish releases or submit anything to the Microsoft Store.
 

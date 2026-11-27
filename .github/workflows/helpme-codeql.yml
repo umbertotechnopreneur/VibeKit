@@ -24,11 +24,33 @@ on:
     paths:
       - Apps/HelpMe/**
       - .github/workflows/helpme-codeql.yml
+      - '!**/*.md'
+      - '!**/*.mdx'
+      - '!**/*.markdown'
+      - '!**/*.rst'
+      - '!**/*.adoc'
+      - '!**/docs/**/*.png'
+      - '!**/docs/**/*.jpg'
+      - '!**/docs/**/*.jpeg'
+      - '!**/docs/**/*.webp'
+      - '!**/docs/**/*.svg'
+      - '!**/docs/**/*.pdf'
   pull_request:
     branches: [main]
     paths:
       - Apps/HelpMe/**
       - .github/workflows/helpme-codeql.yml
+      - '!**/*.md'
+      - '!**/*.mdx'
+      - '!**/*.markdown'
+      - '!**/*.rst'
+      - '!**/*.adoc'
+      - '!**/docs/**/*.png'
+      - '!**/docs/**/*.jpg'
+      - '!**/docs/**/*.jpeg'
+      - '!**/docs/**/*.webp'
+      - '!**/docs/**/*.svg'
+      - '!**/docs/**/*.pdf'
   schedule:
     - cron: '23 4 * * 1'
   workflow_dispatch:

@@ -24,6 +24,17 @@ on:
     paths:
       - Apps/HelpMe/**
       - .github/workflows/helpme-dependency-review.yml
+      - '!**/*.md'
+      - '!**/*.mdx'
+      - '!**/*.markdown'
+      - '!**/*.rst'
+      - '!**/*.adoc'
+      - '!**/docs/**/*.png'
+      - '!**/docs/**/*.jpg'
+      - '!**/docs/**/*.jpeg'
+      - '!**/docs/**/*.webp'
+      - '!**/docs/**/*.svg'
+      - '!**/docs/**/*.pdf'
 
 permissions:
   contents: read

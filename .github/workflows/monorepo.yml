@@ -3,8 +3,32 @@ name: VibeKit CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.mdx'
+      - '**/*.markdown'
+      - '**/*.rst'
+      - '**/*.adoc'
+      - '**/docs/**/*.png'
+      - '**/docs/**/*.jpg'
+      - '**/docs/**/*.jpeg'
+      - '**/docs/**/*.webp'
+      - '**/docs/**/*.svg'
+      - '**/docs/**/*.pdf'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.mdx'
+      - '**/*.markdown'
+      - '**/*.rst'
+      - '**/*.adoc'
+      - '**/docs/**/*.png'
+      - '**/docs/**/*.jpg'
+      - '**/docs/**/*.jpeg'
+      - '**/docs/**/*.webp'
+      - '**/docs/**/*.svg'
+      - '**/docs/**/*.pdf'
   workflow_dispatch:
     inputs:
       project:

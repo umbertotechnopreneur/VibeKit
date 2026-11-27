@@ -8,7 +8,7 @@ Source/package target: **0.4.3**. Architectures: Windows x64 and ARM64, Ubuntu a
 
 ## Windows
 
-Open the generated MSI and launch **OpenAI Usage** from Start, or extract the portable ZIP and run `OpenAIUsage.Windows.exe`.
+Install the shared .NET Runtime 10 for the selected architecture before launching the portable ZIP. Extract it into an empty directory and run `OpenAIUsage.Windows.exe`. For a per-user installation, open the MSI and launch **OpenAI Usage** from Start.
 
 - Per-user installation in `%LOCALAPPDATA%/Programs/OpenAI Usage`.
 - Uses the shared Microsoft .NET Runtime 10.0 for the target Windows architecture and includes Windows App SDK components. If setup finds the runtime missing, it offers the [official Microsoft download page](https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime).

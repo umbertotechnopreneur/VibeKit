@@ -101,7 +101,7 @@ jobs:
         run: |
           ./scripts/Test-PortableReleasePackaging.ps1
 
-      - name: Publish portable application with bundled runtimes
+      - name: Publish with shared .NET 10 and app-local Windows App SDK
         run: |
           $ErrorActionPreference = 'Stop'
           ./scripts/WorkTrail.ps1 -Action PublishUnpackaged -Platform $env:RELEASE_PLATFORM -ReleaseVersion $env:RELEASE_VERSION -PublishOutputPath "./artifacts/portable-publish/$env:RELEASE_PLATFORM"

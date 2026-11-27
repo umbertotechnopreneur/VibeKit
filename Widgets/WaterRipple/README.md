@@ -82,7 +82,7 @@ Use PowerShell, Python 3 and WiX 5.0.2 to build the Release portable ZIP and uns
 
 The installer is under `dist/`. It adds Water Ripple to Start and includes the
 private WinUI runtime, native renderer and compiled shaders.
-For the portable edition, install .NET Runtime 10 for the target architecture, extract the ZIP and run `WaterRipple.exe`.
+Both packages use the shared .NET Runtime 10 for the target architecture. To use the portable edition, extract the ZIP and run `WaterRipple.exe`.
 Use `msiexec /i <path-to-msi> /quiet /norestart` for automation.
 
 Preferences stay in LocalAppData on MSI uninstall. To retain settings from an

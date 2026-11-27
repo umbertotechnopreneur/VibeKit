@@ -21,6 +21,10 @@ VibeKit is my workbench for turning those everyday annoyances into applications 
   <a href="https://umbertogiacobbi.biz/vibeware/manifesto">VibeWare manifesto</a>
 </p>
 
+## Running the Windows previews
+
+Install the latest **.NET Desktop Runtime 10.0** for the architecture of the ZIP or MSI you download (x64 or ARM64). This covers Vignette’s WPF desktop framework and the shared .NET runtime used by the other managed Windows apps. UlanziDeck is native. The release packages use the system runtime, so one installation serves all matching apps. [Microsoft runtime downloads](https://dotnet.microsoft.com/download/dotnet/10.0) · [Italian release guide](docs/release-it.md)
+
 ## Meet the projects
 
 A little hardware, a few desktop windows, and plenty of curiosity. **[Open the 20-image carousel](https://umbertogiacobbi.biz/vibeware/manifesto#vibekit-gallery)** for the large images and full-screen gallery.

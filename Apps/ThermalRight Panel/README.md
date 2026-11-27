@@ -65,7 +65,7 @@ This is an independent, unofficial project. I do not work for Thermalright, and 
 
 ## Get it
 
-Start with the [build and packaging guide](docs/build.md). Binary downloads are not yet published in VibeKit. Local Windows packages target **x64** or **ARM64**; for a portable ZIP, extract the whole folder before opening the app.
+Start with the [build and packaging guide](docs/build.md). Choose the **x64** or **ARM64** Windows package from [VibeKit Releases](https://github.com/umbertotechnopreneur/VibeKit/releases). Install the latest Microsoft .NET Runtime 10.0 of the same architecture; for a portable ZIP, extract the whole folder before opening the app.
 
 **On Windows, run Thermalright VibeWare as administrator.**
 

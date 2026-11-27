@@ -25,7 +25,8 @@
       }
     ],
     "version_file": "Widgets/WaterRipple/WaterRipple.csproj",
-    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>",
+    "windows_framework": "Microsoft.NETCore.App"
   },
   "ghostty-shaders": {
     "workflow": "package-missing.yml",
@@ -74,7 +75,8 @@
       }
     ],
     "version_file": "Apps/HelpMe/HelpMe/HelpMe.csproj",
-    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>",
+    "windows_framework": "Microsoft.NETCore.App"
   },
   "markvibe": {
     "workflow": "markvibe-package-windows.yml",
@@ -100,7 +102,8 @@
       }
     ],
     "version_file": "Apps/MarkVibe/packaging/windows/version.json",
-    "version_pattern": "\"version\"\\s*:\\s*\"(\\d+\\.\\d+\\.\\d+\\.\\d+)\""
+    "version_pattern": "\"version\"\\s*:\\s*\"(\\d+\\.\\d+\\.\\d+\\.\\d+)\"",
+    "windows_framework": "Microsoft.NETCore.App"
   },
   "openai-usage": {
     "workflow": "ci-openai-usage.yml",
@@ -128,7 +131,8 @@
       }
     ],
     "version_file": "Widgets/OpenAI/Directory.Build.props",
-    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>",
+    "windows_framework": "Microsoft.NETCore.App"
   },
   "reporadar": {
     "workflow": "ci-reporadar.yml",
@@ -156,7 +160,8 @@
       }
     ],
     "version_file": "Apps/RepoRadar/src/RepoRadar.csproj",
-    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>",
+    "windows_framework": "Microsoft.NETCore.App"
   },
   "retro-terminal": {
     "workflow": "ci-retro-terminal.yml",
@@ -184,7 +189,8 @@
       }
     ],
     "version_file": "Widgets/RetroTerminal/Windows/Studio/RetroStudio.csproj",
-    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>",
+    "windows_framework": "Microsoft.NETCore.App"
   },
   "studio-controls": {
     "workflow": "ci-studio-controls.yml",
@@ -212,7 +218,8 @@
       }
     ],
     "version_file": "Widgets/StudioControls/Windows/StudioControls.Windows.csproj",
-    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>",
+    "windows_framework": "Microsoft.NETCore.App"
   },
   "thermalright": {
     "workflow": "ci-thermalright.yml",
@@ -240,7 +247,8 @@
       }
     ],
     "version_file": "Apps/ThermalRight Panel/installer/Version.txt",
-    "version_pattern": "^(\\d+\\.\\d+\\.\\d+)\\s*$"
+    "version_pattern": "^(\\d+\\.\\d+\\.\\d+)\\s*$",
+    "windows_framework": "Microsoft.NETCore.App"
   },
   "ulanzideck": {
     "workflow": "ci-ulanzideck.yml",
@@ -300,7 +308,8 @@
       }
     ],
     "version_file": "Widgets/Vignette/Windows/Vignette.csproj",
-    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>",
+    "windows_framework": "Microsoft.WindowsDesktop.App"
   },
   "voiceducker": {
     "workflow": "ci-voiceducker.yml",
@@ -324,7 +333,8 @@
       }
     ],
     "version_file": "Apps/VoiceDucker/VoiceDucker.csproj",
-    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>",
+    "windows_framework": "Microsoft.NETCore.App"
   },
   "worktrail": {
     "workflow": "package-missing.yml",
@@ -351,6 +361,7 @@
       }
     ],
     "version_file": "Apps/WorkTrail/WorkTrail/build-version.json",
-    "version_pattern": "\"semVer\"\\s*:\\s*\"(\\d+\\.\\d+\\.\\d+)\""
+    "version_pattern": "\"semVer\"\\s*:\\s*\"(\\d+\\.\\d+\\.\\d+)\"",
+    "windows_framework": "Microsoft.NETCore.App"
   }
 }

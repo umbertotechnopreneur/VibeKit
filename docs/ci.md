@@ -4,7 +4,7 @@ GitHub discovers workflows in the root `.github/workflows/` directory. The copie
 
 [Guida alle release in italiano](release-it.md)
 
-Windows packages for development previews and stable releases use the Release configuration. Each Windows application produces portable ZIPs and MSIs for x64 and ARM64. HelpMe keeps its Windows packages in signed-in Actions downloads. Public GitHub release assets exclude MSIX packages. Ghostty Shaders supports Linux only.
+Windows packages for development previews and stable releases use the Release configuration. Each Windows application produces portable ZIPs and MSIs for x64 and ARM64. Managed Windows packages require an external .NET 10 runtime of the same architecture. Vignette requires the .NET Desktop Runtime for WPF. The publisher checks managed Windows ZIPs for the expected runtime configuration and rejects bundled .NET runtime binaries. HelpMe keeps its Windows packages in signed-in Actions downloads. Public GitHub release assets exclude MSIX packages. Ghostty Shaders supports Linux only.
 
 ## Selective CI
 

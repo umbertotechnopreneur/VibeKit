@@ -20,7 +20,7 @@
 .SYNOPSIS
   Package a prepared Windows publish folder as an MSIX with a Start-menu launcher and hm execution alias.
 .DESCRIPTION
-  Requires a self-contained, non-single-file publish folder with exported notices,
+  Requires a framework-dependent, non-single-file publish folder with exported notices,
   and Windows SDK packaging tools. Signed Debug packages also require an existing
   trusted code-signing certificate in CurrentUser\My. Creates a new directory below
   artifacts; never installs the package, changes certificate trust or PATH, or launches it.
@@ -186,18 +186,23 @@ function New-PackageLogos {
 if (-not (Test-Path -LiteralPath $publishRoot -PathType Container)) { throw 'PublishDirectory must be an existing prepared publish folder.' }
 Assert-NoReparseAncestor $publishRoot
 $files = @(Get-PayloadFiles $publishRoot)
-foreach ($name in @('hm.exe', 'hm.dll', 'hm.deps.json', 'hm.runtimeconfig.json', 'coreclr.dll', 'hostfxr.dll', 'hostpolicy.dll',
+foreach ($name in @('hm.exe', 'hm.dll', 'hm.deps.json', 'hm.runtimeconfig.json',
         'LICENSE', 'THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_INVENTORY.json', 'prompt/chat-system.yaml', 'themes/cyan.json', 'LICENSES/README.md',
         'docs/helpme-quick-reference.pdf') + $bundledSkillFiles) {
     if (-not (Test-Path -LiteralPath (Join-Path $publishRoot $name) -PathType Leaf)) { throw "Prepared publish folder is missing '$name'." }
 }
 Assert-PeArchitecture (Join-Path $publishRoot 'hm.exe')
-Assert-PeArchitecture (Join-Path $publishRoot 'coreclr.dll')
+if ($files | Where-Object { $_.Name -in @('coreclr.dll','clrjit.dll','hostfxr.dll','hostpolicy.dll','System.Private.CoreLib.dll') }) {
+    throw 'Windows packages require the external .NET 10 runtime. Remove bundled runtime files.'
+}
 $inventory = Get-Content -LiteralPath (Join-Path $publishRoot 'THIRD_PARTY_INVENTORY.json') -Raw | ConvertFrom-Json
 if ($inventory.runtime -ne "win-$Architecture") { throw 'The exported license inventory does not match the requested runtime.' }
 $runtimeConfig = Get-Content -LiteralPath (Join-Path $publishRoot 'hm.runtimeconfig.json') -Raw | ConvertFrom-Json -AsHashtable
-if (@($runtimeConfig.runtimeOptions.includedFrameworks | Where-Object { $_.name -eq 'Microsoft.NETCore.App' }).Count -ne 1) {
-    throw 'Use a self-contained publish folder with Microsoft.NETCore.App included.'
+$options = $runtimeConfig['runtimeOptions']
+$framework = $options['framework']
+if ($null -eq $framework -or $framework['name'] -ne 'Microsoft.NETCore.App' -or
+    $framework['version'] -notmatch '^10\.0\.\d+$' -or $options.Contains('includedFrameworks')) {
+    throw 'Publish HelpMe for the shared Microsoft.NETCore.App 10.0 runtime.'
 }
 
 if ([string]::IsNullOrWhiteSpace($Version)) {

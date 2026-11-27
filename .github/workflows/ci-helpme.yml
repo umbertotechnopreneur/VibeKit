@@ -201,9 +201,9 @@ jobs:
           $ErrorActionPreference = 'Stop'
           dotnet tool install --tool-path "$env:RUNNER_TEMP/wix5" wix --version 5.0.2
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet publish Apps/HelpMe/HelpMe/HelpMe.csproj -c Release -r "win-$env:ARCH" --self-contained false -o "$env:RUNNER_TEMP/helpme-payload"
+          dotnet publish Apps/HelpMe/HelpMe/HelpMe.csproj -c Release -r "win-$env:ARCH" --self-contained false --artifacts-path "$env:RUNNER_TEMP/helpme-build" -o "$env:RUNNER_TEMP/helpme-payload"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Copy-Item -LiteralPath Apps/HelpMe/LICENSES -Destination "$env:RUNNER_TEMP/helpme-payload/LICENSES" -Recurse
+          ./Apps/HelpMe/scripts/Common/commands/export-third-party-notices.ps1 -Runtime "win-$env:ARCH" -OutputDirectory "$env:RUNNER_TEMP/helpme-payload" -AssetsFile "$env:RUNNER_TEMP/helpme-build/obj/HelpMe/project.assets.json"
           Compress-Archive -Path "$env:RUNNER_TEMP/helpme-payload/*" -DestinationPath "$env:RUNNER_TEMP/HelpMe-windows-$env:ARCH-portable.zip"
           $version = ([xml](Get-Content Apps/HelpMe/HelpMe/HelpMe.csproj -Raw)).Project.PropertyGroup.Version | Select-Object -First 1
           python scripts/ci/create-app-msi.py helpme $version "$env:RUNNER_TEMP/helpme-payload" "$env:RUNNER_TEMP/helpme.wxs" --architecture $env:ARCH

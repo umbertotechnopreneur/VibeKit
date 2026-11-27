@@ -1,9 +1,11 @@
-"""Build the Debian amd64 package and the Windows x64 portable ZIP."""
+"""Build the Debian amd64 package and the Windows x64 or ARM64 portable ZIP."""
 from __future__ import annotations
 
 import argparse
 import gzip
 import io
+import json
+import re
 from pathlib import Path
 import tarfile
 import zipfile
@@ -73,6 +75,12 @@ Description: Repo Radar, a full-screen Git repository dashboard
 
 
 def windows_zip(publish, output, architecture):
+    config = json.loads((publish / "repo-radar.runtimeconfig.json").read_text(encoding="utf-8-sig"))
+    options = config["runtimeOptions"]
+    framework = options.get("framework", {})
+    if ("includedFrameworks" in options or framework.get("name") != "Microsoft.NETCore.App"
+            or not re.fullmatch(r"10[.]0[.][0-9]+", framework.get("version", ""))):
+        raise ValueError("The Windows ZIP must require the shared Microsoft .NET 10 Runtime.")
     target = output / f"RepoRadar-{VERSION}-win-{architecture}-portable.zip"
     temp = target.with_suffix(".zip.tmp")
     with zipfile.ZipFile(temp, "w", zipfile.ZIP_DEFLATED) as package:
@@ -80,6 +88,8 @@ def windows_zip(publish, output, architecture):
             package.write(publish / name, name)
         for name in (*LICENSES, "repo-radar.ps1", "repo-radar.cmd", "preflight.psm1"):
             package.write(APP / name, name)
+        package.writestr("README.txt", f"Install the Microsoft .NET 10 Runtime for Windows {architecture}.\n"
+                         "Extract the entire ZIP and run repo-radar.exe or repo-radar.cmd.\n")
         package.writestr("portable.flag", "Keep catalog, index and preferences beside the application.\n")
     temp.replace(target)
     print(target)

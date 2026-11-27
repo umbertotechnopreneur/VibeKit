@@ -117,12 +117,14 @@ if ($buildInfo.semVer -cne $Version -or $buildInfo.packageVersion -cne "$Version
 }
 $runtimeConfig = Get-Content -LiteralPath (Join-Path $publishRoot 'WorkTrail.runtimeconfig.json') -Raw | ConvertFrom-Json -AsHashtable
 $runtimeOptions = $runtimeConfig.runtimeOptions
-if ($null -eq $runtimeOptions -or -not $runtimeOptions.ContainsKey('framework') -or $runtimeOptions.framework.name -ne 'Microsoft.NETCore.App' -or
-    $runtimeOptions.framework.version -notlike '10.*') {
+if ($null -eq $runtimeOptions -or $runtimeOptions.ContainsKey('includedFrameworks') -or
+    -not $runtimeOptions.ContainsKey('framework') -or $runtimeOptions.framework.name -ne 'Microsoft.NETCore.App' -or
+    $runtimeOptions.framework.version -notmatch '^10[.]0[.][0-9]+$') {
     throw 'Portable runtime configuration must require the shared .NET 10 runtime.'
 }
-foreach ($runtimeFile in @('hostfxr.dll', 'hostpolicy.dll', 'coreclr.dll', 'System.Private.CoreLib.dll')) {
-    if (Test-Path -LiteralPath (Join-Path $publishRoot $runtimeFile)) { throw "Bundled .NET runtime file: $runtimeFile" }
+$runtimeFiles = @('hostfxr.dll', 'hostpolicy.dll', 'coreclr.dll', 'System.Private.CoreLib.dll')
+foreach ($file in $publishFiles) {
+    if ($file.Name -in $runtimeFiles) { throw "Bundled .NET runtime file: $($file.FullName)" }
 }
 
 #endregion

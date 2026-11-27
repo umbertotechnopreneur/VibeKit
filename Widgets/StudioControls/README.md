@@ -85,6 +85,7 @@ The build uses locked dependencies and a fresh publish folder. Choose a new or
 empty `-OutputDirectory` for another build; existing files are never mixed into
 the release. `-Package` creates a versioned portable ZIP and an unsigned MSI. Use
 `-Architecture arm64` to select Windows ARM64, or `-Architecture x64` for x64.
+Install the .NET 10 runtime for that architecture before using the portable ZIP.
 Run the MSI, then open Studio Controls from Start. The installer includes WinUI
 components, generic assets, the sanitized scene template and licences. It requires
 the shared Microsoft .NET Runtime 10.0 for the selected architecture and offers the official

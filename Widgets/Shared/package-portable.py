@@ -1,10 +1,13 @@
 """Build a portable widget ZIP after checking its Windows native payload."""
 
 import argparse
-import json
 from pathlib import Path
 import struct
+import sys
 from zipfile import ZIP_DEFLATED, ZipFile
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts" / "packaging"))
+from vibeware_msi import read_runtime
 
 
 def check_machine(binary, architecture):
@@ -19,7 +22,7 @@ def check_machine(binary, architecture):
             raise ValueError(f"{binary.name} is not a Windows binary for {architecture}")
 
 
-def package(payload, executable, architecture, output, native):
+def package(payload, executable, architecture, output, native, runtime_type="core"):
     payload = payload.resolve(strict=True)
     output = output.resolve()
     if output.is_relative_to(payload):
@@ -28,9 +31,7 @@ def package(payload, executable, architecture, output, native):
     for binary in (app, *(payload / name for name in native)):
         binary.resolve(strict=True).relative_to(payload)
         check_machine(binary, architecture)
-    dependencies = json.loads(app.with_suffix(".deps.json").read_text(encoding="utf-8-sig"))
-    if not dependencies["runtimeTarget"]["name"].endswith(f"/win-{architecture}"):
-        raise ValueError(f"Runtime dependencies do not match win-{architecture}")
+    read_runtime(payload, executable, architecture, runtime_type)
     files = sorted(path for path in payload.rglob("*") if path.is_file() and path.suffix.lower() != ".pdb")
     for path in files:
         path.resolve(strict=True).relative_to(payload)
@@ -56,5 +57,6 @@ if __name__ == "__main__":
     parser.add_argument("--executable", required=True)
     parser.add_argument("--architecture", choices=("x64", "arm64"), required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--runtime-type", choices=("core", "desktop"), default="core")
     parser.add_argument("--native", action="append", default=[])
     package(**vars(parser.parse_args()))

@@ -31,7 +31,7 @@ Use PowerShell, Python 3 and WiX 5.0.2 to build the Release portable ZIP and uns
 
 The installer is under the application `dist/` directory. It adds Retro Terminal
 to Start and installs the WinUI studio, native engine, shader and private
-WinUI runtime. For the portable edition, install .NET Runtime 10 for the target architecture, extract the ZIP and run `RetroStudio.exe`.
+WinUI runtime. Both packages use the shared .NET Runtime 10 for the target architecture. To use the portable edition, extract the ZIP and run `RetroStudio.exe`.
 Use `msiexec /i <path-to-msi> /quiet /norestart` for automation.
 
 The original native panel stores preferences under `HKCU\Software\VibeWare\RetroTerminal`.

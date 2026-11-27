@@ -143,7 +143,27 @@ def digest(path):
         return "sha256:" + hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def extract_packages(archive, artifact_name, specs, dest, names):
+def verify_external_runtime(bundle, framework):
+    """Check all managed entry points and nested folders before publishing a Windows ZIP."""
+    runtime_files = {"coreclr.dll", "clrjit.dll", "hostfxr.dll", "hostpolicy.dll", "system.private.corelib.dll"}
+    found = set()
+    for entry in bundle.infolist():
+        name = PurePosixPath(entry.filename.replace("\\", "/")).name.lower()
+        if name in runtime_files:
+            raise ReleaseError(f"Runtime .NET incluso nello ZIP: {entry.filename}")
+        if not name.endswith(".runtimeconfig.json"):
+            continue
+        options = json.loads(bundle.read(entry).decode("utf-8-sig"))["runtimeOptions"]
+        required = options.get("frameworks", []) + ([options["framework"]] if "framework" in options else [])
+        external = {f["name"] for f in required if re.fullmatch(r"10\.0\.\d+", f["version"])}
+        if "includedFrameworks" in options or not external.intersection({"Microsoft.NETCore.App", "Microsoft.WindowsDesktop.App"}):
+            raise ReleaseError(f"Manifesto senza dipendenza dal runtime .NET 10 esterno: {entry.filename}")
+        found.update(external)
+    if framework not in found:
+        raise ReleaseError(f"Lo ZIP richiede un manifesto per {framework} 10.0.")
+
+
+def extract_packages(archive, artifact_name, specs, dest, names, windows_framework=None):
     # Copy only explicitly selected regular files to controlled leaf names. Never unpack an artifact tree.
     hits = set()
     with zipfile.ZipFile(archive) as bundle:
@@ -176,12 +196,14 @@ def extract_packages(archive, artifact_name, specs, dest, names):
                 with zipfile.ZipFile(path) as inner:
                     if not inner.namelist() or inner.testzip():
                         raise ReleaseError(f"Archivio non valido: {name}")
+                    if windows_framework:
+                        verify_external_runtime(inner, windows_framework)
             names.add(name.casefold())
             hits.update(matched)
     return hits
 
 
-def stage(artifacts, specs, directory):
+def stage(artifacts, specs, directory, windows_framework=None):
     dest = directory/"pacchetti"
     dest.mkdir()
     names, matched = set(), set()
@@ -191,7 +213,7 @@ def stage(artifacts, specs, directory):
             gh("api", f"repos/{REPO}/actions/artifacts/{a['id']}/zip", output=stream)
         if digest(archive) != a["digest"]:
             raise ReleaseError(f"SHA-256 dell'artefatto non valido: {a['name']}")
-        matched.update(extract_packages(archive, a["name"], specs, dest, names))
+        matched.update(extract_packages(archive, a["name"], specs, dest, names, windows_framework))
         archive.unlink()
     if any(i not in matched and s.get("required",True) for i,s in enumerate(specs)) or not names:
         raise ReleaseError("Mancano pacchetti richiesti nel contenuto degli artefatti.")
@@ -288,7 +310,7 @@ def main():
     links = [(link["title"], i) for link in linked for i,a in artifacts.items() if a["name"] == link["artifact"]]
     print(f"Uso la build https://github.com/{REPO}/actions/runs/{run_id}", flush=True)
     with tempfile.TemporaryDirectory(prefix="vibekit-release-") as temp:
-        dest, sums = stage(package_artifacts, specs, Path(temp))
+        dest, sums = stage(package_artifacts, specs, Path(temp), project.get("windows_framework"))
         print(publish(tag, sha, run_id, f"{args.project} {version or sha[:12]} ({args.channel})",
                       args.channel, dest, sums, links))
 

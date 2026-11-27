@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from release import (CATALOG, REPO, ReleaseError, choose_version, extract_packages,
-                     get_build, publish, select_artifacts, trusted_run)
+                     get_build, publish, select_artifacts, trusted_run, verify_external_runtime)
 
 
 class ReleaseTests(unittest.TestCase):
@@ -62,6 +62,30 @@ class ReleaseTests(unittest.TestCase):
                 with self.assertRaises(ReleaseError):
                     extract_packages(archive, "win", [{"artifact": "win", "file": "*"}], directory, set())
 
+    def test_managed_zips_require_external_framework_and_exclude_nested_runtime_files(self):
+        core = {"name": "Microsoft.NETCore.App", "version": "10.0.14"}
+        desktop = {"name": "Microsoft.WindowsDesktop.App", "version": "10.0.14"}
+        cases = [
+            ({"frameworks": [core, desktop]}, [], desktop["name"], True),
+            ({"framework": core}, [], core["name"], True),
+            ({"framework": core}, [], desktop["name"], False),
+            ({"includedFrameworks": [core]}, [], core["name"], False),
+            ({"framework": core}, ["nested/CoreCLR.dll"], core["name"], False),
+        ]
+        with tempfile.TemporaryDirectory() as folder:
+            for options, files, expected, valid in cases:
+                path = Path(folder) / "app.zip"
+                with zipfile.ZipFile(path, "w") as bundle:
+                    bundle.writestr("app/app.runtimeconfig.json", json.dumps({"runtimeOptions": options}))
+                    for name in files:
+                        bundle.writestr(name, b"test")
+                with self.subTest(options=options, files=files, expected=expected), zipfile.ZipFile(path) as bundle:
+                    if valid:
+                        verify_external_runtime(bundle, expected)
+                    else:
+                        with self.assertRaises(ReleaseError):
+                            verify_external_runtime(bundle, expected)
+
     def test_markvibe_reuse_is_bound_to_requested_version_and_handles_directories(self):
         project = json.loads(CATALOG.read_text())["markvibe"]
         specs = [{"artifact":s["artifact"].format(version="0.1.0.64"),
@@ -110,6 +134,9 @@ class ReleaseTests(unittest.TestCase):
         projects = json.loads(CATALOG.read_text())
         for slug, config in projects.items():
             public = [item["file"].lower() for item in config["assets"]]
+            if slug not in {"ulanzideck", "ghostty-shaders"}:
+                framework = "Microsoft.WindowsDesktop.App" if slug == "vignette" else "Microsoft.NETCore.App"
+                self.assertEqual(config["windows_framework"], framework)
             self.assertFalse(any(".msix" in name or "debug" in name for name in public), slug)
             if slug == "ghostty-shaders":
                 self.assertTrue(all("linux" in name for name in public))

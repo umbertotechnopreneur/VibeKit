@@ -125,7 +125,7 @@ $packageName = "RepoRadar-$productVersion-win-$Architecture.msi"
 $payload = @(Get-ChildItem -LiteralPath $publish -File | Where-Object {
     $_.Extension -eq '.dll' -or $_.Name -in @($appExeName, "$appName.deps.json", "$appName.runtimeconfig.json")
 })
-if ($payload.Name -contains 'coreclr.dll' -or $payload.Name -contains 'System.Private.CoreLib.dll') {
+if ($payload | Where-Object { $_.Name -in @('hostfxr.dll', 'hostpolicy.dll', 'coreclr.dll', 'System.Private.CoreLib.dll') }) {
     throw 'Bundled .NET runtime files found in output.'
 }
 foreach ($notice in 'LICENSE','THIRD-PARTY-NOTICES') {

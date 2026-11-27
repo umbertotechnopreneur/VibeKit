@@ -83,7 +83,7 @@ $publishStarted = $false
 
 try {
     $publishStarted = $true
-    & dotnet publish $project --configuration Debug --runtime $runtime --self-contained true `
+    & dotnet publish $project --configuration Debug --runtime $runtime --self-contained false `
         -p:PublishSingleFile=false --output $publishDirectory
     if ($LASTEXITCODE -ne 0) { throw 'HelpMe Debug publish failed.' }
 

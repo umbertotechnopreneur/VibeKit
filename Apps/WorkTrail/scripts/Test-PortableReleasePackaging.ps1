@@ -289,6 +289,11 @@ $source = New-SyntheticPublish -Name 'self-contained'
 [IO.File]::WriteAllText((Join-Path $source 'WorkTrail.runtimeconfig.json'),
     '{"runtimeOptions":{"includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"10.0.0"}]}}', $utf8)
 Assert-Rejected -Name 'self-contained' -Source $source -Message 'must require the shared .NET 10 runtime'
+
+$source = New-SyntheticPublish -Name 'nested-dotnet-runtime'
+$native = New-Item -ItemType Directory -Path (Join-Path $source 'runtimes/win-x64/native') -Force
+[IO.File]::WriteAllText((Join-Path $native.FullName 'coreclr.dll'), 'fixture', $utf8)
+Assert-Rejected -Name 'nested-dotnet-runtime' -Source $source -Message 'Bundled .NET runtime file'
 $source = New-SyntheticPublish -Name 'reserved-file'
 [IO.File]::WriteAllText((Join-Path $source 'release.json'), '{}', $utf8)
 Assert-Rejected -Name 'reserved-file' -Source $source -Message 'reserved release filename'

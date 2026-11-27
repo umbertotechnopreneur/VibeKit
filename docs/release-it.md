@@ -58,7 +58,14 @@ Per ogni applicazione Windows preparo quattro file, tutti compilati in configura
 | `helpme` | DEB pubblici per Linux amd64 e arm64. Per Windows accedo a GitHub e seguo i link nelle note della release ai quattro artefatti Actions. I link valgono fino alla scadenza degli artefatti. La versione commerciale si trova nel Microsoft Store. |
 | `ghostty-shaders` | ZIP per Ghostty su Linux con shader, gestore e licenze. |
 
-I requisiti di runtime dipendono dal sottoprogetto anche quando uso lo ZIP. Per HelpMe serve il runtime .NET 10 della stessa architettura del pacchetto. Essendo VibeKit un repository pubblico, gli utenti che accedono a GitHub possono scaricare questi artefatti fino alla loro scadenza. Gli allegati pubblici Windows sono ZIP e MSI. Gli MSIX destinati allo Store seguono la procedura dedicata.
+### Primo avvio su un PC Windows
+
+1. In **Impostazioni → Sistema → Informazioni sul sistema** leggo il tipo di processore. Scelgo i download **x64** per Intel o AMD a 64 bit, **ARM64** per Windows su ARM.
+2. Per provare tutte le app Windows installo una volta **.NET Desktop Runtime 10.0**, scegliendo la stessa architettura dei pacchetti e l’ultima patch disponibile. Include anche il runtime di base richiesto dalle app .NET. Vignette usa inoltre il framework desktop WPF. UlanziDeck è nativo e può essere eseguito senza .NET. [Download ufficiali Microsoft](https://dotnet.microsoft.com/it-it/download/dotnet/10.0)
+3. In PowerShell eseguo `dotnet --info` per controllare l’architettura dell’host e `dotnet --list-runtimes` per verificare la presenza di `Microsoft.NETCore.App 10.0.x` e `Microsoft.WindowsDesktop.App 10.0.x`.
+4. Installo l’MSI oppure estraggo **l’intero ZIP** in una cartella e avvio l’eseguibile da lì. Se su un PC ARM uso un pacchetto x64 in emulazione, serve anche il runtime x64.
+
+Le applicazioni .NET per Windows usano il runtime di sistema sia con lo ZIP sia con l’MSI. Le app WinUI possono includere le proprie librerie **Windows App SDK**. Le note della release HelpMe collegano i pacchetti Windows agli artefatti Actions. Gli utenti che accedono a GitHub possono scaricarli fino alla scadenza. Per gli MSIX destinati allo Store si usa la procedura dedicata.
 
 Per MarkVibe specifico una versione a quattro componenti maggiore della revisione nei sorgenti. WorkTrail permette le versioni 0.x sul canale `dev` e richiede almeno 1.x per la stabile. Per la stabile di Ghostty Shaders scelgo esplicitamente una versione con `--version`.
 

@@ -35,7 +35,7 @@ Each `WorkTrail-<version>-<platform>-portable-unsigned.zip` contains:
 The archive writer rejects missing runtimes, version/architecture mismatches and
 existing output directories. An adjacent `.zip.sha256` verifies the archive.
 
-Install the Microsoft .NET 10 Runtime matching the package architecture. Run the MSI for a per-user installation or extract the entire ZIP and run `WorkTrail.exe`. Keep its DLLs, resources and subfolders together.
+Install the Microsoft .NET 10 Runtime matching the package architecture. The publish profiles set `SelfContained=false` for .NET and `WindowsAppSDKSelfContained=true` for the Windows App SDK used by the UI. Run the MSI for a per-user installation or extract the entire ZIP and run `WorkTrail.exe`. Keep its DLLs, resources and subfolders together.
 Unsigned executables may trigger Windows security prompts.
 
 Portable describes deployment, not where preferences are stored: application data

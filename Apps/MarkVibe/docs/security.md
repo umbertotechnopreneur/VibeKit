@@ -1,7 +1,3 @@
-> **File name** `security.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\security.md`<br>
-> **Path relative to the MarkVibe application root** `docs/security.md`
-
 # Security and resource boundaries
 
 These boundaries describe how MarkVibe handles documents, local files and network access.
@@ -150,7 +146,3 @@ Debug diagnostic options remain rejected in Release. Native UI smoke checks use
 an isolated local profile and synthetic files, invoke only non-AI commands and
 remove their fixture afterward. GUI acceptance and live AI provider acceptance
 remain separate from those automated checks.
-
-> **File name** `security.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\security.md`<br>
-> **Path relative to the MarkVibe application root** `docs/security.md`

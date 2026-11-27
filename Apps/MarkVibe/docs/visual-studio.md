@@ -1,7 +1,3 @@
-> **File name** `visual-studio.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\visual-studio.md`<br>
-> **Path relative to the MarkVibe application root** `docs/visual-studio.md`
-
 # Build and debug
 
 MarkVibe has one WinUI 3 application frontend. Open `MarkVibe.sln` in Visual
@@ -39,7 +35,3 @@ install, package or run tests.
 Native breakpoints belong to `MarkVibe.Windows`, Core or Native. Renderer source
 maps are generated only for explicitly requested Debug builds. Release rejects
 smoke/debug-port options; do not enable a broad native bridge for test tooling.
-
-> **File name** `visual-studio.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\visual-studio.md`<br>
-> **Path relative to the MarkVibe application root** `docs/visual-studio.md`

@@ -1,7 +1,3 @@
-> **File name** `build.md`<br>
-> **Full path** `E:\vibekit\Apps\ThermalRight Panel\docs\build.md`<br>
-> **Path relative to the VibeKit repository** `Apps/ThermalRight Panel/docs/build.md`
-
 # Build Thermalright VibeWare
 
 In a VibeKit checkout, run the commands below from `Apps/ThermalRight Panel`.
@@ -109,7 +105,3 @@ host. Startup notification banners follow the desktop notification settings.
 Linux `launch` uses a transient user service so the studio outlives its build
 console. It requires an active systemd user manager. It installs no service file
 or sign-in entry. The console prints the unit name for local journal diagnostics.
-
-> **File name** `build.md`<br>
-> **Full path** `E:\vibekit\Apps\ThermalRight Panel\docs\build.md`<br>
-> **Path relative to the VibeKit repository** `Apps/ThermalRight Panel/docs/build.md`

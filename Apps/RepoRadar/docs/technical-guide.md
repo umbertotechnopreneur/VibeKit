@@ -1,7 +1,3 @@
-> **File name** `technical-guide.md`<br>
-> **Full path** `E:\vibekit\Apps\RepoRadar\docs\technical-guide.md`<br>
-> **Path relative to the VibeKit repository** `Apps/RepoRadar/docs/technical-guide.md`
-
 # Repo Radar technical guide
 
 This guide describes the Repo Radar terminal application. The [historical code review](code-review.md) records findings and test evidence from before the Git and viewport changes.
@@ -127,7 +123,3 @@ At method level, document preconditions, outcomes and invariants for cancellatio
 ## Validation workflow
 
 Build from source and run `repo-radar --self-test` against a disposable `REPO_RADAR_DATA` directory. The suite creates local Git repositories and tests catalog operations, recovery, scan progress, SQLite snapshots and alignment. The [historical review](code-review.md#verification) documents the audit baseline. See the [application README](../README.md#build-from-source) for distribution commands.
-
-> **File name** `technical-guide.md`<br>
-> **Full path** `E:\vibekit\Apps\RepoRadar\docs\technical-guide.md`<br>
-> **Path relative to the VibeKit repository** `Apps/RepoRadar/docs/technical-guide.md`

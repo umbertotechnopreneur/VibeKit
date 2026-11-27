@@ -1,7 +1,3 @@
-> **File name** `README.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\README.md`<br>
-> **Path relative to the MarkVibe application root** `README.md`
-
 # MarkVibe
 
 [![VibeKit CI](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml/badge.svg?branch=main)](https://github.com/umbertotechnopreneur/VibeKit/actions/workflows/monorepo.yml)
@@ -149,7 +145,3 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
   </a><br>
   <em>Human intent, AI execution, and plenty of tokens</em>
 </p>
-
-> **File name** `README.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\README.md`<br>
-> **Path relative to the MarkVibe application root** `README.md`

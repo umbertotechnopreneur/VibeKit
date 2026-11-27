@@ -1,7 +1,3 @@
-> **File name** `CONTRIBUTING.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\CONTRIBUTING.md`<br>
-> **Path relative to the MarkVibe application root** `CONTRIBUTING.md`
-
 # Contributing
 
 I welcome focused improvements to MarkVibe. Read [AGENTS.md](AGENTS.md) and the
@@ -71,7 +67,3 @@ consistent with the publication rules recorded in [AGENTS.md](AGENTS.md). A bran
 label is not evidence that a release passed functional or security checks.
 
 — Umberto Giacobbi · [VibeWare](https://umbertogiacobbi.biz/vibeware/manifesto)
-
-> **File name** `CONTRIBUTING.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\CONTRIBUTING.md`<br>
-> **Path relative to the MarkVibe application root** `CONTRIBUTING.md`

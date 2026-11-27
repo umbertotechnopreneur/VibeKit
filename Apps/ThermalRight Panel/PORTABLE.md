@@ -1,7 +1,3 @@
-> **File name** `PORTABLE.md`<br>
-> **Full path** `E:\vibekit\Apps\ThermalRight Panel\PORTABLE.md`<br>
-> **Path relative to the VibeKit repository** `Apps/ThermalRight Panel/PORTABLE.md`
-
 # Use Thermalright VibeWare
 
 For the short illustrated guide, open the [Quick Start (PDF)](docs/quick-start.pdf).
@@ -74,7 +70,3 @@ Windows only for now. Windows needs WebView2. No music login is needed. The app 
 **Themes run code. For now, only use themes from the [official repo](https://github.com/umbertotechnopreneur/VibeKit/tree/main/Apps/ThermalRight%20Panel).**
 
 Hobby project. No warranty. [My to-do list](cave.md) · [Make a theme](docs/theme-packs.md) · [Build](docs/build.md).
-
-> **File name** `PORTABLE.md`<br>
-> **Full path** `E:\vibekit\Apps\ThermalRight Panel\PORTABLE.md`<br>
-> **Path relative to the VibeKit repository** `Apps/ThermalRight Panel/PORTABLE.md`

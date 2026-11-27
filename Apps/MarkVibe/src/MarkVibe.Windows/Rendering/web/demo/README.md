@@ -1,7 +1,3 @@
-> **File name** `README.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\src\MarkVibe.Windows\Rendering\web\demo\README.md`<br>
-> **Path relative to the MarkVibe application root** `src/MarkVibe.Windows/Rendering/web/demo/README.md`
-
 ---
 title: Field notes
 ---
@@ -45,7 +41,3 @@ flowchart LR
 - [x] Source and rendered document side by side
 
 Use HTML or PDF export to keep a standalone copy of the current page.
-
-> **File name** `README.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\src\MarkVibe.Windows\Rendering\web\demo\README.md`<br>
-> **Path relative to the MarkVibe application root** `src/MarkVibe.Windows/Rendering/web/demo/README.md`

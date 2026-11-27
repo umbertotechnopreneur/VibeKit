@@ -1,7 +1,3 @@
-> **File name** `map-layout.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\map-layout.md`<br>
-> **Path relative to the MarkVibe application root** `docs/map-layout.md`
-
 # Document map layout
 
 Each opened workspace keeps one `.markvibe-map.json` in its top-level folder.
@@ -348,7 +344,3 @@ by side. Its preferred width (220–600 px, initially 290 px) is saved in
 the desktop layout model and restored on
 restart. Window resizing constrains the visible
 width without overwriting that preference. Narrow windows use the preview overlay.
-
-> **File name** `map-layout.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\map-layout.md`<br>
-> **Path relative to the MarkVibe application root** `docs/map-layout.md`

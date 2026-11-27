@@ -1,7 +1,3 @@
-> **File name:** `ci.md`<br>
-> **Full path (published document):** `https://github.com/umbertotechnopreneur/VibeKit/blob/main/docs/ci.md`<br>
-> **Relative path (VibeKit repository root):** `docs/ci.md`
-
 # CI and releases
 
 GitHub discovers workflows in the root `.github/workflows/` directory. The copies inside applications document their original configuration; they do not execute.
@@ -86,7 +82,3 @@ release assets are never replaced, and the release does not become the monorepo'
 latest release. The normal CI workflow retains read-only repository permissions;
 only the final release job can write release metadata. Manual releases default to
 drafts. Website downloads use an explicit application/version URL.
-
-> **File name:** `ci.md`<br>
-> **Full path (published document):** `https://github.com/umbertotechnopreneur/VibeKit/blob/main/docs/ci.md`<br>
-> **Relative path (VibeKit repository root):** `docs/ci.md`

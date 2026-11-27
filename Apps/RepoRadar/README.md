@@ -1,7 +1,3 @@
-> **File name:** `README.md`<br>
-> **Full path:** `E:\vibekit\Apps\RepoRadar\README.md`<br>
-> **Path relative to the VibeKit repository:** `Apps/RepoRadar/README.md`
-
 # Repo Radar
 
 Repo Radar is a full-screen Git dashboard **by Umberto Giacobbi.biz**. Choose a disk or a folder to see which working trees need attention, including repositories nested inside other projects. Built in C# with Spectre.Console and SQLite. [Umberto Giacobbi](https://umbertogiacobbi.biz) · [MIT license](LICENSE).
@@ -143,7 +139,3 @@ pwsh -File ./packaging/windows/Build-Msi.ps1
 ```
 
 The MSI builder uses WiX 3.14 and PowerShell 7.2 or newer. `./build.ps1 -Channel All` runs all three builders. Packages are written to `artifacts/dist` and `artifacts/msi`. See the [terminal design guide](docs/design/console/README.md) for the layout and brand.
-
-> **File name:** `README.md`<br>
-> **Full path:** `E:\vibekit\Apps\RepoRadar\README.md`<br>
-> **Path relative to the VibeKit repository:** `Apps/RepoRadar/README.md`

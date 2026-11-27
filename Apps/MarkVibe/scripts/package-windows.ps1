@@ -438,9 +438,7 @@ https://umbertogiacobbi.biz/vibeware/manifesto
 "@
     }
     $readmeFile = Join-Path $artifactsRoot 'README.txt'
-    $readmeRelativePath = [IO.Path]::GetRelativePath($repositoryRoot, $readmeFile)
-    $readmeLocation = "File name: README.txt`nFull path: $readmeFile`nPath relative to the MarkVibe application root: $readmeRelativePath"
-    $readme = $readmeLocation + "`n`n" + $readme.Trim() + "`n`n" + $readmeLocation
+    $readme = $readme.Trim()
     Set-Content -LiteralPath $readmeFile -Value $readme -Encoding utf8NoBOM
     $hashes = foreach ($file in Get-ChildItem -LiteralPath $artifactsRoot -File | Sort-Object Name) {
 

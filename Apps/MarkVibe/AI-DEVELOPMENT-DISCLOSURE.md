@@ -1,7 +1,3 @@
-> **File name** `AI-DEVELOPMENT-DISCLOSURE.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\AI-DEVELOPMENT-DISCLOSURE.md`<br>
-> **Path relative to the MarkVibe application root** `AI-DEVELOPMENT-DISCLOSURE.md`
-
 # AI development disclosure
 
 MarkVibe is created and maintained by **Umberto Giacobbi** with assistance from
@@ -19,7 +15,3 @@ or accumulated build, CI and pull-request records.
 The owner directed retirement of the standalone browser frontend. Codex removed
 its dedicated source paths, retained native document rendering and aligned
 distribution with the shared .NET runtime policy.
-
-> **File name** `AI-DEVELOPMENT-DISCLOSURE.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\AI-DEVELOPMENT-DISCLOSURE.md`<br>
-> **Path relative to the MarkVibe application root** `AI-DEVELOPMENT-DISCLOSURE.md`

@@ -1,7 +1,3 @@
-> **File name** `implementation-status.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\implementation-status.md`<br>
-> **Path relative to the MarkVibe application root** `docs/implementation-status.md`
-
 # Implementation status
 
 MarkVibe provides a WinUI 3 Windows desktop app. On Windows, Win2D draws the link graph and WebView2 hosts the
@@ -31,7 +27,3 @@ untouched. Workspace full-text search, dedicated macOS/Linux frontends are not i
 See [architecture](architecture.md) for ownership and data flow, and
 [active work](../.github/tasks/todo.md) for remaining tasks. Tests and interactive
 checks require a current explicit request. Microsoft Store submission requires separate authorization.
-
-> **File name** `implementation-status.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\implementation-status.md`<br>
-> **Path relative to the MarkVibe application root** `docs/implementation-status.md`

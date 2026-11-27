@@ -1,7 +1,3 @@
-> **File name** `setup.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\src\MarkVibe.Windows\Rendering\web\demo\guide\setup.md`<br>
-> **Path relative to the MarkVibe application root** `src/MarkVibe.Windows/Rendering/web/demo/guide/setup.md`
-
 ---
 title: Prepare a workspace
 ---
@@ -42,7 +38,3 @@ This deliberately repeated heading has its own anchor: [the second installation 
 ## Next steps
 
 Read [the Windows notes](../reference/windows-notes.md) or [the reading guide](reading.md#finding-your-place).
-
-> **File name** `setup.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\src\MarkVibe.Windows\Rendering\web\demo\guide\setup.md`<br>
-> **Path relative to the MarkVibe application root** `src/MarkVibe.Windows/Rendering/web/demo/guide/setup.md`

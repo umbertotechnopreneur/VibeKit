@@ -1,7 +1,3 @@
-> **File name** `architecture.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\architecture.md`<br>
-> **Path relative to the MarkVibe application root** `docs/architecture.md`
-
 # MarkVibe architecture
 
 [Map layout](map-layout.md) · [Export](desktop-and-export.md) · [AI editing](ai-editing.md) · [Windows packaging](windows-packaging.md)
@@ -248,7 +244,3 @@ stages them under `app/`. Core and Native remain UI-independent libraries.
 Use the stable .NET 10 SDK configured in `global.json` and supported Node version.
 Distribution shares the separately installed .NET Runtime 10.0 while retaining
 required Windows App SDK application libraries. See [builds](visual-studio.md).
-
-> **File name** `architecture.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\architecture.md`<br>
-> **Path relative to the MarkVibe application root** `docs/architecture.md`

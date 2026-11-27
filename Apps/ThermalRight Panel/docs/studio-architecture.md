@@ -1,7 +1,3 @@
-> **File name** `studio-architecture.md`<br>
-> **Full path** `E:\vibekit\Apps\ThermalRight Panel\docs\studio-architecture.md`<br>
-> **Path relative to the VibeKit repository** `Apps\ThermalRight Panel\docs\studio-architecture.md`
-
 # Studio state and provider boundaries
 
 The display loop belongs to `StudioSession`, not the window. Closing a preview, hiding the window or blocking its dispatcher must not stop an active output session.
@@ -128,7 +124,3 @@ Windows raster conversion is excluded. See [Linux sensors](linux-sensors.md).
 Linux sensor coverage depends on kernel drivers and access permissions. Windows
 runtime regression behavior remains unverified for this separation. Tests and
 runtime trials require owner approval.
-
-> **File name** `studio-architecture.md`<br>
-> **Full path** `E:\vibekit\Apps\ThermalRight Panel\docs\studio-architecture.md`<br>
-> **Path relative to the VibeKit repository** `Apps\ThermalRight Panel\docs\studio-architecture.md`

@@ -1,7 +1,3 @@
-> **File name** `dependencies.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\dependencies.md`<br>
-> **Path relative to the MarkVibe application root** `docs/dependencies.md`
-
 # Dependency and compatibility decisions
 
 Dependency versions and licenses are defined by the project files, lockfiles and
@@ -68,7 +64,3 @@ Monaco loads on demand as a module. Mermaid loads on demand in a self-contained 
 - [Mermaid 12.1.0](https://github.com/mermaid-js/mermaid/releases/tag/mermaid@12.1.0)
 - [highlight.js 11.12.0](https://github.com/highlightjs/highlight.js/releases/tag/11.12.0)
 - [esbuild 0.28.2](https://github.com/evanw/esbuild/releases/tag/0.28.2)
-
-> **File name** `dependencies.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\dependencies.md`<br>
-> **Path relative to the MarkVibe application root** `docs/dependencies.md`

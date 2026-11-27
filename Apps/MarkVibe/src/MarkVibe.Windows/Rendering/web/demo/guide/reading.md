@@ -1,7 +1,3 @@
-> **File name** `reading.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\src\MarkVibe.Windows\Rendering\web\demo\guide\reading.md`<br>
-> **Path relative to the MarkVibe application root** `src/MarkVibe.Windows/Rendering/web/demo/guide/reading.md`
-
 # Find your reading rhythm
 
 Choose a document presentation that suits the material. Technical documentation keeps a clear hierarchy, editorial reading gives prose more room, and compact reading makes long reference pages easier to scan.
@@ -57,7 +53,3 @@ flowchart LR
 ## Continue exploring
 
 Return to [Field notes](../README.md) or read [the browser capability notes](../reference/windows-notes.md).
-
-> **File name** `reading.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\src\MarkVibe.Windows\Rendering\web\demo\guide\reading.md`<br>
-> **Path relative to the MarkVibe application root** `src/MarkVibe.Windows/Rendering/web/demo/guide/reading.md`

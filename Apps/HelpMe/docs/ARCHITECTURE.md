@@ -1,7 +1,3 @@
-> **File name** `ARCHITECTURE.md`<br>
-> **Full path** `E:\vibekit\Apps\HelpMe\docs\ARCHITECTURE.md`<br>
-> **Path relative to the VibeKit repository** `Apps\HelpMe\docs\ARCHITECTURE.md`
-
 # HelpMe architecture
 
 If you're looking through the code, start here. HelpMe is a .NET 10 console app that answers terminal questions, keeps notes you choose to save, and asks before running commands. It runs when you start `hm` and closes when you leave.
@@ -240,7 +236,3 @@ The latest response's provider input/output counters are kept separately in `Con
 - Windows setup can persist API keys in current-user environment variables; Unix setup provides export guidance and does not edit a secret profile.
 - PATH persistence uses the Windows user environment or one marked Unix profile block.
 - Automatic Nerd Font installation is an optional Windows helper; other platforms receive manual guidance.
-
-> **File name** `ARCHITECTURE.md`<br>
-> **Full path** `E:\vibekit\Apps\HelpMe\docs\ARCHITECTURE.md`<br>
-> **Path relative to the VibeKit repository** `Apps\HelpMe\docs\ARCHITECTURE.md`

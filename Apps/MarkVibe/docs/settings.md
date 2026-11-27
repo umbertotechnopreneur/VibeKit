@@ -1,7 +1,3 @@
-> **File name** `settings.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\settings.md`<br>
-> **Path relative to the MarkVibe application root** `docs/settings.md`
-
 # Settings and workspace resumption
 
 C# `Preferences` owns settings. The native WinUI dialog updates validated values
@@ -73,7 +69,3 @@ usage and send no document content. Opening the assistant can load available
 models. Reading and export do not send document contents. See [AI](ai-editing.md)
 and [security](security.md). The retired browser application's localStorage is
 not read, migrated or removed.
-
-> **File name** `settings.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\settings.md`<br>
-> **Path relative to the MarkVibe application root** `docs/settings.md`

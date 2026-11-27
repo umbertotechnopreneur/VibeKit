@@ -1,7 +1,3 @@
-> **File name** `DEVELOPMENT.md`<br>
-> **Full path** `E:\vibekit\Apps\UlanziDeck\docs\DEVELOPMENT.md`<br>
-> **Path relative to the VibeKit repository** `Apps/UlanziDeck/docs/DEVELOPMENT.md`
-
 <!-- VBWR B
 
 Project: UlanziDeck
@@ -277,7 +273,3 @@ Open this repository as a local project in Codex, or run `codex` in its folder i
 The dock's Codex page sends configured keyboard shortcuts. It does not install Codex or call an AI API.
 
 Keep my name, original logo and [MIT notices](BRANDING.md). See [Windows editor ideas](design/README.md) for the planned WinUI 3 interface; it has not replaced Slint.
-
-> **File name** `DEVELOPMENT.md`<br>
-> **Full path** `E:\vibekit\Apps\UlanziDeck\docs\DEVELOPMENT.md`<br>
-> **Path relative to the VibeKit repository** `Apps/UlanziDeck/docs/DEVELOPMENT.md`

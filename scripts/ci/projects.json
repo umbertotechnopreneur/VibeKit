@@ -1,0 +1,117 @@
+{
+  "helpme": {
+    "path": "Apps/HelpMe/",
+    "shared": [
+      "Widgets/Shared/Build-WindowsMsi.ps1",
+      "Widgets/Shared/create-widget-wix.py",
+      "Widgets/Shared/ProcessMemoryWatchdog.cs",
+      "Widgets/Shared/VibeWareDiagnostics.cs"
+    ]
+  },
+  "markvibe": {
+    "path": "Apps/MarkVibe/",
+    "shared": [
+      "Widgets/Shared/ProcessMemoryWatchdog.cs",
+      "Widgets/Shared/VibeWareDiagnostics.cs"
+    ]
+  },
+  "thermalright": {
+    "path": "Apps/ThermalRight Panel/",
+    "shared": [
+      "Widgets/Shared/ProcessMemoryWatchdog.cs",
+      "Widgets/Shared/VibeWareDiagnostics.cs"
+    ]
+  },
+  "ulanzideck": {
+    "path": "Apps/UlanziDeck/",
+    "shared": []
+  },
+  "voiceducker": {
+    "path": "Apps/VoiceDucker/",
+    "shared": [
+      "Widgets/Shared/Build-WindowsMsi.ps1",
+      "Widgets/Shared/create-widget-wix.py",
+      "Widgets/Shared/VibeWareDiagnostics.cs"
+    ]
+  },
+  "worktrail": {
+    "path": "Apps/WorkTrail/",
+    "shared": [
+      "Widgets/Shared/ProcessMemoryWatchdog.cs",
+      "Widgets/Shared/VibeWareDiagnostics.cs"
+    ]
+  },
+  "ghostty-shaders": {
+    "path": "Apps/Ghostty Shaders/",
+    "shared": []
+  },
+  "openai-usage": {
+    "path": "Widgets/OpenAI/",
+    "shared": [
+      "Widgets/Shared/Build-WindowsMsi.ps1",
+      "Widgets/Shared/create-widget-wix.py",
+      "Widgets/Shared/DiagnosticAboutActions.cs",
+      "Widgets/Shared/VibeWareDiagnostics.cs",
+      "Widgets/Shared/WidgetAbout.cs"
+    ]
+  },
+  "desktop-ripple": {
+    "path": "Widgets/WaterRipple/",
+    "shared": [
+      "Widgets/Shared/Build-WindowsMsi.ps1",
+      "Widgets/Shared/create-widget-wix.py",
+      "Widgets/Shared/DesktopEffectInterop.h",
+      "Widgets/Shared/DiagnosticAboutActions.cs",
+      "Widgets/Shared/DisplayTarget.cs",
+      "Widgets/Shared/DisplayTargetPicker.cs",
+      "Widgets/Shared/EffectStudioLayout.cs",
+      "Widgets/Shared/EffectWindowCoverage.h",
+      "Widgets/Shared/Linux/",
+      "Widgets/Shared/ProcessMemoryWatchdog.cs",
+      "Widgets/Shared/VibeWareDiagnostics.cs",
+      "Widgets/Shared/WidgetAbout.cs",
+      "Widgets/Shared/WidgetFooter.cs",
+      "Widgets/Shared/WindowsSignIn.cs"
+    ]
+  },
+  "retro-terminal": {
+    "path": "Widgets/RetroTerminal/",
+    "shared": [
+      "Widgets/Shared/Build-WindowsMsi.ps1",
+      "Widgets/Shared/create-widget-wix.py",
+      "Widgets/Shared/DesktopEffectInterop.h",
+      "Widgets/Shared/DiagnosticAboutActions.cs",
+      "Widgets/Shared/DisplayTarget.cs",
+      "Widgets/Shared/DisplayTargetPicker.cs",
+      "Widgets/Shared/EffectStudioLayout.cs",
+      "Widgets/Shared/EffectWindowCoverage.h",
+      "Widgets/Shared/Linux/",
+      "Widgets/Shared/ProcessMemoryWatchdog.cs",
+      "Widgets/Shared/VibeWareDiagnostics.cs",
+      "Widgets/Shared/WidgetFooter.cs",
+      "Widgets/Shared/WindowsSignIn.cs"
+    ]
+  },
+  "studio-controls": {
+    "path": "Widgets/StudioControls/",
+    "shared": [
+      "Widgets/Shared/Build-WindowsMsi.ps1",
+      "Widgets/Shared/create-widget-wix.py",
+      "Widgets/Shared/ProcessMemoryWatchdog.cs"
+    ]
+  },
+  "reporadar": {
+    "path": "Apps/RepoRadar/",
+    "shared": []
+  },
+  "vignette": {
+    "path": "Widgets/Vignette/",
+    "shared": [
+      "Widgets/Shared/Build-WindowsMsi.ps1",
+      "Widgets/Shared/create-widget-wix.py",
+      "Widgets/Shared/DisplayTarget.cs",
+      "Widgets/Shared/Linux/",
+      "Widgets/Shared/WindowsSignIn.cs"
+    ]
+  }
+}

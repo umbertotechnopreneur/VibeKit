@@ -29,14 +29,16 @@ param(
     [Parameter(Mandatory)][string]$PublishDirectory,
     [Parameter(Mandatory)][string]$Version,
     [Parameter(Mandatory)][ValidateSet('x64', 'ARM64')][string]$Platform,
-    [string]$OutputDirectory
+    [string]$OutputDirectory,
+    [switch]$Preview
 )
 
 #region Initialization
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-if ($Version -cnotmatch '^[1-9][0-9]{0,4}\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$' -or
+if ($Version -cnotmatch '^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$' -or
+    ($Version.StartsWith('0.') -and -not $Preview) -or
     @($Version.Split('.') | Where-Object { [int]$_ -gt 65534 }).Count -gt 0) {
     throw 'Version must be X.Y.Z with major 1..65534 and minor/patch 0..65534.'
 }

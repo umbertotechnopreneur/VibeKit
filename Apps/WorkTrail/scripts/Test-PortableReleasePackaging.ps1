@@ -144,7 +144,7 @@ function New-SyntheticPublish {
     Creates an isolated publish fixture with the files required by archive validation.
     #>
 
-    param([string]$Name, [string]$Platform = 'x64')
+    param([string]$Name, [string]$Platform = 'x64', [string]$Version = '1.2.3')
 
     $directory = Join-Path $fixtureRoot $Name
     [void][IO.Directory]::CreateDirectory((Join-Path $directory 'empty-directory'))
@@ -156,7 +156,7 @@ function New-SyntheticPublish {
     foreach ($file in @('WorkTrail.exe')) {
         Write-SyntheticPe -Path (Join-Path $directory $file) -Platform $Platform
     }
-    $buildInfo = @{ schemaVersion = 1; semVer = '1.2.3'; packageVersion = '1.2.3.0'; platform = $Platform
+    $buildInfo = @{ schemaVersion = 1; semVer = $Version; packageVersion = "$Version.0"; platform = $Platform
         configuration = 'Release-Unpackaged'; runtimeIdentifier = "win-$($Platform.ToLowerInvariant())"
         gitCommit = ('1' * 40); gitDirty = $false }
     [IO.File]::WriteAllText((Join-Path $directory 'BuildInfo.json'), ($buildInfo | ConvertTo-Json), $utf8)
@@ -183,6 +183,13 @@ function Read-ZipText {
 }
 
 #endregion
+
+$previewSource = New-SyntheticPublish -Name 'preview' -Version '0.0.1'
+$previewOutput = Join-Path $fixtureRoot 'preview-output'
+$preview = Invoke-TestScript -Path $archiveScript -Arguments @('-PublishDirectory', $previewSource,
+    '-OutputDirectory', $previewOutput, '-Platform', 'x64', '-Version', '0.0.1', '-Preview')
+Assert-PortableTest ($preview.ExitCode -eq 0) "Preview packaging failed: $($preview.Output)"
+Assert-Rejected -Name 'preview-version-stable-channel' -Source $previewSource -Version '0.0.1' -Message 'Version must be X.Y.Z'
 
 foreach ($platform in @('x64', 'ARM64')) {
     $source = New-SyntheticPublish -Name "valid-$platform" -Platform $platform

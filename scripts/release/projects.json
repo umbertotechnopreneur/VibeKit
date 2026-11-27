@@ -1,0 +1,259 @@
+{
+  "desktop-ripple": {
+    "workflow": "ci-desktop-ripple.yml",
+    "inputs": {},
+    "assets": [
+      {
+        "artifact": "desktop-ripple-windows-x64",
+        "file": "WaterRipple-*-windows-x64*.msi"
+      },
+      {
+        "artifact": "desktop-ripple-linux",
+        "file": "vibeware-ripple_*_all.deb"
+      }
+    ],
+    "version_file": "Widgets/WaterRipple/WaterRipple.csproj",
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+  },
+  "ghostty-shaders": {
+    "workflow": "package-missing.yml",
+    "inputs": {
+      "project": "ghostty-shaders",
+      "channel": "{channel}"
+    },
+    "assets": [
+      {
+        "artifact": "release-bundle-ghostty-shaders",
+        "file": "Ghostty-Shaders-linux-*.zip"
+      }
+    ],
+    "version_file": null,
+    "version_pattern": null
+  },
+  "helpme": {
+    "workflow": "ci-helpme.yml",
+    "inputs": {},
+    "linked_artifacts": [
+      {
+        "artifact": "helpme-windows-msi-x64",
+        "title": "HelpMe MSI per Windows x64 (serve l'accesso a GitHub Actions)"
+      }
+    ],
+    "assets": [
+      {
+        "artifact": "deb-linux-x64",
+        "file": "helpme_{version}_amd64.deb"
+      },
+      {
+        "artifact": "deb-linux-arm64",
+        "file": "helpme_{version}_arm64.deb"
+      }
+    ],
+    "version_file": "Apps/HelpMe/HelpMe/HelpMe.csproj",
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+  },
+  "markvibe": {
+    "workflow": "markvibe-package-windows.yml",
+    "inputs": {
+      "configuration": "Release",
+      "version": "{version}"
+    },
+    "assets": [
+      {
+        "artifact": "MarkVibe-{version}-Release-Windows",
+        "file": "MarkVibe-{version}-release-win-x64.msi"
+      },
+      {
+        "artifact": "MarkVibe-{version}-Release-Windows",
+        "file": "MarkVibe-{version}-release-win-arm64.msi"
+      },
+      {
+        "artifact": "MarkVibe-{version}-Release-Windows",
+        "file": "MarkVibe-{version}-release-win-x64-portable.zip"
+      },
+      {
+        "artifact": "MarkVibe-{version}-Release-Windows",
+        "file": "MarkVibe-{version}-release-win-arm64-portable.zip"
+      }
+    ],
+    "version_file": "Apps/MarkVibe/packaging/windows/version.json",
+    "version_pattern": "\"version\"\\s*:\\s*\"(\\d+\\.\\d+\\.\\d+\\.\\d+)\""
+  },
+  "openai-usage": {
+    "workflow": "ci-openai-usage.yml",
+    "inputs": {},
+    "assets": [
+      {
+        "artifact": "openai-usage-windows-x64",
+        "file": "OpenAIUsage-*-windows-x64*.msi"
+      },
+      {
+        "artifact": "openai-usage-linux-amd64",
+        "file": "openai-usage_*_amd64.deb"
+      }
+    ],
+    "version_file": "Widgets/OpenAI/Directory.Build.props",
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+  },
+  "reporadar": {
+    "workflow": "ci-reporadar.yml",
+    "inputs": {},
+    "assets": [
+      {
+        "artifact": "reporadar-packages",
+        "file": "RepoRadar-{version}-win-x64-portable.zip"
+      },
+      {
+        "artifact": "reporadar-packages",
+        "file": "RepoRadar-{version}-win-x64.msi"
+      },
+      {
+        "artifact": "reporadar-packages",
+        "file": "repo-radar_{version}-1_amd64.deb"
+      }
+    ],
+    "version_file": "Apps/RepoRadar/src/RepoRadar.csproj",
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+  },
+  "retro-terminal": {
+    "workflow": "ci-retro-terminal.yml",
+    "inputs": {},
+    "assets": [
+      {
+        "artifact": "retro-terminal-windows-x64",
+        "file": "RetroTerminal-*-windows-x64*.msi"
+      },
+      {
+        "artifact": "retro-terminal-linux",
+        "file": "vibeware-retro-terminal_*_all.deb"
+      }
+    ],
+    "version_file": "Widgets/RetroTerminal/Windows/Studio/RetroStudio.csproj",
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+  },
+  "studio-controls": {
+    "workflow": "ci-studio-controls.yml",
+    "inputs": {},
+    "assets": [
+      {
+        "artifact": "studio-controls-windows-x64",
+        "file": "StudioControls-windows-x64.msi"
+      },
+      {
+        "artifact": "studio-controls-linux-deb",
+        "file": "StudioControls-linux-all.deb"
+      }
+    ],
+    "version_file": "Widgets/StudioControls/Windows/StudioControls.Windows.csproj",
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+  },
+  "thermalright": {
+    "workflow": "ci-thermalright.yml",
+    "inputs": {
+      "configuration": "{configuration}"
+    },
+    "assets": [
+      {
+        "artifact": "ThermalrightVibeWare-win-x64-{configuration}",
+        "file": "ThermalrightVibeWare-win-x64-{version}.msi"
+      },
+      {
+        "artifact": "ThermalrightVibeWare-win-x64-{configuration}",
+        "file": "ThermalrightVibeWare-win-x64-*.zip"
+      },
+      {
+        "artifact": "ThermalrightVibeWare-win-ARM64-{configuration}",
+        "file": "ThermalrightVibeWare-win-arm64-{version}.msi"
+      },
+      {
+        "artifact": "ThermalrightVibeWare-win-ARM64-{configuration}",
+        "file": "ThermalrightVibeWare-win-arm64-*.zip"
+      },
+      {
+        "artifact": "ThermalrightVibeWare-linux-amd64-{configuration}",
+        "file": "thermalright-vibeware_{version}_amd64.deb"
+      }
+    ],
+    "version_file": "Apps/ThermalRight Panel/installer/Version.txt",
+    "version_pattern": "^(\\d+\\.\\d+\\.\\d+)\\s*$"
+  },
+  "ulanzideck": {
+    "workflow": "ci-ulanzideck.yml",
+    "inputs": {},
+    "assets": [
+      {
+        "artifact": "release-windows-x64",
+        "file": "ulanzi-dock-vibeware-v{version}-stable-windows-x64.zip"
+      },
+      {
+        "artifact": "release-windows-arm64",
+        "file": "ulanzi-dock-vibeware-v{version}-stable-windows-arm64.zip"
+      },
+      {
+        "artifact": "release-linux-x64",
+        "file": "ulanzi-dock-vibeware-v{version}-stable-linux-x64.tar.gz"
+      },
+      {
+        "artifact": "release-linux-x64",
+        "file": "ulanzi-dock-vibeware_{version}_amd64.deb"
+      }
+    ],
+    "version_file": "Apps/UlanziDeck/Cargo.toml",
+    "version_pattern": "(?m)^version\\s*=\\s*\"(\\d+\\.\\d+\\.\\d+)\""
+  },
+  "vignette": {
+    "workflow": "ci-vignette.yml",
+    "inputs": {},
+    "assets": [
+      {
+        "artifact": "vignette-windows-x64",
+        "file": "Vignette-*-windows-x64*.msi"
+      },
+      {
+        "artifact": "vignette-linux",
+        "file": "vibeware-vignette_*_all.deb"
+      }
+    ],
+    "version_file": "Widgets/Vignette/Windows/Vignette.csproj",
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+  },
+  "voiceducker": {
+    "workflow": "ci-voiceducker.yml",
+    "inputs": {},
+    "assets": [
+      {
+        "artifact": "VoiceDucker-win-x64",
+        "file": "VoiceDucker-win-x64.zip"
+      },
+      {
+        "artifact": "VoiceDucker-win-arm64",
+        "file": "VoiceDucker-win-arm64.zip"
+      },
+      {
+        "artifact": "voiceducker-windows-msi-x64",
+        "file": "VoiceDucker-windows-x64.msi"
+      }
+    ],
+    "version_file": "Apps/VoiceDucker/VoiceDucker.csproj",
+    "version_pattern": "<Version>(\\d+\\.\\d+\\.\\d+)</Version>"
+  },
+  "worktrail": {
+    "workflow": "package-missing.yml",
+    "inputs": {
+      "project": "worktrail",
+      "channel": "{channel}"
+    },
+    "assets": [
+      {
+        "artifact": "release-bundle-worktrail",
+        "file": "WorkTrail-{version}-x64-portable-unsigned.zip"
+      },
+      {
+        "artifact": "release-bundle-worktrail",
+        "file": "WorkTrail-{version}-ARM64-portable-unsigned.zip"
+      }
+    ],
+    "version_file": "Apps/WorkTrail/WorkTrail/build-version.json",
+    "version_pattern": "\"semVer\"\\s*:\\s*\"(\\d+\\.\\d+\\.\\d+)\""
+  }
+}

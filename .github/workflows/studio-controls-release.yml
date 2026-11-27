@@ -2,11 +2,11 @@ name: studio-controls / Release packages
 
 on:
   push:
-    tags: ['studio-controls/v*']
+    tags: ['studio-controls/v*', 'studio-controls/windows/v*', 'studio-controls/linux/v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: New studio-controls/v<version> tag matching the source
+        description: New Studio Controls tag (studio-controls/v…, studio-controls/windows/v…, or studio-controls/linux/v…)
         required: true
         type: string
       draft:
@@ -27,9 +27,11 @@ jobs:
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
+      platform: ${{ steps.version.outputs.platform }}
+      notes: ${{ steps.version.outputs.notes }}
     steps:
       - uses: actions/checkout@v7
-      - name: Require an application-scoped version matching both platforms
+      - name: Select the package versions and release notes for this tag
         id: version
         env:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
@@ -40,18 +42,30 @@ jobs:
           import tomllib
           import xml.etree.ElementTree as ET
           root = Path('Widgets/StudioControls')
-          version = tomllib.loads((root / 'Linux/pyproject.toml').read_text())['project']['version']
+          linux = tomllib.loads((root / 'Linux/pyproject.toml').read_text())['project']['version']
           windows = ET.parse(root / 'Windows/StudioControls.Windows.csproj').findtext('.//Version')
+          targets = {
+              f'studio-controls/windows/v{windows}': ('windows', windows, f'windows-{windows}.md'),
+              f'studio-controls/linux/v{linux}': ('linux', linux, f'linux-{linux}.md'),
+          }
+          if windows == linux:
+              targets[f'studio-controls/v{windows}'] = ('all', windows, f'{windows}.md')
           tag = os.environ['RELEASE_TAG']
-          if windows != version or tag != f'studio-controls/v{version}':
-              raise SystemExit('The release tag must match both platform versions.')
+          if tag not in targets:
+              raise SystemExit('The release tag must match the version of each platform it publishes.')
+          platform, version, filename = targets[tag]
+          notes = root / 'docs/releases' / filename
+          if not notes.is_file():
+              raise SystemExit(f'Missing release notes: {notes}')
           with open(os.environ['GITHUB_OUTPUT'], 'a') as stream:
-              stream.write(f'tag={tag}\nversion={version}\n')
+              stream.write(f'tag={tag}\nversion={version}\nplatform={platform}\nnotes={notes.as_posix()}\n')
           PY
 
   packages:
     needs: version
     uses: ./.github/workflows/ci-studio-controls.yml
+    with:
+      platform: ${{ needs.version.outputs.platform }}
 
   release:
     needs: [version, packages]
@@ -61,16 +75,23 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
+        if: needs.version.outputs.platform != 'linux'
         with:
-          pattern: studio-controls-*
+          name: studio-controls-windows-x64
           path: release
-          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        if: needs.version.outputs.platform != 'windows'
+        with:
+          name: studio-controls-linux-deb
+          path: release
       - name: Publish new preview assets without replacing an existing release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          RELEASE_PLATFORM: ${{ needs.version.outputs.platform }}
+          RELEASE_NOTES: ${{ needs.version.outputs.notes }}
           SOURCE_SHA: ${{ github.sha }}
           IS_DRAFT: ${{ inputs.draft || false }}
         run: |
@@ -80,10 +101,11 @@ jobs:
           from pathlib import Path
           import subprocess
           import json
-          names = ['StudioControls-windows-x64.msi', 'StudioControls-linux-all.deb']
-          files = [Path('release') / name for name in names]
+          platform = os.environ['RELEASE_PLATFORM']
+          packages = {'windows': 'StudioControls-windows-x64.msi', 'linux': 'StudioControls-linux-all.deb'}
+          files = [Path('release') / name for target, name in packages.items() if platform in ('all', target)]
           if any(not file.is_file() or file.stat().st_size == 0 for file in files):
-              raise SystemExit('Both verified platform packages are required.')
+              raise SystemExit('A verified package for this release is missing.')
           checksums = Path('release/SHA256SUMS.txt')
           sums = []
           for file in files:
@@ -91,9 +113,23 @@ jobs:
                   digest = hashlib.file_digest(stream, 'sha256').hexdigest()
               sums.append(f'{digest}  {file.name}\n')
           checksums.write_text(''.join(sums))
-          notes = Path('Widgets/StudioControls/docs/releases') / (os.environ['RELEASE_VERSION'] + '.md')
-          if not notes.is_file():
-              raise SystemExit('Versioned release notes are required.')
+          notes = Path(os.environ['RELEASE_NOTES']).read_text(encoding='utf-8-sig')
+          paragraphs = notes.strip().split('\n\n')
+
+          def is_location_block(paragraph):
+              fields = ('**File name', '**Full path', '**Path relative to')
+              return paragraph.startswith('>') and all(field in paragraph for field in fields)
+
+          if is_location_block(paragraphs[0]):
+              paragraphs.pop(0)
+          if paragraphs and is_location_block(paragraphs[-1]):
+              paragraphs.pop()
+          public_notes = '\n\n'.join(paragraphs).strip()
+          if not public_notes:
+              raise SystemExit('The release notes have no public content.')
+          title = f'Studio Controls {os.environ["RELEASE_VERSION"]}'
+          if platform != 'all':
+              title += f' for {platform.title()}'
           tag = os.environ['RELEASE_TAG']
           refs = subprocess.check_output(['git', 'ls-remote', '--tags', 'origin', f'refs/tags/{tag}', f'refs/tags/{tag}^{{}}'], text=True).splitlines()
           if refs:
@@ -105,8 +141,8 @@ jobs:
           pages = json.loads(response)
           if any(release.get('tag_name') == tag for page in pages for release in page):
               raise SystemExit('This release already exists; assets are never replaced.')
-          command = ['gh', 'release', 'create', os.environ['RELEASE_TAG'], *map(str, files), str(checksums), '--target', os.environ['SOURCE_SHA'], '--title', f'Studio Controls {os.environ["RELEASE_VERSION"]} · preview', '--notes-file', str(notes), '--prerelease', '--latest=false']
+          command = ['gh', 'release', 'create', os.environ['RELEASE_TAG'], *map(str, files), str(checksums), '--target', os.environ['SOURCE_SHA'], '--title', title + ' · preview', '--notes-file', '-', '--prerelease', '--latest=false']
           if os.environ['IS_DRAFT'].lower() == 'true':
               command.append('--draft')
-          subprocess.run(command, check=True)
+          subprocess.run(command, input=public_notes, text=True, check=True)
           PY

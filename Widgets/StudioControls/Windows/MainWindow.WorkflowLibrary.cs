@@ -37,8 +37,7 @@ public sealed partial class MainWindow
         private readonly StackPanel projects = Column(8);
         private readonly StackPanel workflows = Column(8);
         private readonly StackPanel form = Column(8);
-        private readonly Expander projectSection;
-        private readonly Expander workflowSection;
+        private readonly Grid choices;
         private readonly Button removeProject;
         private readonly Button removeWorkflow;
         private bool rebuilding;
@@ -63,10 +62,9 @@ public sealed partial class MainWindow
             var body = Column(10);
             Dialog = window.Dialog("Library", new ScrollViewer { Content = body,
                 MaxHeight = Math.Max(210, window.root.ActualHeight - 215), VerticalScrollBarVisibility = ScrollBarVisibility.Auto }, "Open");
-            AutomationProperties.SetName(projectList, T("Projects"));
-            AutomationProperties.SetName(workflowList, T("Workflows"));
+            projects.Children.Add(FieldLabel(projectList, T("Projects"), T("Choose the project whose workflows you want to see. Open switches to the selected project and workflow.")));
             projects.Children.Add(projectList);
-            var projectButtons = Row();
+            var projectButtons = new ActionStrip();
             projectButtons.Children.Add(Command("New project", () => EditName("New project", "", name =>
             {
                 var first = new Workflow(WorkflowLibrary.NewId(), "Workflow 1", 180, []);
@@ -87,8 +85,9 @@ public sealed partial class MainWindow
             projectButtons.Children.Add(removeProject);
             projects.Children.Add(projectButtons);
 
+            workflows.Children.Add(FieldLabel(workflowList, T("Workflows"), T("Choose a sequence from this project. Open loads its steps into the workflow editor.")));
             workflows.Children.Add(workflowList);
-            var workflowButtons = Row();
+            var workflowButtons = new ActionStrip();
             workflowButtons.Children.Add(Command("New workflow", () => EditName("New workflow", "", name =>
                 Add(new(WorkflowLibrary.NewId(), name, 180, [])))));
             workflowButtons.Children.Add(Command("Edit workflow", () => EditName("Edit workflow", Workflow.Name,
@@ -107,10 +106,9 @@ public sealed partial class MainWindow
             workflowButtons.Children.Add(removeWorkflow);
             workflows.Children.Add(workflowButtons);
 
-            projectSection = Section(T("Projects"), projects, true);
-            workflowSection = Section(T("Workflows"), workflows, true);
-            body.Children.Add(projectSection);
-            body.Children.Add(workflowSection);
+            choices = ResponsiveColumns(520, Card(projects), Card(workflows));
+            body.Children.Add(choices);
+            Dialog.MinWidth = Math.Min(720, Math.Max(280, window.root.ActualWidth - 56));
             body.Children.Add(form);
             body.Children.Add(Error);
             projectList.SelectionChanged += (_, _) =>
@@ -143,8 +141,8 @@ public sealed partial class MainWindow
             if (icon is not null)
             {
                 AutomationProperties.SetName(button, T(label));
-                ToolTipService.SetToolTip(button, T(label));
             }
+            Help(button, T(ActionDescriptions[label]));
             button.Click += (_, _) => action();
             return button;
         }
@@ -163,7 +161,8 @@ public sealed partial class MainWindow
 
         private void EditName(string label, string initial, Action<string> commit)
         {
-            var field = new TextBox { Header = T(label), MaxLength = 100, Text = initial.Length <= 100 ? initial : initial[..100] };
+            var field = new TextBox { MaxLength = 100, Text = initial.Length <= 100 ? initial : initial[..100] };
+            form.Children.Add(FieldLabel(field, T(label), T(ActionDescriptions[label])));
             form.Children.Add(field);
             var save = EditActions("Save", () => commit(field.Text.Trim()));
             field.TextChanged += (_, _) => save.IsEnabled = !string.IsNullOrWhiteSpace(field.Text);
@@ -181,7 +180,7 @@ public sealed partial class MainWindow
 
         private Button EditActions(string confirm, Action commit)
         {
-            projectSection.Visibility = workflowSection.Visibility = Visibility.Collapsed;
+            choices.Visibility = Visibility.Collapsed;
             Dialog.IsPrimaryButtonEnabled = false;
             Dialog.DefaultButton = ContentDialogButton.None;
             var row = Row();
@@ -201,7 +200,7 @@ public sealed partial class MainWindow
         private void EndEdit()
         {
             form.Children.Clear();
-            projectSection.Visibility = workflowSection.Visibility = Visibility.Visible;
+            choices.Visibility = Visibility.Visible;
             Dialog.IsPrimaryButtonEnabled = true;
             Dialog.DefaultButton = ContentDialogButton.Primary;
             Refresh();

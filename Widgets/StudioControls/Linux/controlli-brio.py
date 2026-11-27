@@ -20,7 +20,7 @@ from camera_controls import (
 )
 from panel_config import load_screen_presets
 from localization import LANGUAGES, load_language, save_language
-from studio_paths import user_data_home, working_assets
+from studio_paths import bundled_assets, user_data_home, working_assets
 from workflows import WorkflowLibrary, LEGACY_PROJECT_ID
 from panel_theme import SCENE_COLORS, THEMES, load_theme, save_theme, resolve_theme, theme_css
 from diagnostics import configure_diagnostics, export_diagnostics, get_logger
@@ -37,6 +37,7 @@ from workflow_panel import WorkflowPanel  # noqa: E402
 from gtk_localization import PanelLocalization  # noqa: E402 — GTK versions selected above
 
 logger = get_logger(__name__)
+APP_ID = "biz.vibeware.StudioControls"
 
 SCENES = (
     (
@@ -95,7 +96,7 @@ class BrioPanel(Gtk.Application):
     library = None
 
     def __init__(self):
-        super().__init__(application_id="biz.jacobi.BrioControls")
+        super().__init__(application_id=APP_ID)
         self.localizer = PanelLocalization(load_language())
         self.window = None
         self.controls = []
@@ -163,7 +164,12 @@ class BrioPanel(Gtk.Application):
         if self.window is not None:
             self.window.present()
             return
+        icons = str(bundled_assets() / "icons")
+        icon_theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
+        if icons not in icon_theme.get_search_path():
+            icon_theme.add_search_path(icons)
         self.window = Gtk.ApplicationWindow(application=self, title="Umberto’s Lab · Controls")
+        self.window.set_icon_name(APP_ID)
         self.window.set_default_size(1040, 820)
         self.setup_theme()
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -184,6 +190,9 @@ class BrioPanel(Gtk.Application):
         export = Gtk.Button(label="Export diagnostic logs…")
         export.connect("clicked", self.export_logs)
         diagnostic_row.append(export)
+        about = Gtk.Button(label="About")
+        about.connect("clicked", self.show_about)
+        diagnostic_row.append(about)
         self.diagnostic_note = Gtk.Label(xalign=0, wrap=True)
         diagnostic_row.append(self.diagnostic_note)
         body.append(diagnostic_row)
@@ -1341,6 +1350,20 @@ class BrioPanel(Gtk.Application):
             "Could not export logs: " + str(error) if error else "Diagnostic logs exported."
         )
 
+    def show_about(self, _button):
+        dialog = Gtk.AboutDialog(
+            transient_for=self.window,
+            modal=True,
+            destroy_with_parent=True,
+            title=f'{self.localizer.text("About")} Studio Controls',
+            program_name="Studio Controls",
+            icon_name=APP_ID,
+            logo_icon_name=APP_ID,
+            authors=["Umberto Giacobbi"],
+            website="https://umbertogiacobbi.biz",
+        )
+        dialog.present()
+
     def do_shutdown(self):
         # Closing the panel never changes recording or resumes any device/action.
         self.closing = True
@@ -1370,6 +1393,7 @@ class BrioPanel(Gtk.Application):
 
 
 if __name__ == "__main__":
+    GLib.set_prgname(APP_ID)
     configure_diagnostics()
     panel = BrioPanel()
 

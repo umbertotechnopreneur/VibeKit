@@ -35,7 +35,7 @@ internal static class UiSmoke
 
     public static void Complete()
     {
-        WriteReport("PASS: native WinUI window, themes, localization, connected storyboard, transition persistence, modal library edits, active step and detached rehearsal timer verified. No OBS connection, camera controller, enumeration or capture was created.");
+        WriteReport("PASS: visible WinUI workflow editor, saved Intro and Thank you steps, fade transition, library edits, themes, localization and detached rehearsal timer verified. No OBS connection, camera controller, enumeration or capture was created.");
         Passed = true;
     }
 
@@ -48,12 +48,13 @@ internal static class UiSmoke
         {
             await opening.Task.WaitAsync(TimeSpan.FromSeconds(5));
             var body = (StackPanel)((ScrollViewer)dialog.Content).Content;
-            var sections = body.Children.OfType<Expander>().ToArray();
-            var commands = (StackPanel)((StackPanel)sections[1].Content).Children.OfType<StackPanel>().Single();
+            var choices = body.Children.OfType<Grid>().Single();
+            var workflows = (StackPanel)((StackPanel)((Border)choices.Children[1]).Child).Children.Single();
+            var commands = (Panel)workflows.Children.Last();
             Button Action(string key) => commands.Children.OfType<Button>().Single(button =>
                 AutomationProperties.GetName(button) == strings.Text(key));
             var form = body.Children.OfType<StackPanel>().Single();
-            if (sections.Length != 2 || sections.Any(section => !section.IsExpanded) || Action("Remove workflow").IsEnabled)
+            if (choices.Children.Count != 2 || choices.Visibility != Visibility.Visible || Action("Remove workflow").IsEnabled)
                 throw new InvalidOperationException("Library sections or last-workflow protection failed.");
 
             Invoke(Action("Duplicate"));
@@ -79,13 +80,13 @@ internal static class UiSmoke
         }
     }
 
-    private static void Invoke(Button button)
+    internal static void Invoke(Button button)
     {
         var peer = new ButtonAutomationPeer(button);
         ((IInvokeProvider)peer.GetPattern(PatternInterface.Invoke)).Invoke();
     }
 
-    private static async Task WaitForAsync(Func<bool> ready)
+    internal static async Task WaitForAsync(Func<bool> ready)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         while (!ready()) await Task.Delay(30, timeout.Token);

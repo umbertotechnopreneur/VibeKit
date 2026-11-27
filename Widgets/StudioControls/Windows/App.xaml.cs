@@ -1,10 +1,13 @@
 using Microsoft.UI.Xaml;
+using System.ComponentModel;
+using Tools.Widgets;
 
 namespace VibeKit.StudioControls.Windows;
 
 public partial class App : Application
 {
     private Window? window;
+    private WidgetTrayIcon? tray;
     public App()
     {
         InitializeComponent();
@@ -30,6 +33,31 @@ public partial class App : Application
         var main = new MainWindow();
         window = main;
         window.Activate();
-        if (UiSmoke.Enabled) main.RunUiSmoke();
+        if (UiSmoke.Enabled)
+        {
+            main.RunUiSmoke();
+            return;
+        }
+
+        var menu = new WidgetTrayMenu(main, items =>
+        {
+            items.Add("Open Studio Controls", main.ShowFromTray);
+            items.Add("About", main.ShowAbout);
+            items.Separator();
+            items.Add("Quit", main.Close);
+        });
+        try
+        {
+            tray = new WidgetTrayIcon(main, "Studio Controls", MainWindow.IconPath, menu, main.ShowFromTray);
+            tray.Show();
+            main.Closed += (_, _) => tray?.Dispose();
+        }
+        catch (Win32Exception error)
+        {
+            if (tray is { } icon) icon.Dispose();
+            else menu.Dispose();
+            tray = null;
+            Diagnostics.Record("tray", error);
+        }
     }
 }

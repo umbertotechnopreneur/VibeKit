@@ -7,7 +7,7 @@
 A native control desk for local OBS Studio demonstrations: scenes, recording,
 screen details, independent vignettes and project cards. Studio Controls belongs
 to [VibeKit](https://github.com/umbertotechnopreneur/VibeKit) and is maintained as
-a self-contained desktop utility under `Widgets/StudioControls`.
+an independent desktop utility under `Widgets/StudioControls`.
 
 The Linux application is GTK 4/Python. The Windows 11 edition uses .NET 10 and
 WinUI 3, with a shared, UI-independent .NET core. Windows compilation and synthetic
@@ -35,6 +35,7 @@ and editable values must never pass through the presentation translator.
 - Explicit recording start/stop, pause/resume, microphone and desktop mute.
 - Screen-only zoom and horizontal/vertical framing, reset and three presets.
 - Independent screen/webcam/hardware vignette switches and intensity.
+- A Windows workflow editor with a scene sequence, timed steps, local rehearsal and OBS playback.
 - Webcam zoom, pan, tilt and framing presets through the platform's camera API.
 - Project name, eyebrow, subtitle, description, up to three displayed links,
   project logo, chapter/comparison labels, optional VibeWare branding and intro cue.
@@ -81,18 +82,23 @@ Run `artifacts/windows-x64/StudioControls.Windows.exe`. Configure OBS's local
 WebSocket connection and use Connect. Windows connection passwords are encrypted
 for the current user with DPAPI; they are not portable plaintext files.
 
-The build uses locked dependencies and a fresh publish folder. Choose a new or
-empty `-OutputDirectory` for another build; existing files are never mixed into
-the release. `-Package` produces `artifacts/StudioControls-0.3.3-windows-x64.msi`.
+The build uses locked dependencies and a fresh publish folder. The default paths
+retain the current publish for each configuration and channel. For a custom
+`-OutputDirectory`, choose a new or empty directory. `-Package` keeps the current
+local Release MSI in `artifacts/installers/local/windows-x64/`. Debug and public
+packages use their own directories under `artifacts/installers/`.
 Run the MSI, then open Studio Controls from Start. The installer includes WinUI
 components, generic assets, the sanitized scene template and licences. It requires
-the shared Microsoft .NET Runtime 10.0 for Windows x64 and offers the official
-download page when the runtime is missing. [Microsoft .NET 10 downloads](https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime)
+the shared Microsoft .NET Runtime 10.0 for Windows x64. If a compatible runtime
+is already installed, run the MSI directly. Otherwise, install the x64 runtime
+separately and run the MSI. [Microsoft .NET 10 downloads](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
 No Python installation is required on Windows. The language flags are bundled
 from [flag-icons 7.5.0](https://github.com/lipis/flag-icons/releases/tag/v7.5.0)
 under the MIT license in the Windows Flags directory.
 
-The package command stages an unsigned per-user MSI with WiX 5.0.2 and Python 3.
+The package command builds a per-user MSI with WiX 5.0.2 and Python 3.
+The local channel signs the application and MSI with the VibeWare development
+certificate. Use `-Channel public` for the unsigned public build.
 The installer uses the [VibeKit installer layout](../../docs/installers/README.md),
 adds a Start menu shortcut, and supports major upgrades. Preferences
 and generated project data remain in LocalAppData on uninstall. Increase the
@@ -103,7 +109,7 @@ verified output.
 
 ```powershell
 ./scripts/Test-WindowsPackage.ps1
-./scripts/Package-Windows.ps1 -WixPath <path-to-wix.exe-or-wix.dll> -PublishDirectory ./artifacts/windows-x64 -OutputDirectory ./artifacts
+./scripts/Package-Windows.ps1 -WixPath <path-to-wix.exe-or-wix.dll>
 ```
 
 The packager validates the clean-build hash manifest and rejects changed or extra

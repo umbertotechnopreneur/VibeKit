@@ -3759,6 +3759,1436 @@
       "녹화 대상이 변경되었습니다.",
       "录制目标已更改。",
       "録画先が変更されました。"
+    ],
+    "Use the light theme for the control panel.": [
+      "Usa il tema chiaro per il pannello.",
+      "Use the light theme for the control panel.",
+      "Dùng giao diện sáng cho bảng điều khiển.",
+      "Utilise le thème clair pour le panneau.",
+      "Verwendet das helle Design im Bedienfeld.",
+      "제어판에 밝은 테마를 사용합니다.",
+      "为控制面板使用浅色主题。",
+      "操作パネルをライトテーマにします。"
+    ],
+    "Use the dark theme for the control panel.": [
+      "Usa il tema scuro per il pannello.",
+      "Use the dark theme for the control panel.",
+      "Dùng giao diện tối cho bảng điều khiển.",
+      "Utilise le thème sombre pour le panneau.",
+      "Verwendet das dunkle Design im Bedienfeld.",
+      "제어판에 어두운 테마를 사용합니다.",
+      "为控制面板使用深色主题。",
+      "操作パネルをダークテーマにします。"
+    ],
+    "Follow the Windows appearance setting.": [
+      "Segui l’aspetto impostato in Windows.",
+      "Follow the Windows appearance setting.",
+      "Theo cài đặt giao diện Windows.",
+      "Suit l’apparence configurée dans Windows.",
+      "Folgt der Windows-Darstellungseinstellung.",
+      "Windows 모양 설정을 따릅니다.",
+      "跟随 Windows 外观设置。",
+      "Windows の外観設定に従います。"
+    ],
+    "Connect to the running OBS WebSocket server using the settings above.": [
+      "Collega il pannello al server WebSocket di OBS con le impostazioni qui sopra.",
+      "Connect to the running OBS WebSocket server using the settings above.",
+      "Kết nối với máy chủ WebSocket của OBS theo cài đặt ở trên.",
+      "Se connecte au serveur WebSocket d’OBS avec les réglages ci-dessus.",
+      "Verbindet sich mit dem laufenden OBS-WebSocket-Server mit den obigen Einstellungen.",
+      "위 설정으로 실행 중인 OBS WebSocket 서버에 연결합니다.",
+      "使用上方设置连接正在运行的 OBS WebSocket 服务器。",
+      "上の設定で、実行中の OBS WebSocket サーバーに接続します。"
+    ],
+    "Disconnect the panel from OBS. Recording continues in OBS.": [
+      "Scollega il pannello da OBS. La registrazione continua in OBS.",
+      "Disconnect the panel from OBS. Recording continues in OBS.",
+      "Ngắt kết nối bảng điều khiển với OBS. OBS vẫn tiếp tục ghi.",
+      "Déconnecte le panneau d’OBS. L’enregistrement continue dans OBS.",
+      "Trennt das Bedienfeld von OBS. Die Aufnahme in OBS läuft weiter.",
+      "OBS에서 패널을 연결 해제합니다. OBS 녹화는 계속됩니다.",
+      "断开面板与 OBS 的连接。OBS 继续录制。",
+      "パネルを OBS から切断します。OBS の録画は続きます。"
+    ],
+    "Create a new JSON scene collection to import into OBS.": [
+      "Crea un nuovo JSON da importare come raccolta scene in OBS.",
+      "Create a new JSON scene collection to import into OBS.",
+      "Tạo bộ sưu tập cảnh JSON mới để nhập vào OBS.",
+      "Crée une nouvelle collection de scènes JSON à importer dans OBS.",
+      "Erstellt eine neue JSON-Szenensammlung zum Import in OBS.",
+      "OBS에서 가져올 새 JSON 장면 모음을 만듭니다.",
+      "创建可导入 OBS 的新 JSON 场景集合。",
+      "OBS にインポートする新しい JSON シーンコレクションを作成します。"
+    ],
+    "Export diagnostic logs without passwords, settings or project content.": [
+      "Esporta i log diagnostici senza password, impostazioni o contenuto dei progetti.",
+      "Export diagnostic logs without passwords, settings or project content.",
+      "Xuất nhật ký chẩn đoán không kèm mật khẩu, cài đặt hay nội dung dự án.",
+      "Exporte les journaux de diagnostic sans mots de passe, réglages ni contenu de projet.",
+      "Exportiert Diagnoseprotokolle ohne Passwörter, Einstellungen oder Projektinhalte.",
+      "암호, 설정, 프로젝트 내용을 제외한 진단 로그를 내보냅니다.",
+      "导出诊断日志，不包含密码、设置或项目内容。",
+      "パスワード、設定、プロジェクトの内容を除いた診断ログを書き出します。"
+    ],
+    "Open information about Studio Controls and its author.": [
+      "Apri le informazioni su Studio Controls e il suo autore.",
+      "Open information about Studio Controls and its author.",
+      "Mở thông tin về Studio Controls và tác giả.",
+      "Affiche les informations sur Studio Controls et son auteur.",
+      "Zeigt Informationen zu Studio Controls und seinem Autor.",
+      "Studio Controls와 제작자 정보를 엽니다.",
+      "打开 Studio Controls 及其作者的信息。",
+      "Studio Controls と作者の情報を開きます。"
+    ],
+    "Start recording the current OBS scene. Uses the countdown if enabled.": [
+      "Avvia la registrazione della scena OBS attiva, con il conto alla rovescia se attivo.",
+      "Start recording the current OBS scene. Uses the countdown if enabled.",
+      "Bắt đầu ghi cảnh OBS hiện tại, có đếm ngược nếu đã bật.",
+      "Démarre l’enregistrement de la scène OBS active, avec décompte s’il est activé.",
+      "Startet die Aufnahme der aktuellen OBS-Szene mit Countdown, falls aktiviert.",
+      "현재 OBS 장면의 녹화를 시작합니다. 설정된 경우 카운트다운을 사용합니다.",
+      "开始录制当前 OBS 场景；启用时先倒计时。",
+      "現在の OBS シーンを録画します。設定に応じてカウントダウンを使います。"
+    ],
+    "Stop the current recording and let OBS save the file.": [
+      "Ferma la registrazione in corso e lascia che OBS salvi il file.",
+      "Stop the current recording and let OBS save the file.",
+      "Dừng bản ghi hiện tại và để OBS lưu tệp.",
+      "Arrête l’enregistrement en cours et laisse OBS enregistrer le fichier.",
+      "Beendet die laufende Aufnahme und lässt OBS die Datei speichern.",
+      "현재 녹화를 중지하고 OBS가 파일을 저장하도록 합니다.",
+      "停止当前录制，由 OBS 保存文件。",
+      "録画を停止し、OBS にファイルを保存させます。"
+    ],
+    "Pause the OBS recording. A running OBS workflow stops.": [
+      "Metti in pausa la registrazione OBS. L’eventuale scaletta OBS in corso si ferma.",
+      "Pause the OBS recording. A running OBS workflow stops.",
+      "Tạm dừng ghi OBS. Quy trình OBS đang chạy sẽ dừng.",
+      "Met l’enregistrement OBS en pause et arrête le conducteur OBS en cours.",
+      "Pausiert die OBS-Aufnahme. Ein laufender OBS-Ablauf wird gestoppt.",
+      "OBS 녹화를 일시 중지합니다. 실행 중인 OBS 워크플로가 멈춥니다.",
+      "暂停 OBS 录制，同时停止正在运行的 OBS 流程。",
+      "OBS の録画を一時停止します。実行中の OBS ワークフローは停止します。"
+    ],
+    "Continue the paused OBS recording in the same file.": [
+      "Riprendi la registrazione OBS nello stesso file.",
+      "Continue the paused OBS recording in the same file.",
+      "Tiếp tục ghi OBS trong cùng tệp.",
+      "Reprend l’enregistrement OBS dans le même fichier.",
+      "Setzt die pausierte OBS-Aufnahme in derselben Datei fort.",
+      "일시 중지한 OBS 녹화를 같은 파일에 이어서 기록합니다.",
+      "在同一文件中继续 OBS 录制。",
+      "一時停止した OBS 録画を同じファイルに再開します。"
+    ],
+    "Mute or unmute the microphone input in OBS.": [
+      "Silenzia o riattiva il microfono in OBS.",
+      "Mute or unmute the microphone input in OBS.",
+      "Tắt hoặc bật tiếng micrô trong OBS.",
+      "Coupe ou rétablit le microphone dans OBS.",
+      "Schaltet das Mikrofon in OBS stumm oder wieder ein.",
+      "OBS에서 마이크를 음소거하거나 해제합니다.",
+      "静音或取消静音 OBS 麦克风。",
+      "OBS のマイクをミュート、または解除します。"
+    ],
+    "Mute or unmute the desktop audio input in OBS.": [
+      "Silenzia o riattiva l’audio del desktop in OBS.",
+      "Mute or unmute the desktop audio input in OBS.",
+      "Tắt hoặc bật âm thanh máy tính trong OBS.",
+      "Coupe ou rétablit l’audio du bureau dans OBS.",
+      "Schaltet den Desktop-Ton in OBS stumm oder wieder ein.",
+      "OBS에서 데스크톱 오디오를 음소거하거나 해제합니다.",
+      "静音或取消静音 OBS 桌面音频。",
+      "OBS のデスクトップ音声をミュート、または解除します。"
+    ],
+    "Find the cameras available to Windows and refresh the list.": [
+      "Cerca le videocamere disponibili in Windows e aggiorna l’elenco.",
+      "Find the cameras available to Windows and refresh the list.",
+      "Tìm các máy ảnh Windows nhận diện và làm mới danh sách.",
+      "Recherche les caméras disponibles dans Windows et actualise la liste.",
+      "Sucht die in Windows verfügbaren Kameras und aktualisiert die Liste.",
+      "Windows에서 사용 가능한 카메라를 찾아 목록을 새로 고칩니다.",
+      "查找 Windows 可用的摄像头并刷新列表。",
+      "Windows で利用できるカメラを検索し、一覧を更新します。"
+    ],
+    "Open the selected camera’s Windows controls for zoom, pan and tilt.": [
+      "Apri i controlli Windows di zoom, pan e tilt della videocamera selezionata.",
+      "Open the selected camera’s Windows controls for zoom, pan and tilt.",
+      "Mở điều khiển thu phóng, xoay ngang và nghiêng của máy ảnh đã chọn.",
+      "Ouvre les réglages Windows de zoom, panoramique et inclinaison de la caméra sélectionnée.",
+      "Öffnet die Windows-Regler für Zoom, Schwenken und Neigen der ausgewählten Kamera.",
+      "선택한 카메라의 Windows 줌, 팬, 틸트 제어를 엽니다.",
+      "打开所选摄像头的 Windows 缩放、平移和俯仰控件。",
+      "選択したカメラの Windows ズーム、パン、チルト操作を開きます。"
+    ],
+    "Recall the camera framing saved in this slot.": [
+      "Applica l’inquadratura della videocamera salvata in questa posizione.",
+      "Recall the camera framing saved in this slot.",
+      "Áp dụng khung hình máy ảnh đã lưu ở ô này.",
+      "Rappelle le cadrage caméra enregistré dans cet emplacement.",
+      "Ruft den in diesem Platz gespeicherten Kameraausschnitt ab.",
+      "이 슬롯에 저장한 카메라 구도를 적용합니다.",
+      "应用此位置保存的摄像头取景。",
+      "この枠に保存したカメラの構図を呼び出します。"
+    ],
+    "Replace this preset with the camera’s current zoom, pan and tilt.": [
+      "Sostituisci il preset con zoom, pan e tilt attuali della videocamera.",
+      "Replace this preset with the camera’s current zoom, pan and tilt.",
+      "Thay cài đặt sẵn bằng mức thu phóng, xoay và nghiêng hiện tại.",
+      "Remplace ce préréglage par le zoom et l’orientation actuels de la caméra.",
+      "Ersetzt diesen Platz durch aktuellen Zoom, Schwenk- und Neigewert.",
+      "현재 카메라의 줌, 팬, 틸트 값으로 프리셋을 덮어씁니다.",
+      "以当前摄像头缩放、平移和俯仰更新预设。",
+      "現在のズーム、パン、チルトでプリセットを上書きします。"
+    ],
+    "Apply this saved zoom and position to the active OBS scene’s screen capture.": [
+      "Applica zoom e posizione salvati alla cattura schermo della scena OBS attiva.",
+      "Apply this saved zoom and position to the active OBS scene’s screen capture.",
+      "Áp dụng mức thu phóng và vị trí đã lưu cho cảnh OBS hiện tại.",
+      "Applique le zoom et la position enregistrés à la capture de la scène OBS active.",
+      "Wendet gespeicherten Zoom und Position auf die Bildschirmaufnahme der aktiven OBS-Szene an.",
+      "저장한 확대율과 위치를 현재 OBS 장면의 화면 캡처에 적용합니다.",
+      "将已保存的缩放和位置应用到当前 OBS 场景的屏幕捕获。",
+      "保存したズームと位置を現在の OBS シーンの画面キャプチャに適用します。"
+    ],
+    "Replace this preset with the current screen zoom and position.": [
+      "Sostituisci il preset con lo zoom e la posizione attuali dello schermo.",
+      "Replace this preset with the current screen zoom and position.",
+      "Thay cài đặt sẵn bằng mức thu phóng và vị trí hiện tại.",
+      "Remplace ce préréglage par le zoom et la position actuels de l’écran.",
+      "Ersetzt diesen Platz durch aktuellen Bildschirmzoom und aktuelle Position.",
+      "현재 화면 확대율과 위치로 프리셋을 덮어씁니다.",
+      "用当前屏幕缩放和位置覆盖此预设。",
+      "現在の画面ズームと位置でプリセットを上書きします。"
+    ],
+    "Choose a local image for the project cards.": [
+      "Scegli un’immagine locale per i cartelli del progetto.",
+      "Choose a local image for the project cards.",
+      "Chọn ảnh cục bộ cho thẻ dự án.",
+      "Choisit une image locale pour les cartons du projet.",
+      "Wählt ein lokales Bild für die Projekttafeln.",
+      "프로젝트 카드에 사용할 로컬 이미지를 선택합니다.",
+      "为项目标题卡选择本地图片。",
+      "プロジェクトカードに使うローカル画像を選びます。"
+    ],
+    "Clear the logo from the project form. Apply to update the OBS cards.": [
+      "Togli il logo dal progetto. Premi Applica per aggiornare i cartelli in OBS.",
+      "Clear the logo from the project form. Apply to update the OBS cards.",
+      "Xóa logo khỏi biểu mẫu. Áp dụng để cập nhật thẻ OBS.",
+      "Efface le logo du formulaire. Appliquez pour actualiser les cartons OBS.",
+      "Entfernt das Logo aus dem Formular. Mit Anwenden werden die OBS-Tafeln aktualisiert.",
+      "프로젝트 양식에서 로고를 지웁니다. 적용하면 OBS 카드가 갱신됩니다.",
+      "从项目表单移除标志。应用后更新 OBS 标题卡。",
+      "フォームからロゴを削除します。適用すると OBS カードが更新されます。"
+    ],
+    "Enable or disable the intro sound in OBS when applying the project.": [
+      "Decidi se usare il suono di apertura in OBS quando applichi il progetto.",
+      "Enable or disable the intro sound in OBS when applying the project.",
+      "Chọn phát hoặc tắt âm mở đầu trong OBS khi áp dụng dự án.",
+      "Active ou désactive le son d’intro dans OBS lors de l’application du projet.",
+      "Schaltet beim Anwenden des Projekts den Intro-Ton in OBS ein oder aus.",
+      "프로젝트 적용 시 OBS 인트로 소리를 켜거나 끕니다.",
+      "应用项目时启用或禁用 OBS 开场音。",
+      "プロジェクト適用時に OBS のイントロ音をオンまたはオフにします。"
+    ],
+    "Set the volume of the project’s intro sound.": [
+      "Regola il volume del suono di apertura.",
+      "Set the volume of the project’s intro sound.",
+      "Điều chỉnh âm lượng mở đầu của dự án.",
+      "Règle le volume du son d’intro du projet.",
+      "Regelt die Lautstärke des Projekt-Intros.",
+      "프로젝트 인트로 소리의 볼륨을 조정합니다.",
+      "调整项目开场音量。",
+      "プロジェクトのイントロ音量を設定します。"
+    ],
+    "Choose, create or organize projects and their workflows.": [
+      "Scegli, crea o organizza progetti e scalette.",
+      "Choose, create or organize projects and their workflows.",
+      "Chọn, tạo hoặc sắp xếp dự án và quy trình.",
+      "Choisit, crée ou organise les projets et leurs conducteurs.",
+      "Wählt, erstellt oder organisiert Projekte und Abläufe.",
+      "프로젝트와 워크플로를 선택, 생성, 정리합니다.",
+      "选择、创建或整理项目及其流程。",
+      "プロジェクトとワークフローを選択、作成、整理します。"
+    ],
+    "Set a reference duration for the workflow. Scene durations stay as set.": [
+      "Imposta una durata di riferimento per la scaletta. Le durate delle scene restano quelle impostate.",
+      "Set a reference duration for the workflow. Scene durations stay as set.",
+      "Đặt thời lượng tham chiếu. Thời lượng từng cảnh vẫn giữ nguyên.",
+      "Fixe une durée de référence sans modifier la durée des scènes.",
+      "Legt eine Referenzdauer fest. Die Szenendauern bleiben bestehen.",
+      "워크플로의 기준 시간을 설정합니다. 장면별 시간은 그대로입니다.",
+      "设置流程的参考时长。各场景的时长保持原设置。",
+      "ワークフローの目標時間を設定します。各シーンの長さはそのままです。"
+    ],
+    "Click to add this scene at the end, or drag it into the sequence.": [
+      "Fai clic per aggiungere la scena in coda o trascinala nella sequenza.",
+      "Click to add this scene at the end, or drag it into the sequence.",
+      "Bấm để thêm cảnh vào cuối hoặc kéo vào quy trình.",
+      "Cliquez pour ajouter la scène à la fin ou faites-la glisser dans la séquence.",
+      "Klicken hängt die Szene an. Ziehen platziert sie in der Sequenz.",
+      "클릭하면 끝에 추가하고, 끌어서 순서에 넣을 수도 있습니다.",
+      "点击将场景添加到末尾，或将其拖入序列。",
+      "クリックで末尾に追加するか、シーケンスにドラッグします。"
+    ],
+    "Switch immediately to this scene in OBS. Manual changes stop a running workflow.": [
+      "Passa subito alla scena in OBS. Un cambio manuale ferma la scaletta in corso.",
+      "Switch immediately to this scene in OBS. Manual changes stop a running workflow.",
+      "Chuyển ngay sang cảnh này trong OBS. Đổi cảnh thủ công sẽ dừng quy trình.",
+      "Passe immédiatement à cette scène dans OBS et arrête le conducteur en cours.",
+      "Wechselt sofort zu dieser OBS-Szene. Manuelle Wechsel stoppen den laufenden Ablauf.",
+      "이 OBS 장면으로 즉시 전환합니다. 수동 전환 시 워크플로가 멈춥니다.",
+      "立即切换到此 OBS 场景。手动切换会停止运行中的流程。",
+      "この OBS シーンへすぐ切り替えます。手動切り替えで進行中のワークフローは停止します。"
+    ],
+    "Edit this step’s duration, transition or note. Drag to change its position.": [
+      "Modifica durata, transizione o nota. Trascina la scheda per spostarla.",
+      "Edit this step’s duration, transition or note. Drag to change its position.",
+      "Sửa thời lượng, chuyển cảnh hoặc ghi chú. Kéo để đổi vị trí.",
+      "Modifie la durée, la transition ou la note. Faites glisser pour déplacer.",
+      "Bearbeitet Dauer, Übergang oder Notiz. Ziehen ändert die Position.",
+      "시간, 전환 또는 메모를 편집합니다. 끌어서 위치를 바꿉니다.",
+      "编辑时长、转场或备注。拖动可调整位置。",
+      "時間、切り替え、メモを編集します。ドラッグで位置を変えます。"
+    ],
+    "Place this step earlier in the sequence.": [
+      "Sposta il passaggio prima nella sequenza.",
+      "Place this step earlier in the sequence.",
+      "Đưa bước này lên trước trong quy trình.",
+      "Place cette étape plus tôt dans la séquence.",
+      "Verschiebt diesen Schritt in der Sequenz nach vorn.",
+      "이 단계를 앞쪽으로 이동합니다.",
+      "将此步骤移到序列前面。",
+      "このステップをシーケンスの前へ移動します。"
+    ],
+    "Place this step later in the sequence.": [
+      "Sposta il passaggio dopo nella sequenza.",
+      "Place this step later in the sequence.",
+      "Đưa bước này xuống sau trong quy trình.",
+      "Place cette étape plus tard dans la séquence.",
+      "Verschiebt diesen Schritt in der Sequenz nach hinten.",
+      "이 단계를 뒤쪽으로 이동합니다.",
+      "将此步骤移到序列后面。",
+      "このステップをシーケンスの後ろへ移動します。"
+    ],
+    "Run the timer and cues locally, without switching scenes in OBS.": [
+      "Fai scorrere timer e promemoria senza cambiare scena in OBS.",
+      "Run the timer and cues locally, without switching scenes in OBS.",
+      "Chạy bộ đếm và gợi ý mà không đổi cảnh OBS.",
+      "Lance le minuteur et les repères sans changer les scènes OBS.",
+      "Startet Timer und Hinweise, ohne OBS-Szenen zu wechseln.",
+      "OBS 장면을 바꾸지 않고 타이머와 안내를 재생합니다.",
+      "运行计时器和提示，不切换 OBS 场景。",
+      "OBS のシーンを切り替えずにタイマーと合図を進めます。"
+    ],
+    "Run the workflow and switch OBS scenes on time. Start the recording separately.": [
+      "Avvia la scaletta e cambia le scene OBS ai tempi previsti. Avvia a parte la registrazione.",
+      "Run the workflow and switch OBS scenes on time. Start the recording separately.",
+      "Chạy quy trình và đổi cảnh OBS đúng lúc. Bắt đầu ghi riêng.",
+      "Lance le conducteur et change les scènes OBS au bon moment. Lancez l’enregistrement séparément.",
+      "Führt den Ablauf aus und wechselt OBS-Szenen nach Zeitplan. Starten Sie die Aufnahme separat.",
+      "워크플로를 실행해 정해진 시간에 OBS 장면을 바꿉니다. 녹화는 따로 시작합니다.",
+      "按时切换 OBS 场景。请单独开始录制。",
+      "予定どおり OBS シーンを切り替えます。録画は別に開始してください。"
+    ],
+    "Pause the countdown and hold the current scene. OBS keeps recording if it was recording.": [
+      "Ferma il conto alla rovescia e mantieni la scena. Se OBS sta registrando, continua a farlo.",
+      "Pause the countdown and hold the current scene. OBS keeps recording if it was recording.",
+      "Tạm dừng đếm ngược và giữ cảnh hiện tại. OBS vẫn ghi nếu đang ghi.",
+      "Fige le compte à rebours et la scène. OBS continue d’enregistrer si l’enregistrement est en cours.",
+      "Hält Countdown und Szene an. Eine laufende OBS-Aufnahme läuft weiter.",
+      "카운트다운을 멈추고 현재 장면을 유지합니다. OBS 녹화는 계속됩니다.",
+      "暂停倒计时并保持当前场景。OBS 若在录制则继续。",
+      "カウントダウンを止め、現在のシーンを維持します。OBS の録画は続きます。"
+    ],
+    "Continue the countdown from where it paused.": [
+      "Riprendi il conto alla rovescia dal punto in cui si è fermato.",
+      "Continue the countdown from where it paused.",
+      "Tiếp tục đếm ngược từ lúc tạm dừng.",
+      "Reprend le compte à rebours là où il s’est arrêté.",
+      "Setzt den Countdown an der Pausenstelle fort.",
+      "일시 중지한 시점부터 카운트다운을 계속합니다.",
+      "从暂停处继续倒计时。",
+      "一時停止したところからカウントダウンを再開します。"
+    ],
+    "Advance the workflow immediately to its next step.": [
+      "Passa subito al prossimo passaggio della scaletta.",
+      "Advance the workflow immediately to its next step.",
+      "Chuyển ngay sang bước tiếp theo.",
+      "Passe immédiatement à l’étape suivante du conducteur.",
+      "Springt sofort zum nächsten Ablaufschritt.",
+      "워크플로의 다음 단계로 즉시 이동합니다.",
+      "立即进入下一步骤。",
+      "すぐにワークフローの次のステップへ進みます。"
+    ],
+    "End the workflow. A running OBS recording continues.": [
+      "Termina la scaletta. L’eventuale registrazione OBS continua.",
+      "End the workflow. A running OBS recording continues.",
+      "Kết thúc quy trình. OBS vẫn ghi nếu đang ghi.",
+      "Arrête le conducteur. L’enregistrement OBS en cours continue.",
+      "Beendet den Ablauf. Eine laufende OBS-Aufnahme läuft weiter.",
+      "워크플로를 종료합니다. 진행 중인 OBS 녹화는 계속됩니다.",
+      "结束流程。正在进行的 OBS 录制继续。",
+      "ワークフローを終了します。OBS の録画は続きます。"
+    ],
+    "Open the separate presenter timer so you can place it outside the capture.": [
+      "Apri il timer in una finestra da tenere fuori dalla cattura.",
+      "Open the separate presenter timer so you can place it outside the capture.",
+      "Mở bộ đếm riêng để đặt ngoài vùng ghi hình.",
+      "Ouvre le minuteur séparé, à placer hors de la zone capturée.",
+      "Öffnet den separaten Timer zur Platzierung außerhalb der Aufnahme.",
+      "캡처 영역 밖에 둘 수 있는 별도 타이머를 엽니다.",
+      "打开独立的演示计时器，可移到捕获范围外。",
+      "収録範囲の外に置ける独立したタイマーを開きます。"
+    ],
+    "Choose what the timer shows and configure its countdown signals.": [
+      "Scegli cosa mostra il timer e imposta i segnali del conto alla rovescia.",
+      "Choose what the timer shows and configure its countdown signals.",
+      "Chọn nội dung hiển thị và tín hiệu của bộ đếm.",
+      "Choisit les éléments affichés et les signaux du compte à rebours.",
+      "Wählt die Timeranzeige und legt Countdown-Signale fest.",
+      "타이머 표시 내용과 카운트다운 신호를 설정합니다.",
+      "选择计时器的显示内容并设置倒计时提示。",
+      "タイマーの表示内容とカウントダウンの合図を設定します。"
+    ],
+    "Start a standalone countdown with no scene changes.": [
+      "Avvia un conto alla rovescia indipendente dai cambi scena.",
+      "Start a standalone countdown with no scene changes.",
+      "Bắt đầu đếm ngược riêng mà không đổi cảnh.",
+      "Lance un compte à rebours indépendant des scènes.",
+      "Startet einen Countdown ohne Szenenwechsel.",
+      "장면을 전환하지 않는 독립 카운트다운을 시작합니다.",
+      "启动独立倒计时，不切换场景。",
+      "シーン切り替えのない単独カウントダウンを開始します。"
+    ],
+    "Add 10 seconds to the current scene without pausing.": [
+      "Aggiungi 10 secondi alla scena in corso senza metterla in pausa.",
+      "Add 10 seconds to the current scene without pausing.",
+      "Thêm 10 giây vào cảnh hiện tại mà không tạm dừng.",
+      "Ajoute 10 secondes à la scène en cours sans la mettre en pause.",
+      "Verlängert die aktuelle Szene um 10 Sekunden ohne Pause.",
+      "일시 중지하지 않고 현재 장면에 10초를 추가합니다.",
+      "为当前场景增加 10 秒，不暂停。",
+      "一時停止せず、現在のシーンを10秒延長します。"
+    ],
+    "Add 20 seconds to the current scene without pausing.": [
+      "Aggiungi 20 secondi alla scena in corso senza metterla in pausa.",
+      "Add 20 seconds to the current scene without pausing.",
+      "Thêm 20 giây vào cảnh hiện tại mà không tạm dừng.",
+      "Ajoute 20 secondes à la scène en cours sans la mettre en pause.",
+      "Verlängert die aktuelle Szene um 20 Sekunden ohne Pause.",
+      "일시 중지하지 않고 현재 장면에 20초를 추가합니다.",
+      "为当前场景增加 20 秒，不暂停。",
+      "一時停止せず、現在のシーンを20秒延長します。"
+    ],
+    "Cancel the pending start before OBS begins recording.": [
+      "Annulla la partenza prima che OBS inizi a registrare.",
+      "Cancel the pending start before OBS begins recording.",
+      "Hủy lệnh bắt đầu trước khi OBS ghi.",
+      "Annule le démarrage avant que l’enregistrement OBS commence.",
+      "Bricht den Start ab, bevor OBS mit der Aufnahme beginnt.",
+      "OBS가 녹화를 시작하기 전에 대기 중인 시작을 취소합니다.",
+      "在 OBS 开始录制前取消倒计时。",
+      "OBS が録画を始める前に開始を取り消します。"
+    ],
+    "Create a project with its own workflows and cards.": [
+      "Crea un progetto con scalette e cartelli propri.",
+      "Create a project with its own workflows and cards.",
+      "Tạo dự án với quy trình và thẻ riêng.",
+      "Crée un projet avec ses propres conducteurs et cartons.",
+      "Erstellt ein Projekt mit eigenen Abläufen und Tafeln.",
+      "독립된 워크플로와 카드를 가진 프로젝트를 만듭니다.",
+      "创建拥有独立流程和标题卡的项目。",
+      "独自のワークフローとカードを持つプロジェクトを作成します。"
+    ],
+    "Rename the selected project.": [
+      "Rinomina il progetto selezionato.",
+      "Rename the selected project.",
+      "Đổi tên dự án đã chọn.",
+      "Renomme le projet sélectionné.",
+      "Benennt das ausgewählte Projekt um.",
+      "선택한 프로젝트의 이름을 바꿉니다.",
+      "重命名所选项目。",
+      "選択したプロジェクトの名前を変更します。"
+    ],
+    "Add an empty workflow to the selected project.": [
+      "Aggiungi una scaletta vuota al progetto selezionato.",
+      "Add an empty workflow to the selected project.",
+      "Thêm quy trình trống vào dự án đã chọn.",
+      "Ajoute un conducteur vide au projet sélectionné.",
+      "Fügt dem ausgewählten Projekt einen leeren Ablauf hinzu.",
+      "선택한 프로젝트에 빈 워크플로를 추가합니다.",
+      "为所选项目添加空流程。",
+      "選択したプロジェクトに空のワークフローを追加します。"
+    ],
+    "Rename the selected workflow.": [
+      "Rinomina la scaletta selezionata.",
+      "Rename the selected workflow.",
+      "Đổi tên quy trình đã chọn.",
+      "Renomme le conducteur sélectionné.",
+      "Benennt den ausgewählten Ablauf um.",
+      "선택한 워크플로의 이름을 바꿉니다.",
+      "重命名所选流程。",
+      "選択したワークフローの名前を変更します。"
+    ],
+    "Make a copy of the selected workflow with its durations, notes and transitions.": [
+      "Copia la scaletta selezionata con durate, note e transizioni.",
+      "Make a copy of the selected workflow with its durations, notes and transitions.",
+      "Sao chép quy trình cùng thời lượng, ghi chú và chuyển cảnh.",
+      "Copie le conducteur avec ses durées, notes et transitions.",
+      "Kopiert den Ablauf samt Dauer, Notizen und Übergängen.",
+      "선택한 워크플로와 시간, 메모, 전환을 복제합니다.",
+      "复制所选流程及其时长、备注和转场。",
+      "選択したワークフローを時間、メモ、切り替えごと複製します。"
+    ],
+    "Accept and save these changes.": [
+      "Conferma e salva le modifiche.",
+      "Accept and save these changes.",
+      "Xác nhận và lưu thay đổi.",
+      "Confirme et enregistre les modifications.",
+      "Bestätigt und speichert die Änderungen.",
+      "변경 사항을 확인하고 저장합니다.",
+      "确认并保存更改。",
+      "変更を確定して保存します。"
+    ],
+    "Go back without applying these changes.": [
+      "Torna indietro senza applicare le modifiche.",
+      "Go back without applying these changes.",
+      "Quay lại mà không áp dụng thay đổi.",
+      "Revient en arrière sans appliquer les modifications.",
+      "Kehrt zurück, ohne Änderungen anzuwenden.",
+      "변경 사항을 적용하지 않고 돌아갑니다.",
+      "返回而不应用更改。",
+      "変更を適用せずに戻ります。"
+    ],
+    "Confirm removal of the selected item.": [
+      "Conferma la rimozione dell’elemento selezionato.",
+      "Confirm removal of the selected item.",
+      "Xác nhận xóa mục đã chọn.",
+      "Confirme la suppression de l’élément sélectionné.",
+      "Bestätigt das Entfernen des ausgewählten Elements.",
+      "선택한 항목을 제거합니다.",
+      "确认移除所选项目。",
+      "選択した項目の削除を確定します。"
+    ],
+    "Open the selected project and workflow.": [
+      "Apri il progetto e la scaletta selezionati.",
+      "Open the selected project and workflow.",
+      "Mở dự án và quy trình đã chọn.",
+      "Ouvre le projet et le conducteur sélectionnés.",
+      "Öffnet das ausgewählte Projekt und den ausgewählten Ablauf.",
+      "선택한 프로젝트와 워크플로를 엽니다.",
+      "打开所选项目和流程。",
+      "選択したプロジェクトとワークフローを開きます。"
+    ],
+    "Leave without saving the unsaved card changes.": [
+      "Esci senza salvare le modifiche ai cartelli.",
+      "Leave without saving the unsaved card changes.",
+      "Thoát mà không lưu thay đổi của thẻ.",
+      "Quitte sans enregistrer les modifications des cartons.",
+      "Schließt ohne die Änderungen an den Tafeln zu speichern.",
+      "카드 변경 사항을 저장하지 않고 나갑니다.",
+      "退出而不保存标题卡的更改。",
+      "カードの変更を保存せずに閉じます。"
+    ],
+    "Close this window.": [
+      "Chiudi questa finestra.",
+      "Close this window.",
+      "Đóng cửa sổ này.",
+      "Ferme cette fenêtre.",
+      "Schließt dieses Fenster.",
+      "이 창을 닫습니다.",
+      "关闭此窗口。",
+      "このウィンドウを閉じます。"
+    ],
+    "Camera device": [
+      "Dispositivo video",
+      "Camera device",
+      "Thiết bị máy ảnh",
+      "Périphérique caméra",
+      "Kameragerät",
+      "카메라 장치",
+      "摄像头设备",
+      "カメラ機器"
+    ],
+    "Choose a camera": [
+      "Scegli una videocamera",
+      "Choose a camera",
+      "Chọn máy ảnh",
+      "Choisir une caméra",
+      "Kamera auswählen",
+      "카메라 선택",
+      "选择摄像头",
+      "カメラを選択"
+    ],
+    "Camera framing": [
+      "Inquadratura della videocamera",
+      "Camera framing",
+      "Khung hình máy ảnh",
+      "Cadrage caméra",
+      "Kameraausschnitt",
+      "카메라 구도",
+      "摄像头取景",
+      "カメラの構図"
+    ],
+    "Zoom, pan and tilt on supported cameras.": [
+      "Zoom e movimento sui dispositivi compatibili.",
+      "Zoom, pan and tilt on supported cameras.",
+      "Thu phóng, xoay và nghiêng trên máy ảnh tương thích.",
+      "Zoom et orientation sur les caméras compatibles.",
+      "Zoom, Schwenken und Neigen bei unterstützten Kameras.",
+      "지원 카메라의 줌, 팬 및 틸트.",
+      "在受支持的摄像头上缩放、平移和俯仰。",
+      "対応カメラのズーム、パン、チルト。"
+    ],
+    "Framing presets": [
+      "Preset di inquadratura",
+      "Framing presets",
+      "Cài đặt sẵn khung hình",
+      "Préréglages de cadrage",
+      "Ausschnittvorgaben",
+      "구도 프리셋",
+      "取景预设",
+      "構図プリセット"
+    ],
+    "OBS camera effect": [
+      "Effetto sulla videocamera in OBS",
+      "OBS camera effect",
+      "Hiệu ứng máy ảnh trong OBS",
+      "Effet caméra dans OBS",
+      "Kameraeffekt in OBS",
+      "OBS 카메라 효과",
+      "OBS 摄像头效果",
+      "OBS カメラ効果"
+    ],
+    "Apply preset": [
+      "Applica preset",
+      "Apply preset",
+      "Áp dụng cài đặt sẵn",
+      "Appliquer le préréglage",
+      "Vorgabe anwenden",
+      "프리셋 적용",
+      "应用预设",
+      "プリセットを適用"
+    ],
+    "Apply screen preset": [
+      "Applica preset schermo",
+      "Apply screen preset",
+      "Áp dụng cài đặt màn hình",
+      "Appliquer le cadrage écran",
+      "Bildschirmvorgabe anwenden",
+      "화면 프리셋 적용",
+      "应用屏幕预设",
+      "画面プリセットを適用"
+    ],
+    "Download UlanziDeck": [
+      "Scarica UlanziDeck",
+      "Download UlanziDeck",
+      "Tải UlanziDeck",
+      "Télécharger UlanziDeck",
+      "UlanziDeck herunterladen",
+      "UlanziDeck 다운로드",
+      "下载 UlanziDeck",
+      "UlanziDeck をダウンロード"
+    ],
+    "Use it as a secondary monitor": [
+      "Usa il dock come monitor secondario",
+      "Use it as a secondary monitor",
+      "Dùng dock làm màn hình phụ",
+      "Utiliser le dock comme écran secondaire",
+      "Dock als zweiten Monitor verwenden",
+      "도크를 보조 모니터로 사용",
+      "将控制台用作副屏",
+      "ドックをサブモニターとして使う"
+    ],
+    "Learn more": [
+      "Scopri di più",
+      "Learn more",
+      "Tìm hiểu thêm",
+      "En savoir plus",
+      "Mehr erfahren",
+      "자세히 알아보기",
+      "了解详情",
+      "詳しく見る"
+    ],
+    "VibeWare · UlanziDeck D200H": [
+      "VibeWare · UlanziDeck D200H",
+      "VibeWare · UlanziDeck D200H",
+      "VibeWare · UlanziDeck D200H",
+      "VibeWare · UlanziDeck D200H",
+      "VibeWare · UlanziDeck D200H",
+      "VibeWare · UlanziDeck D200H",
+      "VibeWare · UlanziDeck D200H",
+      "VibeWare · UlanziDeck D200H"
+    ],
+    "Have a Ulanzi D200H? Connect it and open a compatible UlanziDeck controller.": [
+      "Hai un Ulanzi D200H? Collegalo e apri una versione compatibile di UlanziDeck.",
+      "Have a Ulanzi D200H? Connect it and open a compatible UlanziDeck controller.",
+      "Bạn có Ulanzi D200H? Kết nối thiết bị và mở trình điều khiển UlanziDeck tương thích.",
+      "Vous avez un Ulanzi D200H ? Branchez-le et ouvrez un contrôleur UlanziDeck compatible.",
+      "Haben Sie ein Ulanzi D200H? Schließen Sie es an und öffnen Sie einen kompatiblen UlanziDeck-Controller.",
+      "Ulanzi D200H가 있나요? 연결한 다음 호환되는 UlanziDeck 컨트롤러를 여세요.",
+      "有 Ulanzi D200H？请连接设备并打开兼容的 UlanziDeck 控制程序。",
+      "Ulanzi D200H をお持ちですか？接続して対応する UlanziDeck コントローラーを開いてください。"
+    ],
+    "Show the scene countdown on the dock.": [
+      "Mostra il conto alla rovescia della scena sul dock.",
+      "Show the scene countdown on the dock.",
+      "Hiển thị bộ đếm ngược của cảnh trên dock.",
+      "Affiche le compte à rebours de la scène sur le dock.",
+      "Zeigt den Szenen-Countdown auf dem Dock an.",
+      "도크에 장면 카운트다운을 표시합니다.",
+      "在控制台显示场景倒计时。",
+      "ドックにシーンの残り時間を表示します。"
+    ],
+    "UlanziDeck recording layout": [
+      "UlanziDeck durante la registrazione",
+      "UlanziDeck recording layout",
+      "Bố cục UlanziDeck khi ghi",
+      "Disposition UlanziDeck pour l’enregistrement",
+      "UlanziDeck-Ansicht für Aufnahmen",
+      "UlanziDeck 녹화 화면 구성",
+      "UlanziDeck 录制布局",
+      "UlanziDeck の録画レイアウト"
+    ],
+    "The middle row shows time left in the current scene. It refreshes at each scene change.": [
+      "La fila centrale mostra il tempo rimasto nella scena. Si aggiorna a ogni cambio.",
+      "The middle row shows time left in the current scene. It refreshes at each scene change.",
+      "Hàng giữa hiển thị thời gian còn lại và cập nhật khi đổi cảnh.",
+      "La rangée centrale affiche le temps restant et s’actualise à chaque changement de scène.",
+      "Die mittlere Reihe zeigt die Restzeit. Sie aktualisiert sich bei jedem Szenenwechsel.",
+      "가운데 줄은 장면의 남은 시간이며 장면 전환 때 갱신됩니다.",
+      "中间一排显示当前场景的剩余时间，切换场景时会更新。",
+      "中央の列に現在の残り時間を表示し、場面が変わるたびに更新します。"
+    ],
+    "Use +10 s or +20 s for more time. Pause holds the scene while OBS keeps recording.": [
+      "Usa +10 s o +20 s per avere più tempo. Pausa mantiene la scena e OBS continua a registrare.",
+      "Use +10 s or +20 s for more time. Pause holds the scene while OBS keeps recording.",
+      "Dùng +10 s hoặc +20 s để kéo dài. Tạm dừng giữ cảnh trong khi OBS tiếp tục ghi.",
+      "Utilisez +10 s ou +20 s pour prolonger. Pause maintient la scène et OBS continue d’enregistrer.",
+      "+10 s oder +20 s verlängert die Szene. Bei Pause bleibt das Bild, und OBS nimmt weiter auf.",
+      "+10 s 또는 +20 s로 장면을 연장합니다. 일시 중지해도 OBS 녹화는 계속됩니다.",
+      "使用 +10 s 或 +20 s 延长时间。暂停会保持场景，OBS 继续录制。",
+      "+10 s または +20 s で延長します。一時停止でシーンを保ち、OBS の録画は続きます。"
+    ],
+    "The wide display shows the next scene and the recording status confirmed by OBS.": [
+      "Il display largo mostra la prossima scena e lo stato di registrazione confermato da OBS.",
+      "The wide display shows the next scene and the recording status confirmed by OBS.",
+      "Màn hình rộng hiển thị cảnh tiếp theo và trạng thái ghi do OBS xác nhận.",
+      "L’écran large indique la scène suivante et l’état d’enregistrement confirmé par OBS.",
+      "Die breite Anzeige zeigt die nächste Szene und den von OBS bestätigten Aufnahmestatus.",
+      "넓은 화면에는 다음 장면과 OBS가 확인한 녹화 상태가 표시됩니다.",
+      "宽屏显示下一个场景及 OBS 确认的录制状态。",
+      "横長の画面には次のシーンと OBS が確認した録画状態を表示します。"
+    ],
+    "Open the UlanziDeck download page for the D200H.": [
+      "Apri la pagina dei download di UlanziDeck per il D200H.",
+      "Open the UlanziDeck download page for the D200H.",
+      "Mở trang tải UlanziDeck dành cho D200H.",
+      "Ouvre la page de téléchargement UlanziDeck pour le D200H.",
+      "Öffnet die UlanziDeck-Downloadseite für das D200H.",
+      "D200H용 UlanziDeck 다운로드 페이지를 엽니다.",
+      "打开适用于 D200H 的 UlanziDeck 下载页面。",
+      "D200H 用 UlanziDeck のダウンロードページを開きます。"
+    ],
+    "Open an illustrated guide to the D200H keys during recording.": [
+      "Apri la guida illustrata ai tasti del D200H durante la registrazione.",
+      "Open an illustrated guide to the D200H keys during recording.",
+      "Mở hướng dẫn minh họa các phím D200H khi ghi.",
+      "Ouvre le guide illustré des touches du D200H pendant l’enregistrement.",
+      "Öffnet die bebilderte Anleitung zu den D200H-Tasten bei der Aufnahme.",
+      "녹화 중 D200H 키를 설명하는 그림 안내를 엽니다.",
+      "打开 D200H 录制按键图解。",
+      "録画中の D200H キーを説明する画像ガイドを開きます。"
+    ],
+    "Screen with you in the corner": [
+      "Schermo + webcam nell’angolo",
+      "Screen with you in the corner",
+      "Màn hình + webcam góc",
+      "Écran + webcam en coin",
+      "Bildschirm + Webcam in der Ecke",
+      "화면 + 모서리 웹캠",
+      "屏幕 + 角落摄像头",
+      "画面 + 隅にウェブカメラ"
+    ],
+    "Screen without a camera": [
+      "Schermo senza webcam",
+      "Screen without a camera",
+      "Màn hình, không webcam",
+      "Écran sans webcam",
+      "Bildschirm ohne Webcam",
+      "웹캠 없는 화면",
+      "屏幕，无摄像头",
+      "ウェブカメラなしの画面"
+    ],
+    "Screen with saved detail positions": [
+      "Zoom schermo e inquadrature",
+      "Screen with saved detail positions",
+      "Thu phóng và khung lưu",
+      "Zoom écran et préréglages",
+      "Bildschirmzoom und Voreinstellungen",
+      "화면 확대/축소 및 프리셋",
+      "屏幕缩放与预设",
+      "画面ズームとプリセット"
+    ],
+    "Left and right halves of the screen": [
+      "Le due metà dello schermo",
+      "Left and right halves of the screen",
+      "Hai nửa trái và phải màn hình",
+      "Moitiés gauche et droite de l’écran",
+      "Linke und rechte Bildschirmhälfte",
+      "화면의 왼쪽과 오른쪽 절반",
+      "屏幕的左右两半",
+      "画面の左右半分"
+    ],
+    "Screen, webcam and workbench": [
+      "Schermo, webcam e tavolo",
+      "Screen, webcam and workbench",
+      "Màn hình, webcam và bàn",
+      "Écran, webcam et table",
+      "Bildschirm, Webcam und Tisch",
+      "화면, 웹캠 및 테이블",
+      "屏幕、摄像头和桌面",
+      "画面、ウェブカメラ、テーブル"
+    ],
+    "Workbench with you in the corner": [
+      "Tavolo + webcam nell’angolo",
+      "Workbench with you in the corner",
+      "Bàn + webcam góc",
+      "Table + webcam en coin",
+      "Tisch + Webcam in der Ecke",
+      "테이블 + 모서리 웹캠",
+      "桌面 + 角落摄像头",
+      "テーブル + 隅にウェブカメラ"
+    ],
+    "Screen hidden; audio stays as set": [
+      "Video nascosto · audio invariato",
+      "Screen hidden; audio stays as set",
+      "Ẩn video · giữ âm thanh",
+      "Vidéo masquée · audio inchangé",
+      "Video verborgen · Audio unverändert",
+      "영상 숨김 · 오디오 설정 유지",
+      "隐藏视频 · 保持音频设置",
+      "映像非表示 · 音声設定を維持"
+    ],
+    "Restore the camera driver’s default zoom, pan and tilt. Saved presets are kept.": [
+      "Ripristina zoom, pan e tilt predefiniti dal driver. Conserva i preset salvati.",
+      "Restore the camera driver’s default zoom, pan and tilt. Saved presets are kept.",
+      "Khôi phục mức thu phóng, xoay và nghiêng mặc định của trình điều khiển. Giữ các cài đặt đã lưu.",
+      "Rétablit le zoom et l’orientation par défaut du pilote. Les préréglages sont conservés.",
+      "Stellt Zoom, Schwenken und Neigen auf die Treibervorgaben zurück. Gespeicherte Vorgaben bleiben erhalten.",
+      "드라이버의 기본 줌, 팬, 틸트를 복원합니다. 저장한 프리셋은 유지됩니다.",
+      "恢复驱动程序的默认缩放、平移和俯仰，保留已保存的预设。",
+      "ドライバー既定のズーム、パン、チルトに戻します。保存したプリセットは残ります。"
+    ],
+    "Refresh the list, choose a camera, then open its controls. Pick the video source separately in OBS.": [
+      "Aggiorna l’elenco, scegli la videocamera e apri i controlli. In OBS scegli separatamente la sorgente video.",
+      "Refresh the list, choose a camera, then open its controls. Pick the video source separately in OBS.",
+      "Làm mới danh sách, chọn máy ảnh rồi mở điều khiển. Chọn nguồn video riêng trong OBS.",
+      "Actualisez la liste, choisissez une caméra et ouvrez ses commandes. Sélectionnez la source vidéo séparément dans OBS.",
+      "Aktualisieren Sie die Liste, wählen Sie eine Kamera und öffnen Sie die Regler. Wählen Sie die Videoquelle separat in OBS.",
+      "목록을 새로 고치고 카메라를 선택한 뒤 제어를 엽니다. OBS에서 영상 소스를 별도로 선택하세요.",
+      "刷新列表，选择摄像头并打开控件。在 OBS 中另外选择视频源。",
+      "一覧を更新してカメラを選び、操作を開きます。映像ソースは OBS で別途選択します。"
+    ],
+    "Privacy switches to the privacy scene and ends the running workflow. Audio stays as set.": [
+      "Privacy passa alla scena riservata e termina la scaletta in corso. L’audio mantiene lo stato attuale.",
+      "Privacy switches to the privacy scene and ends the running workflow. Audio stays as set.",
+      "Privacy chuyển sang cảnh riêng tư và kết thúc quy trình đang chạy. Âm thanh giữ nguyên.",
+      "Privacy affiche la scène de confidentialité et termine le conducteur. L’état audio reste inchangé.",
+      "Privacy wechselt zur Privatsphäre-Szene und beendet den laufenden Ablauf. Die Audioeinstellungen bleiben bestehen.",
+      "Privacy는 보호 장면으로 전환하고 진행 중인 워크플로를 종료합니다. 오디오 상태는 유지됩니다.",
+      "Privacy 切换到隐私场景并结束当前流程。音频状态保持不变。",
+      "Privacy はプライバシー画面に切り替え、実行中のワークフローを終了します。音声は現在の設定を維持します。"
+    ],
+    "Info": [
+      "Info",
+      "Info",
+      "Thông tin",
+      "Infos",
+      "Info",
+      "정보",
+      "信息",
+      "情報"
+    ],
+    "Camera": [
+      "Videocamera",
+      "Camera",
+      "Máy quay",
+      "Caméra",
+      "Kamera",
+      "카메라",
+      "摄像头",
+      "カメラ"
+    ],
+    "Workflow editor": [
+      "Editor workflow",
+      "Workflow editor",
+      "Trình sửa quy trình",
+      "Éditeur de séquences",
+      "Ablaufeditor",
+      "워크플로 편집기",
+      "工作流编辑器",
+      "ワークフロー編集"
+    ],
+    "OBS connection": [
+      "Connessione a OBS",
+      "OBS connection",
+      "Kết nối OBS",
+      "Connexion à OBS",
+      "OBS-Verbindung",
+      "OBS 연결",
+      "OBS 连接",
+      "OBS 接続"
+    ],
+    "Scene collection": [
+      "Raccolta scene",
+      "Scene collection",
+      "Bộ sưu tập cảnh",
+      "Collection de scènes",
+      "Szenensammlung",
+      "장면 모음",
+      "场景集合",
+      "シーンコレクション"
+    ],
+    "Support": [
+      "Assistenza",
+      "Support",
+      "Hỗ trợ",
+      "Assistance",
+      "Hilfe",
+      "지원",
+      "支持",
+      "サポート"
+    ],
+    "Enable the WebSocket server in OBS before connecting.": [
+      "In OBS apri Strumenti → Impostazioni server WebSocket e attiva il server.",
+      "Enable the WebSocket server in OBS before connecting.",
+      "Trong OBS, mở Công cụ → Cài đặt máy chủ WebSocket rồi bật máy chủ.",
+      "Dans OBS, ouvrez Outils → Paramètres du serveur WebSocket et activez le serveur.",
+      "In OBS unter Werkzeuge → WebSocket-Servereinstellungen den Server aktivieren.",
+      "OBS에서 도구 → WebSocket 서버 설정을 열고 서버를 켜세요.",
+      "在 OBS 中打开「工具 → WebSocket 服务器设置」并启用服务器。",
+      "OBS の「ツール → WebSocket サーバー設定」でサーバーを有効にします。"
+    ],
+    "Enter the address of the computer running OBS. Use 127.0.0.1 when OBS is on this computer.": [
+      "Inserisci l’indirizzo del computer su cui è aperto OBS. Se usi OBS su questo PC, lascia 127.0.0.1.",
+      "Enter the address of the computer running OBS. Use 127.0.0.1 when OBS is on this computer.",
+      "Nhập địa chỉ máy tính đang chạy OBS. Dùng 127.0.0.1 nếu OBS chạy trên máy này.",
+      "Saisissez l’adresse de l’ordinateur qui exécute OBS. Sur cet ordinateur, utilisez 127.0.0.1.",
+      "Adresse des Rechners eingeben, auf dem OBS läuft. Für diesen PC 127.0.0.1 verwenden.",
+      "OBS가 실행 중인 컴퓨터의 주소를 입력하세요. 이 컴퓨터라면 127.0.0.1을 사용하세요.",
+      "输入运行 OBS 的计算机地址。在本机运行时，使用 127.0.0.1。",
+      "OBS を実行しているコンピューターのアドレスを入力します。この PC なら 127.0.0.1 を使います。"
+    ],
+    "Use the port shown in OBS under Tools → WebSocket Server Settings. The default is 4455.": [
+      "Copia la porta indicata in OBS in Strumenti → Impostazioni server WebSocket. La porta predefinita è 4455.",
+      "Use the port shown in OBS under Tools → WebSocket Server Settings. The default is 4455.",
+      "Dùng cổng trong OBS ở Công cụ → Cài đặt máy chủ WebSocket. Mặc định là 4455.",
+      "Utilisez le port indiqué dans Outils → Paramètres du serveur WebSocket dans OBS. Le port par défaut est 4455.",
+      "Den Port aus Werkzeuge → WebSocket-Servereinstellungen in OBS verwenden. Der Standard ist 4455.",
+      "OBS의 도구 → WebSocket 서버 설정에 표시된 포트를 사용하세요. 기본값은 4455입니다.",
+      "使用 OBS「工具 → WebSocket 服务器设置」中显示的端口，默认为 4455。",
+      "OBS の「ツール → WebSocket サーバー設定」に表示されたポートを使います。初期値は 4455 です。"
+    ],
+    "Enter the server password from OBS. Windows protects the saved password for your account.": [
+      "Inserisci la password del server WebSocket indicata in OBS. Windows la protegge per l’account con cui hai effettuato l’accesso.",
+      "Enter the server password from OBS. Windows protects the saved password for your account.",
+      "Nhập mật khẩu máy chủ từ OBS. Windows bảo vệ mật khẩu đã lưu cho tài khoản của bạn.",
+      "Saisissez le mot de passe du serveur indiqué dans OBS. Windows protège le mot de passe enregistré pour votre compte.",
+      "Das Serverpasswort aus OBS eingeben. Windows schützt das gespeicherte Passwort für dieses Benutzerkonto.",
+      "OBS의 서버 암호를 입력하세요. Windows가 계정에 저장된 암호를 보호합니다.",
+      "输入 OBS 的服务器密码。Windows 会为当前账户保护已保存的密码。",
+      "OBS のサーバーパスワードを入力します。保存したパスワードは Windows がユーザー単位で保護します。"
+    ],
+    "Choose the language for labels and help. Project text stays as entered.": [
+      "Scegli la lingua delle etichette e degli aiuti. I testi che hai scritto per il progetto mantengono la loro lingua.",
+      "Choose the language for labels and help. Project text stays as entered.",
+      "Chọn ngôn ngữ cho nhãn và trợ giúp. Văn bản dự án giữ nguyên như đã nhập.",
+      "Choisissez la langue des libellés et de l’aide. Le texte du projet reste tel que vous l’avez saisi.",
+      "Sprache für Beschriftungen und Hilfe wählen. Projekttexte bleiben in der eingegebenen Sprache.",
+      "레이블과 도움말의 언어를 선택하세요. 프로젝트 문구는 입력한 언어로 유지됩니다.",
+      "选择标签和帮助的语言。项目文字保留输入时的语言。",
+      "ラベルとヘルプの言語を選びます。プロジェクトの文章は入力した言語のままです。"
+    ],
+    "Camera presets": [
+      "Preset videocamera",
+      "Camera presets",
+      "Khung hình máy quay đã lưu",
+      "Cadrages caméra",
+      "Kameravorgaben",
+      "카메라 프리셋",
+      "摄像头预设",
+      "カメラプリセット"
+    ],
+    "Screen presets": [
+      "Preset schermo",
+      "Screen presets",
+      "Khung hình màn hình đã lưu",
+      "Cadrages écran",
+      "Bildschirmvorgaben",
+      "화면 프리셋",
+      "屏幕预设",
+      "画面プリセット"
+    ],
+    "Recall": [
+      "Richiama",
+      "Recall",
+      "Áp dụng",
+      "Rappeler",
+      "Abrufen",
+      "불러오기",
+      "调用",
+      "呼び出す"
+    ],
+    "No framing saved yet.": [
+      "Nessuna inquadratura salvata.",
+      "No framing saved yet.",
+      "Chưa lưu khung hình nào.",
+      "Aucun cadrage enregistré.",
+      "Noch kein Bildausschnitt gespeichert.",
+      "아직 저장된 구도가 없습니다.",
+      "尚未保存取景。",
+      "構図はまだ保存されていません。"
+    ],
+    "Replace with current": [
+      "Sostituisci con l’attuale",
+      "Replace with current",
+      "Thay bằng khung hiện tại",
+      "Remplacer par le cadrage actuel",
+      "Durch aktuellen Ausschnitt ersetzen",
+      "현재 구도로 교체",
+      "用当前取景替换",
+      "現在の構図で上書き"
+    ],
+    "Save current framing": [
+      "Salva inquadratura attuale",
+      "Save current framing",
+      "Lưu khung hình hiện tại",
+      "Enregistrer le cadrage actuel",
+      "Aktuellen Ausschnitt speichern",
+      "현재 구도 저장",
+      "保存当前取景",
+      "現在の構図を保存"
+    ],
+    "Choose a slot to see its saved framing. Recall applies it. Saving stores your current adjustments in the selected slot.": [
+      "Seleziona un preset per vedere i valori salvati. Richiama applica quei valori. Salva o sostituisci per memorizzare l’inquadratura attuale nel preset selezionato.",
+      "Choose a slot to see its saved framing. Recall applies it. Saving stores your current adjustments in the selected slot.",
+      "Chọn một ô để xem khung hình đã lưu. Áp dụng sẽ dùng các giá trị đó. Lưu sẽ ghi các điều chỉnh hiện tại vào ô đã chọn.",
+      "Choisissez un emplacement pour voir le cadrage enregistré. Rappeler l’applique. Enregistrer mémorise les réglages actuels à cet emplacement.",
+      "Einen Speicherplatz wählen, um den gespeicherten Ausschnitt zu sehen. Abrufen wendet ihn an. Speichern legt die aktuellen Einstellungen auf diesem Platz ab.",
+      "슬롯을 선택하면 저장된 구도가 표시됩니다. 불러오기를 누르면 해당 구도가 적용되고, 저장을 누르면 현재 설정이 선택한 슬롯에 저장됩니다.",
+      "选择预设可查看已保存的取景。「调用」会应用该取景，保存则会将当前设置写入所选预设。",
+      "プリセットを選ぶと保存済みの構図を確認できます。「呼び出す」で適用し、保存すると現在の設定が選択中のプリセットに記録されます。"
+    ],
+    "Change the camera’s magnification. The available range and step size depend on the selected camera.": [
+      "Regola l’ingrandimento della videocamera. Il modello selezionato determina l’intervallo disponibile e la precisione di ogni scatto.",
+      "Change the camera’s magnification. The available range and step size depend on the selected camera.",
+      "Điều chỉnh độ phóng đại. Phạm vi và bước điều chỉnh phụ thuộc vào máy quay đã chọn.",
+      "Réglez le grossissement. La plage et le pas de réglage dépendent de la caméra choisie.",
+      "Die Kameravergrößerung anpassen. Bereich und Schrittweite hängen von der gewählten Kamera ab.",
+      "카메라 배율을 조정합니다. 조정 범위와 간격은 선택한 카메라에 따라 다릅니다.",
+      "调整摄像头放大倍率。范围和步长取决于选定的摄像头。",
+      "カメラの倍率を変えます。調整範囲と刻み幅は選んだカメラによって異なります。"
+    ],
+    "Move the camera framing horizontally using the driver’s range. Some cameras require zoom before the framing can move.": [
+      "Sposta l’inquadratura a destra o a sinistra entro i limiti del driver. Su alcune videocamere occorre prima aumentare lo zoom.",
+      "Move the camera framing horizontally using the driver’s range. Some cameras require zoom before the framing can move.",
+      "Di chuyển khung hình ngang trong phạm vi của trình điều khiển. Một số máy quay cần phóng to trước.",
+      "Déplacez le cadrage horizontalement dans les limites du pilote. Certaines caméras exigent d’abord un zoom.",
+      "Den Ausschnitt im Treiberbereich horizontal verschieben. Bei manchen Kameras zuerst hineinzoomen.",
+      "드라이버가 허용하는 범위에서 구도를 좌우로 옮깁니다. 일부 카메라는 먼저 확대해야 합니다.",
+      "在驱动允许的范围内水平移动取景。部分摄像头需要先放大。",
+      "ドライバーの範囲内で構図を左右に移動します。機種によっては先にズームが必要です。"
+    ],
+    "Move the camera framing vertically using the driver’s range. Some cameras require zoom before the framing can move.": [
+      "Sposta l’inquadratura in alto o in basso entro i limiti del driver. Su alcune videocamere occorre prima aumentare lo zoom.",
+      "Move the camera framing vertically using the driver’s range. Some cameras require zoom before the framing can move.",
+      "Di chuyển khung hình dọc trong phạm vi của trình điều khiển. Một số máy quay cần phóng to trước.",
+      "Déplacez le cadrage verticalement dans les limites du pilote. Certaines caméras exigent d’abord un zoom.",
+      "Den Ausschnitt im Treiberbereich vertikal verschieben. Bei manchen Kameras zuerst hineinzoomen.",
+      "드라이버가 허용하는 범위에서 구도를 위아래로 옮깁니다. 일부 카메라는 먼저 확대해야 합니다.",
+      "在驱动允许的范围内垂直移动取景。部分摄像头需要先放大。",
+      "ドライバーの範囲内で構図を上下に移動します。機種によっては先にズームが必要です。"
+    ],
+    "Soften the webcam background in OBS. The blur filter must be available for this scene.": [
+      "Sfoca lo sfondo della webcam in OBS. Per attivare l’effetto, la scena deve avere il filtro di sfocatura disponibile.",
+      "Soften the webcam background in OBS. The blur filter must be available for this scene.",
+      "Làm mờ nền webcam trong OBS. Cảnh phải có bộ lọc làm mờ.",
+      "Floutez l’arrière-plan de la webcam dans OBS. Le filtre de flou doit être disponible pour cette scène.",
+      "Den Webcam-Hintergrund in OBS weichzeichnen. Der Weichzeichner muss für diese Szene verfügbar sein.",
+      "OBS에서 웹캠 배경을 흐리게 합니다. 이 장면에 흐림 필터가 있어야 합니다.",
+      "在 OBS 中虚化摄像头背景。该场景必须提供模糊滤镜。",
+      "OBS でウェブカメラの背景をぼかします。このシーンでぼかしフィルターが使える必要があります。"
+    ],
+    "Move the crop left or right after zooming in. Set the position to 0 to centre it horizontally.": [
+      "Dopo aver aumentato lo zoom, sposta la porzione di schermo visibile a destra o a sinistra. Il valore 0 la centra in orizzontale.",
+      "Move the crop left or right after zooming in. Set the position to 0 to centre it horizontally.",
+      "Sau khi phóng to, di chuyển vùng cắt sang trái hoặc phải. Đặt 0 để căn giữa theo chiều ngang.",
+      "Après un zoom, déplacez la zone cadrée vers la gauche ou la droite. La valeur 0 la centre horizontalement.",
+      "Nach dem Vergrößern den Ausschnitt nach links oder rechts bewegen. 0 zentriert ihn horizontal.",
+      "확대 후 잘라낼 영역을 좌우로 옮깁니다. 0으로 설정하면 가로로 가운데에 맞춥니다.",
+      "放大后，向左或向右移动裁剪区域。设为 0 可水平居中。",
+      "拡大した後、切り出す範囲を左右に動かします。0 で水平方向の中央に戻ります。"
+    ],
+    "Move the crop up or down after zooming in. Set the position to 0 to centre it vertically.": [
+      "Dopo aver aumentato lo zoom, sposta la porzione di schermo visibile in alto o in basso. Il valore 0 la centra in verticale.",
+      "Move the crop up or down after zooming in. Set the position to 0 to centre it vertically.",
+      "Sau khi phóng to, di chuyển vùng cắt lên hoặc xuống. Đặt 0 để căn giữa theo chiều dọc.",
+      "Après un zoom, déplacez la zone cadrée vers le haut ou le bas. La valeur 0 la centre verticalement.",
+      "Nach dem Vergrößern den Ausschnitt nach oben oder unten bewegen. 0 zentriert ihn vertikal.",
+      "확대 후 잘라낼 영역을 위아래로 옮깁니다. 0으로 설정하면 세로로 가운데에 맞춥니다.",
+      "放大后，向上或向下移动裁剪区域。设为 0 可垂直居中。",
+      "拡大した後、切り出す範囲を上下に動かします。0 で垂直方向の中央に戻ります。"
+    ],
+    "Intro & thank you": [
+      "Introduzione e ringraziamenti",
+      "Intro & thank you",
+      "Mở đầu và cảm ơn",
+      "Introduction et remerciements",
+      "Intro und Abspann",
+      "소개 및 감사 인사",
+      "片头与致谢",
+      "イントロと謝辞"
+    ],
+    "The main title on the intro and closing cards. It also identifies the project on the chapter card.": [
+      "Il titolo principale sulle schede iniziale e finale. Compare anche sulla scheda del capitolo per identificare il progetto.",
+      "The main title on the intro and closing cards. It also identifies the project on the chapter card.",
+      "Tiêu đề chính trên thẻ mở đầu và kết thúc. Tên này cũng xuất hiện trên thẻ chương để nhận diện dự án.",
+      "Le titre principal des cartons d’introduction et de fin. Il identifie aussi le projet sur le carton de chapitre.",
+      "Der Haupttitel auf der Intro- und der Schlusskarte. Er kennzeichnet das Projekt auch auf der Kapitelkarte.",
+      "시작 및 마무리 카드의 주 제목입니다. 장 카드에도 프로젝트 이름으로 표시됩니다.",
+      "片头卡和片尾卡上的主标题，也会出现在章节卡上，用于标识项目。",
+      "冒頭と締めのカードに表示するメインタイトルです。章カードにもプロジェクト名として表示されます。"
+    ],
+    "Label above title": [
+      "Testo sopra il titolo",
+      "Label above title",
+      "Dòng trên tiêu đề",
+      "Texte au-dessus du titre",
+      "Text über dem Titel",
+      "제목 위 문구",
+      "标题上方文字",
+      "タイトル上のテキスト"
+    ],
+    "A short line above the project title on the intro and closing cards. Use the name of your series or studio.": [
+      "Una breve riga sopra il titolo sulle schede iniziale e finale. Puoi usarla per il nome della serie o dello studio.",
+      "A short line above the project title on the intro and closing cards. Use the name of your series or studio.",
+      "Dòng chữ ngắn phía trên tiêu đề dự án ở thẻ mở đầu và kết thúc. Có thể dùng tên loạt video hoặc tên studio.",
+      "Une ligne courte au-dessus du titre sur les cartons d’introduction et de fin. Indiquez par exemple le nom de votre série ou de votre studio.",
+      "Eine kurze Zeile über dem Projekttitel auf der Intro- und der Schlusskarte, etwa der Name Ihrer Reihe oder Ihres Studios.",
+      "시작 및 마무리 카드에서 프로젝트 제목 위에 표시할 짧은 문구입니다. 시리즈나 스튜디오 이름을 넣어 보세요.",
+      "片头卡和片尾卡中位于项目标题上方的短句。可填写系列或工作室名称。",
+      "冒頭と締めのカードでタイトルの上に表示する短いテキストです。シリーズ名やスタジオ名などを入力します。"
+    ],
+    "A line below the main title on both cards. Use it to tell viewers what this episode covers.": [
+      "Una riga sotto il titolo su entrambe le schede. Anticipa agli spettatori l’argomento dell’episodio.",
+      "A line below the main title on both cards. Use it to tell viewers what this episode covers.",
+      "Một dòng bên dưới tiêu đề chính trên cả hai thẻ. Dùng dòng này để giới thiệu nội dung của tập.",
+      "Une ligne sous le titre principal des deux cartons. Annoncez le sujet de cet épisode.",
+      "Eine Zeile unter dem Haupttitel auf beiden Karten. Beschreiben Sie kurz, worum es in dieser Folge geht.",
+      "두 카드에서 주 제목 아래에 표시할 한 줄입니다. 시청자에게 이번 편의 주제를 알려 주세요.",
+      "两张卡片主标题下的一行文字。可用来告诉观众本期的主题。",
+      "両方のカードでメインタイトルの下に表示する一文です。今回の内容を視聴者に伝えます。"
+    ],
+    "The paragraph below the subtitle on both cards. Keep it short enough to read on video.": [
+      "Il paragrafo sotto il sottotitolo su entrambe le schede. Bastano poche righe che si leggano facilmente nel video.",
+      "The paragraph below the subtitle on both cards. Keep it short enough to read on video.",
+      "Đoạn văn dưới phụ đề trên cả hai thẻ. Viết ngắn gọn để người xem kịp đọc trong video.",
+      "Le paragraphe sous le sous-titre des deux cartons. Restez bref pour qu’il soit lisible à l’écran.",
+      "Der Absatz unter dem Untertitel auf beiden Karten. Halten Sie ihn kurz genug, damit er im Video gut lesbar ist.",
+      "두 카드에서 부제 아래에 나오는 단락입니다. 시청자가 영상에서 읽을 수 있도록 짧게 쓰세요.",
+      "两张卡片副标题下的正文。请尽量简短，让观众能在视频中读完。",
+      "両方のカードでサブタイトルの下に表示する段落です。動画内で読み切れる長さにします。"
+    ],
+    "An address shown as text on the intro and closing cards, in the order entered. Leave unused links empty.": [
+      "L’indirizzo compare come testo sulle schede iniziale e finale. I link seguono l’ordine dei campi. Lascia vuoti quelli che non usi.",
+      "An address shown as text on the intro and closing cards, in the order entered. Leave unused links empty.",
+      "Địa chỉ xuất hiện dưới dạng văn bản trên thẻ mở đầu và kết thúc, theo thứ tự nhập. Để trống các liên kết không dùng.",
+      "L’adresse s’affiche en toutes lettres sur les cartons d’introduction et de fin, dans l’ordre de saisie. Laissez les liens inutilisés vides.",
+      "Die Adresse erscheint als Text auf der Intro- und der Schlusskarte. Die Reihenfolge entspricht der Eingabe. Ungenutzte Felder können leer bleiben.",
+      "시작 및 마무리 카드에 입력한 순서대로 표시할 주소입니다. 사용하지 않는 링크는 비워 두세요.",
+      "地址按输入顺序以文字形式显示在片头卡和片尾卡上。未使用的链接可留空。",
+      "冒頭と締めのカードに、入力順でテキストとして表示するアドレスです。使用しないリンクは空欄のままで構いません。"
+    ],
+    "Project links": [
+      "Link del progetto",
+      "Project links",
+      "Liên kết dự án",
+      "Liens du projet",
+      "Projektlinks",
+      "프로젝트 링크",
+      "项目链接",
+      "プロジェクトのリンク"
+    ],
+    "The main heading on the Chapter card. Use the name of the next section.": [
+      "Il titolo principale sulla scheda Capitolo. Inserisci il nome della sezione che stai per presentare.",
+      "The main heading on the Chapter card. Use the name of the next section.",
+      "Tiêu đề chính trên thẻ Chương. Hãy nhập tên của phần tiếp theo.",
+      "Le titre principal du carton de chapitre. Indiquez le nom de la section qui va commencer.",
+      "Die Hauptüberschrift auf der Kapitelkarte. Geben Sie den Namen des nächsten Abschnitts ein.",
+      "장 카드의 주 제목입니다. 다음 부분의 이름을 입력하세요.",
+      "章节卡上的主标题。可填写下一节的名称。",
+      "章カードの見出しです。次のセクションの名前を入力します。"
+    ],
+    "A line below the chapter title. Describe what the viewer will see in this section.": [
+      "Una riga sotto il titolo del capitolo. Descrivi cosa vedrà lo spettatore in questa sezione.",
+      "A line below the chapter title. Describe what the viewer will see in this section.",
+      "Một dòng bên dưới tiêu đề chương. Mô tả những gì người xem sắp thấy trong phần này.",
+      "Une ligne sous le titre du chapitre. Décrivez ce que le public va voir dans cette section.",
+      "Eine Zeile unter dem Kapiteltitel. Beschreiben Sie, was das Publikum in diesem Abschnitt sehen wird.",
+      "장 제목 아래에 표시할 한 줄입니다. 시청자가 이 부분에서 무엇을 보게 될지 설명하세요.",
+      "章节标题下的一行文字。可描述观众将在本节看到的内容。",
+      "章タイトルの下に表示する一文です。このセクションで紹介する内容を入力します。"
+    ],
+    "Caption above the left image in the comparison scene. For example, enter Before.": [
+      "La didascalia sopra l’immagine di sinistra nella scena di confronto. Per esempio, «Prima».",
+      "Caption above the left image in the comparison scene. For example, enter Before.",
+      "Chú thích phía trên hình bên trái trong cảnh so sánh. Ví dụ: Trước.",
+      "La légende au-dessus de l’image de gauche dans la scène de comparaison, par exemple « Avant ».",
+      "Die Beschriftung über dem linken Bild in der Vergleichsszene, zum Beispiel „Vorher“.",
+      "비교 장면에서 왼쪽 이미지 위에 표시하는 설명입니다. 예를 들어 ‘이전’이라고 입력하세요.",
+      "对比场景中左侧画面上方的说明，例如“之前”。",
+      "比較シーンの左の画像の上に表示する説明です。例として「変更前」と入力します。"
+    ],
+    "Caption above the right image in the comparison scene. For example, enter After.": [
+      "La didascalia sopra l’immagine di destra nella scena di confronto. Per esempio, «Dopo».",
+      "Caption above the right image in the comparison scene. For example, enter After.",
+      "Chú thích phía trên hình bên phải trong cảnh so sánh. Ví dụ: Sau.",
+      "La légende au-dessus de l’image de droite dans la scène de comparaison, par exemple « Après ».",
+      "Die Beschriftung über dem rechten Bild in der Vergleichsszene, zum Beispiel „Nachher“.",
+      "비교 장면에서 오른쪽 이미지 위에 표시하는 설명입니다. 예를 들어 ‘이후’라고 입력하세요.",
+      "对比场景中右侧画面上方的说明，例如“之后”。",
+      "比較シーンの右の画像の上に表示する説明です。例として「変更後」と入力します。"
+    ],
+    "Branding": [
+      "Loghi e marchio",
+      "Branding",
+      "Nhận diện thương hiệu",
+      "Identité visuelle",
+      "Markenauftritt",
+      "로고 및 브랜드",
+      "品牌标识",
+      "ロゴとブランド"
+    ],
+    "Choose a local PNG, JPG or BMP for the intro and closing cards. Apply copies the image into the project.": [
+      "Scegli un PNG, JPG o BMP dal computer per le schede iniziale e finale. Quando applichi le modifiche, l’immagine viene copiata nel progetto.",
+      "Choose a local PNG, JPG or BMP for the intro and closing cards. Apply copies the image into the project.",
+      "Chọn tệp PNG, JPG hoặc BMP trên máy cho thẻ mở đầu và kết thúc. Khi áp dụng, ảnh được sao chép vào dự án.",
+      "Choisissez un fichier PNG, JPG ou BMP local pour les cartons d’introduction et de fin. Appliquer copie l’image dans le projet.",
+      "Wählen Sie eine lokale PNG-, JPG- oder BMP-Datei für die Intro- und Schlusskarte. Beim Anwenden wird das Bild ins Projekt kopiert.",
+      "시작 및 마무리 카드에 사용할 로컬 PNG, JPG 또는 BMP 파일을 선택하세요. 적용하면 이미지가 프로젝트에 복사됩니다.",
+      "从本机选择用于片头卡和片尾卡的 PNG、JPG 或 BMP 文件。应用后图片会复制到项目中。",
+      "冒頭と締めのカードに使う PNG、JPG、BMP ファイルを選びます。適用すると画像がプロジェクトにコピーされます。"
+    ],
+    "Set the intro volume from 0% to 100%. Apply sends the chosen level to OBS.": [
+      "Regola il volume dell’introduzione da 0% a 100%. Applica le modifiche per inviare il livello scelto a OBS.",
+      "Set the intro volume from 0% to 100%. Apply sends the chosen level to OBS.",
+      "Đặt âm lượng mở đầu từ 0% đến 100%. Nhấn áp dụng để gửi mức đã chọn sang OBS.",
+      "Réglez le volume de l’introduction de 0 % à 100 %. Appliquez pour envoyer ce niveau à OBS.",
+      "Legen Sie die Intro-Lautstärke zwischen 0 % und 100 % fest. Beim Anwenden wird der gewählte Pegel an OBS gesendet.",
+      "인트로 음량을 0%에서 100%까지 설정하세요. 적용하면 선택한 음량이 OBS로 전송됩니다.",
+      "将片头音量设为 0% 至 100%。应用后会将所选音量发送到 OBS。",
+      "イントロの音量を 0% から 100% で指定します。適用すると設定した音量が OBS に送られます。"
+    ],
+    "Compare the planned workflow length with this target. Enter 0 to turn the target off.": [
+      "Confronta la durata prevista della scaletta con questo obiettivo. Inserisci 0 per disattivarlo.",
+      "Compare the planned workflow length with this target. Enter 0 to turn the target off.",
+      "So sánh thời lượng dự kiến của kịch bản với mục tiêu này. Nhập 0 để tắt mục tiêu.",
+      "Comparez la durée prévue du conducteur à cette cible. Saisissez 0 pour la désactiver.",
+      "Vergleichen Sie die geplante Ablaufdauer mit dieser Zeitvorgabe. Mit 0 schalten Sie die Vorgabe aus.",
+      "계획한 진행표 길이와 이 목표를 비교합니다. 0을 입력하면 목표가 해제됩니다.",
+      "将流程表的计划时长与此目标比较。输入 0 可关闭目标。",
+      "進行表の予定時間とこの目標を比較します。0 を入力すると目標を無効にできます。"
+    ],
+    "How long this step runs before the workflow moves to the next scene. Enter whole seconds.": [
+      "Quanto dura questo passaggio prima che la scaletta avanzi alla scena successiva. Inserisci un numero intero di secondi.",
+      "How long this step runs before the workflow moves to the next scene. Enter whole seconds.",
+      "Thời gian bước này chạy trước khi kịch bản chuyển sang cảnh tiếp theo. Nhập số giây nguyên.",
+      "La durée de cette étape avant que le conducteur passe à la scène suivante. Saisissez un nombre entier de secondes.",
+      "Die Dauer dieses Schritts, bevor der Ablauf zur nächsten Szene wechselt. Geben Sie ganze Sekunden ein.",
+      "진행표가 다음 장면으로 넘어가기 전까지 이 단계가 지속되는 시간입니다. 초 단위의 정수를 입력하세요.",
+      "流程进入下一场景前，此步骤持续的时间。请输入整数秒。",
+      "進行表が次のシーンに移るまでの、このステップの長さです。秒数を整数で入力します。"
+    ],
+    "Choose how OBS enters this scene during playback. OBS default uses the configured transition.": [
+      "Scegli come OBS entra nella scena durante la scaletta. Con «Predefinita di OBS» viene usata la transizione configurata in OBS.",
+      "Choose how OBS enters this scene during playback. OBS default uses the configured transition.",
+      "Chọn cách OBS chuyển vào cảnh này khi chạy kịch bản. Mặc định OBS dùng hiệu ứng chuyển cảnh đã cấu hình.",
+      "Choisissez comment OBS passe à cette scène pendant la lecture. L’option par défaut utilise la transition configurée dans OBS.",
+      "Wählen Sie, wie OBS bei der Wiedergabe in diese Szene wechselt. Mit dem OBS-Standard wird der in OBS konfigurierte Übergang verwendet.",
+      "재생할 때 OBS가 이 장면으로 전환하는 방식을 선택하세요. OBS 기본값은 OBS에 설정된 전환을 사용합니다.",
+      "选择播放时 OBS 如何切换到该场景。“OBS 默认”会使用 OBS 中配置的转场。",
+      "再生中に OBS がこのシーンに切り替わる方法を選びます。OBS の既定値では、OBS に設定されているトランジションを使います。"
+    ],
+    "A cue for the presenter during this step. Enable Show scene note in Timer settings to read it on the timer.": [
+      "Un promemoria per chi presenta questo passaggio. Attiva «Mostra il promemoria della scena» nelle impostazioni del timer per leggerlo sul timer.",
+      "A cue for the presenter during this step. Enable Show scene note in Timer settings to read it on the timer.",
+      "Lời nhắc cho người thuyết trình trong bước này. Bật Hiện ghi chú cảnh trong cài đặt bộ đếm giờ để đọc lời nhắc trên bộ đếm giờ.",
+      "Un aide-mémoire pour la personne qui présente cette étape. Activez « Afficher la note de scène » dans les réglages du minuteur pour l’y lire.",
+      "Ein Hinweis für die Moderation dieses Schritts. Aktivieren Sie „Szenennotiz anzeigen“ in den Timer-Einstellungen, um ihn auf dem Timer zu lesen.",
+      "이 단계에서 발표자가 볼 메모입니다. 타이머 설정에서 ‘장면 메모 표시’를 켜면 타이머에서 읽을 수 있습니다.",
+      "此步骤中给主讲人的提示。在计时器设置中启用“显示场景备注”，即可在计时器上阅读。",
+      "このステップで発表者が参照するメモです。タイマー設定で「シーンのメモを表示」を有効にするとタイマーで読めます。"
+    ],
+    "Choose the project whose workflows you want to see. Open switches to the selected project and workflow.": [
+      "Seleziona il progetto per visualizzare le sue scalette. Con «Apri» passi al progetto e alla scaletta selezionati.",
+      "Choose the project whose workflows you want to see. Open switches to the selected project and workflow.",
+      "Chọn dự án để xem các kịch bản của dự án đó. Nhấn Mở để chuyển sang dự án và kịch bản đã chọn.",
+      "Sélectionnez un projet pour afficher ses conducteurs. Ouvrir passe au projet et au conducteur sélectionnés.",
+      "Wählen Sie ein Projekt, um dessen Ablaufpläne zu sehen. Mit Öffnen wechseln Sie zum gewählten Projekt und Ablaufplan.",
+      "진행표를 보려는 프로젝트를 선택하세요. 열기를 누르면 선택한 프로젝트와 진행표로 이동합니다.",
+      "选择一个项目以查看其中的流程表。点击“打开”会切换到所选项目和流程表。",
+      "進行表を表示したいプロジェクトを選びます。「開く」で選択したプロジェクトと進行表に切り替わります。"
+    ],
+    "Choose a sequence from this project. Open loads its steps into the workflow editor.": [
+      "Scegli una scaletta del progetto. Con «Apri» carichi i suoi passaggi nell’editor.",
+      "Choose a sequence from this project. Open loads its steps into the workflow editor.",
+      "Chọn một kịch bản trong dự án. Nhấn Mở để tải các bước vào trình chỉnh sửa kịch bản.",
+      "Choisissez un conducteur de ce projet. Ouvrir charge ses étapes dans l’éditeur.",
+      "Wählen Sie einen Ablaufplan dieses Projekts. Mit Öffnen laden Sie seine Schritte in den Editor.",
+      "이 프로젝트의 진행표를 선택하세요. 열기를 누르면 진행표의 단계가 편집기에 로드됩니다.",
+      "选择此项目中的一个流程表。点击“打开”会将其步骤载入编辑器。",
+      "このプロジェクトの進行表を選びます。「開く」で各ステップをエディターに読み込みます。"
+    ],
+    "Choose Compact or Large for the separate presenter window.": [
+      "Scegli il formato compatto o grande per la finestra separata del presentatore.",
+      "Choose Compact or Large for the separate presenter window.",
+      "Chọn cỡ Gọn hoặc Lớn cho cửa sổ riêng của người thuyết trình.",
+      "Choisissez le format compact ou grand pour la fenêtre du présentateur.",
+      "Wählen Sie die kompakte oder große Ansicht für das separate Moderationsfenster.",
+      "별도의 발표자 창을 작게 또는 크게 표시할지 선택하세요.",
+      "为独立的演示者窗口选择紧凑或大尺寸。",
+      "独立した発表者用ウィンドウのサイズをコンパクトまたは大から選びます。"
+    ],
+    "Show the upcoming scene beside the current one on the presenter timer.": [
+      "Mostra sul timer del presentatore la scena successiva accanto a quella in corso.",
+      "Show the upcoming scene beside the current one on the presenter timer.",
+      "Hiển thị cảnh kế tiếp bên cạnh cảnh hiện tại trên bộ đếm giờ của người thuyết trình.",
+      "Affichez la scène à venir à côté de la scène en cours sur le minuteur du présentateur.",
+      "Zeigen Sie auf dem Moderationstimer die nächste Szene neben der aktuellen an.",
+      "발표자 타이머에 현재 장면과 다음 장면을 나란히 표시합니다.",
+      "在演示者计时器上，将下一场景显示在当前场景旁边。",
+      "発表者用タイマーで、現在のシーンの横に次のシーンを表示します。"
+    ],
+    "Add a second countdown for the time left in the entire workflow.": [
+      "Aggiunge un secondo conto alla rovescia per il tempo che resta fino alla fine della scaletta.",
+      "Add a second countdown for the time left in the entire workflow.",
+      "Thêm một bộ đếm ngược cho thời gian còn lại của toàn bộ kịch bản.",
+      "Ajoutez un second compte à rebours pour le temps restant sur l’ensemble du conducteur.",
+      "Zeigen Sie einen zweiten Countdown für die verbleibende Zeit des gesamten Ablaufs an.",
+      "전체 진행표의 남은 시간을 보여 주는 두 번째 카운트다운을 추가합니다.",
+      "增加一个倒计时，用于显示整个流程的剩余时间。",
+      "進行表全体の残り時間を示す二つ目のカウントダウンを追加します。"
+    ],
+    "Display the note from the current workflow step on the presenter timer.": [
+      "Mostra sul timer del presentatore il promemoria del passaggio in corso.",
+      "Display the note from the current workflow step on the presenter timer.",
+      "Hiển thị ghi chú của bước hiện tại trên bộ đếm giờ của người thuyết trình.",
+      "Affichez la note de l’étape en cours sur le minuteur du présentateur.",
+      "Zeigen Sie die Notiz des aktuellen Ablaufschritts auf dem Moderationstimer an.",
+      "현재 단계의 메모를 발표자 타이머에 표시합니다.",
+      "在演示者计时器上显示当前流程步骤的备注。",
+      "現在のステップに登録したメモを発表者用タイマーに表示します。"
+    ],
+    "Display the latest connection and recording status reported by OBS on the timer.": [
+      "Mostra sul timer lo stato più recente della connessione e della registrazione comunicato da OBS.",
+      "Display the latest connection and recording status reported by OBS on the timer.",
+      "Hiển thị trên bộ đếm giờ trạng thái kết nối và ghi hình mới nhất do OBS báo về.",
+      "Affichez sur le minuteur le dernier état de connexion et d’enregistrement communiqué par OBS.",
+      "Zeigen Sie auf dem Timer den zuletzt von OBS gemeldeten Verbindungs- und Aufnahmestatus an.",
+      "OBS가 마지막으로 보고한 연결 및 녹화 상태를 타이머에 표시합니다.",
+      "在计时器上显示 OBS 最近报告的连接和录制状态。",
+      "OBS が最後に報告した接続状態と録画状態をタイマーに表示します。"
+    ],
+    "Wait three seconds after Start recording. The presenter sees a light for each second.": [
+      "Attende tre secondi dopo «Avvia registrazione». Il presentatore vede un segnale luminoso per ogni secondo.",
+      "Wait three seconds after Start recording. The presenter sees a light for each second.",
+      "Đợi ba giây sau khi nhấn Bắt đầu ghi. Người thuyết trình thấy một đèn tín hiệu cho mỗi giây.",
+      "Attendez trois secondes après le lancement de l’enregistrement. Un voyant s’allume à chaque seconde pour le présentateur.",
+      "Warten Sie nach dem Startbefehl drei Sekunden bis zur Aufnahme. Pro Sekunde sieht die moderierende Person ein Lichtsignal.",
+      "녹화 시작을 누른 뒤 3초간 기다립니다. 발표자는 매초 표시등을 볼 수 있습니다.",
+      "点击开始录制后等待三秒。演示者每秒会看到一个信号灯。",
+      "録画開始を押してから 3 秒待ちます。発表者には 1 秒ごとにランプが点灯します。"
+    ],
+    "Light the timer signal shortly before the current countdown ends.": [
+      "Accende il segnale del timer poco prima della fine del conto alla rovescia in corso.",
+      "Light the timer signal shortly before the current countdown ends.",
+      "Bật đèn báo của bộ đếm giờ ngay trước khi lượt đếm ngược hiện tại kết thúc.",
+      "Allumez le voyant du minuteur peu avant la fin du compte à rebours en cours.",
+      "Lassen Sie das Signal kurz vor Ablauf des aktuellen Countdowns aufleuchten.",
+      "현재 카운트다운이 끝나기 직전에 타이머 표시등을 켭니다.",
+      "在当前倒计时即将结束时点亮计时器信号灯。",
+      "現在のカウントダウンが終了する少し前にタイマーのランプを点灯します。"
+    ],
+    "Choose how many seconds before the end the light turns on, from 1 to 60.": [
+      "Scegli con quanti secondi di anticipo si accende il segnale, da 1 a 60.",
+      "Choose how many seconds before the end the light turns on, from 1 to 60.",
+      "Chọn thời điểm bật đèn, từ 1 đến 60 giây trước khi kết thúc.",
+      "Choisissez quand le voyant s’allume, entre 1 et 60 secondes avant la fin.",
+      "Legen Sie fest, wie viele Sekunden vor Ablauf das Licht aufleuchtet. Möglich sind 1 bis 60 Sekunden.",
+      "종료 몇 초 전에 표시등을 켤지 1초에서 60초 사이로 설정하세요.",
+      "选择在结束前多少秒亮灯，范围为 1 至 60 秒。",
+      "終了の何秒前にランプを点灯するかを 1～60 秒で指定します。"
+    ],
+    "Set the length of a standalone countdown. Start timer runs it without changing OBS scenes.": [
+      "Imposta la durata di un conto alla rovescia indipendente. «Avvia timer» lo fa partire lasciando invariata la scena di OBS.",
+      "Set the length of a standalone countdown. Start timer runs it without changing OBS scenes.",
+      "Đặt thời lượng đếm ngược độc lập. Bắt đầu đếm giờ sẽ chạy bộ đếm mà không chuyển cảnh OBS.",
+      "Réglez la durée d’un compte à rebours indépendant. Démarrer le minuteur le lance en conservant la scène OBS.",
+      "Legen Sie die Dauer eines separaten Countdowns fest. Mit Timer starten läuft er ohne Szenenwechsel in OBS.",
+      "독립 카운트다운의 길이를 설정하세요. 타이머 시작을 누르면 OBS 장면을 바꾸지 않고 카운트다운이 시작됩니다.",
+      "设置独立倒计时的时长。点击“启动计时器”会开始倒计时并保持当前 OBS 场景。",
+      "単独のカウントダウンの長さを指定します。「タイマーを開始」で OBS のシーンを切り替えずに開始できます。"
+    ],
+    "Screen framing": [
+      "Inquadratura schermo",
+      "Screen framing",
+      "Khung hình màn hình",
+      "Cadrage de l’écran",
+      "Bildausschnitt",
+      "화면 구도",
+      "屏幕取景",
+      "画面の構図"
+    ],
+    "Vignettes": [
+      "Vignettature",
+      "Vignettes",
+      "Hiệu ứng tối viền",
+      "Vignettage",
+      "Vignetten",
+      "비네트",
+      "暗角",
+      "周辺減光"
+    ],
+    "Intensity": [
+      "Intensità",
+      "Intensity",
+      "Cường độ",
+      "Intensité",
+      "Stärke",
+      "강도",
+      "强度",
+      "強さ"
+    ],
+    "Choose a scene from the palette or drag it here.": [
+      "Scegli una delle scene disponibili o trascinala qui.",
+      "Choose a scene from the palette or drag it here.",
+      "Chọn một cảnh trong bảng cảnh hoặc kéo cảnh vào đây.",
+      "Choisissez une scène dans la palette ou faites-la glisser ici.",
+      "Wählen Sie eine Szene aus der Palette oder ziehen Sie sie hierher.",
+      "팔레트에서 장면을 선택하거나 여기로 끌어오세요.",
+      "从场景面板选择一个场景，或将它拖到这里。",
+      "パレットからシーンを選ぶか、ここにドラッグしてください。"
+    ],
+    "About": [
+      "Informazioni",
+      "About",
+      "Giới thiệu",
+      "À propos",
+      "Über Studio Controls",
+      "정보",
+      "关于",
+      "このアプリについて"
     ]
   }
 }

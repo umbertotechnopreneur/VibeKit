@@ -1,8 +1,10 @@
 STUDIO CONTROLS — WINDOWS 11 x64
 
-Open the MSI and then choose Studio Controls in Start. The installer includes
-the .NET and WinUI runtimes, assets, scene template and licences. Install OBS
-Studio separately. The installed utility runs without Python.
+With Microsoft .NET Runtime 10.0 for Windows x64 already installed, run the MSI
+and choose Studio Controls in Start. If you need the runtime, install the x64
+.NET Runtime separately from https://dotnet.microsoft.com/en-us/download/dotnet/10.0
+and run the MSI. Studio Controls includes WinUI, the scene template and assets.
+Install OBS Studio separately.
 
 
 FIRST USE
@@ -15,6 +17,8 @@ FIRST USE
    capture devices unassigned. Enable only the inputs you intend to use.
 5. Use Project & cards to prepare the introduction, credits and links. For
    native camera framing, explicitly refresh/select a camera and Open controls.
+6. Open Workflow to arrange scenes and set their durations. Choose Library to
+   select a project and workflow. Rehearse plays the sequence locally.
 
 The controller never starts OBS, recording or a recording resume automatically.
 Privacy hides video; audio stays under your explicit mute controls. Closing

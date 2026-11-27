@@ -31,6 +31,11 @@ class ProjectSelectionTests(unittest.TestCase):
         self.assertEqual(select_paths(["Widgets/StudioControls/Linux/controlli-brio.py"]), ["studio-controls"])
         self.assertEqual(select_paths([".github/workflows/ci-studio-controls.yml"]), ["studio-controls"])
 
+    def test_studio_controls_shared_tray_files(self):
+        for name in ("WidgetTrayIcon.cs", "WidgetTrayMenu.cs", "DesktopEffectStop.cs"):
+            with self.subTest(name=name):
+                self.assertIn("studio-controls", select_paths([f"Widgets/Shared/{name}"]))
+
     def test_complete_push_and_cross_app_move(self):
         original = Path.cwd()
         with tempfile.TemporaryDirectory(prefix="vibekit-diff-") as directory:

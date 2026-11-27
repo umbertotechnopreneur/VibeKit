@@ -28,6 +28,8 @@ public sealed partial class MainWindow
         private readonly Grid signal = new() { VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false };
         private readonly Dictionary<string, Grid> lights = new();
         private readonly Button hold = GlyphButton("\uE769", "Pause"), advance = GlyphButton("\uE893", "Next"), stop = GlyphButton("\uE71A", "Stop workflow");
+        private readonly Button add10 = new() { Content = "+10 s", IsEnabled = false };
+        private readonly Button add20 = new() { Content = "+20 s", IsEnabled = false };
         private readonly Button options = GlyphButton("\uE713", "Timer settings");
         private readonly Border board = new() { CornerRadius = new(12), BorderThickness = new(1) };
         private Storyboard? blend;
@@ -127,7 +129,21 @@ public sealed partial class MainWindow
 
             var actions = Row();
             actions.Spacing = 6;
-            actions.Children.Add(hold); actions.Children.Add(advance); actions.Children.Add(stop);
+            actions.Children.Add(hold);
+            actions.Children.Add(add10);
+            actions.Children.Add(add20);
+            actions.Children.Add(advance);
+            actions.Children.Add(stop);
+            ActionHelp(add10, "+10 s");
+            ActionHelp(add20, "+20 s");
+            ActionHelp(hold, "Pause workflow");
+            ActionHelp(advance, "Next");
+            ActionHelp(stop, "Stop workflow");
+            ActionHelp(options, "Timer settings");
+            AutomationProperties.SetAutomationId(add10, "ExtendScene10");
+            AutomationProperties.SetAutomationId(add20, "ExtendScene20");
+            add10.Click += (_, _) => ExtendScene(10);
+            add20.Click += (_, _) => ExtendScene(20);
             hold.Click += (_, _) =>
             {
                 if (owner.recordingCue?.IsPending == true) return;
@@ -150,6 +166,13 @@ public sealed partial class MainWindow
             footer.Margin = new(2, 4, 2, 0);
             Grid.SetRow(footer, 2);
             Body.Children.Add(footer);
+        }
+
+        private void ExtendScene(int seconds)
+        {
+            if (owner.recordingCue is not null) return;
+            owner.player.ExtendCurrent(seconds);
+            owner.RefreshPlayback();
         }
 
         private void Paint()
@@ -211,16 +234,17 @@ public sealed partial class MainWindow
             if (AutomationProperties.GetName(hold) != label)
             {
                 AutomationProperties.SetName(hold, label);
-                ToolTipService.SetToolTip(hold, label);
+                ActionHelp(hold, paused ? "Resume workflow" : "Pause workflow");
             }
             hold.IsEnabled = !cue && (owner.player.State == WorkflowState.Running || paused);
             advance.IsEnabled = !cue && owner.player.State == WorkflowState.Running && owner.player.Mode != WorkflowMode.Free;
+            add10.IsEnabled = add20.IsEnabled = !cue && owner.player.CanExtendCurrent;
             stop.IsEnabled = cue || owner.PlaybackActive;
             string stopLabel = owner.localization.Text(cue ? "Cancel" : "Stop workflow");
             if (AutomationProperties.GetName(stop) != stopLabel)
             {
                 AutomationProperties.SetName(stop, stopLabel);
-                ToolTipService.SetToolTip(stop, stopLabel);
+                ActionHelp(stop, cue ? "Cancel recording countdown" : "Stop workflow");
             }
         }
 
@@ -271,6 +295,21 @@ public sealed partial class MainWindow
             }
             blend = transition;
             transition.Begin();
+        }
+
+        internal async Task VerifyTimeExtensionAsync()
+        {
+            var player = owner.player;
+            long ticket = player.Ticket;
+            foreach (var (button, seconds) in new[] { (add10, 10), (add20, 20) })
+            {
+                if (!button.IsEnabled) throw new InvalidOperationException("Scene extension is disabled during rehearsal.");
+                int remaining = player.RemainingSeconds;
+                UiSmoke.Invoke(button);
+                await UiSmoke.WaitForAsync(() => player.RemainingSeconds >= remaining + seconds - 1);
+                if (player.Ticket != ticket || player.State != WorkflowState.Running)
+                    throw new InvalidOperationException("Scene extension changed or paused the current scene.");
+            }
         }
 
         internal void VerifyLayout()

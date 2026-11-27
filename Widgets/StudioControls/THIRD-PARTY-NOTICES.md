@@ -1,3 +1,7 @@
+> **File name** `THIRD-PARTY-NOTICES.md`<br>
+> **Full path** `E:\vibekit\Widgets\StudioControls\THIRD-PARTY-NOTICES.md`<br>
+> **Path relative to the VibeKit repository root** `Widgets/StudioControls/THIRD-PARTY-NOTICES.md`
+
 # Third-party notices
 
 The MIT license covers the Studio Controls code and original artwork/cue by
@@ -28,9 +32,13 @@ Umberto Giacobbi. It does not relicense the following materials.
   separate runtime/build dependencies, under their own licenses. No
   obs-backgroundremoval binary or model is redistributed here.
 
-The self-contained Windows ZIP includes its required .NET and WinUI runtime
-files. Upstream licence/notice files from the resolved NuGet packages are kept
+The Windows MSI includes the WinUI libraries and uses the shared Microsoft
+.NET Runtime 10.0 for Windows x64. Upstream licence/notice files from the resolved NuGet packages are kept
 under `Licenses/`, together with a package/version inventory containing public
 package URLs. This inventory contains no local NuGet cache paths.
 
 See `Assets/CREDITS.txt` for the media provenance and edit details.
+
+> **File name** `THIRD-PARTY-NOTICES.md`<br>
+> **Full path** `E:\vibekit\Widgets\StudioControls\THIRD-PARTY-NOTICES.md`<br>
+> **Path relative to the VibeKit repository root** `Widgets/StudioControls/THIRD-PARTY-NOTICES.md`

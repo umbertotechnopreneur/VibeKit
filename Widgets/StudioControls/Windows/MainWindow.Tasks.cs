@@ -195,6 +195,7 @@ public sealed partial class MainWindow
             CancelRecordingCue();
         ObserveWorkflowStatus(result);
         state = result;
+        if (result is { IsFresh: true, ConnectionAvailable: true }) deckObsConfirmedAt = DateTime.UtcNow;
         if (!result.ConnectionAvailable)
         {
             polling.Stop(); effectsTimer.Stop(); pendingEffects.Clear();
@@ -203,6 +204,7 @@ public sealed partial class MainWindow
             + result.Timecode + " · " + result.SceneName + (result.IsFresh ? "" : " · status refresh pending");
         if (!result.ConnectionAvailable) status.Text += " · connection lost; check OBS";
         pause.Content = result.IsPaused ? "Resume" : "Pause";
+        ActionHelp(pause, result.IsPaused ? "Resume recording" : "Pause recording");
         notice.Text = string.Join(" · ", result.Warnings);
         syncing = true;
         try
@@ -227,10 +229,12 @@ public sealed partial class MainWindow
     private void UpdateEnabled(bool connected)
     {
         bool ready = connected && !commandBusy && !connecting && !stopPending && !manualTakeoverPending;
+        disconnect.IsEnabled = client is not null && !connecting && !commandBusy && !stopPending;
         foreach (var button in sceneButtons.Values) button.IsEnabled = ready;
         bool countdownPending = recordingCue?.IsPending == true;
         record.IsEnabled = recordingCue is null && ready && state is { IsRecording: false, IsFresh: true };
         if (!stopPending) stop.Content = countdownPending ? "Cancel recording countdown" : "■ Stop and save";
+        ActionHelp(stop, countdownPending ? "Cancel recording countdown" : "■ Stop and save");
         stop.IsEnabled = countdownPending || (connected && !connecting && !stopPending && state?.IsRecording == true);
         pause.IsEnabled = ready && state?.IsRecording == true;
         foreach (var (name, button) in audioButtons)
@@ -238,6 +242,7 @@ public sealed partial class MainWindow
         blur.IsEnabled = blurIntensity.IsEnabled = ready && state?.BlurAvailable == true;
         screenZoom.IsEnabled = ready && state?.Screen is not null;
         screenX.IsEnabled = screenY.IsEnabled = screenZoom.IsEnabled && screenZoom.Value > 1;
+        refreshScreenPresets?.Invoke();
         foreach (var (key, controls) in vignettes)
             controls.Toggle.IsEnabled = controls.Slider.IsEnabled = ready && state?.Vignettes.ContainsKey(key) == true;
         UpdateWorkflowControls();
@@ -303,6 +308,7 @@ public sealed partial class MainWindow
     private async Task RunCameraAsync(Func<CancellationToken, Task> operation)
     {
         cameraBusy = true;
+        refreshCameraPresets?.Invoke();
         using var request = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
         try
         {
@@ -325,7 +331,7 @@ public sealed partial class MainWindow
             cameraNotice.Text = "Camera controls unavailable: " + error.Message;
             Diagnostics.Record("camera.controls", error);
         }
-        finally { cameraBusy = false; }
+        finally { cameraBusy = false; refreshCameraPresets?.Invoke(); }
     }
 
     private void SetCameraState(IReadOnlyDictionary<CameraProperty, CameraValue> values)
@@ -352,6 +358,8 @@ public sealed partial class MainWindow
     {
         if (closed) return;
         closed = true; CancelRecordingCue(); lifetime.Cancel();
+        deckClock.Stop();
+        ClearDeckState();
         CloseWorkflow();
         polling.Stop(); effectsTimer.Stop(); cameraTimer.Stop(); smokeTimer?.Stop();
         pendingEffects.Clear(); pendingCamera.Clear();

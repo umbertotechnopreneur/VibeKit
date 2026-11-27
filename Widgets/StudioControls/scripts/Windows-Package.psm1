@@ -103,4 +103,54 @@ function Write-PublishManifest {
         ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $Directory '.publish-manifest.json') -Encoding utf8NoBOM
 }
 
-Export-ModuleMember -Function Get-StudioVersion, Get-PublishFiles, Assert-PublishLayout, Copy-DependencyNotices, Write-PublishManifest
+function Assert-StudioArtifactPath {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$ArtifactRoot)
+    $root = [IO.Path]::GetFullPath($ArtifactRoot)
+    $relative = [IO.Path]::GetRelativePath($root, [IO.Path]::GetFullPath($Path))
+    if ($relative -eq '.' -or [IO.Path]::IsPathRooted($relative) -or $relative -match '^\.\.(?:[\\/]|$)') {
+        throw "Publish destination escapes the artifact root: $Path"
+    }
+    $current = Split-Path $root -Parent
+    foreach ($part in @((Split-Path $root -Leaf)) + ($relative -split '[\\/]')) {
+        $current = Join-Path $current $part
+        $item = Get-Item -LiteralPath $current -Force -ErrorAction SilentlyContinue
+        if ($item -and ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+            throw "Managed artifacts must not traverse a reparse point: $current"
+        }
+    }
+}
+
+function Move-StudioManagedPublish {
+    param([Parameter(Mandatory)][string]$Staged, [Parameter(Mandatory)][string]$Destination, [Parameter(Mandatory)][string]$ArtifactRoot)
+    $parent = Split-Path $Destination -Parent
+    Assert-StudioArtifactPath -Path $Staged -ArtifactRoot $ArtifactRoot
+    $lockName = ".{0}.publish.lock" -f (Split-Path $Destination -Leaf)
+    $lockPath = Join-Path $parent $lockName
+    Assert-StudioArtifactPath -Path $lockPath -ArtifactRoot $ArtifactRoot
+    $lock = [IO.File]::Open($lockPath, 'OpenOrCreate', 'ReadWrite', 'None')
+    try {
+        $previous = Join-Path $parent ('.studio-previous-' + [Guid]::NewGuid().ToString('N'))
+        if (Test-Path -LiteralPath $Destination) {
+            Assert-StudioArtifactPath -Path $Destination -ArtifactRoot $ArtifactRoot
+            if (@(Get-ChildItem -LiteralPath $Destination -Force).Count) {
+                [void](Get-PublishFiles -Directory $Destination)
+                $manifest = Get-Content -LiteralPath (Join-Path $Destination '.publish-manifest.json') -Raw | ConvertFrom-Json -AsHashtable
+                if ($manifest.application -ne 'StudioControls' -or $manifest.runtime -ne 'win-x64') {
+                    throw "Refusing to replace an unrelated publish directory: $Destination"
+                }
+            }
+            [IO.Directory]::Move($Destination, $previous)
+        }
+        try { [IO.Directory]::Move($Staged, $Destination) }
+        catch {
+            if (Test-Path -LiteralPath $previous) { [IO.Directory]::Move($previous, $Destination) }
+            throw
+        }
+        if (Test-Path -LiteralPath $previous) {
+            Assert-StudioArtifactPath -Path $previous -ArtifactRoot $ArtifactRoot
+            Remove-Item -LiteralPath $previous -Recurse -Force
+        }
+    } finally { $lock.Dispose() }
+}
+
+Export-ModuleMember -Function Get-StudioVersion, Get-PublishFiles, Assert-PublishLayout, Copy-DependencyNotices, Write-PublishManifest, Assert-StudioArtifactPath, Move-StudioManagedPublish

@@ -11,41 +11,63 @@ public sealed partial class MainWindow
 {
     private UIElement BuildProject()
     {
-        var content = Column();
-        content.MinWidth = 850;
-        content.Children.Add(Heading("PROJECT · intro, chapters & thank you"));
-        var columns = Columns(2);
-        var left = Column(); var right = Column();
-        AddField(left, "Name", "Project name", 100);
-        AddField(left, "Eyebrow", "Eyebrow", 70);
-        AddField(left, "Subtitle", "Subtitle", 180);
-        var description = AddField(left, "Description", "Description", 600);
-        description.AcceptsReturn = true; description.TextWrapping = TextWrapping.Wrap; description.Height = 140;
-        for (int index = 0; index < 3; index++) AddField(left, "Link" + index, "Link " + (index + 1), 150);
-        AddField(right, "Chapter", "Chapter title", 100);
-        AddField(right, "ChapterDescription", "Chapter description", 180);
-        AddField(right, "CompareA", "Comparison · left", 60);
-        AddField(right, "CompareB", "Comparison · right", 60);
-        right.Children.Add(logo);
-        var logoActions = Row();
+        var left = Column();
+        left.Children.Add(Card(Heading("Intro & thank you"),
+            ProjectField("Name", "Project name", 100, "The main title on the intro and closing cards. It also identifies the project on the chapter card."),
+            ProjectField("Eyebrow", "Label above title", 70, "A short line above the project title on the intro and closing cards. Use the name of your series or studio."),
+            ProjectField("Subtitle", "Subtitle", 180, "A line below the main title on both cards. Use it to tell viewers what this episode covers."),
+            ProjectField("Description", "Description", 600, "The paragraph below the subtitle on both cards. Keep it short enough to read on video.", multiline: true)));
+
+        var links = Column(6);
+        for (int index = 0; index < 3; index++)
+            links.Children.Add(ProjectField("Link" + index, "Link " + (index + 1), 150,
+                "An address shown as text on the intro and closing cards, in the order entered. Leave unused links empty."));
+        left.Children.Add(Card(Heading("Project links"), links));
+
+        var right = Column();
+        right.Children.Add(Card(Heading("Chapter"),
+            ProjectField("Chapter", "Chapter title", 100, "The main heading on the Chapter card. Use the name of the next section."),
+            ProjectField("ChapterDescription", "Chapter description", 180, "A line below the chapter title. Describe what the viewer will see in this section.")));
+        right.Children.Add(Card(Heading("Comparison A/B"), ResponsiveColumns(400,
+            ProjectField("CompareA", "Comparison · left", 60, "Caption above the left image in the comparison scene. For example, enter Before."),
+            ProjectField("CompareB", "Comparison · right", 60, "Caption above the right image in the comparison scene. For example, enter After."))));
+
+        var logoActions = new ActionStrip();
         logoActions.Children.Add(ActionButton("Choose logo…", ChooseLogoAsync));
         logoActions.Children.Add(ActionButton("Remove logo", () => { logo.Text = ""; return Task.CompletedTask; }));
-        right.Children.Add(logoActions);
-        right.Children.Add(vibe); right.Children.Add(sound);
-        soundVolume.IsEnabled = true; right.Children.Add(soundVolume);
-        columns.Children.Add(left); Grid.SetColumn(right, 1); columns.Children.Add(right);
-        content.Children.Add(columns);
+        right.Children.Add(Card(Heading("Branding"),
+            Field(logo, "Project logo", "Choose a local PNG, JPG or BMP for the intro and closing cards. Apply copies the image into the project."),
+            logoActions, WithTrailing(FieldLabel(vibe, "This project is VibeWare",
+                "Show VibeWare branding on the intro, a logo and link on Thank you, and a small logo in the other scenes."), vibe)));
+        soundVolume.IsEnabled = true;
+        right.Children.Add(Card(Heading("Audio"),
+            WithTrailing(FieldLabel(sound, "Intro sound", ActionDescriptions["Intro sound"]), sound),
+            SliderField(soundVolume, "Intro sound volume", "Set the intro volume from 0% to 100%. Apply sends the chosen level to OBS.", "%")));
+
+        ActionHelp(apply, "Save project & apply to OBS");
         apply.Click += async (_, _) => await ApplyProjectAsync();
-        content.Children.Add(apply); content.Children.Add(projectNotice);
-        content.Children.Add(Text("Cards render locally when you Apply. Stop recording stays available while artwork is prepared. VibeWare branding follows the project flag. The final card includes OBS credit and © 2026 Umberto Giacobbi."));
+        var content = Column(8);
+        content.Children.Add(apply);
+        projectNotice.Visibility = Visibility.Collapsed;
+        projectNotice.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) =>
+            projectNotice.Visibility = string.IsNullOrEmpty(projectNotice.Text) ? Visibility.Collapsed : Visibility.Visible);
+        content.Children.Add(projectNotice);
+        content.Children.Add(ResponsiveColumns(700, left, right));
         return content;
     }
 
-    private TextBox AddField(StackPanel parent, string key, string label, int limit)
+    private FrameworkElement ProjectField(string key, string label, int limit, string help, bool multiline = false)
     {
-        var field = new TextBox { Header = label, MaxLength = limit };
-        projectFields[key] = field; parent.Children.Add(field);
-        return field;
+        var field = new TextBox { MaxLength = limit };
+        if (multiline)
+        {
+            field.AcceptsReturn = true;
+            field.TextWrapping = TextWrapping.Wrap;
+            field.MinHeight = 80;
+            field.MaxHeight = 144;
+        }
+        projectFields.Add(key, field);
+        return Field(field, label, help);
     }
 
     private void LoadProject()

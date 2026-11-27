@@ -2,6 +2,11 @@ name: Studio Controls checks
 
 on:
   workflow_call:
+    inputs:
+      platform:
+        description: Native packages to build (all, windows, or linux)
+        type: string
+        default: all
   workflow_dispatch:
 
 permissions:
@@ -27,6 +32,7 @@ jobs:
       - name: Check protocol, state recovery and import paths without devices
         run: dotnet run --project Shared/StudioControls.Core.Tests -c Release --artifacts-path "${{ runner.temp }}/studio-core-checks"
   gtk:
+    if: inputs.platform != 'windows'
     name: Linux GTK and portable scene checks
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -45,7 +51,7 @@ jobs:
           PACKAGE_DIRECTORY: ${{ runner.temp }}/studio-controls-linux
         run: |
           version=$(python3 -c 'import pathlib,tomllib; print(tomllib.loads(pathlib.Path("Linux/pyproject.toml").read_text())["project"]["version"])')
-          python3 -B scripts/build-linux-deb.py --version "$version" --output-dir "$PACKAGE_DIRECTORY" --epoch "$(git log -1 --format=%ct)"
+          python3 -B scripts/build-linux-deb.py --channel public --version "$version" --output-dir "$PACKAGE_DIRECTORY" --epoch "$(git log -1 --format=%ct)"
           dpkg-deb --info "$PACKAGE_DIRECTORY/studio-controls_${version}_all.deb"
           dpkg-deb --contents "$PACKAGE_DIRECTORY/studio-controls_${version}_all.deb"
           cp "$PACKAGE_DIRECTORY/studio-controls_${version}_all.deb" "$PACKAGE_DIRECTORY/StudioControls-linux-all.deb"
@@ -55,6 +61,7 @@ jobs:
           path: ${{ runner.temp }}/studio-controls-linux/StudioControls-linux-all.deb
           if-no-files-found: error
   windows:
+    if: inputs.platform != 'linux'
     name: Build native Windows UI and verify synthetic rendering
     runs-on: windows-latest
     timeout-minutes: 30
@@ -68,27 +75,7 @@ jobs:
           global-json-file: Widgets/StudioControls/global.json
       - name: Publish Windows x64 package and verify without devices
         shell: pwsh
-        run: ./scripts/Build-Windows.ps1 -Configuration Release -Verify -OutputDirectory '${{ runner.temp }}/studio-controls-windows'
-      - name: Exercise isolated native window startup and theme changes
-        shell: pwsh
-        env:
-          STUDIO_TIMER_PREVIEW_DIR: ${{ runner.temp }}/studio-timer-previews
-        run: |
-          $exe = Join-Path '${{ runner.temp }}/studio-controls-windows' 'StudioControls.Windows.exe'
-          $process = Start-Process -FilePath $exe -ArgumentList '--ui-smoke', '--timer-previews' -PassThru
-          if (-not $process.WaitForExit(60000)) {
-            Stop-Process -Id $process.Id
-            throw 'The isolated UI smoke process timed out.'
-          }
-          $report = Join-Path '${{ runner.temp }}/studio-controls-windows' 'ui-smoke.txt'
-          if (-not (Test-Path -LiteralPath $report)) { throw 'No native UI smoke report was produced.' }
-          Get-Content -LiteralPath $report
-          if ($process.ExitCode -ne 0) { throw "Native UI smoke failed: $($process.ExitCode)" }
-      - uses: actions/upload-artifact@v6
-        with:
-          name: studio-controls-windows-timer-previews
-          path: ${{ runner.temp }}/studio-timer-previews/*.png
-          if-no-files-found: error
+        run: ./scripts/Build-Windows.ps1 -Channel public -Configuration Release -Verify -OutputDirectory '${{ runner.temp }}/studio-controls-windows'
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '6.0.x'
@@ -104,10 +91,51 @@ jobs:
         shell: pwsh
         run: |
           ./scripts/Test-WindowsPackage.ps1
-          ./scripts/Package-Windows.ps1 -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe" -PublishDirectory "$env:RUNNER_TEMP/studio-controls-windows" -OutputDirectory "$env:RUNNER_TEMP/studio-controls-release"
+          ./scripts/Package-Windows.ps1 -Channel public -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe" -PublishDirectory "$env:RUNNER_TEMP/studio-controls-windows" -OutputDirectory "$env:RUNNER_TEMP/studio-controls-release"
           $installer = @(Get-ChildItem -LiteralPath "$env:RUNNER_TEMP/studio-controls-release" -Filter '*.msi' -File)
           if ($installer.Count -ne 1) { throw 'Expected one Studio Controls installer.' }
+          if ((Get-AuthenticodeSignature -LiteralPath $installer[0].FullName).Status -ne 'NotSigned') {
+            throw 'The public Studio Controls MSI must be unsigned.'
+          }
           Rename-Item -LiteralPath $installer[0].FullName -NewName 'StudioControls-windows-x64.msi'
+      - name: Install the release MSI for the runner user
+        shell: pwsh
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP 'studio-controls-release/StudioControls-windows-x64.msi'
+          $setup = Start-Process msiexec.exe -ArgumentList "/i `"$installer`" /qn /norestart" -PassThru -Wait
+          if ($setup.ExitCode -ne 0) { throw "Studio Controls installation failed: $($setup.ExitCode)" }
+          $relativeExe = 'Programs/Studio Controls/StudioControls.Windows.exe'
+          $installedExe = Join-Path $env:LOCALAPPDATA $relativeExe
+          $publishedExe = Join-Path $env:RUNNER_TEMP 'studio-controls-windows/StudioControls.Windows.exe'
+          if ((Get-FileHash -LiteralPath $installedExe).Hash -ne (Get-FileHash -LiteralPath $publishedExe).Hash) {
+            throw 'The installed executable does not match the published build.'
+          }
+          Write-Output "MSI installation succeeded (msiexec exit $($setup.ExitCode)). Verified $installedExe."
+      - name: Exercise the workflow editor, responsive WinUI controls and presenter timer
+        shell: pwsh
+        env:
+          STUDIO_TIMER_PREVIEW_DIR: ${{ runner.temp }}/studio-timer-previews
+        run: |
+          $install = Join-Path $env:LOCALAPPDATA 'Programs/Studio Controls'
+          $exe = Join-Path $install 'StudioControls.Windows.exe'
+          $process = Start-Process -FilePath $exe -ArgumentList '--ui-smoke', '--timer-previews' -PassThru
+          if (-not $process.WaitForExit(120000)) {
+            Stop-Process -Id $process.Id
+            throw 'The isolated UI smoke process timed out.'
+          }
+          $report = Join-Path $install 'ui-smoke.txt'
+          if (-not (Test-Path -LiteralPath $report)) { throw 'No native UI smoke report was produced.' }
+          $result = Get-Content -LiteralPath $report -Raw
+          Write-Output $result
+          if ($result -notmatch '^PASS:' -or $process.ExitCode -ne 0) { throw "Native UI smoke failed: $($process.ExitCode)" }
+          $preview = Get-Item -LiteralPath (Join-Path $env:STUDIO_TIMER_PREVIEW_DIR 'workflow-editor.png') -ErrorAction Stop
+          if ($preview.Length -eq 0) { throw 'The workflow editor screenshot is empty.' }
+          Write-Output "Workflow editor screenshot captured from $exe ($($preview.Length) bytes)."
+      - uses: actions/upload-artifact@v6
+        with:
+          name: studio-controls-windows-timer-previews
+          path: ${{ runner.temp }}/studio-timer-previews/*.png
+          if-no-files-found: error
       - uses: actions/upload-artifact@v6
         with:
           name: studio-controls-windows-x64

@@ -144,7 +144,7 @@ function New-SyntheticPublish {
     Creates an isolated publish fixture with the files required by archive validation.
     #>
 
-    param([string]$Name, [string]$Platform = 'x64')
+    param([string]$Name, [string]$Platform = 'x64', [string]$Version = '1.2.3')
 
     $directory = Join-Path $fixtureRoot $Name
     [void][IO.Directory]::CreateDirectory((Join-Path $directory 'empty-directory'))
@@ -156,7 +156,7 @@ function New-SyntheticPublish {
     foreach ($file in @('WorkTrail.exe')) {
         Write-SyntheticPe -Path (Join-Path $directory $file) -Platform $Platform
     }
-    $buildInfo = @{ schemaVersion = 1; semVer = '1.2.3'; packageVersion = '1.2.3.0'; platform = $Platform
+    $buildInfo = @{ schemaVersion = 1; semVer = $Version; packageVersion = "$Version.0"; platform = $Platform
         configuration = 'Release-Unpackaged'; runtimeIdentifier = "win-$($Platform.ToLowerInvariant())"
         gitCommit = ('1' * 40); gitDirty = $false }
     [IO.File]::WriteAllText((Join-Path $directory 'BuildInfo.json'), ($buildInfo | ConvertTo-Json), $utf8)
@@ -184,6 +184,13 @@ function Read-ZipText {
 
 #endregion
 
+$previewSource = New-SyntheticPublish -Name 'preview' -Version '0.0.1'
+$previewOutput = Join-Path $fixtureRoot 'preview-output'
+$preview = Invoke-TestScript -Path $archiveScript -Arguments @('-PublishDirectory', $previewSource,
+    '-OutputDirectory', $previewOutput, '-Platform', 'x64', '-Version', '0.0.1', '-Preview')
+Assert-PortableTest ($preview.ExitCode -eq 0) "Preview packaging failed: $($preview.Output)"
+Assert-Rejected -Name 'preview-version-stable-channel' -Source $previewSource -Version '0.0.1' -Message 'Version must be X.Y.Z'
+
 foreach ($platform in @('x64', 'ARM64')) {
     $source = New-SyntheticPublish -Name "valid-$platform" -Platform $platform
     $output = Join-Path $fixtureRoot "$platform-output"
@@ -202,7 +209,8 @@ foreach ($platform in @('x64', 'ARM64')) {
         Assert-PortableTest ($null -ne $archive.GetEntry('empty-directory/')) "$platform omitted an empty publish directory."
         $readme = Read-ZipText -Archive $archive -Name 'README.txt'
         Assert-PortableTest ($readme -like '*LocalAppData*' -and
-            $readme -like '*The .NET and Windows App SDK runtimes are included*') "$platform run instructions omit prerequisites or data behavior."
+            $readme -like "*Install the Microsoft .NET 10 Runtime for $platform.*" -and
+            $readme -like '*The Windows App SDK is included*') "$platform run instructions omit prerequisites or data behavior."
         $manifest = Read-ZipText -Archive $archive -Name 'SHA256SUMS.txt'
         $hashedNames = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
         foreach ($line in $manifest.TrimEnd().Split("`n")) {
@@ -281,6 +289,11 @@ $source = New-SyntheticPublish -Name 'self-contained'
 [IO.File]::WriteAllText((Join-Path $source 'WorkTrail.runtimeconfig.json'),
     '{"runtimeOptions":{"includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"10.0.0"}]}}', $utf8)
 Assert-Rejected -Name 'self-contained' -Source $source -Message 'must require the shared .NET 10 runtime'
+
+$source = New-SyntheticPublish -Name 'nested-dotnet-runtime'
+$native = New-Item -ItemType Directory -Path (Join-Path $source 'runtimes/win-x64/native') -Force
+[IO.File]::WriteAllText((Join-Path $native.FullName 'coreclr.dll'), 'fixture', $utf8)
+Assert-Rejected -Name 'nested-dotnet-runtime' -Source $source -Message 'Bundled .NET runtime file'
 $source = New-SyntheticPublish -Name 'reserved-file'
 [IO.File]::WriteAllText((Join-Path $source 'release.json'), '{}', $utf8)
 Assert-Rejected -Name 'reserved-file' -Source $source -Message 'reserved release filename'

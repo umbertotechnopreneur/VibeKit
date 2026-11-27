@@ -10,11 +10,11 @@ See the [repository table](docs/screenshots/repositories.png), [plain-English re
 
 | Distribution | Start |
 | --- | --- |
-| Windows x64 MSI | Open `RepoRadar-0.3.0-win-x64.msi` and install for the current user. Open **Repo Radar** from Start. |
-| Windows x64 portable ZIP | Extract `RepoRadar-0.3.0-win-x64-portable.zip` into a writable folder and open `repo-radar.exe` or `repo-radar.cmd`. The portable folder holds its own data. |
+| Windows x64 / ARM64 MSI | Open the matching `RepoRadar-0.3.0-win-<arch>.msi` and install for the current user. Open **Repo Radar** from Start. |
+| Windows x64 / ARM64 portable ZIP | Extract the matching `RepoRadar-0.3.0-win-<arch>-portable.zip` into a writable folder and open `repo-radar.exe` or `repo-radar.cmd`. The portable folder holds its own data. |
 | Debian amd64 | With the Microsoft .NET package source configured, run `sudo apt install ./repo-radar_0.3.0-1_amd64.deb`, then `repo-radar`. The package declares Git, libsqlite3 and the .NET 10 runtime as dependencies. |
 
-Users who already have a compatible shared Microsoft .NET 10 Runtime can use the framework-dependent installer or ZIP immediately. Install the Microsoft .NET 10 Runtime for x64 separately if it is missing. [Microsoft .NET 10 downloads](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) · [Git for your platform](https://git-scm.com/downloads).
+Users who already have a compatible shared Microsoft .NET 10 Runtime can use the framework-dependent installer or ZIP immediately. Install the Microsoft .NET 10 Runtime matching the package architecture (`x64` or `arm64`) separately if it is missing. [Microsoft .NET 10 downloads](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) · [Git for your platform](https://git-scm.com/downloads).
 
 The Windows MSI upgrades the previous per-user installation. The Debian package replaces the previous package identity. The first run can bring existing installed workspace data forward. See [Index and catalog](#index-and-catalog).
 
@@ -138,4 +138,4 @@ On Windows with the .NET 10 SDK, Python 3 and PowerShell:
 pwsh -File ./packaging/windows/Build-Msi.ps1
 ```
 
-The MSI builder uses WiX 3.14 and PowerShell 7.2 or newer. `./build.ps1 -Channel All` runs all three builders. Packages are written to `artifacts/dist` and `artifacts/msi`. See the [terminal design guide](docs/design/console/README.md) for the layout and brand.
+Select the target with `-Architecture x64` or `-Architecture arm64` for Windows builds. The MSI builder uses WiX 3.14 and PowerShell 7.2 or newer. `./build.ps1 -Channel All` runs all three builders. Packages are written to `artifacts/dist` and `artifacts/msi`. See the [terminal design guide](docs/design/console/README.md) for the layout and brand.

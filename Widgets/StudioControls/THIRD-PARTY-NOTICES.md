@@ -28,8 +28,8 @@ Umberto Giacobbi. It does not relicense the following materials.
   separate runtime/build dependencies, under their own licenses. No
   obs-backgroundremoval binary or model is redistributed here.
 
-The self-contained Windows ZIP includes its required .NET and WinUI runtime
-files. Upstream licence/notice files from the resolved NuGet packages are kept
+The Windows ZIP and MSI include the WinUI runtime files. Both use the shared
+Microsoft .NET Runtime 10 installed for the target architecture. Upstream licence/notice files from the resolved NuGet packages are kept
 under `Licenses/`, together with a package/version inventory containing public
 package URLs. This inventory contains no local NuGet cache paths.
 

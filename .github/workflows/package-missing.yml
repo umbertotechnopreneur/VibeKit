@@ -1,0 +1,100 @@
+name: Pacchetti Ghostty Shaders e WorkTrail
+run-name: Pacchetto ${{ inputs.project }} · ${{ inputs.channel }} · ${{ github.ref_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: Sottoprogetto
+        type: choice
+        options: [ghostty-shaders, worktrail]
+        required: true
+      channel:
+        description: Canale
+        type: choice
+        options: [test, stable]
+        default: test
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Prepara e verifica il pacchetto
+    runs-on: ${{ inputs.project == 'ghostty-shaders' && 'ubuntu-24.04' || 'windows-2025' }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CHANNEL: ${{ inputs.channel }}
+      PROJECT: ${{ inputs.project }}
+    steps:
+      - name: Verifica progetto, canale e branch
+        run: |
+          if ($env:PROJECT -cnotin @('ghostty-shaders', 'worktrail') -or $env:CHANNEL -cnotin @('test', 'stable')) {
+            throw 'Progetto o canale non valido.'
+          }
+          $branch = if ($env:CHANNEL -ceq 'stable') { 'refs/heads/main' } else { 'refs/heads/dev' }
+          if ($env:GITHUB_REF -cne $branch) {
+            throw "Per il canale $env:CHANNEL usare $branch."
+          }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Controlla e archivia gli shader per Linux
+        if: inputs.project == 'ghostty-shaders'
+        working-directory: Apps/Ghostty Shaders
+        run: |
+          python3 tests/check-manager.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $bundle = New-Item -ItemType Directory -Path "$env:RUNNER_TEMP/release-bundle"
+          $name = 'Ghostty-Shaders-linux-' + $env:GITHUB_SHA.Substring(0, 7) + '.zip'
+          $zip = Join-Path $bundle.FullName $name
+          git archive --format=zip --prefix=Ghostty-Shaders/ "--output=$zip" "HEAD:Apps/Ghostty Shaders" README.md licenses scripts shaders
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python3 -m zipfile --test $zip
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $digest = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$digest  $name" | Set-Content -LiteralPath "$zip.sha256" -Encoding ascii
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        if: inputs.project == 'worktrail'
+        with:
+          global-json-file: Apps/WorkTrail/global.json
+
+      - name: Prepara WiX per gli installer Windows
+        if: inputs.project == 'worktrail'
+        run: dotnet tool install --tool-path "$env:RUNNER_TEMP/wix5" wix --version 5.0.2
+
+      - name: Crea e verifica i pacchetti di WorkTrail per Windows x64 e ARM64
+        if: inputs.project == 'worktrail'
+        working-directory: Apps/WorkTrail
+        run: |
+          $version = (Get-Content WorkTrail/build-version.json -Raw | ConvertFrom-Json).semVer
+          $preview = $env:CHANNEL -ceq 'test'
+          if ($preview) { $env:WORKTRAIL_PORTABLE_PREVIEW = '1' }
+          $bundle = New-Item -ItemType Directory -Path "$env:RUNNER_TEMP/release-bundle"
+          foreach ($arch in 'x64', 'ARM64') {
+            $publish = Join-Path $PWD "artifacts/portable-publish/$arch"
+            ./scripts/WorkTrail.ps1 -Action PublishUnpackaged -Configuration Release-Unpackaged -Platform $arch -ReleaseVersion $version -PublishOutputPath $publish
+            $info = Get-Content -LiteralPath "$publish/BuildInfo.json" -Raw | ConvertFrom-Json
+            if ($info.gitCommit -cne $env:GITHUB_SHA -or $info.gitDirty -ne $false) { throw 'Origine della build non verificata.' }
+            $output = Join-Path $PWD "artifacts/portable-release/$arch"
+            ./scripts/New-PortableReleaseArchive.ps1 -Version $version -Platform $arch -PublishDirectory $publish -OutputDirectory $output -Preview:$preview -WixPath "$env:RUNNER_TEMP/wix5/wix.exe"
+            $zip = Join-Path $output "WorkTrail-$version-$arch-portable-unsigned.zip"
+            $msi = Join-Path $output "WorkTrail-$version-$arch.msi"
+            Copy-Item -LiteralPath $zip,"$zip.sha256",$msi,"$msi.sha256" -Destination $bundle.FullName
+          }
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-bundle-${{ inputs.project }}
+          path: ${{ runner.temp }}/release-bundle/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

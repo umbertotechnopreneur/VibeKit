@@ -29,14 +29,17 @@ param(
     [Parameter(Mandatory)][string]$PublishDirectory,
     [Parameter(Mandatory)][string]$Version,
     [Parameter(Mandatory)][ValidateSet('x64', 'ARM64')][string]$Platform,
-    [string]$OutputDirectory
+    [string]$OutputDirectory,
+    [switch]$Preview,
+    [string]$WixPath
 )
 
 #region Initialization
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-if ($Version -cnotmatch '^[1-9][0-9]{0,4}\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$' -or
+if ($Version -cnotmatch '^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$' -or
+    ($Version.StartsWith('0.') -and -not $Preview) -or
     @($Version.Split('.') | Where-Object { [int]$_ -gt 65534 }).Count -gt 0) {
     throw 'Version must be X.Y.Z with major 1..65534 and minor/patch 0..65534.'
 }
@@ -114,12 +117,14 @@ if ($buildInfo.semVer -cne $Version -or $buildInfo.packageVersion -cne "$Version
 }
 $runtimeConfig = Get-Content -LiteralPath (Join-Path $publishRoot 'WorkTrail.runtimeconfig.json') -Raw | ConvertFrom-Json -AsHashtable
 $runtimeOptions = $runtimeConfig.runtimeOptions
-if ($null -eq $runtimeOptions -or -not $runtimeOptions.ContainsKey('framework') -or $runtimeOptions.framework.name -ne 'Microsoft.NETCore.App' -or
-    $runtimeOptions.framework.version -notlike '10.*') {
+if ($null -eq $runtimeOptions -or $runtimeOptions.ContainsKey('includedFrameworks') -or
+    -not $runtimeOptions.ContainsKey('framework') -or $runtimeOptions.framework.name -ne 'Microsoft.NETCore.App' -or
+    $runtimeOptions.framework.version -notmatch '^10[.]0[.][0-9]+$') {
     throw 'Portable runtime configuration must require the shared .NET 10 runtime.'
 }
-foreach ($runtimeFile in @('hostfxr.dll', 'hostpolicy.dll', 'coreclr.dll', 'System.Private.CoreLib.dll')) {
-    if (Test-Path -LiteralPath (Join-Path $publishRoot $runtimeFile)) { throw "Bundled .NET runtime file: $runtimeFile" }
+$runtimeFiles = @('hostfxr.dll', 'hostpolicy.dll', 'coreclr.dll', 'System.Private.CoreLib.dll')
+foreach ($file in $publishFiles) {
+    if ($file.Name -in $runtimeFiles) { throw "Bundled .NET runtime file: $($file.FullName)" }
 }
 
 #endregion
@@ -195,7 +200,7 @@ No CLI alias is registered.
 This unsigned prerelease preparation artifact may trigger Windows security prompts.
 Follow your organization's policy for unsigned software; do not disable security checks.
 
-The .NET and Windows App SDK runtimes are included.
+Install the Microsoft .NET 10 Runtime for $Platform. The Windows App SDK is included.
 
 Portable describes application deployment, not a portable user profile.
 Settings, screenshots, history, and other application data use the normal LocalAppData
@@ -271,3 +276,18 @@ finally {
 $zipHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash
 [IO.File]::WriteAllText("$zipPath.sha256", "$zipHash  $archiveName`n", $utf8)
 Write-Host "Unsigned portable release archive ready: $zipPath"
+
+if ($WixPath) {
+    $stage = [IO.Directory]::CreateTempSubdirectory('worktrail-msi-payload-')
+    try {
+        Expand-Archive -LiteralPath $zipPath -DestinationPath $stage.FullName
+        $msiName = "WorkTrail-$Version-$Platform.msi"
+        $msi = Join-Path $outputRoot $msiName
+        & "$repositoryRoot/../../scripts/release/Build-PortableMsi.ps1" -Source $stage.FullName -Output $msi -Name WorkTrail -Version $Version -Architecture $Platform -Executable 'WorkTrail.exe' -UpgradeCode 'c43498fe-7a86-4390-b608-7bf02dcc6935' -WixPath $WixPath
+        $digest = (Get-FileHash -LiteralPath $msi -Algorithm SHA256).Hash
+        [IO.File]::WriteAllText("$msi.sha256", "$digest  $msiName`n", $utf8)
+    }
+    finally {
+        $stage.Delete($true)
+    }
+}

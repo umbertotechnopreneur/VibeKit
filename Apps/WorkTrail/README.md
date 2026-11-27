@@ -25,7 +25,7 @@ I review third-party dependencies and their sources and pay attention to memory,
 
 ## Get WorkTrail
 
-WorkTrail targets **Windows 11 x64 and ARM64**. The Microsoft Store channel is separate from source builds and portable distribution. Binary downloads are not yet published in VibeKit; start with the source instructions below. A locally built **portable ZIP** keeps `WorkTrail.exe`, its DLLs and resource folders together. Linux is source-only, without binaries or compatibility promises.
+WorkTrail targets **Windows 11 x64 and ARM64**. The Microsoft Store channel is separate from source builds and portable distribution. Choose a package for your processor in [VibeKit releases](https://github.com/umbertotechnopreneur/VibeKit/releases). Install the matching Microsoft .NET 10 Runtime. Both Windows packages include the Windows App SDK needed by the UI. Run the **MSI** to install WorkTrail for the current user, or extract the whole **portable ZIP** and run `WorkTrail.exe`. Linux is source-only, without binaries or compatibility promises.
 
 To work on the source, install PowerShell 7, the .NET 10 SDK and the Windows build tools described in the [development guide](docs/DEVELOPMENT.md). Start with:
 

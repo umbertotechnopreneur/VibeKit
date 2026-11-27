@@ -45,11 +45,16 @@ jobs:
           path: artifacts/retro-terminal/*.deb
           if-no-files-found: error
   windows:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture: [x64, arm64]
+    runs-on: windows-2025
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - name: Compile native application and portable checks
+        if: matrix.architecture == 'x64'
         shell: pwsh
         run: |
           cmake -S Widgets/RetroTerminal/Windows -B "$env:RUNNER_TEMP/retro-build" -A x64 -DCMAKE_SYSTEM_VERSION=10.0.26100.0
@@ -62,6 +67,7 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - name: Compile production HLSL entry points
+        if: matrix.architecture == 'x64'
         shell: pwsh
         run: |
           $sdk = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin'
@@ -82,11 +88,13 @@ jobs:
         run: |
           dotnet tool install wix --version 5.0.2 --tool-path "$env:RUNNER_TEMP/widget-wix"
           if ($LASTEXITCODE -ne 0) { throw 'WiX installation failed.' }
-      - name: Build unsigned MSI from source
+      - name: Build Release portable ZIP and MSI from source
         shell: pwsh
-        run: ./Widgets/RetroTerminal/Windows/Packaging/Build-MSI.ps1 -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe" -OutputDirectory "$env:RUNNER_TEMP/retro-msi"
+        run: ./Widgets/RetroTerminal/Windows/Packaging/Build-MSI.ps1 -Architecture ${{ matrix.architecture }} -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe" -OutputDirectory "$env:RUNNER_TEMP/retro-msi"
       - uses: actions/upload-artifact@v6
         with:
-          name: retro-terminal-windows-x64
-          path: ${{ runner.temp }}/retro-msi/*.msi
+          name: retro-terminal-windows-${{ matrix.architecture }}
+          path: |
+            ${{ runner.temp }}/retro-msi/*.msi
+            ${{ runner.temp }}/retro-msi/*.zip
           if-no-files-found: error

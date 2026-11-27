@@ -71,7 +71,7 @@ The code is free to use, change and share under the [MIT License](LICENSE).
 
 ## Get it running
 
-Start with the [source build guide](docs/DEVELOPMENT.md) and [packaging instructions](docs/RELEASING.md). Binary downloads are not yet published in VibeKit. If you make a portable package, extract the whole archive into a writable folder. On Windows, open `ulanzi-dock-vibeware.exe`. Keep the launcher beside it for startup at sign-in.
+Find downloads in [VibeKit releases](https://github.com/umbertotechnopreneur/VibeKit/releases). Choose the Windows MSI or portable ZIP matching your CPU (x64 or ARM64). Run the MSI to install for the current user, or extract the whole ZIP into a writable folder. On Windows, open `ulanzi-dock-vibeware.exe`. Keep the launcher beside it for startup at sign-in.
 
 On Debian and Ubuntu, install the `.deb` and open UlanziDeck from the application menu. From a portable Linux archive, use `./ulanzi-dock-vibeware run`. See the [platform guide](docs/PLATFORMS.md) for the options on each system.
 

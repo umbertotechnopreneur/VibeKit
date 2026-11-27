@@ -93,16 +93,19 @@ jobs:
         with:
           global-json-file: Apps/WorkTrail/global.json
 
+      - name: Stage WiX 5
+        run: dotnet tool install --tool-path "$env:RUNNER_TEMP/wix5" wix --version 5.0.2
+
       - name: Test portable release safeguards
         if: matrix.platform == 'x64'
         run: |
           ./scripts/Test-PortableReleasePackaging.ps1
 
-      - name: Publish portable application with bundled runtimes
+      - name: Publish with shared .NET 10 and app-local Windows App SDK
         run: |
           $ErrorActionPreference = 'Stop'
           ./scripts/WorkTrail.ps1 -Action PublishUnpackaged -Platform $env:RELEASE_PLATFORM -ReleaseVersion $env:RELEASE_VERSION -PublishOutputPath "./artifacts/portable-publish/$env:RELEASE_PLATFORM"
-          ./scripts/New-PortableReleaseArchive.ps1 -PublishDirectory "./artifacts/portable-publish/$env:RELEASE_PLATFORM" -Version $env:RELEASE_VERSION -Platform $env:RELEASE_PLATFORM
+          ./scripts/New-PortableReleaseArchive.ps1 -PublishDirectory "./artifacts/portable-publish/$env:RELEASE_PLATFORM" -Version $env:RELEASE_VERSION -Platform $env:RELEASE_PLATFORM -WixPath "$env:RUNNER_TEMP/wix5/wix.exe"
 
       - name: Upload portable release artifacts
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -111,6 +114,8 @@ jobs:
           path: |
             Apps/WorkTrail/artifacts/releases/${{ needs.version.outputs.value }}/${{ matrix.platform }}/**/*.zip
             Apps/WorkTrail/artifacts/releases/${{ needs.version.outputs.value }}/${{ matrix.platform }}/**/*.zip.sha256
+            Apps/WorkTrail/artifacts/releases/${{ needs.version.outputs.value }}/${{ matrix.platform }}/**/*.msi
+            Apps/WorkTrail/artifacts/releases/${{ needs.version.outputs.value }}/${{ matrix.platform }}/**/*.msi.sha256
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
@@ -148,15 +153,16 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $assets = @()
           foreach ($platform in @('x64', 'ARM64')) {
-            $file = "WorkTrail-$env:RELEASE_VERSION-${platform}-portable-unsigned.zip"
-            $matches = @(Get-ChildItem -LiteralPath 'release-assets' -Recurse -File -Filter $file)
-            if ($matches.Count -ne 1) { throw "Missing or ambiguous release archive: $file" }
-            $path = $matches[0].FullName
-            $checksum = "$path.sha256"
-            $expected = (Get-Content -LiteralPath $checksum -Raw).Trim()
-            $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
-            if ($expected -cne "$actual  $file") { throw "Archive checksum mismatch: $file" }
-            $assets += @($path, $checksum)
+            foreach ($file in "WorkTrail-$env:RELEASE_VERSION-${platform}-portable-unsigned.zip", "WorkTrail-$env:RELEASE_VERSION-$platform.msi") {
+              $matches = @(Get-ChildItem -LiteralPath 'release-assets' -Recurse -File -Filter $file)
+              if ($matches.Count -ne 1) { throw "Missing or ambiguous release archive: $file" }
+              $path = $matches[0].FullName
+              $checksum = "$path.sha256"
+              $expected = (Get-Content -LiteralPath $checksum -Raw).Trim()
+              $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+              if ($expected -cne "$actual  $file") { throw "Archive checksum mismatch: $file" }
+              $assets += @($path, $checksum)
+            }
           }
           $existing = gh release list --limit 1000 --json tagName,isDraft | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0) { throw 'Could not inspect existing releases.' }
@@ -164,16 +170,16 @@ jobs:
             throw 'A release already exists for this tag. Review it manually; existing assets are never replaced.'
           }
           @"
-          Portable ZIP preparation build for WorkTrail $env:RELEASE_VERSION (x64 and ARM64).
+          Windows MSI and portable ZIP packages for WorkTrail $env:RELEASE_VERSION (x64 and ARM64).
 
-          Portable ZIPs can be extracted and run through WorkTrail.exe and include .NET and Windows App SDK.
+          Install the Microsoft .NET 10 Runtime for your architecture. The portable ZIP and MSI include the Windows App SDK.
           Application data remains in LocalAppData.
-          Every ZIP includes payload checksums and an adjacent archive checksum.
+          Every ZIP includes payload checksums. Each MSI and ZIP has an adjacent SHA-256 checksum.
           Clean-machine portable-launch checks remain required before public publication.
           Microsoft Store MSIX packages are built and signed locally, outside this workflow.
           This draft is created automatically; the workflow never publishes it.
           "@ | Set-Content -LiteralPath release-notes.md -Encoding utf8NoBOM
-          gh release create $env:RELEASE_TAG @assets --verify-tag --draft --title "WorkTrail $env:RELEASE_VERSION - portable ZIPs" --notes-file release-notes.md
+          gh release create $env:RELEASE_TAG @assets --verify-tag --draft --title "WorkTrail $env:RELEASE_VERSION - Windows packages" --notes-file release-notes.md
           if ($LASTEXITCODE -ne 0) { throw 'Draft release creation failed.' }
     defaults:
       run:

@@ -63,7 +63,7 @@ When reporting an invisible effect or an unexpected exit, include the approximat
 
 ## Build from source
 
-Requires .NET 10 SDK, Microsoft C++ x64 build tools and Windows SDK 10.0.26100.0 or newer with C++/WinRT headers, `fxc` and `windowsapp.lib`. The native script honors `VCToolsInstallDir` or discovers the newest installed C++ toolchain with Visual Studio Installer's `vswhere`. It chooses the newest complete compatible SDK under `WindowsSdkDir` or the standard Windows Kits directory; no Visual Studio edition or machine-specific path is required.
+Requires .NET 10 SDK, Microsoft C++ build tools for the target architecture and Windows SDK 10.0.26100.0 or newer with C++/WinRT headers, `fxc` and `windowsapp.lib`. The native script honors `VCToolsInstallDir` or discovers the newest installed C++ toolchain with Visual Studio Installer's `vswhere`. It chooses the newest complete compatible SDK under `WindowsSdkDir` or the standard Windows Kits directory; no Visual Studio edition or machine-specific path is required.
 
 Before first use of a new external library or prebuilt binary, explicitly scan its archive and extracted dependencies with Microsoft Defender. Confirm the official source, version and clean scanner completion in that staging session; reuse the result for unchanged imports. Builds do not initiate scans. Retain no scan reports or build histories.
 
@@ -73,14 +73,16 @@ Debug checks: `--check-settings`, `--check-resource-guard`, `--check-logging` an
 
 ## Windows installer
 
-Use PowerShell, Python 3 and WiX 5.0.2 to build the unsigned per-user x64 MSI.
+Use PowerShell, Python 3 and WiX 5.0.2 to build the Release portable ZIP and unsigned per-user MSI for x64 or ARM64.
 
 ```powershell
-.\Packaging\Build-MSI.ps1 -WixPath <path-to-wix.exe-or-wix.dll>
+.\Packaging\Build-MSI.ps1 -Architecture x64 -WixPath <path-to-wix.exe-or-wix.dll>
+.\Packaging\Build-MSI.ps1 -Architecture arm64 -WixPath <path-to-wix.exe-or-wix.dll>
 ```
 
 The installer is under `dist/`. It adds Water Ripple to Start and includes the
-private .NET and WinUI runtimes, native renderer and compiled shaders.
+private WinUI runtime, native renderer and compiled shaders.
+Both packages use the shared .NET Runtime 10 for the target architecture. To use the portable edition, extract the ZIP and run `WaterRipple.exe`.
 Use `msiexec /i <path-to-msi> /quiet /norestart` for automation.
 
 Preferences stay in LocalAppData on MSI uninstall. To retain settings from an

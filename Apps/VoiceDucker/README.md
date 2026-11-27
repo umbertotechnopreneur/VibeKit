@@ -73,7 +73,7 @@ Binary downloads are not yet published in VibeKit. You can run the current sourc
 
 Press **Disable** to stop. The microphone starts **off** unless you explicitly
 turn on **Enable microphone on startup**.
-A locally packaged portable ZIP needs no installer; unsigned builds may show a Windows security prompt.
+Install the shared Microsoft .NET 10 Runtime (x64 or ARM64 to match the package). Extract the entire portable ZIP, or run the MSI. The ZIP needs no application installer; unsigned builds may show a Windows security prompt.
 
 ## Choose which apps get quieter
 

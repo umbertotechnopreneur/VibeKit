@@ -16,16 +16,14 @@ pwsh -NoProfile -File scripts/package-portable.ps1 -Runtime win-arm64
 ```
 
 Do not pass `-Run` to prepare a release. Existing running applications are not
-stopped. ZIPs include the app, its companion runtimes, README, MIT license,
+stopped. ZIPs include the app, its Windows App SDK libraries, README, MIT license,
 screenshot and notices copied from restored NuGet dependencies. Keep each ZIP's
 companion files together. Packaging refuses to overwrite an existing ZIP.
 
 ## GitHub
 
-Open a pull request for source changes. The **Portable Windows ZIPs** workflow
-builds both architectures and checks archive integrity and SHA-256 checksums.
-After owner review, run it manually with `release=true`, `tag=v0.2.0-stable`,
-and `draft=true`. Review both ZIPs and publish the draft when approved.
+The VibeKit workflow builds a Release portable ZIP and a framework-dependent MSI for each Windows architecture, x64 and ARM64. Both formats require the matching .NET 10 runtime to be installed on Windows. From the VibeKit root, use `python scripts/release/release.py voiceducker --channel dev --dry-run` to check the plan. Remove `--dry-run` to publish the preview, or choose `--channel stable` after promotion to main. The release includes SHA-256 checksums for all four packages.
+
 Builds compare dependency archive hashes with the pins in
 `docs/dependency-imports.json`. Before pinning a new or changed import, stage its
 official archive and extracted files and complete a targeted Defender scan.

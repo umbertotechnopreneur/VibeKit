@@ -13,7 +13,7 @@ def identity(prefix, value):
     return prefix + hashlib.sha256(value.encode()).hexdigest()[:24]
 
 
-def wix_source(payload, output, *, name, version, namespace, executable, registry, app_id, minimum_build, requirement, description):
+def wix_source(payload, output, *, name, version, namespace, architecture="x64", executable, registry, app_id, minimum_build, requirement, description):
     ET.register_namespace("", WIX)
     def child(parent, tag, **attrs):
         return ET.SubElement(parent, "{"+WIX+"}"+tag, attrs)
@@ -40,6 +40,7 @@ def wix_source(payload, output, *, name, version, namespace, executable, registr
     install = child(programs, "Directory", Id="INSTALLFOLDER", Name=name)
     dirs = {".": install}
     files = sorted(p for p in payload.rglob("*") if p.is_file() and p.suffix.lower() != ".pdb")
+    component_namespace = namespace if architecture == "x64" else uuid.uuid5(namespace, architecture)
     component_ids = []
     exe_file = None
     for file in files:
@@ -54,7 +55,7 @@ def wix_source(payload, output, *, name, version, namespace, executable, registr
                 dirs[key] = child(dirs[ancestor], "Directory", Id=identity("D", key), Name=part)
         comp_id = identity("C", relative)
         comp = child(dirs[parent.as_posix()], "Component", Id=comp_id,
-                     Guid=str(uuid.uuid5(namespace, relative)), Bitness="always64")
+                     Guid=str(uuid.uuid5(component_namespace, relative)), Bitness="always64")
         file_id = identity("F", relative)
         child(comp, "File", Id=file_id, Source=str(file), Name=file.name, KeyPath="no")
         child(comp, "RegistryValue", Root="HKCU", Key=registry + r"\Components",
@@ -71,13 +72,13 @@ def wix_source(payload, output, *, name, version, namespace, executable, registr
           Condition='REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE')
     for key, directory in dirs.items():
         comp_id = identity("R", key)
-        comp = child(directory, "Component", Id=comp_id, Guid=str(uuid.uuid5(namespace, "directory:"+key)), Bitness="always64")
+        comp = child(directory, "Component", Id=comp_id, Guid=str(uuid.uuid5(component_namespace, "directory:"+key)), Bitness="always64")
         child(comp, "RemoveFolder", Id=identity("Remove", key), On="uninstall")
         child(comp, "RegistryValue", Root="HKCU", Key=registry + r"\Directories",
               Name=comp_id, Type="integer", Value="1", KeyPath="yes")
         component_ids.append(comp_id)
     menu = child(package, "StandardDirectory", Id="ProgramMenuFolder")
-    comp = child(menu, "Component", Id="MenuShortcut", Guid=str(uuid.uuid5(namespace, "menu-shortcut")), Bitness="always64")
+    comp = child(menu, "Component", Id="MenuShortcut", Guid=str(uuid.uuid5(component_namespace, "menu-shortcut")), Bitness="always64")
     shortcut = child(comp, "Shortcut", Id="StartMenuShortcut", Name=name, Target="[#"+exe_file+"]",
           WorkingDirectory="INSTALLFOLDER", Icon="AppIcon", Advertise="no")
     child(shortcut,"ShortcutProperty",Key="System.AppUserModel.ID",Value=app_id)
@@ -108,6 +109,7 @@ if __name__ == "__main__":
     from vibeware_msi import add_installer_ui
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--architecture", choices=("x64", "arm64"), default="x64")
     parser.add_argument("widget", choices=WIDGETS)
     parser.add_argument("version")
     parser.add_argument("payload", type=Path)
@@ -117,16 +119,15 @@ if __name__ == "__main__":
     if args.output.exists():
         parser.error("WiX output already exists")
     count = wix_source(args.payload.resolve(), args.output.resolve(), name=name, version=args.version,
-                       namespace=uuid.UUID(namespace), executable=exe,
+                       namespace=uuid.UUID(namespace), architecture=args.architecture, executable=exe,
                        registry=fr"Software\VibeWare\{identifier}\Installer",
                        app_id=f"biz.umbertogiacobbi.{identifier}", minimum_build=22000,
                        requirement=f"{name} requires 64-bit Windows 11 or newer.", description=description)
     root = ET.parse(args.output).getroot()
-    # Vignette ships its own .NET Desktop runtime and needs no download dialog.
-    if args.widget != "vignette":
-        add_installer_ui(root, payload=args.payload, executable=exe, output=args.output,
-                         home_url=f"https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/{folder}",
-                         logo=repository / "Widgets" / folder / logo)
+    add_installer_ui(root, payload=args.payload, executable=exe, output=args.output,
+                     home_url=f"https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/{folder}",
+                     logo=repository / "Widgets" / folder / logo, architecture=args.architecture,
+                     runtime_type="desktop" if args.widget == "vignette" else "core")
     ET.indent(root)
     ET.ElementTree(root).write(args.output, encoding="utf-8", xml_declaration=True)
     print(f"Files in installer: {count}")

@@ -83,10 +83,12 @@ for the current user with DPAPI; they are not portable plaintext files.
 
 The build uses locked dependencies and a fresh publish folder. Choose a new or
 empty `-OutputDirectory` for another build; existing files are never mixed into
-the release. `-Package` produces `artifacts/StudioControls-0.3.3-windows-x64.msi`.
+the release. `-Package` creates a versioned portable ZIP and an unsigned MSI. Use
+`-Architecture arm64` to select Windows ARM64, or `-Architecture x64` for x64.
+Install the .NET 10 runtime for that architecture before using the portable ZIP.
 Run the MSI, then open Studio Controls from Start. The installer includes WinUI
 components, generic assets, the sanitized scene template and licences. It requires
-the shared Microsoft .NET Runtime 10.0 for Windows x64 and offers the official
+the shared Microsoft .NET Runtime 10.0 for the selected architecture and offers the official
 download page when the runtime is missing. [Microsoft .NET 10 downloads](https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime)
 No Python installation is required on Windows. The language flags are bundled
 from [flag-icons 7.5.0](https://github.com/lipis/flag-icons/releases/tag/v7.5.0)
@@ -98,8 +100,7 @@ adds a Start menu shortcut, and supports major upgrades. Preferences
 and generated project data remain in LocalAppData on uninstall. Increase the
 project version for each installer update.
 
-CI runs the isolated native `--ui-smoke` check after publishing and packages the
-verified output.
+CI runs the isolated native `--ui-smoke` check on the native x64 and ARM64 runners. The packaging step verifies the apphost and native WinUI library for each target.
 
 ```powershell
 ./scripts/Test-WindowsPackage.ps1

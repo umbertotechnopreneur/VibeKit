@@ -37,6 +37,8 @@ The examples below use `hm`. From source, replace it with `dotnet run --project 
 
 HelpMe targets Windows and Linux on x64 and ARM64. Linux packaging uses `.deb` files with the .NET runtime included; native libraries are declared as dependencies. See [build, installation, and release instructions](scripts/README.md). A configured workflow does not mean a package has already been published. I do not provide commercial Linux support or promise compatibility with every distribution.
 
+For Windows testing, sign in to GitHub and follow the release notes to the x64 or ARM64 portable ZIP or MSI in Actions. These framework-dependent packages require the matching .NET 10 runtime.
+
 The commercial edition targets Windows 11 on x64 and ARM64 and uses MSIX. The existing [Microsoft Store listing](https://apps.microsoft.com/detail/9P2WJBVQMW4J) is for the previous PromptMeUp release; the HelpMe rebrand has not been submitted.
 
 ## Everyday use

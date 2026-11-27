@@ -4,7 +4,10 @@
 # VBWR E
 #requires -Version 7.0
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$Destination)
+param(
+    [Parameter(Mandatory)][string]$Destination,
+    [ValidateSet('Debug', 'Release')][string]$Configuration = 'Debug'
+)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
@@ -49,7 +52,8 @@ $text = $text.Substring(0, $start) + $center + $text.Substring($end)
 [IO.File]::WriteAllText($linuxSource, $text)
 $flags = @(& pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.1 libnotify)
 if ($LASTEXITCODE -ne 0) { throw 'GTK, WebKitGTK 4.1 and libnotify development packages are required. Run preflight.' }
-$arguments = @('-std=c++20', '-O0', '-g', '-shared', '-fPIC', '-o', (Join-Path $Destination 'Photino.Native.so'), "$source/Photino.Linux.Dialog.cpp", "$source/Photino.Linux.cpp", "$source/Exports.cpp")
+$optimization = if ($Configuration -eq 'Release') { '-O2', '-DNDEBUG' } else { '-O0', '-g' }
+$arguments = @('-std=c++20', '-shared', '-fPIC', '-o', (Join-Path $Destination 'Photino.Native.so'), "$source/Photino.Linux.Dialog.cpp", "$source/Photino.Linux.cpp", "$source/Exports.cpp") + $optimization
 & c++ @arguments @($flags -split '\s+' | Where-Object { $_ })
-if ($LASTEXITCODE -ne 0) { throw 'Linux Photino Debug compilation failed.' }
-Write-Host 'Built Photino Native Debug against WebKitGTK 4.1.'
+if ($LASTEXITCODE -ne 0) { throw "Linux Photino $Configuration compilation failed." }
+Write-Host "Built Photino Native $Configuration against WebKitGTK 4.1."

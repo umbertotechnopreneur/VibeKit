@@ -2,7 +2,8 @@
 [CmdletBinding()]
 param(
     [ValidateSet('Debug','Release')][string]$Configuration = 'Release',
-    [ValidateSet('Portable','Debian','All')][string]$Channel = 'Portable'
+    [ValidateSet('Portable','Debian','All')][string]$Channel = 'Portable',
+    [ValidateSet('x64','arm64')][string]$Architecture = 'x64'
 )
 $ErrorActionPreference = 'Stop'
 $repoProject = Join-Path $PSScriptRoot 'src\RepoRadar.csproj'
@@ -11,12 +12,12 @@ $repoDistributions = Join-Path $repoArtifacts 'dist'
 $repoPython = (Get-Command python -ErrorAction Stop).Source
 $repoPackager = Join-Path $PSScriptRoot 'scripts\package.py'
 if ($Channel -in @('Portable','All')) {
-    $repoOut = Join-Path $repoArtifacts 'publish\repo-radar-win-x64'
-    & dotnet publish $repoProject -c $Configuration -r win-x64 --self-contained false -o $repoOut
+    $repoOut = Join-Path $repoArtifacts "publish\repo-radar-win-$Architecture"
+    & dotnet publish $repoProject -c $Configuration -r "win-$Architecture" --self-contained false -o $repoOut
     if ($LASTEXITCODE) { throw 'Windows source build failed.' }
-    & $repoPython $repoPackager windows $repoOut $repoDistributions
+    & $repoPython $repoPackager windows $repoOut $repoDistributions --architecture $Architecture
     if ($LASTEXITCODE) { throw 'Portable ZIP creation failed.' }
-    @{ relativeDll = 'artifacts\publish\repo-radar-win-x64\repo-radar.dll' } | ConvertTo-Json |
+    @{ relativeDll = "artifacts\publish\repo-radar-win-$Architecture\repo-radar.dll" } | ConvertTo-Json |
         Set-Content -LiteralPath (Join-Path $repoArtifacts 'current-build.json') -Encoding UTF8
 }
 if ($Channel -in @('Debian','All')) {
@@ -27,6 +28,6 @@ if ($Channel -in @('Debian','All')) {
     if ($LASTEXITCODE) { throw 'Debian package creation failed.' }
 }
 if ($Channel -eq 'All') {
-    & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'packaging\windows\Build-Msi.ps1') -Configuration $Configuration
-    if ($LASTEXITCODE) { throw 'Windows x64 MSI creation failed.' }
+    & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'packaging\windows\Build-Msi.ps1') -Configuration $Configuration -Architecture $Architecture
+    if ($LASTEXITCODE) { throw 'Windows MSI creation failed.' }
 }

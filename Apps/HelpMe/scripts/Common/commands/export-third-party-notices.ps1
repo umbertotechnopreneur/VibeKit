@@ -121,18 +121,20 @@ foreach ($entry in $assets.libraries.GetEnumerator() | Sort-Object Key) {
     $directory = Resolve-PackageDirectory $entry.Value.path
     Add-PackageNotices -Id $id -Version $version -Directory $directory -Upstream $upstream
 }
-# Self-contained runtime packs are restore downloads, not entries in the NuGet library graph.
-$runtimeId = "Microsoft.NETCore.App.Runtime.$Runtime"
-$packs = @($assets.project.frameworks.Values.downloadDependencies | Where-Object { $_.name -eq $runtimeId })
-if ($packs.Count -ne 1) { throw "Cannot determine the exact runtime pack: $runtimeId" }
-$versions = $packs[0].version.Trim('[', ']').Split(',').Trim()
-if ($versions.Count -ne 2 -or $versions[0] -ne $versions[1]) { throw 'Runtime pack version must be exact.' }
-$runtimeVersion = $versions[0]
-$runtimeDirectory = Resolve-PackageDirectory "$($runtimeId.ToLowerInvariant())/$runtimeVersion"
-foreach ($required in @('LICENSE.TXT', 'THIRD-PARTY-NOTICES.TXT')) {
-    if (-not (Test-Path -LiteralPath (Join-Path $runtimeDirectory $required))) { throw "Missing .NET runtime notice: $required" }
+if ($Runtime -like 'linux-*') {
+    # Self-contained runtime packs are restore downloads, not entries in the NuGet library graph.
+    $runtimeId = "Microsoft.NETCore.App.Runtime.$Runtime"
+    $packs = @($assets.project.frameworks.Values.downloadDependencies | Where-Object { $_.name -eq $runtimeId })
+    if ($packs.Count -ne 1) { throw "Cannot determine the exact runtime pack: $runtimeId" }
+    $versions = $packs[0].version.Trim('[', ']').Split(',').Trim()
+    if ($versions.Count -ne 2 -or $versions[0] -ne $versions[1]) { throw 'Runtime pack version must be exact.' }
+    $runtimeVersion = $versions[0]
+    $runtimeDirectory = Resolve-PackageDirectory "$($runtimeId.ToLowerInvariant())/$runtimeVersion"
+    foreach ($required in @('LICENSE.TXT', 'THIRD-PARTY-NOTICES.TXT')) {
+        if (-not (Test-Path -LiteralPath (Join-Path $runtimeDirectory $required))) { throw "Missing .NET runtime notice: $required" }
+    }
+    Add-PackageNotices -Id $runtimeId -Version $runtimeVersion -Directory $runtimeDirectory -Upstream @('dotnet-LICENSE.txt')
 }
-Add-PackageNotices -Id $runtimeId -Version $runtimeVersion -Directory $runtimeDirectory -Upstream @('dotnet-LICENSE.txt')
 [ordered]@{ schemaVersion = 1; runtime = $Runtime; packages = $inventory.ToArray() } |
     ConvertTo-Json -Depth 8 | Set-Content (Join-Path $OutputDirectory 'THIRD_PARTY_INVENTORY.json') -Encoding utf8NoBOM
-Write-Host "Exported attribution for $($inventory.Count) packages, including the .NET runtime."
+Write-Host "Exported attribution for $($inventory.Count) packages for $Runtime."

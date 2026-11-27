@@ -7,47 +7,44 @@ import os
 import subprocess
 import sys
 
-PROJECTS = {
-    "helpme": "Apps/HelpMe/",
-    "markvibe": "Apps/MarkVibe/",
-    "thermalright": "Apps/ThermalRight Panel/",
-    "ulanzideck": "Apps/UlanziDeck/",
-    "voiceducker": "Apps/VoiceDucker/",
-    "worktrail": "Apps/WorkTrail/",
-    "ghostty-shaders": "Apps/Ghostty Shaders/",
-    "openai-usage": "Widgets/OpenAI/",
-    "desktop-ripple": "Widgets/WaterRipple/",
-    "retro-terminal": "Widgets/RetroTerminal/",
-    "studio-controls": "Widgets/StudioControls/",
-}
+from pathlib import Path, PurePosixPath
+
+CATALOG = json.loads(Path(__file__).with_name("projects.json").read_text(encoding="utf-8"))
+PROJECTS = {slug: item["path"] for slug, item in CATALOG.items()}
+
+
+def is_documentation(path):
+    file = PurePosixPath(path)
+    return file.suffix in {".md", ".mdx", ".markdown", ".rst", ".adoc"} or (
+        "docs" in file.parts[:-1] and file.suffix in {".png", ".jpg", ".jpeg", ".webp", ".svg", ".pdf"}
+    )
 
 
 def select_paths(paths):
     """Include both sides of renames and every consumer of shared scripts."""
     selected = set()
     for path in paths:
-        if path in {".github/workflows/monorepo.yml", "scripts/ci/select_projects.py"} or (
-            path.startswith(("scripts/", ".github/actions/"))
-        ):
+        if is_documentation(path):
+            continue
+        if path == "scripts/release/Build-PortableMsi.ps1":
+            selected.update({"ulanzideck", "worktrail"})
+            continue
+        if path.startswith("scripts/release/"):
+            # The coordinator runs the release command's tests directly.
+            continue
+        if path == ".github/workflows/package-missing.yml":
+            selected.update({"ghostty-shaders", "worktrail"})
+            continue
+        if path == ".github/workflows/monorepo.yml" or path.startswith(("scripts/", ".github/actions/")):
             return list(PROJECTS)
-        if path in {"Widgets/Shared/Build-WindowsMsi.ps1", "Widgets/Shared/create-widget-wix.py"}:
-            selected.update({"helpme", "voiceducker", "desktop-ripple", "retro-terminal", "studio-controls"})
-            continue
-        if path in {"Widgets/Shared/WindowsSignIn.cs", "Widgets/Shared/EffectStudioLayout.cs",
-                    "Widgets/Shared/DisplayTarget.cs", "Widgets/Shared/EffectWindowCoverage.h"}:
-            selected.update({"desktop-ripple", "retro-terminal"})
-            continue
         if path == ".github/workflows/widget-releases.yml":
-            selected.update({"openai-usage", "desktop-ripple", "retro-terminal"})
-            continue
-        if path == "Widgets/Shared/ProcessMemoryWatchdog.cs":
-            selected.update({
-                "helpme", "markvibe", "thermalright", "worktrail",
-                "desktop-ripple", "retro-terminal", "studio-controls",
-            })
+            selected.update({"openai-usage", "desktop-ripple", "retro-terminal", "vignette"})
             continue
         if path.startswith("Widgets/Shared/"):
-            selected.update({"openai-usage", "desktop-ripple"})
+            consumers = {slug for slug, item in CATALOG.items()
+                         if any(path == shared or (shared.endswith("/") and path.startswith(shared))
+                                for shared in item["shared"])}
+            selected.update(consumers or PROJECTS)
             continue
         for project, prefix in PROJECTS.items():
             if path.startswith(prefix) or path in {
@@ -60,9 +57,7 @@ def select_paths(paths):
                 f".github/workflows/{project}-dependency-review.yml",
                 f".github/workflows/ci-{project}-scripts.yml",
             }:
-                # Preserve the existing Markdown-only exclusion for this widget.
-                if project != "desktop-ripple" or not path.lower().endswith(".md"):
-                    selected.add(project)
+                selected.add(project)
     return [project for project in PROJECTS if project in selected]
 
 

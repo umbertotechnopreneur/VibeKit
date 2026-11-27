@@ -8,6 +8,8 @@ Release history will begin with the first explicitly authorized tagged public pr
 
 ### Added
 
+- Windows release packaging creates a per-user MSI alongside the portable ZIP for x64 and ARM64.
+
 - Thirty additional national calendars, updated rule-based data from holidays 0.107, and a live calendar count in About WorkTrail.
 
 - Published Hong Kong and Indonesia holiday calendars for 2026 and 2027, with per-country coverage so unpublished periods remain unverified.

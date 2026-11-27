@@ -3,7 +3,8 @@ param(
     [Parameter(Mandatory)][string]$WixPath,
     [Parameter(Mandatory)][string]$Source,
     [Parameter(Mandatory)][string]$Output,
-    [Parameter(Mandatory)][string]$IntermediateDirectory
+    [Parameter(Mandatory)][string]$IntermediateDirectory,
+    [ValidateSet('x64', 'arm64')][string]$Architecture = 'x64'
 )
 $ErrorActionPreference = 'Stop'
 $compiler = (Resolve-Path -LiteralPath $WixPath).Path
@@ -33,7 +34,7 @@ try {
     foreach ($extension in $extensions) {
         Invoke-MsiCompiler @('extension', 'add', $extension)
     }
-    $arguments = @('build', $sourcePath, '-arch', 'x64', '-o', $outputPath, '-pdbtype', 'none', '-intermediatefolder', $buildDirectory)
+    $arguments = @('build', $sourcePath, '-arch', $Architecture, '-o', $outputPath, '-pdbtype', 'none', '-intermediatefolder', $buildDirectory)
     foreach ($extension in $extensions) {
         $arguments += '-ext', $extension
     }
@@ -43,5 +44,11 @@ try {
 }
 if (-not (Test-Path -LiteralPath $outputPath -PathType Leaf)) {
     throw 'Windows Installer compilation did not produce a package.'
+}
+$installer = New-Object -ComObject WindowsInstaller.Installer
+$summary = $installer.SummaryInformation($outputPath, 0)
+$template = $summary.Property(7)
+if (($template -split ';')[0] -ne $Architecture) {
+    throw "MSI template '$template' does not match the requested architecture '$Architecture'."
 }
 Write-Output "MSI: $outputPath"

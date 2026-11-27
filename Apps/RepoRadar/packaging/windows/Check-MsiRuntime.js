@@ -9,15 +9,15 @@
 // SPDX-License-Identifier: MIT
 // VBWR E
 
-/** Detect a compatible machine-installed .NET 10 x64 runtime without loading .NET. */
+/** Detect a compatible machine-installed .NET 10 runtime without loading .NET. */
 function CheckRepoRadarRuntime() {
   Session.Property("RepoRadarDotNetReady") = "";
   var minimumPatch = Number(Session.Property("RepoRadarRuntimeVersion").split(".")[2]);
 
   try {
     var files = new ActiveXObject("Scripting.FileSystemObject");
-    if (HasRepoRadarRuntime(files, Session.Property("REPORADAR_DOTNET_X64_NATIVE"), minimumPatch) ||
-        HasRepoRadarRuntime(files, Session.Property("REPORADAR_DOTNET_X64_OTHER"), minimumPatch) ||
+    if (HasRepoRadarRuntime(files, Session.Property("REPORADAR_DOTNET_NATIVE"), minimumPatch) ||
+        HasRepoRadarRuntime(files, Session.Property("REPORADAR_DOTNET_OTHER"), minimumPatch) ||
         HasRepoRadarRuntime(files, GetDefaultRepoRadarRuntimeRoot(files), minimumPatch)) {
       Session.Property("RepoRadarDotNetReady") = "1";
     }
@@ -27,11 +27,12 @@ function CheckRepoRadarRuntime() {
   return 1;
 }
 
-/** Return the default x64 runtime root on either x64 or Arm64 Windows. */
+/** Return the default runtime root on either x64 or Arm64 Windows. */
 function GetDefaultRepoRadarRuntimeRoot(files) {
   var programFiles = Session.Property("ProgramFiles64Folder");
   if (!programFiles) return "";
 
+  if (Session.Property("RepoRadarArchitecture") === "arm64") return files.BuildPath(programFiles, "dotnet");
   var shell = new ActiveXObject("WScript.Shell");
   var architecture = shell.ExpandEnvironmentStrings("%PROCESSOR_ARCHITEW6432%");
   if (architecture === "%PROCESSOR_ARCHITEW6432%") {

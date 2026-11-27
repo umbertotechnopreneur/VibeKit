@@ -129,11 +129,14 @@ $imports = & .\Prepare-Imports.ps1
 
 Preparation downloads official dependencies and explicitly scans the imported archives and extracted files. It returns an in-memory verification object for the current build; do not serialize or export it. Build scripts validate this transient object and the unchanged staged files before using them. Builds and tests never start antivirus scans. Cleanup removes generated outputs and local dependency caches; a later build starts a fresh preparation session.
 
-Build only the unsigned Windows MSI with the following commands.
+Build a portable ZIP and unsigned MSI for each Windows architecture.
 
 ```powershell
-$imports = & .\Packaging\Prepare-Packaging.ps1 -WindowsOnly
-& .\Packaging\Build-WindowsDistribution.ps1 -Imports $imports
+$imports = $null
+foreach ($arch in 'x64', 'arm64') {
+    $imports = & .\Packaging\Prepare-Packaging.ps1 -WindowsOnly -Architecture $arch -PreviousImports $imports
+    & .\Packaging\Build-WindowsDistribution.ps1 -Imports $imports -Architecture $arch
+}
 ```
 
 On Linux use `bash Packaging/Build-Debian.sh` to build the Debian package.

@@ -1,7 +1,8 @@
-STUDIO CONTROLS — WINDOWS 11 x64
+STUDIO CONTROLS — WINDOWS 11 x64 AND ARM64
 
-Open the MSI and then choose Studio Controls in Start. The installer includes
-the .NET and WinUI runtimes, assets, scene template and licences. Install OBS
+Install the .NET 10 Runtime for your architecture. Open the matching MSI and
+choose Studio Controls in Start, or extract the portable ZIP and start
+StudioControls.Windows.exe. Both packages include WinUI, assets and licences. Install OBS
 Studio separately. The installed utility runs without Python.
 
 

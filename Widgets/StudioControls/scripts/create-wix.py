@@ -21,7 +21,8 @@ def identity(prefix, value):
     return prefix + hashlib.sha256(value.encode()).hexdigest()[:24]
 
 
-def wix_source(payload, output):
+def wix_source(payload, output, architecture="x64"):
+    component_namespace = NAMESPACE if architecture == "x64" else uuid.uuid5(NAMESPACE, architecture)
     def reject_reparse(path):
         info = path.lstat()
         if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
@@ -31,7 +32,7 @@ def wix_source(payload, output):
         for name in directories + names:
             reject_reparse(Path(root) / name)
     manifest = json.loads((payload / '.publish-manifest.json').read_text(encoding='utf-8-sig'))
-    if manifest.get('format') != 1 or manifest.get('application') != 'StudioControls' or manifest.get('version') != VERSION or manifest.get('runtime') != 'win-x64':
+    if manifest.get('format') != 1 or manifest.get('application') != 'StudioControls' or manifest.get('version') != VERSION or manifest.get('runtime') != f'win-{architecture}':
         raise ValueError('Publish manifest does not match this release')
     expected = {}
     for entry in manifest['files']:
@@ -90,7 +91,7 @@ def wix_source(payload, output):
                 dirs[key] = child(dirs[ancestor], "Directory", Id=identity("D", key), Name=part)
         comp_id = identity("C", relative)
         comp = child(dirs[parent.as_posix()], "Component", Id=comp_id,
-                     Guid=str(uuid.uuid5(NAMESPACE, relative)), Bitness="always64")
+                     Guid=str(uuid.uuid5(component_namespace, relative)), Bitness="always64")
         file_id = identity("F", relative)
         child(comp, "File", Id=file_id, Source=str(file), Name=file.name, KeyPath="no")
         child(comp, "RegistryValue", Root="HKCU", Key="Software\\UmbertoGiacobbi\\StudioControls\\Components",
@@ -102,13 +103,13 @@ def wix_source(payload, output):
         raise ValueError("Current Windows executable is missing")
     for key, directory in dirs.items():
         comp_id = identity("R", key)
-        comp = child(directory, "Component", Id=comp_id, Guid=str(uuid.uuid5(NAMESPACE, "directory:"+key)), Bitness="always64")
+        comp = child(directory, "Component", Id=comp_id, Guid=str(uuid.uuid5(component_namespace, "directory:"+key)), Bitness="always64")
         child(comp, "RemoveFolder", Id=identity("Remove", key), On="uninstall")
         child(comp, "RegistryValue", Root="HKCU", Key="Software\\UmbertoGiacobbi\\StudioControls\\Directories",
               Name=comp_id, Type="integer", Value="1", KeyPath="yes")
         component_ids.append(comp_id)
     menu = child(package, "StandardDirectory", Id="ProgramMenuFolder")
-    comp = child(menu, "Component", Id="MenuShortcut", Guid=str(uuid.uuid5(NAMESPACE, "menu-shortcut")), Bitness="always64")
+    comp = child(menu, "Component", Id="MenuShortcut", Guid=str(uuid.uuid5(component_namespace, "menu-shortcut")), Bitness="always64")
     shortcut = child(comp, "Shortcut", Id="StartMenuShortcut", Name="Studio Controls", Target="[#"+exe_file+"]",
           WorkingDirectory="INSTALLFOLDER", Icon="AppIcon", Advertise="no")
     child(shortcut,"ShortcutProperty",Key="System.AppUserModel.ID",Value="biz.umbertogiacobbi.StudioControls")
@@ -125,6 +126,7 @@ def wix_source(payload, output):
     installer.add_installer_ui(
         root,
         payload=payload,
+        architecture=architecture,
         executable="StudioControls.Windows.exe",
         output=output,
         home_url="https://github.com/umbertotechnopreneur/VibeKit/tree/main/Widgets/StudioControls",
@@ -140,7 +142,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("payload", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--architecture", choices=("x64", "arm64"), default="x64")
     args = parser.parse_args()
     if args.output.exists():
         raise SystemExit("Output already exists")
-    print("Files in installer:", wix_source(args.payload.absolute(), args.output.absolute()))
+    print("Files in installer:", wix_source(args.payload.absolute(), args.output.absolute(), args.architecture))

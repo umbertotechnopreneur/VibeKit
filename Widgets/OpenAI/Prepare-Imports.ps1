@@ -1,6 +1,6 @@
 # Explicit dependency preparation. Scan status and integrity records exist only in memory.
 [CmdletBinding()]
-param([psobject]$PreviousImports, [switch]$ForPackaging, [switch]$WindowsOnly)
+param([psobject]$PreviousImports, [switch]$ForPackaging, [switch]$WindowsOnly, [ValidateSet('x64','arm64')][string]$Architecture = 'x64')
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath($PSScriptRoot)
 $packageRoot = Join-Path $projectRoot '.imports\packages'
@@ -16,7 +16,7 @@ if ($null -ne $PreviousImports) {
 Push-Location $projectRoot
 try {
     $projects = @(
-        @{ project='Windows/OpenAIUsage.Windows.csproj'; rid=if ($ForPackaging) { 'win-x64' } }
+        @{ project='Windows/OpenAIUsage.Windows.csproj'; rid=if ($ForPackaging) { "win-$Architecture" } }
         if (-not $WindowsOnly) {
             @{ project='Backend/OpenAIUsage.Backend.csproj'; rid=if ($ForPackaging) { 'linux-x64' } }
             @{ project='Tests/OpenAIUsage.Tests.csproj' }
@@ -25,6 +25,10 @@ try {
     )
     foreach ($project in $projects) {
         $arguments = @('restore',$project.project,'--packages',$packageRoot,'--source','https://api.nuget.org/v3/index.json','-p:NuGetAudit=false','--disable-parallel')
+        if ($ForPackaging -and $project.project -eq 'Windows/OpenAIUsage.Windows.csproj') {
+            $platform = if ($Architecture -eq 'arm64') { 'ARM64' } else { 'x64' }
+            $arguments += "-p:Platform=$platform"
+        }
         if ($project.rid) { $arguments += @('-r',$project.rid) }
         if ($ForPackaging) { $arguments += '-p:SelfContained=false' }
         & dotnet @arguments | Out-Host

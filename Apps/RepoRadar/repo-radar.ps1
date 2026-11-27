@@ -24,7 +24,7 @@ try {
 
     $repoDotnet = ($repoRequirements | Where-Object Id -eq 'Microsoft.DotNet.Runtime.10').Path
     if (-not $repoDotnet) {
-        throw 'Repo Radar requires the Microsoft .NET 10 Runtime for x64. On Windows run .\repo-radar.cmd --preflight. https://dotnet.microsoft.com/en-us/download/dotnet/10.0'
+        throw 'Repo Radar requires the Microsoft .NET 10 Runtime for your architecture. On Windows run .\repo-radar.cmd --preflight. https://dotnet.microsoft.com/en-us/download/dotnet/10.0'
     }
     $repoHome = $PSScriptRoot
     $repoDll = Join-Path $repoHome 'repo-radar.dll'

@@ -1,5 +1,8 @@
 # Build and package HelpMe
 
+Windows ZIP, MSI and MSIX packages require the Microsoft .NET 10 Runtime for their target architecture (x64 or ARM64). Install it once before running HelpMe. Use `dotnet --list-runtimes` to check for `Microsoft.NETCore.App 10.0.x`.
+
+
 I keep development and packaging commands behind one entry point:
 
 ```powershell

@@ -12,7 +12,8 @@ param(
     [string]$Command,
     [ValidateSet('x64', 'ARM64')][string]$Architecture = 'x64',
     [switch]$PrepareImports,
-    [switch]$Plain
+    [switch]$Plain,
+    [ValidateSet('Debug', 'Release')][string]$PackageConfiguration = 'Debug'
 )
 function Initialize-Winget {
     if (Get-Command winget -ErrorAction SilentlyContinue) { return }
@@ -193,6 +194,7 @@ function Invoke-Preflight([switch]$Install) {
     Invoke-Preflight
 }
 function Invoke-LinuxBuild {
+    param([ValidateSet('Debug', 'Release')][string]$Configuration = 'Debug')
     if ($Architecture -ne 'x64') { throw 'Linux builds currently support x64 only.' }
     $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
     # Scope dependency imports to this build, never scan the user's shared cache.
@@ -206,9 +208,9 @@ function Invoke-LinuxBuild {
     foreach ($name in @('Photino', 'Cli')) {
         $project = Join-Path $repo "src/ThermalrightVibeWare.$name/ThermalrightVibeWare.$name.csproj"
         $output = if ($name -eq 'Cli') { Join-Path $linuxOutput 'engine' } else { $linuxOutput }
-        Invoke-Checked dotnet @('publish', $project, '-f', 'net10.0', '-c', 'Debug', '-r', 'linux-x64', '--self-contained', 'true', '--no-restore', '--disable-build-servers', '-o', $output)
+        Invoke-Checked dotnet @('publish', $project, '-f', 'net10.0', '-c', $Configuration, '-r', 'linux-x64', '--self-contained', 'true', '--no-restore', '--disable-build-servers', '-o', $output)
     }
-    & "$PSScriptRoot/build/Build-PhotinoLinux.ps1" -Destination $linuxOutput
+    & "$PSScriptRoot/build/Build-PhotinoLinux.ps1" -Destination $linuxOutput -Configuration $Configuration
     & "$PSScriptRoot/build/Bundle-LinuxPython.ps1" -Destination $linuxOutput
 }
 function Get-WindowsBuildInputKey {
@@ -289,9 +291,10 @@ function Invoke-PreparedWindowsAction([switch]$Reinstall) {
         if ($Reinstall) {
             Invoke-Reinstall -Architecture $Architecture -ImportSession $windowsBuildSession.Imports -CompletedMsiPath ([ref]$keepPackage)
         } else {
-            Invoke-Package -Architecture $Architecture -Configuration Debug -ImportSession $windowsBuildSession.Imports
+            Invoke-Package -Architecture $Architecture -Configuration $PackageConfiguration -ImportSession $windowsBuildSession.Imports
             $runtime = 'win-' + $Architecture.ToLowerInvariant()
-            $keepPackage = Join-Path $repo "artifacts/packages/ThermalrightVibeWare-$runtime-preview.zip"
+            $suffix = if ($PackageConfiguration -eq 'Release') { 'release' } else { 'preview' }
+            $keepPackage = Join-Path $repo "artifacts/packages/ThermalrightVibeWare-$runtime-$suffix.zip"
         }
     }
     finally {
@@ -305,6 +308,7 @@ function Invoke-Selection([string]$Name) {
             Write-Host 'TermalRight VibeWare | Umberto Giacobbi'
             Write-Host 'pwsh -NoProfile -File ./scripts/vibeware.ps1 <command> [-Architecture x64|ARM64] [-PrepareImports] [-Plain]'
             Write-Host 'Windows: omit the command and pass -PrepareImports to reuse prepared inputs across builds in the same menu.'
+            Write-Host 'Use package -PackageConfiguration Release for a release distribution. The default is Debug.'
             foreach ($item in $catalog) { Write-Host ('{0,-18} {1} — {2}' -f $item.Name, $item.Title, $item.Hint) }
             Write-Host 'Linux: local theme preview and sensor diagnostics; USB, audio and media are unavailable. Themes run Python code; use only the official repository.'
         }
@@ -344,8 +348,9 @@ function Invoke-Selection([string]$Name) {
         }
         'package' {
             if ($IsLinux) {
+                $linuxOutput = Join-Path $repo ('artifacts/linux-' + $PackageConfiguration.ToLowerInvariant())
                 Invoke-Preflight
-                Invoke-LinuxBuild
+                Invoke-LinuxBuild -Configuration $PackageConfiguration
                 & "$PSScriptRoot/build/Build-Deb.ps1" -PayloadPath $linuxOutput
                 $version = (Get-Content "$repo/installer/Version.txt" -Raw).Trim()
                 & "$PSScriptRoot/maintenance/Clean-BuildOutputs.ps1" -KeepPackagePath "$repo/artifacts/packages/thermalright-vibeware_${version}_amd64.deb"

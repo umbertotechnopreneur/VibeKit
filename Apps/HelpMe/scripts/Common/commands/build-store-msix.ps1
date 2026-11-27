@@ -64,7 +64,7 @@ foreach ($architecture in $architectures) {
     $publishDirectory = Join-Path $publishRoot $architecture
     $packageDirectory = Join-Path $outputRoot $architecture
     Write-Host "Publishing $runtime in Release" -ForegroundColor Cyan
-    & dotnet publish $project --configuration Release --runtime $runtime --self-contained true `
+    & dotnet publish $project --configuration Release --runtime $runtime --self-contained false `
         -p:PublishSingleFile=false -p:DebugType=None -p:DebugSymbols=false `
         "-p:Version=$Version" "-p:FileVersion=$packageVersion" -p:TreatWarningsAsErrors=true `
         --output $publishDirectory

@@ -1,4 +1,4 @@
-#if DEBUG
+#if DEBUG || RIPPLE_SETTINGS_CHECKS
 using System;
 using System.IO;
 namespace WaterRipple;

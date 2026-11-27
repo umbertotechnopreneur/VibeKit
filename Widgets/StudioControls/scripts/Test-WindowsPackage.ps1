@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param()
+param([ValidateSet('x64','arm64')][string]$Architecture = 'x64')
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 Import-Module (Join-Path $PSScriptRoot 'Windows-Package.psm1') -Force
@@ -12,7 +12,7 @@ $version = Get-StudioVersion -ProjectRoot $root
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 function New-FixtureWix {
     $file = Join-Path $output ([Guid]::NewGuid().ToString('N') + '.wxs')
-    & python (Join-Path $PSScriptRoot 'create-wix.py') $publish $file | Out-Host
+    & python (Join-Path $PSScriptRoot 'create-wix.py') $publish $file --architecture $Architecture | Out-Host
     if ($LASTEXITCODE -ne 0) { throw 'Fixture WiX source generation failed.' }
     $file
 }
@@ -34,27 +34,27 @@ try {
         New-Item -ItemType Directory -Path (Split-Path $path -Parent) -Force | Out-Null
         Set-Content -LiteralPath $path -Value "Synthetic packaging fixture: $relative" -Encoding utf8NoBOM
     }
-    '{"runtimeTarget":{"name":".NETCoreApp,Version=v10.0/win-x64"}}' |
+    @{ runtimeTarget = @{name = ".NETCoreApp,Version=v10.0/win-$Architecture"} } | ConvertTo-Json |
         Set-Content -LiteralPath (Join-Path $publish 'StudioControls.Windows.deps.json') -Encoding utf8NoBOM
     '{"runtimeOptions":{"tfm":"net10.0","framework":{"name":"Microsoft.NETCore.App","version":"10.0.0"}}}' |
         Set-Content -LiteralPath (Join-Path $publish 'StudioControls.Windows.runtimeconfig.json') -Encoding utf8NoBOM
-    foreach ($package in @('microsoft.windowsappsdk.winui/2.6.4', 'microsoft.netcore.app.runtime.win-x64/10.0.14')) {
+    foreach ($package in @('microsoft.windowsappsdk.winui/2.6.4', "microsoft.netcore.app.runtime.win-$Architecture/10.0.14")) {
         $path = Join-Path $nuget $package
         New-Item -ItemType Directory -Path $path -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $path 'LICENSE.txt') -Value 'Synthetic licence text.' -Encoding utf8NoBOM
     }
     $assets = @{
         libraries = @{ 'microsoft.windowsappsdk.winui/2.6.4' = @{ type = 'package'; path = 'microsoft.windowsappsdk.winui/2.6.4' } }
-        project = @{ frameworks = @{ 'net10.0-windows' = @{ downloadDependencies = @(@{ name = 'Microsoft.NETCore.App.Runtime.win-x64'; version = '[10.0.14, 10.0.14]' }) } } }
+        project = @{ frameworks = @{ 'net10.0-windows' = @{ downloadDependencies = @(@{ name = "Microsoft.NETCore.App.Runtime.win-$Architecture"; version = '[10.0.14, 10.0.14]' }) } } }
         packageFolders = @{ $nuget = @{} }
     }
     $assetsFile = Join-Path $temporary 'project.assets.json'
     $assets | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $assetsFile -Encoding utf8NoBOM
-    Copy-DependencyNotices -AssetsFile $assetsFile -Destination $publish
+    Copy-DependencyNotices -AssetsFile $assetsFile -Destination $publish -Architecture $Architecture
     $dependencyText = Get-Content -LiteralPath (Join-Path $publish 'Licenses/dependencies.json') -Raw
     Assert-True (-not $dependencyText.Contains($temporary)) 'Dependency notices leaked a local path.'
     Set-Content -LiteralPath (Join-Path $publish 'StudioControls.Windows.pdb') -Value 'Excluded symbols.'
-    Write-PublishManifest -Directory $publish -Version $version
+    Write-PublishManifest -Directory $publish -Version $version -Architecture $Architecture
     # CI adds these reports after publishing. Neither belongs in the download.
     Set-Content -LiteralPath (Join-Path $publish 'windows-verification.txt') -Value 'PASS: synthetic check.'
     Set-Content -LiteralPath (Join-Path $publish 'ui-smoke.txt') -Value 'PASS: synthetic native startup.'
@@ -68,14 +68,14 @@ try {
     Assert-True ($source -notmatch '\.pdb|ui-smoke|windows-verification|\.publish-manifest|panel\.json|project\.json') 'A report, symbol file or setting leaked into the installer.'
     Set-Content -LiteralPath (Join-Path $publish 'panel.json') -Value '{"private":"must not ship"}'
     Assert-Rejected { New-FixtureWix } 'Unexpected settings were accepted.'
-    Write-PublishManifest -Directory $publish -Version $version
+    Write-PublishManifest -Directory $publish -Version $version -Architecture $Architecture
     Assert-Rejected { New-FixtureWix } 'Settings present in a manifest were accepted.'
     Remove-Item -LiteralPath (Join-Path $publish 'panel.json')
-    Write-PublishManifest -Directory $publish -Version $version
+    Write-PublishManifest -Directory $publish -Version $version -Architecture $Architecture
     Assert-True ((Get-Content -LiteralPath $wxs -Raw) -ceq $source) 'A rejected package changed existing WiX source.'
     Add-Content -LiteralPath (Join-Path $publish 'Assets/CREDITS.txt') -Value 'Changed after build.'
     Assert-Rejected { New-FixtureWix } 'Tampered assets were accepted.'
-    Write-PublishManifest -Directory $publish -Version $version
+    Write-PublishManifest -Directory $publish -Version $version -Architecture $Architecture
     $manifestPath = Join-Path $publish '.publish-manifest.json'
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -AsHashtable
     $manifest.files[0].path = '../outside.txt'

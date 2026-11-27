@@ -2,11 +2,11 @@
 
 PromptMeUp's code is MIT-licensed; its dependencies and bundled legacy artwork retain their own terms and copyright notices. This direct-package overview was checked against the project dependencies on 2026-09-17. Full upstream texts are preserved in [LICENSES](LICENSES/README.md).
 
-Release archives also contain a `THIRD_PARTY_INVENTORY.json` with every resolved application package, including transitive dependencies and the exact self-contained .NET runtime pack. The release exporter copies package-supplied licenses and notices into the archive's `LICENSES` directory, alongside the preserved upstream texts. New package families stop packaging until their attribution is reviewed.
+Release archives also contain a `THIRD_PARTY_INVENTORY.json` with every resolved application package, including transitive dependencies and, when redistributed, the exact .NET runtime pack. The release exporter copies package-supplied licenses and notices into the archive's `LICENSES` directory, alongside the preserved upstream texts. New package families stop packaging until their attribution is reviewed.
 
 ## Transitive components and runtime
 
-The resolved application also includes Microsoft.Data.Sqlite.Core; Microsoft.Extensions configuration, abstractions, diagnostics, options, and primitives packages; Spectre.Console.Ansi; and SQLitePCLRaw core, native SQLite, and provider packages. Their versions and attribution are recorded per archive. Microsoft and Spectre components use MIT; SQLitePCLRaw uses Apache-2.0, and the deliverable SQLite library is [public domain](https://www.sqlite.org/copyright.html). The self-contained .NET runtime uses MIT and carries additional third-party notices, copied from the selected runtime pack. YamlDotNet's upstream libyaml notice is preserved as well.
+The resolved application also includes Microsoft.Data.Sqlite.Core; Microsoft.Extensions configuration, abstractions, diagnostics, options, and primitives packages; Spectre.Console.Ansi; and SQLitePCLRaw core, native SQLite, and provider packages. Their versions and attribution are recorded per archive. Microsoft and Spectre components use MIT; SQLitePCLRaw uses Apache-2.0, and the deliverable SQLite library is [public domain](https://www.sqlite.org/copyright.html). Windows packages use the separately installed .NET 10 runtime. The .NET runtime pack uses MIT and carries additional third-party notices, copied from the selected runtime pack. YamlDotNet's upstream libyaml notice is preserved as well.
 
 ## Runtime dependencies
 

@@ -2,6 +2,10 @@
 
 GitHub discovers workflows in the root `.github/workflows/` directory. The copies inside applications document their original configuration; they do not execute.
 
+[Guida alle release in italiano](release-it.md)
+
+Windows packages for development previews and stable releases use the Release configuration. Each Windows application produces portable ZIPs and MSIs for x64 and ARM64. Managed Windows packages require an external .NET 10 runtime of the same architecture. Vignette requires the .NET Desktop Runtime for WPF. The publisher checks managed Windows ZIPs for the expected runtime configuration and rejects bundled .NET runtime binaries. HelpMe keeps its Windows packages in signed-in Actions downloads. Public GitHub release assets exclude MSIX packages. Ghostty Shaders supports Linux only.
+
 ## Selective CI
 
 `monorepo.yml` starts on pushes to `main` and pull requests targeting `main` when they include a change outside the documentation filters. Markdown, MDX, reStructuredText and AsciiDoc files, plus images and PDFs under `docs/`, do not start CI by themselves. HelpMe's CodeQL and dependency review use the same exclusions for their automatic push and pull request triggers. Mixed code and documentation changes still run CI; manually started and scheduled workflows remain available. GitHub evaluates path filters on a limited change list, so unusually large changes may need a manual run.
@@ -11,19 +15,24 @@ When started, `monorepo.yml` compares every commit in a push, or the pull reques
 | Directory | Pipeline |
 | --- | --- |
 | `Apps/HelpMe/` | Quality, Windows/Linux build and tests, Debian packages |
+| `Apps/RepoRadar/` | Offline integration checks, Windows x64 and ARM64 MSIs and portable ZIPs, Debian amd64 package |
+| `Widgets/Vignette/` | Windows x64 and ARM64 MSIs and portable ZIPs, Linux checks and Debian package |
 | `Apps/MarkVibe/` | Quick checks on Windows and Linux |
 | `Apps/ThermalRight Panel/` | Windows builds and packages, Linux UI checks and Debian package |
 | `Apps/UlanziDeck/` | Rust tests, builds and packages for the existing target matrix |
-| `Apps/VoiceDucker/` | Windows portable builds, regressions and ZIP verification |
+| `Apps/VoiceDucker/` | Windows x64 and ARM64 MSIs and portable ZIPs, regression checks and archive verification |
 | `Apps/WorkTrail/` | Windows x64/ARM64 compilation and PowerShell packaging safeguards; optional manual lint/tests |
 | `Apps/Ghostty Shaders/` | Manager checks with isolated configuration directories |
 | `Widgets/OpenAI/` | Shared .NET calculations on Windows/Linux and synthetic watchdog ownership checks |
 | `Widgets/WaterRipple/` | Portable C# and Linux model checks, recovery checks and Debian/extension packaging |
+| `Widgets/RetroTerminal/` | Windows x64 and ARM64 MSIs and portable ZIPs, Linux checks and Debian package |
 | `Widgets/StudioControls/` | Shared synthetic checks, isolated GTK/WinUI startup and Windows ZIP/Linux Debian packages |
 
-For example, changing only `Apps/WorkTrail/` runs its two pipelines and the common selection/result jobs. It does not build HelpMe or another application. Changing multiple applications runs each affected pipeline. Shared `scripts/` or `.github/actions/` changes check all configured consumers. `Widgets/Shared/` changes check OpenAI Usage and Ripple, its two consumers. Editing one application's root workflow checks that application. Root documentation alone does not build applications; WaterRipple retains its Markdown-only exclusion.
+A mixed change selects only the projects whose code or build inputs changed. For example, editing the HelpMe README and the MarkVibe packaging script selects only MarkVibe. The paths and consumers of shared files are listed in `scripts/ci/projects.json`. An unknown shared file selects all projects until its consumers are recorded. Changes limited to the release command and its catalog run the coordinator's tests without rebuilding applications.
 
-OpenAI Usage checks use synthetic account data and isolated temporary storage. They do not contact the owner's Codex account or claim native WinUI/GTK validation. Ripple also checks the portable C# model and the recovery policy; its C# checks run in Debug because the preference-check helper is deliberately Debug-only. Adding a project requires an explicit entry in `scripts/ci/select_projects.py`, a reusable workflow, and the corresponding dispatcher and result jobs.
+Development takes place on `dev`. A promotion PR to `main` runs the selected checks. After merging a PR from this repository's `dev`, the push dispatcher can reuse a successful PR result when the previous `main` commit and the tested checkout tree both match. It runs the normal checks for direct pushes, different trees, unavailable results or a PR whose checks have yet to finish. Reuse applies to the monorepo checks only; release artifacts have a separate provenance check.
+
+OpenAI Usage checks use synthetic account data and isolated temporary storage. They do not contact the owner's Codex account or claim native WinUI/GTK validation. Ripple also checks the portable C# model and the recovery policy; its checks run independently of release publication. Adding a project requires a catalog entry in `scripts/ci/projects.json`, a reusable workflow, and the corresponding dispatcher and result jobs.
 
 When CI runs, **VibeKit CI required** requires successful selection and every selected reusable workflow, and accepts skips only for unrelated applications. Do not make this or another path-filtered workflow a mandatory branch protection check: GitHub leaves skipped required checks pending and blocks documentation-only pull requests. HelpMe CodeQL and dependency review retain separate scoped triggers; the existing CodeQL schedule is preserved. They require the corresponding GitHub repository features. On private repositories, set `CODE_SECURITY_ENABLED=true` only after enabling GitHub Code Security. Otherwise, dependency checks use NuGet audit for direct and transitive high/critical vulnerabilities (including audit-source errors), and CodeQL reports that analysis is unavailable. NuGet audit does not replace dependency-diff or license review.
 
@@ -69,10 +78,10 @@ The original local checkouts are separate backups. Archiving a repository on Git
 
 `studio-controls` selects `Widgets/StudioControls/` and its reusable workflow.
 It runs dependency-free .NET protocol/state checks on Linux and Windows, Linux
-Python/GTK checks on a private display with fake devices, and a Windows x64 WinUI
+Python/GTK checks on a private display with fake devices, and a Windows WinUI
 publish followed by synthetic DPAPI/card-rendering verification and isolated
 window startup/theme checks. These checks never enumerate cameras, capture
-media or connect to a live OBS instance. CI builds a Windows x64 ZIP and an
+media or connect to a live OBS instance. CI builds Windows x64 and ARM64 installers and portable ZIPs, plus an
 architecture-independent Debian package, checks package contents/exclusions and
 retains them as artifacts. It does not install packages or modify an OBS collection.
 Interactive device compatibility remains a separate check on both platforms.

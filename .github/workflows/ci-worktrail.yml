@@ -81,7 +81,7 @@ jobs:
       - name: Restore and audit NuGet dependencies
         shell: pwsh
         run: |
-          dotnet restore ./WorkTrail.slnx -p:Platform=x64 -p:NuGetAudit=true -p:NuGetAuditMode=all -p:NuGetAuditLevel=low -p:WarningsAsErrors=NU1901%3BNU1902%3BNU1903%3BNU1904
+          dotnet restore ./WorkTrail.slnx -p:Configuration=Release-Unpackaged -p:Platform=x64 -p:NuGetAudit=true -p:NuGetAuditMode=all -p:NuGetAuditLevel=low -p:WarningsAsErrors=NU1901%3BNU1902%3BNU1903%3BNU1904
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
           }
@@ -94,7 +94,7 @@ jobs:
         shell: pwsh
         run: |
           git ls-files -- '*.Tests.csproj' | ForEach-Object {
-            dotnet test $_ -p:Platform=x64 --no-restore -p:EnableNETAnalyzers=true -p:EnforceCodeStyleInBuild=true -p:TreatWarningsAsErrors=true --blame-hang-timeout 5m --blame-hang-dump-type none --results-directory "artifacts/ci/test-results/analyzers/$([IO.Path]::GetFileNameWithoutExtension($_))"
+            dotnet test $_ --configuration Release -p:Platform=x64 --no-restore -p:EnableNETAnalyzers=true -p:EnforceCodeStyleInBuild=true -p:TreatWarningsAsErrors=true --blame-hang-timeout 5m --blame-hang-dump-type none --results-directory "artifacts/ci/test-results/analyzers/$([IO.Path]::GetFileNameWithoutExtension($_))"
             if ($LASTEXITCODE -ne 0) {
               exit $LASTEXITCODE
             }
@@ -103,7 +103,7 @@ jobs:
       - name: Clean CI output
         if: always()
         shell: pwsh -NoProfile -File {0}
-        run: ./scripts/Clear-CiOutput.ps1 -Configuration Debug -Platform x64
+        run: ./scripts/Clear-CiOutput.ps1 -Configuration Release -Platform x64
 
     defaults:
       run:

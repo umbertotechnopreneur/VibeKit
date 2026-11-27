@@ -55,8 +55,16 @@ jobs:
           path: ${{ runner.temp }}/studio-controls-linux/StudioControls-linux-all.deb
           if-no-files-found: error
   windows:
-    name: Build native Windows UI and verify synthetic rendering
-    runs-on: windows-latest
+    name: Build Windows ${{ matrix.arch }} UI and verify synthetic rendering
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {arch: x64, runner: windows-latest}
+          - {arch: arm64, runner: windows-11-arm}
+    runs-on: ${{ matrix.runner }}
+    env:
+      PACKAGE_ARCH: ${{ matrix.arch }}
     timeout-minutes: 30
     defaults:
       run:
@@ -66,9 +74,9 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: Widgets/StudioControls/global.json
-      - name: Publish Windows x64 package and verify without devices
+      - name: Publish Windows package and verify without devices
         shell: pwsh
-        run: ./scripts/Build-Windows.ps1 -Configuration Release -Verify -OutputDirectory '${{ runner.temp }}/studio-controls-windows'
+        run: ./scripts/Build-Windows.ps1 -Configuration Release -Verify -Architecture $env:PACKAGE_ARCH -OutputDirectory '${{ runner.temp }}/studio-controls-windows'
       - name: Exercise isolated native window startup and theme changes
         shell: pwsh
         env:
@@ -86,7 +94,7 @@ jobs:
           if ($process.ExitCode -ne 0) { throw "Native UI smoke failed: $($process.ExitCode)" }
       - uses: actions/upload-artifact@v6
         with:
-          name: studio-controls-windows-timer-previews
+          name: studio-controls-windows-${{ matrix.arch }}-timer-previews
           path: ${{ runner.temp }}/studio-timer-previews/*.png
           if-no-files-found: error
       - uses: actions/setup-dotnet@v6
@@ -103,13 +111,15 @@ jobs:
       - name: Verify installer exclusions and build unsigned MSI
         shell: pwsh
         run: |
-          ./scripts/Test-WindowsPackage.ps1
-          ./scripts/Package-Windows.ps1 -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe" -PublishDirectory "$env:RUNNER_TEMP/studio-controls-windows" -OutputDirectory "$env:RUNNER_TEMP/studio-controls-release"
+          ./scripts/Test-WindowsPackage.ps1 -Architecture $env:PACKAGE_ARCH
+          ./scripts/Package-Windows.ps1 -Architecture $env:PACKAGE_ARCH -WixPath "$env:RUNNER_TEMP/widget-wix/wix.exe" -PublishDirectory "$env:RUNNER_TEMP/studio-controls-windows" -OutputDirectory "$env:RUNNER_TEMP/studio-controls-release"
           $installer = @(Get-ChildItem -LiteralPath "$env:RUNNER_TEMP/studio-controls-release" -Filter '*.msi' -File)
           if ($installer.Count -ne 1) { throw 'Expected one Studio Controls installer.' }
-          Rename-Item -LiteralPath $installer[0].FullName -NewName 'StudioControls-windows-x64.msi'
+          Rename-Item -LiteralPath $installer[0].FullName -NewName "StudioControls-windows-$env:PACKAGE_ARCH.msi"
       - uses: actions/upload-artifact@v6
         with:
-          name: studio-controls-windows-x64
-          path: ${{ runner.temp }}/studio-controls-release/StudioControls-windows-x64.msi
+          name: studio-controls-windows-${{ matrix.arch }}
+          path: |
+            ${{ runner.temp }}/studio-controls-release/*.msi
+            ${{ runner.temp }}/studio-controls-release/*-portable.zip
           if-no-files-found: error

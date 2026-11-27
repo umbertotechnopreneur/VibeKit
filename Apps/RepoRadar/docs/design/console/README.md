@@ -1,7 +1,3 @@
-> **File name:** `README.md`<br>
-> **Full path:** `E:\vibekit\Apps\RepoRadar\docs\design\console\README.md`<br>
-> **Path relative to the VibeKit repository:** `Apps/RepoRadar/docs/design/console/README.md`
-
 # Repo Radar terminal design
 
 Repo Radar uses a radar sweep and a monospace wordmark at the top of the terminal. Selection uses a bright cyan edge, a filled row and a triangular marker. Status colors describe Git evidence independently of focus. Author credit remains in the header and About.
@@ -20,7 +16,3 @@ The [dashboard](../../screenshots/dashboard.png), [repository table](../../scree
 | About | Show the Repo Radar wordmark, author and software credits. |
 
 See the [application guide](../../../README.md) for keyboard bindings and the [design prompts](prompts.json) for mockups with example data.
-
-> **File name:** `README.md`<br>
-> **Full path:** `E:\vibekit\Apps\RepoRadar\docs\design\console\README.md`<br>
-> **Path relative to the VibeKit repository:** `Apps/RepoRadar/docs/design/console/README.md`

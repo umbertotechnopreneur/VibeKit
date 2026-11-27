@@ -1,8 +1,3 @@
-> **File name:** `README.md`<br>
-> **Full path (workspace file):** `E:\vibekit\README.md`<br>
-> **Full path (published document):** `https://github.com/umbertotechnopreneur/VibeKit/blob/main/README.md`<br>
-> **Relative path (VibeKit repository root):** `README.md`
-
 <h1 align="center">VibeKit</h1>
 
 <p align="center">
@@ -191,8 +186,3 @@ To learn what VibeWare means and why I created it, read the [VibeWare manifesto]
   </a><br>
   <em>Human intent, AI execution, and plenty of tokens</em>
 </p>
-
-> **File name:** `README.md`<br>
-> **Full path (workspace file):** `E:\vibekit\README.md`<br>
-> **Full path (published document):** `https://github.com/umbertotechnopreneur/VibeKit/blob/main/README.md`<br>
-> **Relative path (VibeKit repository root):** `README.md`

@@ -1,7 +1,3 @@
-> **File name** `ARCHITECTURE.md`<br>
-> **Full path** `E:\vibekit\Apps\WorkTrail\docs\ARCHITECTURE.md`<br>
-> **Path relative to the VibeKit repository** `Apps\WorkTrail\docs\ARCHITECTURE.md`
-
 # WorkTrail architecture
 
 The app is a desktop launcher with independent world-clock and astronomy windows. It has one application facade, one installation-scoped mutex and one same-user versioned named pipe.
@@ -128,7 +124,3 @@ Views bind DTOs, collect input and call `IWorkTrailApplication`. Keep file, envi
 Report unexpected startup, persistence and interop failures through the durable local log and a visible error surface, including failures before Main exists. Keep credentials in environment variables and out of IPC diagnostics and logs.
 
 Existing personal history and screenshots are not migrated or deleted by widget startup. Removed tracking commands and launch arguments fail explicitly.
-
-> **File name** `ARCHITECTURE.md`<br>
-> **Full path** `E:\vibekit\Apps\WorkTrail\docs\ARCHITECTURE.md`<br>
-> **Path relative to the VibeKit repository** `Apps\WorkTrail\docs\ARCHITECTURE.md`

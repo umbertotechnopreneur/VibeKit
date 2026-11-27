@@ -1,7 +1,3 @@
-> **File name** `AUDIO-MODEL.md`<br>
-> **Full path** `E:\vibekit\Apps\VoiceDucker\docs\AUDIO-MODEL.md`<br>
-> **Path relative to the VibeKit repository** `Apps\VoiceDucker\docs\AUDIO-MODEL.md`
-
 # Audio application model
 
 `VoiceDuckerModel` is the application state owner. It loads and saves preferences,
@@ -128,7 +124,3 @@ an in-place update.
 The isolated microphone, playback and application-model harnesses use generated
 buffers, clocks, adapters and in-memory mixer state. They do not prove acoustic
 behavior, device compatibility or visual acceptance.
-
-> **File name** `AUDIO-MODEL.md`<br>
-> **Full path** `E:\vibekit\Apps\VoiceDucker\docs\AUDIO-MODEL.md`<br>
-> **Path relative to the VibeKit repository** `Apps\VoiceDucker\docs\AUDIO-MODEL.md`

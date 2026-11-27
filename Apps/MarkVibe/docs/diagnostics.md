@@ -1,7 +1,3 @@
-> **File name** `diagnostics.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\diagnostics.md`<br>
-> **Path relative to the MarkVibe application root** `docs/diagnostics.md`
-
 # Local diagnostics
 
 Windows builds write structured JSON Lines logs under
@@ -38,7 +34,3 @@ current source-built Release x64 executable. It opens synthetic Markdown in an
 isolated application profile, uses WinApp UI Automation and cleans its fixture.
 It does not inspect credentials, call AI or capture the desktop. No HTML/JSON
 validation journals are generated. GUI acceptance remains with the owner.
-
-> **File name** `diagnostics.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\diagnostics.md`<br>
-> **Path relative to the MarkVibe application root** `docs/diagnostics.md`

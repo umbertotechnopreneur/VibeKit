@@ -1,7 +1,3 @@
-> **File name** `windows-packaging.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\windows-packaging.md`<br>
-> **Path relative to the MarkVibe application root** `docs/windows-packaging.md`
-
 # Windows distribution
 
 `scripts/package-windows.ps1` defaults to framework-dependent Windows 11 **x64 Release**
@@ -179,7 +175,3 @@ signed by Microsoft. See [manual desktop MSIX components](https://learn.microsof
 Installer acceptance means explicitly installing the generated package and trying
 the app. Packaging success is not an installation result. Automated test execution
 requires a separate current request.
-
-> **File name** `windows-packaging.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\windows-packaging.md`<br>
-> **Path relative to the MarkVibe application root** `docs/windows-packaging.md`

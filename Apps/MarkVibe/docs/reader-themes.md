@@ -1,7 +1,3 @@
-> **File name** `reader-themes.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\reader-themes.md`<br>
-> **Path relative to the MarkVibe application root** `docs/reader-themes.md`
-
 # Reader and code themes
 
 The shared catalog is `src/MarkVibe.Core/Presentation/themes.json`. The native shell consumes its IDs and labels; the embedded renderer consumes the same file. Document palettes and typography are independent of the WinUI application theme and of Monaco's editor theme.
@@ -44,7 +40,3 @@ profile and does not write files into the documentation folder.
 WinUI resources use native theme brushes. Reader CSS and font rules stay inside
 the renderer ShadowRoot and never become global XAML styles. The map uses its
 native Win2D presentation palette.
-
-> **File name** `reader-themes.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\reader-themes.md`<br>
-> **Path relative to the MarkVibe application root** `docs/reader-themes.md`

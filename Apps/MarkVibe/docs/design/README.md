@@ -1,7 +1,3 @@
-> **File name** `README.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\design\README.md`<br>
-> **Path relative to the MarkVibe application root** `docs/design/README.md`
-
 # MarkVibe visual assets
 
 The chosen sidebar is [proposal 2: segmented tabs](sidebar/02-segmented-tabs.png).
@@ -18,7 +14,3 @@ by its creator, Umberto Giacobbi, from the VibeWare branding assets.
 Keep accessible labels and localized tooltips when displaying icon-only actions.
 Theme colors and dialog templates belong in the app's shared XAML dictionaries;
 document typography is provided by the scoped reader CSS themes.
-
-> **File name** `README.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\design\README.md`<br>
-> **Path relative to the MarkVibe application root** `docs/design/README.md`

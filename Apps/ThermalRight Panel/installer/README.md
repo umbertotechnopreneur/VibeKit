@@ -1,7 +1,3 @@
-> **File name** `README.md`<br>
-> **Full path** `E:\vibekit\Apps\ThermalRight Panel\installer\README.md`<br>
-> **Path relative to the VibeKit repository** `Apps/ThermalRight Panel/installer/README.md`
-
 # Windows MSI
 
 `Package.wxs` installs the published x64 or ARM64 payload for the current user.
@@ -73,7 +69,3 @@ The completion page uses WiX's overridable success sequence. The prerequisite
 and progress dialogs follow the [VibeKit installer specification](../../../docs/installers/README.md).
 [WiX 4.0.6 ExitDialog](https://github.com/wixtoolset/wix/blob/v4.0.6/src/ext/UI/wixlib/ExitDialog.wxs) ·
 [Windows Installer UI sequence](https://learn.microsoft.com/en-us/windows/win32/msi/installuisequence-table)
-
-> **File name** `README.md`<br>
-> **Full path** `E:\vibekit\Apps\ThermalRight Panel\installer\README.md`<br>
-> **Path relative to the VibeKit repository** `Apps/ThermalRight Panel/installer/README.md`

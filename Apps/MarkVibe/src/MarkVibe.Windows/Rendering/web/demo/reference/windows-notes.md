@@ -1,7 +1,3 @@
-> **File name** `windows-notes.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\src\MarkVibe.Windows\Rendering\web\demo\reference\windows-notes.md`<br>
-> **Path relative to the MarkVibe application root** `src/MarkVibe.Windows/Rendering/web/demo/reference/windows-notes.md`
-
 # Windows file access
 
 Open a local Markdown file or folder. C# owns workspace paths, indexing,
@@ -14,7 +10,3 @@ or filesystem access. Refresh rereads the folder; map changes use a revision-che
 sidecar. Reading and export do not upload documents. AI actions are explicit.
 
 Return to [workspace setup](../guide/setup.md) or [Field notes](../README.md).
-
-> **File name** `windows-notes.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\src\MarkVibe.Windows\Rendering\web\demo\reference\windows-notes.md`<br>
-> **Path relative to the MarkVibe application root** `src/MarkVibe.Windows/Rendering/web/demo/reference/windows-notes.md`

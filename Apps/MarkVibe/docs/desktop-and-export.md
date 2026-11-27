@@ -1,7 +1,3 @@
-> **File name** `desktop-and-export.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\desktop-and-export.md`<br>
-> **Path relative to the MarkVibe application root** `docs/desktop-and-export.md`
-
 # Document export and native hosts
 
 The WinUI 3 desktop app exports the current document as HTML or PDF.
@@ -107,7 +103,3 @@ checks sender URL, version and per-launch capability, blocks external page resou
 and opens user-initiated external links in the system browser. Follow Microsoft's
 [WebView2 security guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/security)
 and [printing documentation](https://learn.microsoft.com/en-us/microsoft-edge/webview2/how-to/print).
-
-> **File name** `desktop-and-export.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\desktop-and-export.md`<br>
-> **Path relative to the MarkVibe application root** `docs/desktop-and-export.md`

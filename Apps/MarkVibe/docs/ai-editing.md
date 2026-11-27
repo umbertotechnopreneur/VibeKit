@@ -1,7 +1,3 @@
-> **File name** `ai-editing.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\ai-editing.md`<br>
-> **Path relative to the MarkVibe application root** `docs/ai-editing.md`
-
 <!-- VBWR B
 
   Project: MarkVibe
@@ -208,7 +204,3 @@ discards local Markdown edits after confirmation. Closing or replacing a workspa
 protects unsaved drafts and requests. Draft sessions are limited to sixteen pages;
 restored or explicitly saved sessions can expire without discarding unsaved source.
 Original files and annotation sidecars are not silently rewritten by an AI reply.
-
-> **File name** `ai-editing.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\ai-editing.md`<br>
-> **Path relative to the MarkVibe application root** `docs/ai-editing.md`

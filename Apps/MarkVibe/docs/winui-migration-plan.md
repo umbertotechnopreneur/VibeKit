@@ -1,7 +1,3 @@
-> **File name** `winui-migration-plan.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\winui-migration-plan.md`<br>
-> **Path relative to the MarkVibe application root** `docs/winui-migration-plan.md`
-
 # Approved WinUI-only action plan
 
 Approved by Umberto Giacobbi on 2026-11-22: retire the standalone browser edition
@@ -64,7 +60,3 @@ Existing artifacts and application data are preserved. GUI acceptance remains wi
 the owner. Git merge, publication and Store submission are outside this approval.
 The current work list and latest-delivery summary describe outstanding acceptance;
 check results are reported in the conversation instead of retained validation journals.
-
-> **File name** `winui-migration-plan.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\docs\winui-migration-plan.md`<br>
-> **Path relative to the MarkVibe application root** `docs/winui-migration-plan.md`

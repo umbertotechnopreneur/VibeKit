@@ -1,7 +1,3 @@
-> **File name** `AGENTS.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\AGENTS.md`<br>
-> **Path relative to the VibeKit repository** `Apps\MarkVibe\AGENTS.md`
-
 # MarkVibe working agreements
 
 The [VibeKit agreements](../../AGENTS.md) also apply. The Windows app uses WinUI 3 for the shell and Win2D for the map. C# models own files, Markdown parsing, revisions, navigation, catalog and map state. WebView2 hosts the Markdown and Mermaid reader, Monaco source view and isolated PDF renderer. Edit maintained sources. Generated renderer bundles under `obj/`, `bin/` and other `obj/` contents are build products. See the [architecture](docs/architecture.md) and [map layout contract](docs/map-layout.md).
@@ -30,7 +26,3 @@ The [VibeKit agreements](../../AGENTS.md) also apply. The Windows app uses WinUI
 - Deliver code through focused pull requests to the protected default branch. Prefer squash merge. Approval and merge require explicit owner authorization and applicable branch checks. Formal self-review is unnecessary. Use imperative subjects, update affected locks and report checks actually run or that tests were not requested.
 - Documentation-only edits require no build, test, CI dispatch or PR. On an explicit request for Git delivery, commit only the authorized documents on the current branch with `[skip ci]` and push. If protection blocks it, report the restriction and leave the branch rules intact.
 - Keep [active work](.github/tasks/todo.md) actionable and [the latest delivery](.github/tasks/archive.md) short. Replace the previous summary. Report validation in the conversation and omit persistent lessons, CI or validation journals.
-
-> **File name** `AGENTS.md`<br>
-> **Full path** `E:\vibekit\Apps\MarkVibe\AGENTS.md`<br>
-> **Path relative to the VibeKit repository** `Apps\MarkVibe\AGENTS.md`

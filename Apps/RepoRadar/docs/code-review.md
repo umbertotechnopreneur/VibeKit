@@ -1,7 +1,3 @@
-> **File name** `code-review.md`<br>
-> **Full path** `E:\vibekit\Apps\RepoRadar\docs\code-review.md`<br>
-> **Path relative to the VibeKit repository** `Apps/RepoRadar/docs/code-review.md`
-
 # Repo Radar historical code review
 
 **Reviewed November 22, 2026, Asia/Saigon.** This audit records the 0.2.3 baseline before the Git, viewport and branding updates. It covered the terminal UI, projections and persistence, Git and catalog operations, launchers, test code and the three packaging paths. That source tree had 24 C# files and 4,868 lines, including the self-tests.
@@ -79,7 +75,3 @@ The source fingerprint is `49c2421fa212edf1b9522c6fae0674e3ec49132bb9d2fda3f7e9a
 2. Bind Git mutation plans and state publication to a consistent checkout and data directory. Add concurrency and recovery tests using isolated state.
 3. Extract viewport and commands, then shared cell text and widgets. Add deterministic render and navigation tests before moving the picker or other components into a common package.
 4. Wire those checks into the repository workflow. Verify clean Windows and Debian environments, then produce a release from a tracked source revision with a published provenance record and signature where supported.
-
-> **File name** `code-review.md`<br>
-> **Full path** `E:\vibekit\Apps\RepoRadar\docs\code-review.md`<br>
-> **Path relative to the VibeKit repository** `Apps/RepoRadar/docs/code-review.md`

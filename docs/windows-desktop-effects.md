@@ -1,7 +1,3 @@
-> **File name** `windows-desktop-effects.md`<br>
-> **Full path** `E:\vibekit\docs\windows-desktop-effects.md`<br>
-> **Path relative to the VibeKit repository root** `docs/windows-desktop-effects.md`
-
 # Windows desktop effects architecture
 
 An effect can run on its own or participate in an ordered chain for one display. A healthy chain has one Windows Graphics Capture session and one presenter. Each widget owns its settings, controls, and emergency stop. A widget that leaves the chain releases its shared resources so the remaining widgets can run independently.
@@ -75,7 +71,3 @@ flowchart TD
 3. While the scene runs, start Retro Terminal over Water Ripple and verify that Retro Terminal takes over presentation with one active capture session after handoff. Stop Retro Terminal and verify Water Ripple resumes presentation. Repeat with the opposite launch order and stop Water Ripple to verify Retro Terminal's standalone capture fallback.
 
 Validate mixed versions, different displays and adapters, peer exit or stall, screenshot transitions, session and display changes, and capture permission outcomes separately.
-
-> **File name** `windows-desktop-effects.md`<br>
-> **Full path** `E:\vibekit\docs\windows-desktop-effects.md`<br>
-> **Path relative to the VibeKit repository root** `docs/windows-desktop-effects.md`

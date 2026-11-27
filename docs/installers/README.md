@@ -1,7 +1,3 @@
-> **File name** `README.md`<br>
-> **Full path** `E:\vibekit\docs\installers\README.md`<br>
-> **Path relative to the VibeKit repository** `docs/installers/README.md`
-
 # VibeKit installer specifications
 
 This directory is the shared reference for VibeKit installers. Put common requirements here and link to each application's packaging instructions for product-specific details.
@@ -45,7 +41,3 @@ flowchart LR
 - [MarkVibe MSI authoring](../../Apps/MarkVibe/packaging/windows/New-MsiPackage.ps1) and [Windows packaging guide](../../Apps/MarkVibe/docs/windows-packaging.md)
 - [Shared WiX dialog](../../scripts/packaging/VibeWareInstallerUI.wxs) and [packaging helper](../../scripts/packaging/vibeware_msi.py) for the app and widget MSI generators
 - [HelpMe and VoiceDucker MSI generator](../../scripts/ci/create-app-msi.py) and [Water Ripple and Retro Terminal MSI generator](../../Widgets/Shared/create-widget-wix.py)
-
-> **File name** `README.md`<br>
-> **Full path** `E:\vibekit\docs\installers\README.md`<br>
-> **Path relative to the VibeKit repository** `docs/installers/README.md`

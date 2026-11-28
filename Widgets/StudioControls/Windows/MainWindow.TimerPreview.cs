@@ -15,6 +15,7 @@ public sealed partial class MainWindow
     {
         if (!UiSmoke.Enabled || timerFace == null || timerWindow == null)
             throw new InvalidOperationException("An isolated presenter window is required.");
+        await timerFace.VerifyTimeExtensionAsync();
         var prior = settings.Timer;
         settings.Timer = prior with { Large = true, ShowNote = true, WarningSeconds = 12 };
         LocalSettings.Save(settings);

@@ -28,6 +28,7 @@ public sealed class WorkflowPlayer(TimeProvider? clock = null)
         }
     }
     public int TotalRemainingSeconds => RemainingSeconds + afterCurrent;
+    public bool CanExtendCurrent => State == WorkflowState.Running && Mode != WorkflowMode.Free && Remaining > TimeSpan.Zero;
     private int afterCurrent;
 
     public void Start(Workflow flow, bool live)
@@ -81,6 +82,12 @@ public sealed class WorkflowPlayer(TimeProvider? clock = null)
     public void Resume()
     {
         if (State == WorkflowState.Paused) Run();
+    }
+
+    public void ExtendCurrent(int seconds)
+    {
+        WorkflowLibrary.CheckSeconds(seconds);
+        if (CanExtendCurrent) interval += TimeSpan.FromSeconds(seconds);
     }
 
     public void Next()

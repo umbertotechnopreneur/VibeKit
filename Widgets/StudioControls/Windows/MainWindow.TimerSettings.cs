@@ -1,5 +1,4 @@
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 
 namespace VibeKit.StudioControls.Windows;
@@ -49,26 +48,34 @@ public sealed partial class MainWindow
             size.Items.Add(T("Compact"));
             size.Items.Add(T("Large"));
             size.SelectedIndex = prefs.Large ? 1 : 0;
-            AutomationProperties.SetName(size, T("Timer size"));
             var display = Column(6);
-            display.Children.Add(WithTrailing(Text(T("Timer size")), size));
-            showNext = AddSwitch(display, "Show next scene", prefs.ShowNext);
-            showTotal = AddSwitch(display, "Show total remaining", prefs.ShowTotal);
-            showNote = AddSwitch(display, "Show scene note", prefs.ShowNote);
-            showObs = AddSwitch(display, "Show OBS status", prefs.ShowObs);
+            display.Children.Add(Setting(size, "Timer size", "Choose Compact or Large for the separate presenter window."));
+            showNext = AddSwitch(display, "Show next scene",
+                "Show the upcoming scene beside the current one on the presenter timer.", prefs.ShowNext);
+            showTotal = AddSwitch(display, "Show total remaining",
+                "Add a second countdown for the time left in the entire workflow.", prefs.ShowTotal);
+            showNote = AddSwitch(display, "Show scene note",
+                "Display the note from the current workflow step on the presenter timer.", prefs.ShowNote);
+            showObs = AddSwitch(display, "Show OBS status",
+                "Display the latest connection and recording status reported by OBS on the timer.", prefs.ShowObs);
             Sections.Children.Add(Section(T("Display"), display, true));
 
             var signals = Column(6);
-            recordCountdown = AddSwitch(signals, "Recording countdown", prefs.RecordCountdown);
-            endWarning = AddSwitch(signals, "End warning", prefs.EndWarning);
-            warningSeconds = AddSeconds(signals, "Warning (seconds)", prefs.WarningSeconds, 60);
+            recordCountdown = AddSwitch(signals, "Recording countdown",
+                "Wait three seconds after Start recording. The presenter sees a light for each second.", prefs.RecordCountdown);
+            endWarning = AddSwitch(signals, "End warning",
+                "Light the timer signal shortly before the current countdown ends.", prefs.EndWarning);
+            warningSeconds = AddSeconds(signals, "Warning (seconds)",
+                "Choose how many seconds before the end the light turns on, from 1 to 60.", prefs.WarningSeconds, 60);
             warningSeconds.IsEnabled = endWarning.IsOn;
             endWarning.Toggled += (_, _) => warningSeconds.IsEnabled = endWarning.IsOn;
             Sections.Children.Add(Section(T("Signals"), signals, false));
 
             var free = Column(6);
-            freeSeconds = AddSeconds(free, "Duration (seconds)", prefs.FreeSeconds, 86400);
+            freeSeconds = AddSeconds(free, "Duration (seconds)",
+                "Set the length of a standalone countdown. Start timer runs it without changing OBS scenes.", prefs.FreeSeconds, 86400);
             FreeStart.Content = T("Start timer");
+            Help(FreeStart, T(ActionDescriptions["Start timer"]));
             FreeStart.IsEnabled = owner.CanStartFreeTimer;
             free.Children.Add(FreeStart);
             Sections.Children.Add(Section(T("Free timer"), free, false));
@@ -86,24 +93,22 @@ public sealed partial class MainWindow
             };
         }
 
-        private ToggleSwitch AddSwitch(StackPanel group, string key, bool value)
+        private Grid Setting(Control input, string label, string help) =>
+            WithTrailing(FieldLabel(input, owner.localization.Text(label), owner.localization.Text(help)), input);
+
+        private ToggleSwitch AddSwitch(StackPanel group, string key, string help, bool value)
         {
-            var label = owner.localization.Text(key);
             var toggle = new ToggleSwitch { IsOn = value, OnContent = "", OffContent = "", MinWidth = 44 };
-            AutomationProperties.SetName(toggle, label);
-            group.Children.Add(WithTrailing(Text(label), toggle));
+            group.Children.Add(Setting(toggle, key, help));
             return toggle;
         }
 
-        private NumberBox AddSeconds(StackPanel group, string key, int value, int maximum)
+        private NumberBox AddSeconds(StackPanel group, string key, string help, int value, int maximum)
         {
-            var label = owner.localization.Text(key);
-            var box = SecondsBox(label, value);
-            box.Header = null;
+            var box = SecondsBox(value);
             box.Maximum = maximum;
             box.Width = 112;
-            AutomationProperties.SetName(box, label);
-            group.Children.Add(WithTrailing(Text(label), box));
+            group.Children.Add(Setting(box, key, help));
             return box;
         }
 

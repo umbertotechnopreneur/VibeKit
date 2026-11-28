@@ -7,6 +7,7 @@ import math
 import os
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 import tomllib
@@ -25,6 +26,7 @@ ASSET_NAMES = (
     "OBS-logo.png",
     "OBS-COPYING.txt",
     "VibeWare-logo.png",
+    "icons/hicolor/256x256/apps/biz.vibeware.StudioControls.png",
     "CRT-test.mp4",
     "Lab-intro.wav",
     "TimerSignals/green.png",
@@ -79,6 +81,7 @@ Icon=biz.vibeware.StudioControls
 Terminal=false
 Categories=AudioVideo;Video;
 StartupNotify=true
+StartupWMClass=biz.vibeware.StudioControls
 """
 
 
@@ -170,7 +173,7 @@ def stage_package(
         destination / "usr/share/applications/biz.vibeware.StudioControls.desktop", DESKTOP_ENTRY
     )
     _copy(
-        project / "Assets/VibeWare-logo.png",
+        project / "Assets/icons/hicolor/256x256/apps/biz.vibeware.StudioControls.png",
         destination / "usr/share/pixmaps/biz.vibeware.StudioControls.png",
     )
     installed_size = math.ceil(
@@ -210,16 +213,22 @@ Description: native control desk for local OBS Studio demonstrations
 
 
 def build(
-    *, project=PROJECT_ROOT, output_dir, version="0.3.1", epoch=0, maintainer="Umberto Giacobbi"
+    *, project=PROJECT_ROOT, output_dir=None, version="0.3.1", epoch=0, maintainer="Umberto Giacobbi", channel="local"
 ):
     _validate_metadata(version, epoch, maintainer)
     executable = shutil.which("dpkg-deb")
     if not executable:
         raise RuntimeError("Install the distribution's dpkg tools to build a .deb package")
-    output_dir = Path(output_dir).resolve()
+    if channel not in ("local", "public"):
+        raise ValueError("Choose a local or public channel")
+    managed = Path(project).resolve() / "artifacts/installers" / channel / "linux-all"
+    output_dir = Path(output_dir).absolute() if output_dir else managed
+    retain = output_dir == managed
+    if retain and output_dir.resolve() != output_dir:
+        raise ValueError("Managed package output must not traverse symbolic links")
     output_dir.mkdir(parents=True, exist_ok=True)
     output = output_dir / f"{PACKAGE}_{version}_all.deb"
-    if output.exists():
+    if not retain and output.exists():
         raise FileExistsError("Package output already exists; choose a fresh output directory")
     # Portable output volumes may ignore Unix modes. dpkg needs a POSIX staging tree.
     with tempfile.TemporaryDirectory(prefix=".studio-deb-") as temporary:
@@ -249,16 +258,32 @@ def build(
             check=True,
             timeout=120,
         )
-        # Exclusive publication preserves earlier release files, including on unsupported hard-link filesystems.
-        target = output.open("xb")
-        try:
-            with target, staged_deb.open("rb") as source:
-                shutil.copyfileobj(source, target)
-                target.flush()
-                os.fsync(target.fileno())
-        except BaseException:
-            output.unlink(missing_ok=True)
-            raise
+        if not staged_deb.is_file() or not staged_deb.stat().st_size:
+            raise RuntimeError("The Debian package is missing or empty")
+        # Keep custom destinations exclusive. Only this project's canonical channel permits replacement.
+        if not retain:
+            target = output.open("xb")
+            try:
+                with target, staged_deb.open("rb") as source:
+                    shutil.copyfileobj(source, target)
+            except BaseException:
+                output.unlink(missing_ok=True)
+                raise
+            return output
+
+        import fcntl
+
+        with tempfile.TemporaryDirectory(prefix=".publish-", dir=output_dir) as publish:
+            candidate = Path(publish) / output.name
+            shutil.copy2(staged_deb, candidate)
+            lock_fd = os.open(output_dir / ".publish.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(lock_fd, "rb") as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+                os.replace(candidate, output)
+                for previous in output_dir.iterdir():
+                    if (previous != output and re.fullmatch(r"studio-controls_[0-9][0-9A-Za-z.+~-]*_all\.deb", previous.name)
+                            and stat.S_ISREG(previous.lstat().st_mode)):
+                        previous.unlink()
     return output
 
 
@@ -267,7 +292,8 @@ def main():
     with (PROJECT_ROOT / "Linux/pyproject.toml").open("rb") as stream:
         default_version = tomllib.load(stream)["project"]["version"]
     parser.add_argument("--version", default=default_version)
-    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--channel", choices=("local", "public"), default="local")
     parser.add_argument("--epoch", type=int, default=int(os.environ.get("SOURCE_DATE_EPOCH", "0")))
     parser.add_argument("--maintainer", default="Umberto Giacobbi")
     args = parser.parse_args()
@@ -276,6 +302,7 @@ def main():
         version=args.version,
         epoch=args.epoch,
         maintainer=args.maintainer,
+        channel=args.channel,
     )
     print("Built (not installed):", package)
 

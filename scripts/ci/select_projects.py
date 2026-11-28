@@ -46,6 +46,8 @@ def select_paths(paths):
                 "desktop-ripple", "retro-terminal", "studio-controls",
             })
             continue
+        if path in {"Widgets/Shared/WidgetTrayIcon.cs", "Widgets/Shared/WidgetTrayMenu.cs", "Widgets/Shared/DesktopEffectStop.cs"}:
+            selected.add("studio-controls")
         if path.startswith("Widgets/Shared/"):
             selected.update({"openai-usage", "desktop-ripple"})
             continue

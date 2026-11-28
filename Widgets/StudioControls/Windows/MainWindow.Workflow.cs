@@ -18,6 +18,7 @@ public sealed partial class MainWindow
     private readonly TextBlock projectName = new() { Opacity = .72, TextTrimming = TextTrimming.CharacterEllipsis, Tag = NativeLocalization.UserText };
     private readonly TextBlock workflowSummary = Text("");
     private readonly TextBlock workflowMessage = Text("");
+    private readonly Grid emptySequence = new() { MinHeight = 58, ColumnSpacing = 10 };
     private readonly ContentControl paletteSurface = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private WorkflowLibrary? workflowLibrary;
     private string? workflowId, savedProjectForm;
@@ -47,9 +48,9 @@ public sealed partial class MainWindow
         }
     }
 
-    private static NumberBox SecondsBox(string header, int value, int minimum = 1) => new()
+    private static NumberBox SecondsBox(int value, int minimum = 1) => new()
     {
-        Header = header, Value = value, Minimum = minimum, Maximum = 86400,
+        Value = value, Minimum = minimum, Maximum = 86400,
         SmallChange = 1, LargeChange = 60, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact, Width = 165
     };
 
@@ -62,42 +63,58 @@ public sealed partial class MainWindow
 
     private UIElement BuildWorkflow()
     {
-        var content = Column(14);
-        var editor = Column(12);
+        var content = Column(10);
+        var editor = Column(8);
         var heading = Column(2);
         heading.Children.Add(projectName);
         heading.Children.Add(workflowName);
+        ActionHelp(libraryButton, "Library");
         libraryButton.Click += async (_, _) => await OpenWorkflowDialogAsync(ManageLibraryAsync);
-        editor.Children.Add(WithTrailing(heading, libraryButton));
+        content.Children.Add(WithTrailing(heading, libraryButton));
 
-        var board = Column(12);
         var caption = Column(2);
         caption.Children.Add(Heading("Sequence"));
         caption.Children.Add(workflowSummary);
+        ActionHelp(targetButton, "Time target");
         targetButton.Click += async (_, _) => await OpenWorkflowDialogAsync(EditTargetAsync);
-        board.Children.Add(WithTrailing(caption, targetButton));
-        var strip = new ScrollViewer { Content = timeline, MinHeight = 178,
+        var strip = new ScrollViewer { Content = timeline,
             HorizontalScrollMode = ScrollMode.Enabled, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             VerticalScrollMode = ScrollMode.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
-        board.Children.Add(strip);
-        var frame = new Border { Child = board, Padding = new(16), CornerRadius = new(12),
-            BorderThickness = new(1), BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"],
-            Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] };
-        ConfigureDrop(strip, null);
-        editor.Children.Add(frame);
-        content.Children.Add(editor);
-        content.Children.Add(BuildPlaybackPanel());
+        emptySequence.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+        emptySequence.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
+        emptySequence.Children.Add(new FontIcon { Glyph = "\uE8B9", FontSize = 20, Opacity = .72 });
+        var hint = Text("Choose a scene from the palette or drag it here.");
+        hint.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(hint, 1);
+        emptySequence.Children.Add(hint);
+        var dropArea = new Grid { Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent) };
+        dropArea.Children.Add(strip);
+        dropArea.Children.Add(emptySequence);
+        ConfigureDrop(dropArea, null);
+        editor.Children.Add(Card(WithTrailing(caption, targetButton), dropArea));
+        editor.Children.Add(BuildPlaybackPanel());
+        workflowMessage.Visibility = string.IsNullOrEmpty(workflowMessage.Text) ? Visibility.Collapsed : Visibility.Visible;
+        workflowMessage.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) =>
+            workflowMessage.Visibility = string.IsNullOrEmpty(workflowMessage.Text) ? Visibility.Collapsed : Visibility.Visible);
+        editor.Children.Add(workflowMessage);
+
         var palette = new Grid { RowSpacing = 6, ColumnSpacing = 8 };
         var tiles = SceneStyles.Select(style =>
         {
-            string title = StudioCatalog.Default.Scenes.First(scene => scene.Name == style.Name).Title;
-            var face = Row();
+            var definition = StudioCatalog.Default.Scenes.First(scene => scene.Name == style.Name);
+            string title = definition.Title;
+            var face = new Grid { ColumnSpacing = 7 };
+            face.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+            face.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
             face.Children.Add(SceneIcon(style, 18));
-            face.Children.Add(Text(title));
+            var label = Text(title);
+            label.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(label, 1);
+            face.Children.Add(label);
             var tile = new Button { Content = face, HorizontalAlignment = HorizontalAlignment.Stretch,
-                HorizontalContentAlignment = HorizontalAlignment.Left, Padding = new(10, 7, 10, 7) };
+                HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new(8, 5, 8, 5) };
             AutomationProperties.SetName(tile, title);
-            ToolTipService.SetToolTip(tile, style.Subtitle);
+            AddSceneHelp(tile, style, definition, "Add scene");
             tile.Click += async (_, _) => await InsertStepAsync(style.Name, CurrentWorkflow?.Steps.Length ?? 0);
             ConfigureDrag(tile, "scene", style.Name);
             palette.Children.Add(tile);
@@ -116,11 +133,11 @@ public sealed partial class MainWindow
                 Grid.SetRow(tiles[i], i / columns);
             }
         }
-        Arrange(3);
-        palette.SizeChanged += (_, e) => Arrange(e.NewSize.Width >= 800 ? 4 : e.NewSize.Width >= 570 ? 3 : e.NewSize.Width >= 350 ? 2 : 1);
+        Arrange(1);
+        palette.SizeChanged += (_, e) => Arrange(e.NewSize.Width >= 700 ? 4 : e.NewSize.Width >= 470 ? 3 : e.NewSize.Width >= 295 ? 2 : 1);
         paletteSurface.Content = Section("Scene palette", palette, true);
-        content.Children.Add(paletteSurface);
-        content.Children.Add(workflowMessage);
+        content.Children.Add(ResponsiveColumns(820, editor, paletteSurface));
+        content.Children.Add(BuildDeck());
         return content;
     }
 
@@ -140,15 +157,20 @@ public sealed partial class MainWindow
     {
         var icon = new FontIcon { Glyph = style.Glyph, FontSize = size };
         void Paint() => icon.Foreground = Brush(icon.ActualTheme == ElementTheme.Dark ? style.Dark : style.Light);
+        icon.Loaded += (_, _) => Paint();
         icon.ActualThemeChanged += (_, _) => Paint();
         Paint();
         return icon;
     }
 
-    private ContentDialog Dialog(string title, FrameworkElement body, string primary = "Save", string close = "Cancel") =>
-        new() { XamlRoot = root.XamlRoot, RequestedTheme = root.RequestedTheme, Title = localization.Text(title),
-            Content = body, PrimaryButtonText = localization.Text(primary), CloseButtonText = localization.Text(close),
-            DefaultButton = ContentDialogButton.Primary };
+    private ContentDialog Dialog(string title, FrameworkElement body, string primary = "Save", string close = "Cancel")
+    {
+        var dialog = new ContentDialog { XamlRoot = root.XamlRoot, RequestedTheme = root.RequestedTheme,
+            Title = localization.Text(title), Content = body, PrimaryButtonText = localization.Text(primary),
+            CloseButtonText = localization.Text(close), DefaultButton = ContentDialogButton.Primary };
+        SetDialogHelp(dialog, primary, close);
+        return dialog;
+    }
 
     private async Task OpenWorkflowDialogAsync(Func<Task> show)
     {
@@ -168,10 +190,9 @@ public sealed partial class MainWindow
     private async Task EditTargetAsync()
     {
         if (CurrentWorkflow is not { } flow) return;
-        var target = SecondsBox(localization.Text("Target (seconds)"), flow.TargetSeconds ?? 0, 0);
+        var target = SecondsBox(flow.TargetSeconds ?? 0, 0);
         var body = Column(8);
-        body.Children.Add(target);
-        body.Children.Add(Text(localization.Text("Use 0 for no target.")));
+        body.Children.Add(Field(target, localization.Text("Target (seconds)"), localization.Text("Compare the planned workflow length with this target. Enter 0 to turn the target off.")));
         var dialog = Dialog("Time target", body);
         void Validate() => dialog.IsPrimaryButtonEnabled = ValidSeconds(target, 0);
         target.ValueChanged += (_, _) => Validate();
@@ -197,6 +218,7 @@ public sealed partial class MainWindow
         var dialog = new ContentDialog { XamlRoot = root.XamlRoot, Title = localization.Text("Discard unsaved card changes?"),
             PrimaryButtonText = localization.Text("Discard"), CloseButtonText = localization.Text("Cancel"),
             DefaultButton = ContentDialogButton.Close, RequestedTheme = root.RequestedTheme };
+        SetDialogHelp(dialog, "Discard", "Cancel");
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
@@ -261,21 +283,25 @@ public sealed partial class MainWindow
         var step = flow.Steps[index];
         var body = Column(12);
         body.Children.Add(Heading(SceneTitle(step.Scene)));
-        var seconds = SecondsBox(localization.Text("Duration (seconds)"), step.Seconds);
+        var seconds = SecondsBox(step.Seconds);
         string[] transitions = ["default", "cut", "fade"];
-        var transition = new ComboBox { Header = localization.Text("Transition"),
+        var transition = new ComboBox {
             ItemsSource = transitions.Select(key => localization.Text(TransitionLabel(key))).ToArray(),
             SelectedIndex = Array.IndexOf(transitions, step.Transition), HorizontalAlignment = HorizontalAlignment.Stretch };
-        body.Children.Add(seconds); body.Children.Add(transition);
-        var note = new TextBox { Header = localization.Text("Note"), Text = step.Note, MaxLength = 500,
+        body.Children.Add(ResponsiveColumns(350,
+            Field(seconds, localization.Text("Duration (seconds)"), localization.Text("How long this step runs before the workflow moves to the next scene. Enter whole seconds.")),
+            Field(transition, localization.Text("Transition"), localization.Text("Choose how OBS enters this scene during playback. OBS default uses the configured transition."))));
+        var note = new TextBox { Text = step.Note, MaxLength = 500,
             TextWrapping = TextWrapping.Wrap, AcceptsReturn = true, MinHeight = 70 };
-        body.Children.Add(note);
+        body.Children.Add(Field(note, localization.Text("Note"), localization.Text("A cue for the presenter during this step. Enable Show scene note in Timer settings to read it on the timer.")));
         int position = index;
         var order = Row();
         var left = new Button { Content = localization.Text("Move left") };
         var counter = Text("");
         counter.VerticalAlignment = VerticalAlignment.Center;
         var right = new Button { Content = localization.Text("Move right") };
+        Help(left, localization.Text(ActionDescriptions["Move left"]));
+        Help(right, localization.Text(ActionDescriptions["Move right"]));
         void UpdatePosition()
         {
             left.IsEnabled = position > 0;
@@ -353,6 +379,7 @@ public sealed partial class MainWindow
         projectName.Text = project?.Name ?? "";
         workflowName.Text = flow?.Name ?? "";
         timeline.Children.Clear();
+        emptySequence.Visibility = flow is { Steps.Length: 0 } ? Visibility.Visible : Visibility.Collapsed;
         highlightedIndex = -1;
         if (flow is null) { UpdateWorkflowControls(); return; }
         int start = 0;
@@ -367,17 +394,6 @@ public sealed partial class MainWindow
             timeline.Children.Add(SceneCard(flow, index, start));
             start += step.Seconds;
         }
-        if (flow.Steps.Length == 0)
-        {
-            var empty = Column(10);
-            empty.HorizontalAlignment = HorizontalAlignment.Center;
-            empty.VerticalAlignment = VerticalAlignment.Center;
-            empty.Children.Add(new FontIcon { Glyph = "\uE8B9", FontSize = 28, Opacity = .72 });
-            empty.Children.Add(Text(localization.Text("Drag a scene here or choose one below.")));
-            timeline.HorizontalAlignment = HorizontalAlignment.Center;
-            timeline.Children.Add(empty);
-        }
-        else timeline.HorizontalAlignment = HorizontalAlignment.Left;
         workflowSummary.Text = localization.Text("Total") + " " + ClockText(start)
             + (flow.TargetSeconds is int target ? "  ·  " + localization.Text("Target") + " " + ClockText(target)
                 + (start > target ? "  (+" + ClockText(start - target) + ")" : "") : "");
@@ -427,7 +443,7 @@ public sealed partial class MainWindow
         var card = new Button { Width = 154, MinHeight = 144, Content = content, Padding = new(12),
             HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
         AutomationProperties.SetName(card, $"{index + 1}. {title}, {ClockText(step.Seconds)}, {startLabel}");
-        ToolTipService.SetToolTip(card, localization.Text("Edit step"));
+        Help(card, localization.Text(ActionDescriptions["Edit step"]));
         card.Click += async (_, _) => await OpenWorkflowDialogAsync(() => EditStepAsync(flow, index));
         ConfigureDrag(card, "step", step.Id);
         ConfigureDrop(card, step.Id);

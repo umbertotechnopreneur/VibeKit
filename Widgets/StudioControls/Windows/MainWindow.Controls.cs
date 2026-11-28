@@ -24,17 +24,26 @@ public sealed partial class MainWindow
         new("Privacy", "\uE72E", "Video hidden · audio as set", 0x49616D, 0xA3BECD)
     ];
 
+    private Action? refreshCameraPresets, refreshScreenPresets;
+
     private UIElement BuildCameraAndScenes()
     {
-        var columns = Columns(2);
-        columns.MinWidth = 900;
         var left = Column();
-        left.Children.Add(Heading("CAMERA · native Windows controls"));
-        left.Children.Add(cameras);
-        var cameraActions = Row();
+        var device = Column();
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(cameras, "Camera device");
+        cameras.PlaceholderText = "Choose a camera";
+        cameras.MinWidth = 0;
+        device.Children.Add(Field(cameras, "Camera device", "Refresh the list, choose a camera, then open its controls. Pick the video source separately in OBS."));
+        var cameraActions = new ActionStrip();
         cameraActions.Children.Add(ActionButton("Refresh cameras", RefreshCamerasAsync));
-        cameraActions.Children.Add(ActionButton("Open controls", OpenCameraAsync));
-        left.Children.Add(cameraActions);
+        var openCamera = ActionButton("Open controls", OpenCameraAsync);
+        openCamera.IsEnabled = false;
+        cameras.SelectionChanged += (_, _) => openCamera.IsEnabled = cameras.SelectedItem is CameraDevice;
+        cameraActions.Children.Add(openCamera);
+        device.Children.Add(cameraActions);
+        device.Children.Add(cameraNotice);
+        left.Children.Add(Card(device));
+        var framing = Column();
         foreach (var property in new[] { CameraProperty.Zoom, CameraProperty.Pan, CameraProperty.Tilt })
         {
             var slider = Slider(0, 1, 0, property + " · device units");
@@ -45,42 +54,36 @@ public sealed partial class MainWindow
                 cameraTimer.Start();
             };
             cameraSliders[property] = slider;
-            left.Children.Add(slider);
-        }
-        left.Children.Add(ActionButton("Reset camera framing", () => CameraFrameAsync(null)));
-        var presets = Columns(3);
-        foreach (var (name, index) in new[] { ("Wide", 0), ("Medium", 1), ("Close-up", 2) })
-        {
-            var group = Column(6);
-            group.Children.Add(ActionButton(name, async () =>
+            string help = property switch
             {
-                if (!settings.CameraPresets.TryGetValue(name, out var frame))
-                    throw new InvalidOperationException("Adjust the camera and save this preset first.");
-                await CameraFrameAsync(frame);
-            }));
-            group.Children.Add(ActionButton("Save preset", () =>
-            {
-                if (cameraValues.Count == 0) throw new InvalidOperationException("Open camera controls first.");
-                settings.CameraPresets[name] = new((int)cameraSliders[CameraProperty.Zoom].Value,
-                    (int)cameraSliders[CameraProperty.Pan].Value, (int)cameraSliders[CameraProperty.Tilt].Value);
-                SavePreferences(); cameraNotice.Text = name + " camera preset saved.";
-                return Task.CompletedTask;
-            }));
-            Grid.SetColumn(group, index); presets.Children.Add(group);
+                CameraProperty.Zoom => "Change the camera’s magnification. The available range and step size depend on the selected camera.",
+                CameraProperty.Pan => "Move the camera framing horizontally using the driver’s range. Some cameras require zoom before the framing can move.",
+                _ => "Move the camera framing vertically using the driver’s range. Some cameras require zoom before the framing can move."
+            };
+            framing.Children.Add(SliderField(slider, property.ToString(), help));
         }
-        left.Children.Add(presets);
-        left.Children.Add(cameraNotice);
-        left.Children.Add(blur);
-        left.Children.Add(blurIntensity);
+        framing.Children.Add(ActionButton("Reset camera framing", () => CameraFrameAsync(null)));
+        left.Children.Add(DetailSection("Camera framing", "Zoom, pan and tilt on supported cameras.", framing));
+        left.Children.Add(Card(BuildPresetPicker("Camera presets", ["Wide", "Medium", "Close-up"],
+            settings.CameraPresets, "Apply preset", "Save preset",
+            () => !cameraBusy && !cameraSuspended && cameraSliders.Values.Any(slider => slider.IsEnabled),
+            () => new((int)cameraSliders[CameraProperty.Zoom].Value, (int)cameraSliders[CameraProperty.Pan].Value,
+                (int)cameraSliders[CameraProperty.Tilt].Value),
+            frame => CameraFrameAsync(frame),
+            frame => $"Zoom {frame.Zoom} · Pan {frame.Pan} · Tilt {frame.Tilt}",
+            out refreshCameraPresets)));
+        var blurControls = Column(4);
+        blurControls.Children.Add(WithTrailing(FieldLabel(blur, "Background blur",
+            "Soften the webcam background in OBS. The blur filter must be available for this scene."), blur));
+        blurControls.Children.Add(SliderField(blurIntensity, "Blur intensity",
+            "1 = light, 20 = strong. Use Background blur ON/OFF to enable or disable the effect."));
+        left.Children.Add(Card(blurControls));
         blur.Toggled += (_, _) => QueueEffect("blur", async token => SetState(await service!.SetBlurEnabledAsync(blur.IsOn, token)));
         blurIntensity.ValueChanged += (_, _) => QueueEffect("blur-intensity", async token => SetState(await service!.SetBlurIntensityAsync((int)blurIntensity.Value, token)));
-        columns.Children.Add(left);
 
         var right = Column();
-        right.Children.Add(Heading("SCENES · choose what to record"));
-        var scenes = new Grid { RowSpacing = 10, ColumnSpacing = 10, MinWidth = 480 };
-        scenes.ColumnDefinitions.Add(new()); scenes.ColumnDefinitions.Add(new());
-        for (int row = 0; row < 6; row++) scenes.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        right.Children.Add(Heading("Scenes"));
+        var sceneTiles = new List<FrameworkElement>();
         for (int index = 0; index < SceneStyles.Length; index++)
         {
             var style = SceneStyles[index];
@@ -97,64 +100,136 @@ public sealed partial class MainWindow
             labels.Children.Add(new TextBlock { Text = style.Subtitle, TextTrimming = TextTrimming.CharacterEllipsis });
             Grid.SetColumn(labels, 1); content.Children.Add(labels);
             button.Content = content;
-            ToolTipService.SetToolTip(button, definition.Title + "\n" + definition.Description);
+            AddSceneHelp(button, style, definition, "Select scene");
             button.Click += async (_, _) =>
             {
                 bool takeover = LiveCheckActive;
                 InterruptLivePlayback("Manual scene selection.");
                 await CommandAsync("scene", token => service!.SetSceneAsync(style.Name, token), takeover);
             };
-            Grid.SetRow(button, index / 2); Grid.SetColumn(button, index % 2); scenes.Children.Add(button);
+            sceneTiles.Add(button);
             sceneButtons[style.Name] = button; sceneIcons[style.Name] = icon;
         }
-        right.Children.Add(scenes);
+        right.Children.Add(ResponsiveColumns(450, 2, sceneTiles.ToArray()));
         right.Children.Add(Text("Scene changes use OBS’s configured transition. Privacy hides video; audio keeps its current mute state."));
-        Grid.SetColumn(right, 1); columns.Children.Add(right);
-        return columns;
+        return ResponsiveColumns(750, left, right);
     }
 
     private UIElement BuildEffects()
     {
-        var columns = Columns(2);
-        columns.MinWidth = 850;
-        var screen = Column();
-        screen.Children.Add(Heading("SCREEN · zoom & position"));
-        screen.Children.Add(screenZoom); screen.Children.Add(screenX); screen.Children.Add(screenY);
+        var content = Column();
+        var zoom = SliderField(screenZoom, "Screen zoom",
+            "Zoom stays between 1× and 4×. Horizontal and vertical positioning become available above 1×; presets keep the framing inside the captured screen.", "×");
+        var x = SliderField(screenX, "Horizontal position", "Move the crop left or right after zooming in. Set the position to 0 to centre it horizontally.", "%");
+        var y = SliderField(screenY, "Vertical position", "Move the crop up or down after zooming in. Set the position to 0 to centre it vertically.", "%");
         foreach (var slider in new[] { screenZoom, screenX, screenY }) slider.ValueChanged += (_, _) => QueueScreen();
-        screen.Children.Add(ActionButton("Reset screen · 1×, centred", () => { SetScreenValues(new()); QueueScreen(); return Task.CompletedTask; }));
-        var presets = Columns(3);
-        foreach (var (name, index) in new[] { ("Overview", 0), ("Detail", 1), ("Close-up", 2) })
-        {
-            var group = Column(6);
-            group.Children.Add(ActionButton(name, () => { SetScreenValues(settings.ScreenPresets[name]); QueueScreen(); return Task.CompletedTask; }));
-            group.Children.Add(ActionButton("Save position", () =>
-            {
-                if (state?.Screen is null) throw new InvalidOperationException("Choose a scene with a captured screen first.");
-                settings.ScreenPresets[name] = new(screenZoom.Value, screenX.Value, screenY.Value);
-                SavePreferences(); notice.Text = name + " screen position saved.";
-                return Task.CompletedTask;
-            }));
-            Grid.SetColumn(group, index); presets.Children.Add(group);
-        }
-        screen.Children.Add(presets);
-        screen.Children.Add(Text("Zoom stays between 1× and 4×. Horizontal and vertical positioning become available above 1×; presets keep the framing inside the captured screen."));
-        columns.Children.Add(screen);
-        var effects = Column();
-        effects.Children.Add(Heading("VIGNETTES · independent controls"));
+        var reset = ActionButton("Reset screen · 1×, centred", () => { SetScreenValues(new()); QueueScreen(); return Task.CompletedTask; });
+        screenZoom.RegisterPropertyChangedCallback(Control.IsEnabledProperty, (_, _) => reset.IsEnabled = screenZoom.IsEnabled);
+        reset.IsEnabled = screenZoom.IsEnabled;
+        var screen = ResponsiveColumns(415, 3, zoom, x, y);
+        var presets = BuildPresetPicker("Screen presets", ["Overview", "Detail", "Close-up"],
+            settings.ScreenPresets, "Apply screen preset", "Save position", () => screenZoom.IsEnabled,
+            () => new(screenZoom.Value, screenX.Value, screenY.Value),
+            frame => { SetScreenValues(frame); QueueScreen(); return Task.CompletedTask; },
+            frame => $"Zoom {frame.Zoom:0.##}× · X {frame.X:0}% · Y {frame.Y:0}%", out refreshScreenPresets);
+        content.Children.Add(Card(Heading("Screen framing"), Text("Choose a scene with a captured screen."),
+            screen, reset, presets));
+        content.Children.Add(Heading("Vignettes"));
+        var effects = new List<FrameworkElement>();
         foreach (var definition in StudioCatalog.Default.Vignettes)
         {
-            var toggle = new ToggleSwitch { Header = definition.Label, IsEnabled = false };
+            var toggle = new ToggleSwitch { IsEnabled = false };
             var intensity = Slider(0, 100, 25, definition.Label + " intensity");
             vignettes[definition.Key] = (toggle, intensity);
             void Changed() => QueueEffect("vignette-" + definition.Key, async token =>
                 SetState(await service!.SetVignetteAsync(definition.Key, toggle.IsOn, intensity.Value, token)));
             toggle.Toggled += (_, _) => Changed();
             intensity.ValueChanged += (_, _) => Changed();
-            effects.Children.Add(toggle); effects.Children.Add(intensity);
+            var switchRow = WithTrailing(FieldLabel(toggle, definition.Label,
+                "Each vignette stays inside its own video box. OFF keeps the selected intensity."), toggle);
+            var strength = SliderField(intensity, "Intensity",
+                "Vignette darkens only the edges. 0% = clear, 100% = strongest.", "%");
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(intensity, definition.Label + " intensity");
+            effects.Add(Card(switchRow, strength));
         }
-        effects.Children.Add(Text("Each vignette is confined to its own screen, webcam or hardware box. Switching it off keeps the chosen intensity."));
-        Grid.SetColumn(effects, 1); columns.Children.Add(effects);
-        return columns;
+        content.Children.Add(ResponsiveColumns(490, 3, effects.ToArray()));
+        return content;
+    }
+
+    private StackPanel BuildPresetPicker<T>(string label, string[] names, Dictionary<string, T> slots,
+        string recallAction, string saveAction, Func<bool> ready, Func<T> current, Func<T, Task> recall,
+        Func<T, string> describe, out Action refresh) where T : class
+    {
+        var select = new ComboBox { MinWidth = 136 };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(select, "PresetSelector");
+        void TranslateChoices()
+        {
+            int selection = Math.Max(0, select.SelectedIndex);
+            select.ItemsSource = names.Select(localization.Text).ToArray();
+            select.SelectedIndex = selection;
+        }
+        TranslateChoices();
+        localization.LanguageChanged += TranslateChoices;
+        var applyFrame = new Button { Content = "Recall" };
+        var saveFrame = new Button();
+        ActionHelp(applyFrame, recallAction);
+        ActionHelp(saveFrame, saveAction);
+        var summary = Text("");
+        summary.VerticalAlignment = VerticalAlignment.Center;
+        summary.Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"];
+        bool applying = false;
+        void Refresh()
+        {
+            if (select.SelectedIndex < 0) return;
+            string name = names[select.SelectedIndex];
+            bool saved = slots.TryGetValue(name, out var frame);
+            summary.Text = saved ? describe(frame!) : "No framing saved yet.";
+            saveFrame.Content = saved ? "Replace with current" : "Save current framing";
+            applyFrame.IsEnabled = ready() && saved && !applying;
+            saveFrame.IsEnabled = ready() && !applying;
+        }
+        applyFrame.Click += async (_, _) =>
+        {
+            if (!ready() || select.SelectedIndex < 0 || !slots.TryGetValue(names[select.SelectedIndex], out var frame)) return;
+            applying = true;
+            Refresh();
+            try { await recall(frame); }
+            catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+            catch (Exception error) { Fail("preset.recall", error); }
+            finally { applying = false; if (!closed) Refresh(); }
+        };
+        saveFrame.Click += (_, _) =>
+        {
+            if (!ready() || select.SelectedIndex < 0) return;
+            string name = names[select.SelectedIndex];
+            slots.TryGetValue(name, out var previous);
+            slots[name] = current();
+            try
+            {
+                LocalSettings.Save(settings);
+                notice.Text = "Preset saved:" + " " + localization.Text(name);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                if (previous is null) slots.Remove(name);
+                else slots[name] = previous;
+                Fail("preset.save", error);
+            }
+            Refresh();
+        };
+        select.SelectionChanged += (_, _) => Refresh();
+        refresh = Refresh;
+        Refresh();
+        var actions = new ActionStrip();
+        actions.Children.Add(select);
+        actions.Children.Add(applyFrame);
+        actions.Children.Add(saveFrame);
+        actions.Children.Add(summary);
+        var content = Column(5);
+        content.Children.Add(FieldLabel(select, label,
+            "Choose a slot to see its saved framing. Recall applies it. Saving stores your current adjustments in the selected slot."));
+        content.Children.Add(actions);
+        return content;
     }
 
     private void SetScreenValues(Framing values)

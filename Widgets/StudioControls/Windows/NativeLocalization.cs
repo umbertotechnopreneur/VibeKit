@@ -30,6 +30,8 @@ internal sealed class NativeLocalization : IDisposable
         { Diagnostics.Record("localization.load", error); }
     }
 
+    public event Action? LanguageChanged;
+
     public string Language
     {
         get => language;
@@ -37,6 +39,7 @@ internal sealed class NativeLocalization : IDisposable
         {
             language = StudioTranslations.Languages.Any(item => item.Code == value) ? value : "en";
             foreach (Binding binding in bindings.Values) Update(binding);
+            LanguageChanged?.Invoke();
         }
     }
 
@@ -70,6 +73,7 @@ internal sealed class NativeLocalization : IDisposable
     {
         if (!attached.Add(target)) return;
         Bind(target, AutomationProperties.NameProperty);
+        Bind(target, AutomationProperties.HelpTextProperty);
         Bind(target, ToolTipService.ToolTipProperty);
         switch (target)
         {
@@ -86,17 +90,19 @@ internal sealed class NativeLocalization : IDisposable
                 Bind(target, ToggleSwitch.OnContentProperty); Bind(target, ToggleSwitch.OffContentProperty); break;
             case ComboBox combo:
                 Bind(target, ComboBox.HeaderProperty);
+                Bind(target, ComboBox.PlaceholderTextProperty);
                 foreach (object item in combo.Items) if (item is DependencyObject child) Attach(child);
                 break;
-            case TabView tabs:
-                foreach (object item in tabs.TabItems) if (item is DependencyObject child) Attach(child);
-                break;
-            case TabViewItem tab:
-                Bind(target, TabViewItem.HeaderProperty);
-                if (tab.Content is DependencyObject tabContent) Attach(tabContent);
+            case NavigationView navigation:
+                foreach (var item in navigation.MenuItems.OfType<NavigationViewItem>())
+                {
+                    Attach(item);
+                    if (item.Tag is DependencyObject page) Attach(page);
+                }
                 break;
             case Expander expander:
-                Bind(target, Expander.HeaderProperty);
+                if (expander.Header is DependencyObject header) Attach(header);
+                else Bind(target, Expander.HeaderProperty);
                 if (expander.Content is DependencyObject expandedContent) Attach(expandedContent);
                 break;
             case ScrollViewer scroll:
@@ -116,6 +122,7 @@ internal sealed class NativeLocalization : IDisposable
     {
         foreach (Binding binding in bindings.Values)
             binding.Target.UnregisterPropertyChangedCallback(binding.Property, binding.Token);
+        LanguageChanged = null;
         bindings.Clear();
         attached.Clear();
     }

@@ -46,12 +46,13 @@ def install(data_home):
     if destination.exists():
         raise FileExistsError("This version is already installed; existing files were preserved")
     entry = destination / "Linux/controlli-brio.py"
-    icon = destination / "Assets/VibeWare-logo.png"
+    icon = destination / "Assets/icons/hicolor/256x256/apps/biz.vibeware.StudioControls.png"
     content = (
         "[Desktop Entry]\nType=Application\nName=Studio Controls\n"
         "Comment=Native controls for local OBS Studio scenes and recording\n"
         f"Exec=env GDK_BACKEND=x11 /usr/bin/python3 {desktop_argument(entry)}\n"
         f"Icon={desktop_value(icon)}\nTerminal=false\nCategories=AudioVideo;Video;\n"
+        "StartupNotify=true\nStartupWMClass=biz.vibeware.StudioControls\n"
     )
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".install-", dir=destination.parent) as staging:

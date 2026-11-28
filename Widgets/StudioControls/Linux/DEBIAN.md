@@ -1,3 +1,7 @@
+> - **File name** `DEBIAN.md`
+> - **Full path** `E:/vibekit/Widgets/StudioControls/Linux/DEBIAN.md`
+> - **Repository-relative path** `Widgets/StudioControls/Linux/DEBIAN.md`
+
 # Debian package and manual release checks
 
 The release package installs the GTK application under `/usr/lib/studio-controls`
@@ -12,16 +16,17 @@ edits or automatic application launches.
 From the project root, with Python 3.11+ and `dpkg-deb` available:
 
 ```sh
-python3 -B scripts/build-linux-deb.py --version 0.3.0 --output-dir artifacts/linux --epoch 1794873600
-dpkg-deb --info artifacts/linux/studio-controls_0.3.0_all.deb
-dpkg-deb --contents artifacts/linux/studio-controls_0.3.0_all.deb
-dpkg-deb --extract artifacts/linux/studio-controls_0.3.0_all.deb /tmp/studio-controls-package-inspection
+python3 -B scripts/build-linux-deb.py --version 0.3.0 --epoch 1794873600
+dpkg-deb --info artifacts/installers/local/linux-all/studio-controls_0.3.0_all.deb
+dpkg-deb --contents artifacts/installers/local/linux-all/studio-controls_0.3.0_all.deb
+dpkg-deb --extract artifacts/installers/local/linux-all/studio-controls_0.3.0_all.deb /tmp/studio-controls-package-inspection
 ```
 
 CI should pass the source commit timestamp as `SOURCE_DATE_EPOCH` or `--epoch`.
 Without either, the reproducible default is zero. The builder uses a fixed manifest,
 root archive ownership, normalized permissions and timestamps, and one compression
-thread. It refuses to overwrite an existing output file. Identical inputs, epoch
+thread. The default path keeps the current package for each channel. An explicit
+custom output directory requires a new filename. Identical inputs, epoch
 and packaging toolchain produce the same archive bytes; hashes can change between
 toolchain versions. A release may additionally publish the stable download name
 `StudioControls-linux-all.deb` for the same package bytes.
@@ -74,3 +79,7 @@ application on Windows 11. Repeat steps 2–6 using its **Prepare OBS scene coll
 action and native camera controls; also verify protected password persistence after
 reopening. CI compilation, synthetic rendering and package checks do not substitute
 for these platform and device checks. No manual result is claimed before it is run.
+
+> - **File name** `DEBIAN.md`
+> - **Full path** `E:/vibekit/Widgets/StudioControls/Linux/DEBIAN.md`
+> - **Repository-relative path** `Widgets/StudioControls/Linux/DEBIAN.md`

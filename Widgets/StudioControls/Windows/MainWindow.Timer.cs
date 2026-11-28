@@ -27,7 +27,9 @@ public sealed partial class MainWindow
     private FrameworkElement BuildPlaybackPanel()
     {
         var panel = Column(8);
-        var buttons = Row();
+        var buttons = new ActionStrip();
+        ActionHelp(rehearse, "Rehearse");
+        ActionHelp(live, "Play in OBS");
         rehearse.Click += async (_, _) => await StartWorkflowAsync(false);
         live.Click += async (_, _) => await StartWorkflowAsync(true);
         buttons.Children.Add(rehearse);
@@ -43,11 +45,14 @@ public sealed partial class MainWindow
         return panel;
     }
 
-    private void WireTransport(StackPanel row, Button hold, Button next, Button stopButton)
+    private void WireTransport(Panel row, Button hold, Button next, Button stopButton)
     {
         hold.Content = "Pause";
         next.Content = "Next";
         stopButton.Content = "Stop workflow";
+        ActionHelp(hold, "Pause workflow");
+        ActionHelp(next, "Next");
+        ActionHelp(stopButton, "Stop workflow");
         hold.Click += (_, _) =>
         {
             if (player.State == WorkflowState.Paused) player.Resume();
@@ -120,6 +125,8 @@ public sealed partial class MainWindow
                 finally { obsGate.Release(); }
             }
             player.Start(flow, useObs);
+            deckRun++;
+            deckLiveWorkflow = false;
             checkingScenes = false;
             ShowTimer();
             await AdvanceWorkflowAsync();
@@ -224,6 +231,8 @@ public sealed partial class MainWindow
         bool running = player.State == WorkflowState.Running;
         bool paused = player.State == WorkflowState.Paused;
         pauseWorkflow.Content = paused ? "Resume" : "Pause";
+        ActionHelp(pauseWorkflow, paused ? "Resume workflow" : "Pause workflow");
+        ActionHelp(stopWorkflow, recordingCue?.IsPending == true ? "Cancel recording countdown" : "Stop workflow");
         pauseWorkflow.IsEnabled = running || paused;
         nextWorkflow.IsEnabled = running && player.Mode != WorkflowMode.Free;
         stopWorkflow.IsEnabled = PlaybackActive || recordingCue?.IsPending == true;
@@ -263,9 +272,10 @@ public sealed partial class MainWindow
     private async Task VerifyWorkflowUiAsync()
     {
         if (!UiSmoke.Enabled) throw new InvalidOperationException("Isolated verification required.");
-        var tabs = root.Children.OfType<TabView>().Single();
-        tabs.SelectedIndex = tabs.TabItems.Count - 1;
+        navigation.SelectedItem = workflowPage;
         root.UpdateLayout();
+        await UiSmoke.WaitForAsync(() => ReferenceEquals(navigation.Content, workflowPage.Tag) &&
+            libraryButton.IsLoaded && libraryButton.ActualWidth > 0);
         await InsertStepAsync("Intro", 0);
         await InsertStepAsync("Thank you", 1);
         var flow = CurrentWorkflow!;
@@ -278,6 +288,8 @@ public sealed partial class MainWindow
             !saved.Projects.Single().Workflows.Single().Steps.Select(step => step.Scene)
             .SequenceEqual(new[] { "Intro", "Thank you" }))
             throw new InvalidOperationException("The workflow editor did not preserve the sequence.");
+        if (UiSmoke.PreviewDirectory is { } directory)
+            await SaveElementAsync(root, directory, "workflow-editor.png");
         var libraryDialog = new LibraryDialog(this, saved, saved.Projects.Single(), saved.Projects.Single().Workflows.Single());
         await UiSmoke.CheckLibraryDialogAsync(libraryDialog.Dialog, localization, () => libraryDialog.Draft);
         await StartWorkflowAsync(false);
@@ -287,6 +299,7 @@ public sealed partial class MainWindow
         await AdvanceWorkflowAsync();
         if (player.Current?.Scene != "Thank you" || highlightedIndex != 1 || camera.IsValueCreated || service is not null || client is not null)
             throw new InvalidOperationException("Rehearsal did not stay offline.");
+        await VerifyDeckExchangeAsync();
         await CheckPresenterAsync();
         StopWorkflow("Workflow stopped.");
         timerWindow.Close();

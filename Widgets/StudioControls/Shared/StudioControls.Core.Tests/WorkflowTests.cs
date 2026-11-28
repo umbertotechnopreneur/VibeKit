@@ -54,7 +54,24 @@ internal static class WorkflowTests
         time.Advance(19.5);
         player.Tick();
         Assert(player.Current?.Scene == "Detail" && player.RemainingSeconds == 16);
+        player.Start(flow, live: true);
+        player.ExtendCurrent(20);
+        Assert(player.TotalRemainingSeconds == 35);
+        player.Confirm(player.Ticket);
+        time.Advance(5.25);
+        long extendedScene = player.Ticket;
+        player.ExtendCurrent(10);
+        player.ExtendCurrent(20);
+        Assert(player.State == WorkflowState.Running && player.Ticket == extendedScene &&
+               player.Current?.Seconds == 15 && player.RemainingSeconds == 40 && player.TotalRemainingSeconds == 60);
+        time.Advance(39.5);
+        player.Tick();
+        Assert(player.Ticket == extendedScene && player.RemainingSeconds == 1);
+        time.Advance(0.25);
+        player.Tick();
+        Assert(player.State == WorkflowState.Switching && player.Current?.Scene == "Detail" && player.RemainingSeconds == 20);
         player.StartFree(180);
+        player.ExtendCurrent(10);
         time.Advance(185);
         player.Tick();
         Assert(player.State == WorkflowState.Running && player.RemainingSeconds == -5);

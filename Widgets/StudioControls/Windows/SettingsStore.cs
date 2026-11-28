@@ -18,6 +18,7 @@ public sealed class PanelSettings
     public string Host { get; set; } = "127.0.0.1";
     public int Port { get; set; } = 4455;
     public string ProtectedPassword { get; set; } = "";
+    public bool UseUlanziDeck { get; set; }
     public TimerSettings Timer { get; set; } = new();
     public string CameraId { get; set; } = "";
     public Dictionary<string, Framing> ScreenPresets { get; set; } = new()

@@ -68,8 +68,9 @@ def wix_source(payload, output):
           Message="Studio Controls requires 64-bit Windows 11 or newer.")
     child(package, "Property", Id="ARPCOMMENTS", Value="Native OBS Studio control desk.")
     child(package, "Property", Id="ARPNOMODIFY", Value="1")
-    child(package, "Icon", Id="AppIcon", SourceFile=str(payload / "StudioControls.Windows.exe"))
-    child(package, "Property", Id="ARPPRODUCTICON", Value="AppIcon")
+    icon_id = "AppIcon.exe"
+    child(package, "Icon", Id=icon_id, SourceFile=str(payload / "StudioControls.Windows.exe"))
+    child(package, "Property", Id="ARPPRODUCTICON", Value=icon_id)
     local = child(package, "StandardDirectory", Id="LocalAppDataFolder")
     programs = child(local, "Directory", Id="UserPrograms", Name="Programs")
     install = child(programs, "Directory", Id="INSTALLFOLDER", Name="Studio Controls")
@@ -110,7 +111,7 @@ def wix_source(payload, output):
     menu = child(package, "StandardDirectory", Id="ProgramMenuFolder")
     comp = child(menu, "Component", Id="MenuShortcut", Guid=str(uuid.uuid5(NAMESPACE, "menu-shortcut")), Bitness="always64")
     shortcut = child(comp, "Shortcut", Id="StartMenuShortcut", Name="Studio Controls", Target="[#"+exe_file+"]",
-          WorkingDirectory="INSTALLFOLDER", Icon="AppIcon", Advertise="no")
+          WorkingDirectory="INSTALLFOLDER", Icon=icon_id, Advertise="no")
     child(shortcut,"ShortcutProperty",Key="System.AppUserModel.ID",Value="biz.umbertogiacobbi.StudioControls")
     child(comp, "RegistryValue", Root="HKCU", Key="Software\\UmbertoGiacobbi\\StudioControls",
           Name="StartMenuShortcut", Type="integer", Value="1", KeyPath="yes")
